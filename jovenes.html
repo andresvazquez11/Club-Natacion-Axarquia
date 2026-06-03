@@ -628,25 +628,27 @@ function goRelay(el){
   renderRelayContent();
 }
 
+function relayGClick(el){ var g=el.dataset.g; relayG=g; renderAxRelayCards(); renderRelayZones(); document.querySelectorAll('[data-axrg]').forEach(function(b){b.className='rgtog'+(b.dataset.g===g?(g==='M'?' gm':' gf'):'');}); document.querySelectorAll('[data-relg]').forEach(function(b){b.className='rgtog'+(b.dataset.g===g?(g==='M'?' gm':' gf'):'');}); }
+function relayEClick(el){ var k=el.dataset.k; relayE=k; document.querySelectorAll('.rel-etab').forEach(function(t){t.classList.remove('act');}); el.classList.add('act'); renderRelayZones(); }
+
 function renderRelayInit(){
-  // Pre-construye la estructura del tab de relevos
-  const rs = document.getElementById('relay-section');
-  let h='<div class="ax-relay-box"><h3>C.N. Axarquia - Equipos de Relevo</h3>';
+  var rs=document.getElementById('relay-section');
+  var h='<div class="ax-relay-box"><h3>C.N. Axarquia - Equipos de Relevo</h3>';
   h+='<div class="rel-gtog">';
-  h+='<button class="rgtog gm" id="axrgM" onclick="switchAxRelayG('M',this)">Masculino</button>';
-  h+='<button class="rgtog" id="axrgF" onclick="switchAxRelayG('F',this)">Femenino</button>';
+  h+='<button class="rgtog gm" data-axrg="1" data-g="M" onclick="relayGClick(this)">Masculino</button>';
+  h+='<button class="rgtog" data-axrg="1" data-g="F" onclick="relayGClick(this)">Femenino</button>';
   h+='</div><div id="ax-relay-cards"></div></div>';
   h+='<div class="rel-nav" id="rel-enav"></div>';
   h+='<div class="rel-gtog">';
-  h+='<button class="rgtog gm" id="relgM" onclick="switchRelayG('M',this)">Masculino</button>';
-  h+='<button class="rgtog" id="relgF" onclick="switchRelayG('F',this)">Femenino</button>';
+  h+='<button class="rgtog gm" data-relg="1" data-g="M" onclick="relayGClick(this)">Masculino</button>';
+  h+='<button class="rgtog" data-relg="1" data-g="F" onclick="relayGClick(this)">Femenino</button>';
   h+='</div><div class="rel-zones" id="rel-zones"></div>';
   rs.innerHTML=h;
-  // Build event nav buttons
-  const nav=document.getElementById('rel-enav');
-  let nh='';
-  for(const [k,rm] of Object.entries(RELAY_META_J)){
-    nh+='<button class="rel-etab'+(k===relayE?' act':''')+'" onclick="switchRelayE(''+k+'',this)">'+rm.label+'</button>';
+  var nav=document.getElementById('rel-enav');
+  var nh='';
+  for(var k in RELAY_META_J){
+    var rm=RELAY_META_J[k];
+    nh+='<button class="rel-etab'+(k===relayE?' act':'')+'" data-k="'+k+'" onclick="relayEClick(this)">'+rm.label+'</button>';
   }
   nav.innerHTML=nh;
   renderAxRelayCards();
@@ -658,21 +660,7 @@ function rlRb(r){
   return '<span class="'+c+'">'+r+'</span>';
 }
 
-function switchAxRelayG(g,el){
-  document.getElementById('axrgM').className='rgtog'+(g==='M'?' gm':'');
-  document.getElementById('axrgF').className='rgtog'+(g==='F'?' gf':'');
-  relayG=g; renderAxRelayCards(); renderRelayZones();
-}
-function switchRelayG(g,el){
-  document.getElementById('relgM').className='rgtog'+(g==='M'?' gm':'');
-  document.getElementById('relgF').className='rgtog'+(g==='F'?' gf':'');
-  relayG=g; renderAxRelayCards(); renderRelayZones();
-}
-function switchRelayE(k,el){
-  document.querySelectorAll('.rel-etab').forEach(t=>t.classList.remove('act'));
-  el.classList.add('act');
-  relayE=k; renderRelayZones();
-}
+/* relayGClick and relayEClick defined above */
 
 function renderAxRelayCards(){
   const cards=document.getElementById('ax-relay-cards');
@@ -738,4 +726,4 @@ renderCatTabs();
 renderRelayInit();
 </script>
 </body>
-</html><!-- updated Wed Jun  3 16:40:18 CEST 2026 -->
+</html>
