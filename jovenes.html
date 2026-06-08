@@ -434,7 +434,7 @@ function goSubTab(uid,tab,el){
 // ── Pruebas tab ───────────────────────────────────────────────────────────────
 function buildPruebasTab(sw,eventos){
   if(!sw.races||!sw.races.length) return '<div class="co co-orange">Sin marcas registradas esta temporada.</div>';
-  var h='<table class="comp-table"><thead><tr><th>Prueba</th><th>Marca</th><th>Andalucía</th><th>Oriental</th><th>España</th><th>Dif. 1º And.</th></tr></thead><tbody>';
+  var h='<table class="comp-table"><thead><tr><th>Prueba</th><th>Marca</th><th>Andalucía</th><th>Oriental</th><th>España</th><th>Dif. 1º Andalucía</th></tr></thead><tbody>';
   for(var r of sw.races){
     var difAnd=r.ld_and!==null?(r.ld_and===0?'LÍDER':'+'+( r.ld_and/100).toFixed(2)+'s'):'—';
     h+='<tr><td><strong>'+r.prueba+'</strong></td>';
