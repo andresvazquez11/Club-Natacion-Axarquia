@@ -412,11 +412,13 @@ function selectSwimmer(catKey,idx){
   h+='<button class="sub-tab act" onclick="goSubTab(\''+uid+'\',\'pruebas\',this)">📋 Mis Pruebas</button>';
   h+='<button class="sub-tab" onclick="goSubTab(\''+uid+'\',\'analisis\',this)">🏁 Comparativa</button>';
   h+='<button class="sub-tab" onclick="goSubTab(\''+uid+'\',\'zona\',this)">🗺 Zona Andalucía</button>';
+  h+='<button class="sub-tab" onclick="goSubTab(\''+uid+'\',\'oriental\',this)">🔵 Zona Oriental</button>';
   h+='</div>';
   var eventos=cat.eventos;
   h+='<div id="sub-'+uid+'-pruebas" class="sub-body">'+buildPruebasTab(sw,eventos)+'</div>';
   h+='<div id="sub-'+uid+'-analisis" class="sub-body" style="display:none">'+buildAnalisisTab(sw,eventos)+'</div>';
   h+='<div id="sub-'+uid+'-zona" class="sub-body" style="display:none">'+buildZonaTab(sw,eventos)+'</div>';
+  h+='<div id="sub-'+uid+'-oriental" class="sub-body" style="display:none">'+buildZonaOrientalTab(sw,eventos)+'</div>';
   h+='</div>';
   detail.innerHTML=h;
   detail.style.display='block';
@@ -563,6 +565,34 @@ function buildZonaTab(sw,eventos){
     h+='</tbody></table></div>';
   }
   return h;
+}
+
+// ── Zona Oriental tab (solo tu zona, ranking propio + dif. al líder) ──────────
+function buildZonaOrientalTab(sw,eventos){
+  var myName=sw.nombre.toUpperCase();
+  var body='';
+  for(var r of sw.races){
+    var ev=eventos[r.prueba];
+    if(!ev||!ev.ori||!ev.ori.length) continue;
+    var leaderCs=ev.ori[0].cs;
+    body+='<div class="sh">'+r.prueba+' <span style="font-size:.72rem;color:var(--soft);font-weight:400;margin-left:4px">'+ev.to+' nadadores en tu zona</span></div>';
+    body+='<div class="tbl-wrap"><table class="ct"><thead><tr><th>#Oriental</th><th>Nombre</th><th>Club</th><th>Marca</th><th>Dif. al líder</th></tr></thead><tbody>';
+    for(var s of ev.ori){
+      var isMe=s.n.toUpperCase()===myName;
+      var cls=isMe?' class="ax"':'';
+      var dl=s.cs-leaderCs;
+      var dStr=dl===0?'🏆 LÍDER':'+'+(dl/100).toFixed(2)+'s';
+      var dCls=dl===0?'ld-leader':dl<100?'ld-close':'ld-behind';
+      body+='<tr'+cls+'><td><span class="rb '+rbCls(s.r)+'">'+s.r+'</span></td>';
+      body+='<td>'+(isMe?'<strong style="color:#ffd700">⭐ '+s.n+'</strong>':s.n)+'</td>';
+      body+='<td style="font-size:.68rem">'+s.c+'</td>';
+      body+='<td class="tt">'+s.m+'</td>';
+      body+='<td class="'+dCls+'" style="font-family:monospace;font-size:.7rem;font-weight:700">'+dStr+'</td></tr>';
+    }
+    body+='</tbody></table></div>';
+  }
+  if(!body) return '<div class="co co-orange">No hay datos de la Zona Oriental para tus pruebas.</div>';
+  return '<div class="co co-blue" style="margin-bottom:12px">🔵 Ranking de tu <strong>Zona Oriental</strong> (Málaga · Granada · Jaén · Almería) — son tus rivales directos en el Campeonato de Andalucía. Fila dorada = tú · la columna <strong>Dif. al líder</strong> indica cuánto te separa del primero de tu zona en cada prueba.</div>'+body;
 }
 </script>
 <script>
