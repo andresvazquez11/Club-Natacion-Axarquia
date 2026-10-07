@@ -19,7 +19,8 @@ ESTILOS  = {'libre': '4', 'espalda': '5', 'braza': '3', 'mariposa': '7', 'estilo
 AÑOS     = range(2010, 2019)
 CAMPOS   = ['profile_id', 'nombre', 'fecha_nacimiento', 'genero', 'club', 'provincia',
             'id_federacion', 'estilo', 'value', 'valor_original', 'record_mundo',
-            'id_tipo_piscina', 'id_tipo_crono', 'competition_name', 'location', 'date', 'parcial']
+            'id_tipo_piscina', 'id_tipo_crono', 'competition_name', 'location', 'date', 'parcial',
+            'id_competicion', 'posicion']
 
 
 def llamar(estilo_id, genero, año):

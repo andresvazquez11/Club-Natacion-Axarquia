@@ -14,7 +14,7 @@ y en 2 ámbitos: mismo año de nacimiento, y categoría 26-27 completa.
 
 Salida: ~/Desktop/CNA_Temporada_26-27.html
 """
-import os, json, glob
+import os, json, glob, re
 from collections import defaultdict
 from datetime import date, datetime
 
@@ -96,6 +96,27 @@ def main():
     rows += rows_new
     print(f'{len(rows):,} marcas cargadas ({len(rows_new):,} de la 26-27)')
 
+    # ── Puesto en cada competición ─────────────────────────────────────────────
+    # El campo 'posicion' de la RFEN es el puesto en la SERIE, no en la competición.
+    # Calculamos el puesto real: entre los nadadores del mismo año de nacimiento,
+    # misma prueba, piscina y sexo de esa competición (sin contar parciales).
+    comp_best = defaultdict(dict)
+    for r in rows:
+        if r.get('id_competicion') and not r.get('parcial') and r.get('valor_original') and r.get('profile_id'):
+            g = comp_best[(r['id_competicion'], r['estilo'], r['id_tipo_piscina'], r['genero'], r['fecha_nacimiento'])]
+            if r['profile_id'] not in g or r['valor_original'] < g[r['profile_id']]:
+                g[r['profile_id']] = r['valor_original']
+
+    def puesto(r):
+        if 'cpos' in r:                       # precalculado en base_2526.json.gz
+            return r['cpos'], r['cn']
+        if r.get('parcial') or not r.get('id_competicion'):
+            return None, None
+        g = comp_best.get((r['id_competicion'], r['estilo'], r['id_tipo_piscina'], r['genero'], r['fecha_nacimiento']))
+        if not g or g.get(r['profile_id']) != r['valor_original']:
+            return None, None                 # no es su mejor tiempo en esa competición
+        return 1 + sum(1 for p, v in g.items() if v < r['valor_original'] and p != r['profile_id']), len(g)
+
     # ── Mejor marca por nadador+prueba e historial ─────────────────────────────
     best, hist, info = {}, defaultdict(list), {}
     best_pool = {}   # (pid, prueba, piscina) -> (cs, fecha)
@@ -114,8 +135,10 @@ def main():
                          'and': prov in ANDALUCIA, 'mal': prov == 'MALAGA',
                          'ax': CLUB_MATCH in norm(r['club']).upper()}
         if CLUB_MATCH in norm(r['club']).upper():   # historial completo de las marcas con el club
+            cpos, cn = puesto(r)
             hist[(pid, ev)].append((iso(r['date']), cs, r['id_tipo_piscina'],
-                                    norm(r.get('competition_name')).title(), norm(r.get('location')).title()))
+                                    norm(r.get('competition_name')).title(), norm(r.get('location')).title(),
+                                    fina(r['record_mundo'], cs), cpos, cn, 1 if r.get('parcial') else 0))
         kp = (pid, ev, r['id_tipo_piscina'])
         if kp not in best_pool or cs < best_pool[kp][0]:
             best_pool[kp] = (cs, iso(r['date']))
@@ -124,7 +147,7 @@ def main():
             best[(pid, ev)] = {'cs': cs, 'm': r['value'], 'pts': fina(r['record_mundo'], cs),
                                'pool': r['id_tipo_piscina'], 'comp': norm(r.get('competition_name')).title(),
                                'loc': norm(r.get('location')).title(), 'date': iso(r['date']),
-                               'ss': r['_ss']}
+                               'ss': r['_ss'], 'cpos': puesto(r) if CLUB_MATCH in norm(r['club']).upper() else None}
 
     # ── Agrupar por ámbito: año de nacimiento y categoría 26-27 ───────────────
     scopes = defaultdict(lambda: defaultdict(list))   # scope -> prueba -> [(cs,pid)]
@@ -205,9 +228,11 @@ def main():
             first = hp[0][1] if hp else b['cs']
             events.append({'e': ev, 'm': b['m'], 'cs': b['cs'], 'pts': b['pts'], 'pool': b['pool'],
                            'comp': b['comp'], 'loc': b['loc'], 'date': b['date'], 'ss': b['ss'],
+                           'cpos': list(b['cpos']) if b.get('cpos') and b['cpos'][0] else None,
                            'h': [list(x) for x in h], 'first': first,
                            'rk': rk, 'nb': nb})
-        events.sort(key=lambda e: -e['pts'])
+        # De mejor a peor: puesto relativo en España entre los de su año (desempate: puntos)
+        events.sort(key=lambda e: (e['rk']['y']['es'][0] / e['rk']['y']['es'][1], -e['pts']))
         pts = [e['pts'] for e in events]
         swimmers.append({
             'id': pid, 'n': i['n'], 'y': i['y'], 'g': i['g'], 'cat': ck, 'catl': clbl, 'cy': cyear,
@@ -273,6 +298,27 @@ def main():
                         }
             claves['events'].append(eo)
 
+    # ── Top-10 en Campeonatos de Andalucía y de España ───────────────────────
+    destacados = []
+    for s_ in swimmers:
+        for e in s_['ev']:
+            for x in e['h']:
+                d, cs, pool, comp, loc, pts, cpos, cn, parc = x
+                if parc or not cpos or cpos > 10:
+                    continue
+                cu = strip_acc(comp)
+                if not re.search(r'CAMPEONATO|\bCTO\b', cu):
+                    continue
+                if 'CLUBES' in cu:          # jornadas de liga de clubes, no son campeonatos individuales
+                    continue
+                nivel = 'es' if re.search(r'ESPANA|ESPAÑA', cu) else \
+                        'an' if ('ANDALUC' in cu or re.search(r'\bFAN\b', cu)) else None
+                if nivel:
+                    destacados.append({'id': s_['id'], 'n': s_['n'], 'y': s_['y'], 'g': s_['g'], 'cat': s_['cat'],
+                                       'ev': e['e'], 'cs': cs, 'pool': pool, 'comp': comp, 'date': d,
+                                       'pos': cpos, 'of': cn, 'lv': nivel})
+    destacados.sort(key=lambda x: (x['lv'] != 'es', x['pos'], x['date']))
+
     cats_out = []
     for g, cats in CATEGORIAS.items():
         for ck, lbl, yrs in cats:
@@ -282,7 +328,7 @@ def main():
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
-            'lists': lists, 'rivals': rivals, 'new_marks': new_marks, 'claves': claves}
+            'lists': lists, 'rivals': rivals, 'new_marks': new_marks, 'claves': claves, 'destacados': destacados}
 
     with open(TPL, encoding='utf-8') as f:
         html = f.read()
