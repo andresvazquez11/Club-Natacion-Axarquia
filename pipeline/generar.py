@@ -123,6 +123,8 @@ def main():
     for r in rows:
         if not r.get('valor_original') or not r.get('profile_id'):
             continue
+        if r.get('parcial'):   # tiempo de paso dentro de una prueba más larga: no es una carrera de esa distancia
+            continue
         pid, ev, cs = r['profile_id'], r['estilo'], int(r['valor_original'])
         if ev not in PRUEBA_ORDER:
             continue
@@ -223,7 +225,16 @@ def main():
                     lo, hi = max(0, pos - NB), min(len(ll), pos + NB + 1)
                     nb[skey][lv] = [entry(k + 1, ll[k][0], ll[k][1]) for k in range(lo, hi)]
             # Evolución solo en la piscina de su mejor marca (25 m y 50 m no son comparables)
-            h = sorted(set(hist[(pid, ev)]))
+            # Un registro por día y piscina: si nadó dos veces (eliminatoria y final, o dos
+            # jornadas el mismo día) se queda el mejor tiempo y el otro va como nota.
+            por_dia = defaultdict(list)
+            for x in set(hist[(pid, ev)]):
+                por_dia[(x[0], x[2])].append(x)
+            h = []
+            for k, xs in por_dia.items():
+                xs.sort(key=lambda x: x[1])
+                h.append(xs[0] + ([[x[1], x[3]] for x in xs[1:]],))
+            h.sort()
             hp = [x for x in h if x[2] == b['pool']]
             first = hp[0][1] if hp else b['cs']
             events.append({'e': ev, 'm': b['m'], 'cs': b['cs'], 'pts': b['pts'], 'pool': b['pool'],
@@ -303,7 +314,7 @@ def main():
     for s_ in swimmers:
         for e in s_['ev']:
             for x in e['h']:
-                d, cs, pool, comp, loc, pts, cpos, cn, parc = x
+                d, cs, pool, comp, loc, pts, cpos, cn, parc, otros = x
                 if parc or not cpos or cpos > 10:
                     continue
                 cu = strip_acc(comp)

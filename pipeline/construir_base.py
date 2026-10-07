@@ -27,7 +27,7 @@ def main():
     raw = sys.argv[1]
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'base_2526.json.gz')
     rows = [r for f in glob.glob(os.path.join(raw, '*.json')) for r in json.load(open(f, encoding='utf-8'))
-            if r.get('valor_original') and r.get('profile_id')]
+            if r.get('valor_original') and r.get('profile_id') and not r.get('parcial')]   # sin parciales
 
     # Puesto en cada competición (misma lógica que generar.py → puesto())
     comp_best = defaultdict(dict)

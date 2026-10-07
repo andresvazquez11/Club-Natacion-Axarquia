@@ -552,7 +552,7 @@ function openEvo(id,evName){
     h+=`<div class="tw"><table><tr><th>Fecha</th><th>Competición</th><th>Lugar</th><th class="num">Marca</th><th>Puesto</th><th class="num">Pts</th><th class="num">vs anterior</th><th class="num">vs 1ª marca</th><th class="num">vs mejor previa</th></tr>`;
     rows.forEach((x,k)=>{ const prev=k?rows[k-1][1]:null, pb=x[1]<best, prevBest=best; if(pb) best=x[1];
       const dd=(a)=>a===null||a===Infinity?'—':(x[1]-a<0?`<span class="gap-b">−${((a-x[1])/100).toFixed(2)}</span>`:x[1]-a>0?`<span class="gap-a">+${((x[1]-a)/100).toFixed(2)}</span>`:'=');
-      h+=`<tr class="${x[1]===e.cs&&pl===e.pool?'me':''}"><td>${dtag(x[0])}</td><td>${esc(x[3]||'—')}</td><td class="muted">${esc(x[4]||'')}</td>
+      h+=`<tr class="${x[1]===e.cs&&pl===e.pool?'me':''}"><td>${dtag(x[0])}</td><td>${esc(x[3]||'—')}${x[9]&&x[9].length?`<div class="tot">También nadó ${x[9].map(o=>fmt(o[0])+(o[1]!==x[3]?' ('+esc(o[1])+')':'')).join(', ')} ese día · eliminatoria/final</div>`:''}</td><td class="muted">${esc(x[4]||'')}</td>
         <td class="num">${pb?'<span class="pb">★ </span>':''}${fmt(x[1])}</td><td>${puestoCell(x,s)}</td><td class="num">${x[5]||'—'}</td><td class="num">${dd(prev)}</td><td class="num">${k?dd(first):'—'}</td><td class="num">${k?dd(prevBest):'—'}</td></tr>`;});
     h+=`</table></div>`;});
   document.querySelector('#modal .box').innerHTML=h;
