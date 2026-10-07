@@ -137,7 +137,7 @@ const dtag = d => `<span class="dt ${dcls(d)}" title="${d>=SEASON_NEW?'Temporada
 function spark(h){
   if(!h || h.length<2) return '';
   const W=90,H=24, v=h.map(x=>x[1]), mn=Math.min(...v), mx=Math.max(...v), r=mx-mn||1;
-  const pts=v.map((y,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(2+(y-mn)/r*(H-4)).toFixed(1)}`).join(' ');
+  const pts=v.map((y,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(2+(mx-y)/r*(H-4)).toFixed(1)}`).join(' ');
   return `<svg class="spark" width="${W}" height="${H}"><polyline fill="none" stroke="#38bdf8" stroke-width="1.6" points="${pts}"/></svg>`;
 }
 function evoCell(s,e){
@@ -336,11 +336,11 @@ function showCat(i){
 
 /* ── Evolución detallada (ventana) ── */
 function evoChart(rows){
-  const W=860,H=260,P={l:58,r:30,t:26,b:34};
+  const W=860,H=270,P={l:58,r:30,t:20,b:40};
   const ts=rows.map(x=>Date.parse(x[0])), v=rows.map(x=>x[1]);
   const t0=Math.min(...ts), t1=Math.max(...ts), tr=(t1-t0)||1;
-  const mn=Math.min(...v), mx=Math.max(...v), pad=Math.max((mx-mn)*0.12,20), lo=mn-pad, hi=mx+pad;
-  const X=t=>P.l+(t-t0)/tr*(W-P.l-P.r), Y=c=>P.t+(c-lo)/(hi-lo)*(H-P.t-P.b);   // más rápido = más arriba
+  const mn=Math.min(...v), mx=Math.max(...v), pad=Math.max((mx-mn)*0.12,20), lo=mn-Math.max((mx-mn)*0.3,45), hi=mx+pad;
+  const X=t=>P.l+(t-t0)/tr*(W-P.l-P.r), Y=c=>P.t+(hi-c)/(hi-lo)*(H-P.t-P.b);   // tiempo más alto arriba, mejor marca abajo
   let g='';
   for(let k=0;k<=4;k++){const c=lo+(hi-lo)*k/4, y=Y(c);
     g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.07)"/><text x="${P.l-8}" y="${y+4}" fill="#8193ad" font-size="11" text-anchor="end">${fmt(Math.round(c))}</text>`;}
@@ -359,7 +359,7 @@ function evoChart(rows){
     const cx=X(Date.parse(x[0])), cy=Y(x[1]);
     g+=`<circle cx="${cx}" cy="${cy}" r="${pb?5:3.5}" fill="${pb?'#fbbf24':'#38bdf8'}"><title>${dfmt(x[0])} · ${fmt(x[1])} · ${esc(x[3]||'')}</title></circle>`;
     if(pb){ const anc=cx>W-90?'end':cx<P.l+40?'start':'middle';
-      g+=`<text x="${cx}" y="${cy-10}" fill="#fbbf24" font-size="11" font-weight="700" text-anchor="${anc}">${fmt(x[1])}</text><text x="${cx}" y="${cy+17}" fill="#8193ad" font-size="10" text-anchor="${anc}">${dfmt(x[0])}</text>`; }});
+      g+=`<text x="${cx}" y="${cy+18}" fill="#fbbf24" font-size="11" font-weight="700" text-anchor="${anc}">${fmt(x[1])}</text><text x="${cx}" y="${cy+30}" fill="#8193ad" font-size="10" text-anchor="${anc}">${dfmt(x[0])}</text>`; }});
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
 function openEvo(id,evName){
@@ -368,7 +368,7 @@ function openEvo(id,evName){
   let h=`<button class="close" onclick="closeEvo()">Cerrar ✕</button>
     <div class="nm" style="font-size:1.25rem;font-weight:900">${esc(s.n)} · ${e.e}</div>
     <div class="muted small">Todas las marcas registradas en la RFEN (temporadas 25-26 y 26-27). Mejor marca: <b>${fmt(e.cs)}</b> (${e.pool}, ${dfmt(e.date)}).
-    <br>Línea azul = cada marca · línea dorada discontinua y puntos dorados = mejor marca personal en ese momento. 25 m y 50 m van por separado porque no son comparables.</div>`;
+    <br>Abajo = más rápido. Línea azul = cada marca · línea dorada discontinua y puntos dorados = mejor marca personal en ese momento. 25 m y 50 m van por separado porque no son comparables.</div>`;
   pools.forEach(pl=>{
     const rows=e.h.filter(x=>x[2]===pl).sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
     const first=rows[0][1]; let best=Infinity;
