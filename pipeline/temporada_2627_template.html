@@ -14,7 +14,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.4;
   background-image:radial-gradient(ellipse at 20% -10%,rgba(56,189,248,.18),transparent 55%),radial-gradient(ellipse at 90% 10%,rgba(167,139,250,.14),transparent 50%);background-attachment:fixed}
-.page{max-width:1080px;margin:0 auto;padding:0 16px 80px}
+.page{max-width:1240px;margin:0 auto;padding:0 16px 80px}
 h2{font-size:1.25rem;font-weight:800;margin:34px 0 12px;display:flex;align-items:center;gap:8px}
 h3{font-size:1rem;font-weight:800;margin:18px 0 8px}
 .muted{color:var(--soft)}
@@ -31,8 +31,21 @@ h3{font-size:1rem;font-weight:800;margin:18px 0 8px}
 .note{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:10px 14px;font-size:.8rem;color:#fde68a;margin:14px 0}
 /* cards */
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:820px){.grid3{grid-template-columns:1fr}}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:760px){.grid3{grid-template-columns:minmax(0,1fr)}}
+.spot,.card{min-width:0;max-width:100%}
+.lvcol table{table-layout:fixed;width:100%}
+.lvcol td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvcol td:nth-child(1){width:44px}.lvcol td:nth-child(3){width:66px}.lvcol td:nth-child(4){width:60px}
+.dt{font-size:.64rem;color:var(--soft)}.dt.new{color:var(--green);font-weight:700}.dt.old{color:#64748b}
+.evbtn{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.3);border-radius:8px;padding:2px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-size:.68rem;font-weight:700}
+.evbtn:hover{background:rgba(56,189,248,.18)}
+#modal{position:fixed;inset:0;background:rgba(2,6,23,.78);backdrop-filter:blur(4px);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:30px 12px;overflow-y:auto}
+#modal.open{display:flex}
+#modal .box{background:#0d1428;border:1px solid var(--border);border-radius:16px;padding:18px;width:100%;max-width:900px}
+#modal .chart{width:100%;height:auto;margin:8px 0 4px}
+.pb{color:var(--gold);font-weight:800}
+#modal td:nth-child(2){white-space:normal;min-width:200px}
 /* tabs */
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px}
 .tab{border:1px solid var(--border);background:var(--card);color:var(--soft);padding:8px 13px;border-radius:9px;font-weight:700;font-size:.8rem;cursor:pointer}
@@ -99,6 +112,7 @@ footer{text-align:center;color:var(--soft);font-size:.72rem;margin-top:40px}
   <div id="cat-body"></div>
 
   <footer id="foot"></footer>
+  <div id="modal"><div class="box"></div></div>
 </div>
 
 <script>
@@ -116,11 +130,19 @@ const club = c => esc(c.replace(/^C\.?\s?D\.?\s?N\.?\s?|^C\.?\s?N\.?\s?|^CLUB NA
 const scopeKey = (s,sk) => sk==='y' ? `${s.g}|${s.y}` : `${s.g}|${s.cat}`;
 const scopeLbl = (s,sk) => sk==='y' ? `nacidos en ${s.y}` : `${s.catl} ${CATG[s.g].toLowerCase()} 26-27 (${s.y-s.cy+1}-${s.y-s.cy+2})`;
 
+const SEASON_NEW='2026-09-01';
+const dfmt = d => d ? d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(2,4) : '—';
+const dcls = d => !d ? '' : d>=SEASON_NEW ? 'new' : d<'2026-01-01' ? 'old' : '';
+const dtag = d => `<span class="dt ${dcls(d)}" title="${d>=SEASON_NEW?'Temporada 26-27':d<'2026-01-01'?'Marca de hace tiempo':'Temporada 25-26'}">${dfmt(d)}</span>`;
 function spark(h){
   if(!h || h.length<2) return '';
   const W=90,H=24, v=h.map(x=>x[1]), mn=Math.min(...v), mx=Math.max(...v), r=mx-mn||1;
   const pts=v.map((y,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(2+(y-mn)/r*(H-4)).toFixed(1)}`).join(' ');
   return `<svg class="spark" width="${W}" height="${H}"><polyline fill="none" stroke="#38bdf8" stroke-width="1.6" points="${pts}"/></svg>`;
+}
+function evoCell(s,e){
+  const h=e.h.filter(x=>x[2]===e.pool);
+  return `<button class="evbtn" data-evo="${s.id}|${e.e}" title="Ver todas las marcas y su evolución">${spark(h)||'📈'} Ver</button>`;
 }
 function improv(e){ const d=e.first-e.cs; return d>0?`<span class="gap-b">−${(d/100).toFixed(2)}s</span>`:'<span class="muted">=</span>'; }
 
@@ -156,7 +178,7 @@ function rivalCols(s,e,sk,n=10){
 function rowR(x,e,isMe){
   const me=isMe(x), d=x[3]-e.cs;
   return `<tr class="${me?'me':x[7]?'club':''}"><td>${posB(x[5])}</td><td title="${esc(x[1])}">${esc(x[0])}<div class="tot">${club(x[1])}${x[6]?' · '+x[6]:''}</div></td>
-    <td class="num">${fmt(x[3])}</td><td class="num ${d<0?'gap-a':'gap-b'}">${me?'':gapS(d)}</td></tr>`;
+    <td class="num">${fmt(x[3])}<div>${dtag(x[8])}</div></td><td class="num ${d<0?'gap-a':'gap-b'}">${me?'':gapS(d)}</td></tr>`;
 }
 
 /* ── Resumen de rivales directos (texto) ── */
@@ -188,14 +210,14 @@ function swimmerDetail(s,sk,host,full){
     else if(r.ma&&r.ma[0]==1) chips.push(`<span class="chip">🔵 1º Málaga · ${e.e}</span>`);});
   h+=`<div class="chips">${chips.join('')}</div>`;
   h+=`<p class="muted small" style="margin-top:8px">Comparando con: <b>${scopeLbl(s,sk)}</b></p>`;
-  h+=`<div class="tw" style="margin-top:10px"><table><tr><th>Prueba</th><th class="num">Mejor marca</th><th class="num">Pts FINA</th><th>Piscina</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th><th>Evolución 25-26</th><th class="num">Mejora vs 1ª marca</th></tr>`;
+  h+=`<div class="tw" style="margin-top:10px"><table><tr><th>Prueba</th><th class="num">Mejor marca</th><th class="num">Pts FINA</th><th>Piscina</th><th>Fecha</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th><th>Evolución</th><th class="num">Mejora vs 1ª marca</th></tr>`;
   s.ev.forEach(e=>{const r=e.rk[sk]||{};
-    h+=`<tr><td><b>${e.e}</b>${e.ss==='26-27'?'<span class="ss">26-27</span>':''}</td><td class="num">${fmt(e.cs)}</td><td class="num">${e.pts}</td><td class="muted">${e.pool}</td>
-      ${LV.map(([lv])=>`<td>${r[lv]?posB(r[lv][0],r[lv][1]):'—'}</td>`).join('')}<td>${spark(e.h)}</td><td class="num">${improv(e)}</td></tr>`;});
+    h+=`<tr><td><b>${e.e}</b>${e.ss==='26-27'?'<span class="ss">26-27</span>':''}</td><td class="num">${fmt(e.cs)}</td><td class="num">${e.pts}</td><td class="muted">${e.pool}</td><td>${dtag(e.date)}</td>
+      ${LV.map(([lv])=>`<td>${r[lv]?posB(r[lv][0],r[lv][1]):'—'}</td>`).join('')}<td>${evoCell(s,e)}</td><td class="num">${improv(e)}</td></tr>`;});
   h+=`</table></div>`;
   const evs = full ? s.ev : s.ev.slice(0,6);
   evs.forEach(e=>{
-    h+=`<div class="evhead"><b>${e.e}</b><span class="muted small">${fmt(e.cs)} · ${e.pts} pts · ${esc(e.comp)} (${esc(e.loc)}, ${e.date}, ${e.pool}) · temporada ${e.ss}</span></div>
+    h+=`<div class="evhead"><b>${e.e}</b><span class="muted small">${fmt(e.cs)} · ${e.pts} pts · ${esc(e.comp)} (${esc(e.loc)}, ${dfmt(e.date)}, ${e.pool}) · temporada ${e.ss}</span><button class="evbtn" data-evo="${s.id}|${e.e}">📈 Evolución</button></div>
        <div class="insight small" style="margin-bottom:8px">${rivalText(s,e,sk)}</div>${rivalCols(s,e,sk)}`;});
   if(!full && s.ev.length>6) h+=`<p style="margin-top:12px"><button class="tab" data-more>Ver las ${s.ev.length-6} pruebas restantes</button></p>`;
   host.innerHTML=h;
@@ -204,12 +226,12 @@ function swimmerDetail(s,sk,host,full){
 }
 
 
-/* ── Pruebas clave Copa de Andalucía ── */
+/* ── Pruebas clave Campeonato de Andalucía ── */
 let kSc='y', kPool='all';
 function claves(s){
   const C=DATA.claves; if(!C) return;
   const host=document.getElementById('ben-claves');
-  let h=`<div class="spot-h"><div><div class="nm" style="font-size:1.2rem">🎯 Pruebas clave · Copa de Andalucía</div>
+  let h=`<div class="spot-h"><div><div class="nm" style="font-size:1.2rem">🎯 Pruebas clave · Campeonato de Andalucía</div>
     <div class="muted small">La clasificación depende de 100 libre, 100 braza, 100 mariposa y 100 espalda. Tiempos de referencia de los rivales en cada nivel, aunque no tenga marca.</div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><div class="seg" id="k-sc"><button data-v="y">Nacidos en ${s.y}</button><button data-v="c">${esc(s.catl)} completa</button></div>
     <div class="seg" id="k-pool"><button data-v="all">Todas</button><button data-v="25m">25 m</button><button data-v="50m">50 m</button></div></div></div>`;
@@ -221,7 +243,7 @@ function claves(s){
     LV.forEach(([lv,lbl])=>{const R=lvs[lv][kPool]; const ref=Object.fromEntries(R.refs.map(r=>[r[0],r]));
       const r8=ref[8]; const need=R.me&&r8?R.me-r8[1]:null;
       h+=`<tr><td class="lv-${lv}"><b>${lbl}</b> <span class="tot">${R.t} nad.</span></td><td>${R.mp?posB(R.mp,R.t):'—'}</td>
-        ${[1,3,8,16,24].map(p=>ref[p]?`<td class="num" title="${esc(ref[p][2])} · ${esc(ref[p][3])}">${fmt(ref[p][1])}<div class="tot">${esc(ref[p][2].split(' ').slice(0,2).join(' '))}</div></td>`:'<td class="num muted">—</td>').join('')}
+        ${[1,3,8,16,24].map(p=>ref[p]?`<td class="num" title="${esc(ref[p][2])} · ${esc(ref[p][3])}">${fmt(ref[p][1])}<div class="tot">${esc(ref[p][2].split(' ').slice(0,2).join(' '))}</div>${dtag(ref[p][4])}</td>`:'<td class="num muted">—</td>').join('')}
         <td class="num">${R.med?fmt(R.med):'—'}</td><td class="num">${need===null?'—':need<=0?'<span class="gap-b">✓ dentro</span>':`<span class="gap-a">−${(need/100).toFixed(2)}s</span>`}</td></tr>`;});
     h+=`</table></div></div>`;});
   h+=`<p class="muted small" style="margin-top:8px">«Para el 8º» = lo que le falta para entrar en la final (8º puesto) de ese nivel. Pasa el ratón sobre un tiempo para ver quién lo tiene. 25 m y 50 m no son comparables: usa el filtro de piscina.</p>`;
@@ -302,15 +324,71 @@ function showCat(i){
   const ex=()=>{const L=DATA.lists[document.getElementById('ex-sc').value+'|'+document.getElementById('ex-ev').value];
     const b=document.getElementById('ex-body');
     if(!L){b.innerHTML='<p class="muted small">Sin datos para esta combinación.</p>';return;}
-    const rows=L[exLv]; let h2=`<p class="muted small" style="margin-bottom:6px">${L['t'+exLv]} nadadores con marca</p><table><tr><th>Pos</th><th>Nadador</th><th>Club</th><th>Año</th><th class="num">Marca</th><th class="num">Pts</th></tr>`;
-    rows.forEach((x,k)=>{ if(k>0&&x[5]-rows[k-1][5]>1) h2+=`<tr class="sep"><td colspan="6">· · ·</td></tr>`;
-      h2+=`<tr class="${x[7]?'me':''}"><td>${posB(x[5])}</td><td>${esc(x[0])}</td><td class="muted">${club(x[1])}</td><td>${x[6]}</td><td class="num">${fmt(x[3])}</td><td class="num">${x[4]}</td></tr>`;});
+    const rows=L[exLv]; let h2=`<p class="muted small" style="margin-bottom:6px">${L['t'+exLv]} nadadores con marca</p><table><tr><th>Pos</th><th>Nadador</th><th>Club</th><th>Año</th><th class="num">Marca</th><th>Fecha</th><th class="num">Pts</th></tr>`;
+    rows.forEach((x,k)=>{ if(k>0&&x[5]-rows[k-1][5]>1) h2+=`<tr class="sep"><td colspan="7">· · ·</td></tr>`;
+      h2+=`<tr class="${x[7]?'me':''}"><td>${posB(x[5])}</td><td>${esc(x[0])}</td><td class="muted">${club(x[1])}</td><td>${x[6]}</td><td class="num">${fmt(x[3])}</td><td>${dtag(x[8])} <span class="tot">${x[9]||''}</span></td><td class="num">${x[4]}</td></tr>`;});
     b.innerHTML=h2+'</table>';
     document.querySelectorAll('#ex-lv button').forEach(bb=>bb.classList.toggle('act',bb.dataset.v===exLv));};
   document.getElementById('ex-ev').onchange=ex; document.getElementById('ex-sc').onchange=ex;
   document.querySelectorAll('#ex-lv button').forEach(b=>b.onclick=()=>{exLv=b.dataset.v;ex();});
   ex();
 }
+
+/* ── Evolución detallada (ventana) ── */
+function evoChart(rows){
+  const W=860,H=260,P={l:58,r:30,t:26,b:34};
+  const ts=rows.map(x=>Date.parse(x[0])), v=rows.map(x=>x[1]);
+  const t0=Math.min(...ts), t1=Math.max(...ts), tr=(t1-t0)||1;
+  const mn=Math.min(...v), mx=Math.max(...v), pad=Math.max((mx-mn)*0.12,20), lo=mn-pad, hi=mx+pad;
+  const X=t=>P.l+(t-t0)/tr*(W-P.l-P.r), Y=c=>P.t+(c-lo)/(hi-lo)*(H-P.t-P.b);   // más rápido = más arriba
+  let g='';
+  for(let k=0;k<=4;k++){const c=lo+(hi-lo)*k/4, y=Y(c);
+    g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.07)"/><text x="${P.l-8}" y="${y+4}" fill="#8193ad" font-size="11" text-anchor="end">${fmt(Math.round(c))}</text>`;}
+  const months=[]; const d=new Date(t0); d.setDate(1);
+  while(d.getTime()<=t1){ if(d.getTime()>=t0) months.push(d.getTime()); d.setMonth(d.getMonth()+1); }
+  const step=Math.ceil(months.length/8)||1;
+  months.forEach((m,k)=>{ if(k%step) return; const x=X(m), dd=new Date(m);
+    g+=`<line x1="${x}" x2="${x}" y1="${P.t}" y2="${H-P.b}" stroke="rgba(255,255,255,.04)"/><text x="${x}" y="${H-P.b+16}" fill="#8193ad" font-size="11" text-anchor="middle">${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][dd.getMonth()]} ${String(dd.getFullYear()).slice(2)}</text>`;});
+  // línea de mejor marca acumulada
+  let best=Infinity; const pbPts=[];
+  rows.forEach(x=>{ if(x[1]<best){best=x[1];} pbPts.push([X(Date.parse(x[0])),Y(best)]); });
+  g+=`<polyline fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4 3" points="${pbPts.map(p=>p.join(',')).join(' ')}"/>`;
+  g+=`<polyline fill="none" stroke="#38bdf8" stroke-width="2" points="${rows.map(x=>X(Date.parse(x[0]))+','+Y(x[1])).join(' ')}"/>`;
+  best=Infinity;
+  rows.forEach(x=>{ const pb=x[1]<best; if(pb) best=x[1];
+    const cx=X(Date.parse(x[0])), cy=Y(x[1]);
+    g+=`<circle cx="${cx}" cy="${cy}" r="${pb?5:3.5}" fill="${pb?'#fbbf24':'#38bdf8'}"><title>${dfmt(x[0])} · ${fmt(x[1])} · ${esc(x[3]||'')}</title></circle>`;
+    if(pb){ const anc=cx>W-90?'end':cx<P.l+40?'start':'middle';
+      g+=`<text x="${cx}" y="${cy-10}" fill="#fbbf24" font-size="11" font-weight="700" text-anchor="${anc}">${fmt(x[1])}</text><text x="${cx}" y="${cy+17}" fill="#8193ad" font-size="10" text-anchor="${anc}">${dfmt(x[0])}</text>`; }});
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+function openEvo(id,evName){
+  const s=SW[id], e=s.ev.find(x=>x.e===evName); if(!s||!e) return;
+  const pools=[...new Set(e.h.map(x=>x[2]))].sort((a,b)=>a===e.pool?-1:b===e.pool?1:0);
+  let h=`<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+    <div class="nm" style="font-size:1.25rem;font-weight:900">${esc(s.n)} · ${e.e}</div>
+    <div class="muted small">Todas las marcas registradas en la RFEN (temporadas 25-26 y 26-27). Mejor marca: <b>${fmt(e.cs)}</b> (${e.pool}, ${dfmt(e.date)}).
+    <br>Línea azul = cada marca · línea dorada discontinua y puntos dorados = mejor marca personal en ese momento. 25 m y 50 m van por separado porque no son comparables.</div>`;
+  pools.forEach(pl=>{
+    const rows=e.h.filter(x=>x[2]===pl).sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
+    const first=rows[0][1]; let best=Infinity;
+    const tot=first-Math.min(...rows.map(x=>x[1]));
+    h+=`<h3>Piscina de ${pl} <span class="muted small">· ${rows.length} marca${rows.length>1?'s':''} · mejora total ${tot>0?'<span class="gap-b">−'+(tot/100).toFixed(2)+'s</span>':'—'}</span></h3>`;
+    if(rows.length>1) h+=evoChart(rows);
+    h+=`<div class="tw"><table><tr><th>Fecha</th><th>Competición</th><th>Lugar</th><th class="num">Marca</th><th class="num">vs anterior</th><th class="num">vs 1ª marca</th><th class="num">vs mejor previa</th></tr>`;
+    rows.forEach((x,k)=>{ const prev=k?rows[k-1][1]:null, pb=x[1]<best, prevBest=best; if(pb) best=x[1];
+      const dd=(a)=>a===null||a===Infinity?'—':(x[1]-a<0?`<span class="gap-b">−${((a-x[1])/100).toFixed(2)}</span>`:x[1]-a>0?`<span class="gap-a">+${((x[1]-a)/100).toFixed(2)}</span>`:'=');
+      h+=`<tr class="${x[1]===e.cs&&pl===e.pool?'me':''}"><td>${dtag(x[0])}</td><td>${esc(x[3]||'—')}</td><td class="muted">${esc(x[4]||'')}</td>
+        <td class="num">${pb?'<span class="pb">★ </span>':''}${fmt(x[1])}</td><td class="num">${dd(prev)}</td><td class="num">${k?dd(first):'—'}</td><td class="num">${k?dd(prevBest):'—'}</td></tr>`;});
+    h+=`</table></div>`;});
+  document.querySelector('#modal .box').innerHTML=h;
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeEvo(){ document.getElementById('modal').classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('click',ev=>{ const b=ev.target.closest('[data-evo]'); if(b){ const [id,...n]=b.dataset.evo.split('|'); openEvo(+id||id,n.join('|')); }
+  else if(ev.target.id==='modal') closeEvo(); });
+document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') closeEvo(); });
 
 kpis(); benicio(); catTabs();
 </script>

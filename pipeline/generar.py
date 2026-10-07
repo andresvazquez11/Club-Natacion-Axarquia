@@ -35,7 +35,7 @@ _CATS = [('PRE', 'Prebenjamín', [2018, 2019]), ('BEN', 'Benjamín', [2016, 2017
          ('ALE', 'Alevín', [2014, 2015]), ('INF', 'Infantil', [2012, 2013]),
          ('JUN', 'Junior', [2010, 2011])]
 CATEGORIAS = {'M': _CATS, 'F': _CATS}
-# Pruebas que deciden la clasificación a la Copa de Andalucía de Benicio
+# Pruebas que deciden la clasificación a la Campeonato de Andalucía de Benicio
 CLAVES_BENICIO = ['100 Libre', '100 Braza', '100 Mariposa', '100 Espalda']
 REF_POS = [1, 3, 8, 16, 24]
 PRUEBA_ORDER = ['50 Libre', '100 Libre', '200 Libre', '400 Libre', '800 Libre', '1500 Libre',
@@ -98,7 +98,7 @@ def main():
 
     # ── Mejor marca por nadador+prueba e historial ─────────────────────────────
     best, hist, info = {}, defaultdict(list), {}
-    best_pool = {}   # (pid, prueba, piscina) -> cs
+    best_pool = {}   # (pid, prueba, piscina) -> (cs, fecha)
     for r in rows:
         if not r.get('valor_original') or not r.get('profile_id'):
             continue
@@ -113,10 +113,12 @@ def main():
                          'y': int(r['fecha_nacimiento']), 'g': r['genero'],
                          'and': prov in ANDALUCIA, 'mal': prov == 'MALAGA',
                          'ax': CLUB_MATCH in norm(r['club']).upper()}
-        hist[(pid, ev)].append((iso(r['date']), cs, r['id_tipo_piscina']))
+        if CLUB_MATCH in norm(r['club']).upper():   # historial completo de las marcas con el club
+            hist[(pid, ev)].append((iso(r['date']), cs, r['id_tipo_piscina'],
+                                    norm(r.get('competition_name')).title(), norm(r.get('location')).title()))
         kp = (pid, ev, r['id_tipo_piscina'])
-        if kp not in best_pool or cs < best_pool[kp]:
-            best_pool[kp] = cs
+        if kp not in best_pool or cs < best_pool[kp][0]:
+            best_pool[kp] = (cs, iso(r['date']))
         cur = best.get((pid, ev))
         if cur is None or cs < cur['cs']:
             best[(pid, ev)] = {'cs': cs, 'm': r['value'], 'pts': fina(r['record_mundo'], cs),
@@ -143,7 +145,7 @@ def main():
 
     def entry(pos, cs, pid):
         i, b = info[pid], best[(pid, ev_cur[0])]
-        return [i['n'], i['c'], i['p'], cs, b['pts'], pos, i['y'], 1 if i['ax'] else 0]
+        return [i['n'], i['c'], i['p'], cs, b['pts'], pos, i['y'], 1 if i['ax'] else 0, b['date'], b['pool']]
 
     ev_cur = [None]
     club_ids = sorted({pid for pid, i in info.items() if i['ax']}, key=lambda p: info[p]['n'])
@@ -198,11 +200,12 @@ def main():
                     lo, hi = max(0, pos - NB), min(len(ll), pos + NB + 1)
                     nb[skey][lv] = [entry(k + 1, ll[k][0], ll[k][1]) for k in range(lo, hi)]
             # Evolución solo en la piscina de su mejor marca (25 m y 50 m no son comparables)
-            h = sorted(x for x in hist[(pid, ev)] if x[2] == b['pool'])
-            first = h[0][1] if h else b['cs']
+            h = sorted(set(hist[(pid, ev)]))
+            hp = [x for x in h if x[2] == b['pool']]
+            first = hp[0][1] if hp else b['cs']
             events.append({'e': ev, 'm': b['m'], 'cs': b['cs'], 'pts': b['pts'], 'pool': b['pool'],
                            'comp': b['comp'], 'loc': b['loc'], 'date': b['date'], 'ss': b['ss'],
-                           'h': [[d, cs, pl] for d, cs, pl in h], 'first': first,
+                           'h': [list(x) for x in h], 'first': first,
                            'rk': rk, 'nb': nb})
         events.sort(key=lambda e: -e['pts'])
         pts = [e['pts'] for e in events]
@@ -210,7 +213,7 @@ def main():
             'id': pid, 'n': i['n'], 'y': i['y'], 'g': i['g'], 'cat': ck, 'catl': clbl, 'cy': cyear,
             'ev': events, 'best': max(pts, default=0), 'top3': sum(sorted(pts, reverse=True)[:3]),
             'np': len(events),
-            'last': max((d for e in events for d, _, _ in e['h']), default=''),
+            'last': max((x[0] for e in events for x in e['h']), default=''),
             'benicio': 'BENICIO VAZQUEZ' in i['n'].upper(),
         })
 
@@ -235,6 +238,9 @@ def main():
 
     # ── Pruebas clave de Benicio: marcas de referencia por nivel y piscina ────
     claves = None
+
+    def fecha_de(pid, ev, pool):
+        return best[(pid, ev)]['date'] if pool == 'all' else best_pool[(pid, ev, pool)][1]
     ben = next((s for s in swimmers if s['benicio']), None)
     if ben:
         bid, by = ben['id'], ben['y']
@@ -251,14 +257,15 @@ def main():
                         if pool == 'all':
                             ll = [(b['cs'], pid) for (pid, e2), b in best.items() if e2 == ev]
                         else:
-                            ll = [(cs, pid) for (pid, e2, pl), cs in best_pool.items() if e2 == ev and pl == pool]
+                            ll = [(v[0], pid) for (pid, e2, pl), v in best_pool.items() if e2 == ev and pl == pool]
                         ll = sorted((cs, pid) for cs, pid in ll
                                     if info[pid]['g'] == ben['g'] and fn(info[pid]) and LEVELS[lv](info[pid]))
-                        me = (best[(bid, ev)]['cs'] if pool == 'all' else best_pool.get((bid, ev, pool))) \
+                        me = (best[(bid, ev)]['cs'] if pool == 'all' else best_pool.get((bid, ev, pool), (None,))[0]) \
                             if (bid, ev) in best else None
                         eo['sc'][skey][lv][pool] = {
                             't': len(ll),
-                            'refs': [[p, ll[p - 1][0], info[ll[p - 1][1]]['n'], info[ll[p - 1][1]]['c']]
+                            'refs': [[p, ll[p - 1][0], info[ll[p - 1][1]]['n'], info[ll[p - 1][1]]['c'],
+                                       fecha_de(ll[p - 1][1], ev, pool)]
                                      for p in REF_POS if p <= len(ll)],
                             'med': ll[len(ll) // 2][0] if ll else None,
                             'me': me,
@@ -317,7 +324,7 @@ def escribir_resumen(ruta, swimmers, rows_new, claves):
     L += nuevas or ['  (ninguna esta semana)']
     if claves:
         ben = next(s for s in swimmers if s['benicio'])
-        L += ['', f"BENICIO · pruebas clave Copa de Andalucía (nacidos en {ben['y']}, todas las piscinas):"]
+        L += ['', f"BENICIO · pruebas clave Campeonato de Andalucía (nacidos en {ben['y']}, todas las piscinas):"]
         for ev in claves['events']:
             sc = ev['sc']['y']
             me = sc['es']['all']['me']
