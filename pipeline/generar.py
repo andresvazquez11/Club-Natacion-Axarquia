@@ -283,6 +283,55 @@ def main():
     with open(HTML_OUT, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f'{len(swimmers)} nadadores del club · {len(lists)} listas · {os.path.getsize(HTML_OUT)/1e6:.1f} MB')
+    if os.environ.get('CNA_SUMMARY'):
+        escribir_resumen(os.environ['CNA_SUMMARY'], swimmers, rows_new, claves)
+
+
+def fmt_cs(cs):
+    m, s, c = cs // 6000, cs % 6000 // 100, cs % 100
+    return f'{m}:{s:02d}.{c:02d}' if m else f'{s}.{c:02d}'
+
+
+def escribir_resumen(ruta, swimmers, rows_new, claves):
+    """Texto plano para el correo semanal."""
+    hace8 = (datetime.now().date().toordinal() - 8)
+    L = ['Informe C.N. Axarquía · Temporada 26-27',
+         'https://andresvazquez11.github.io/Club-Natacion-Axarquia/temporada.html', '',
+         f'Marcas de la temporada 26-27 en la RFEN (todos los clubes): {len(rows_new):,}'.replace(',', '.')]
+    nuevas, todas = [], 0
+    for s in swimmers:
+        for e in s['ev']:
+            if e['ss'] != '26-27':
+                continue
+            todas += 1
+            try:
+                reciente = datetime.strptime(e['date'], '%Y-%m-%d').date().toordinal() >= hace8
+            except ValueError:
+                reciente = False
+            if reciente:
+                r = e['rk'].get('c') or e['rk']['y']
+                nuevas.append(f"  · {s['n']} ({s['catl']}) — {e['e']}: {e['m'].lstrip('0:')} ({e['pool']}) · "
+                              f"{r['ma'][0]}º Málaga · {r['an'][0]}º Andalucía · {r['es'][0]}º España")
+    L.append(f'Mejores marcas del club que ya son de la 26-27: {todas}')
+    L += ['', 'NUEVAS MEJORES MARCAS DEL CLUB (últimos 8 días):']
+    L += nuevas or ['  (ninguna esta semana)']
+    if claves:
+        ben = next(s for s in swimmers if s['benicio'])
+        L += ['', f"BENICIO · pruebas clave Copa de Andalucía (nacidos en {ben['y']}, todas las piscinas):"]
+        for ev in claves['events']:
+            sc = ev['sc']['y']
+            me = sc['es']['all']['me']
+            if not me:
+                ref = {r[0]: r[1] for r in sc['an']['all']['refs']}
+                L.append(f"  · {ev['e']}: sin marca · 8º de Andalucía: {fmt_cs(ref[8]) if 8 in ref else '—'}")
+                continue
+            partes = []
+            for lv, nom in (('ma', 'Málaga'), ('an', 'Andalucía'), ('es', 'España')):
+                d = sc[lv]['all']
+                partes.append(f"{d['mp']}º/{d['t']} {nom}")
+            L.append(f"  · {ev['e']}: {fmt_cs(me)} · " + ' · '.join(partes))
+    with open(ruta, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(L) + '\n')
     print('→', HTML_OUT)
 
 

@@ -1,17 +1,53 @@
 name: Actualizar informe temporada 26-27
 
+# ACTUALIZACIÓN SEMANAL A PRUEBA DE FALLOS
+# El cron de GitHub no es fiable (en la web de coches llegó a saltarse días
+# enteros). Por eso no dependemos de UN disparo semanal: GitHub revisa 3 veces
+# al día y el job solo actualiza si la última actualización tiene más de
+# 6 días y medio. Si un disparo se pierde, el siguiente lo recupera, así que
+# la actualización semanal ocurre siempre (la hora exacta da igual).
 on:
   schedule:
-    - cron: '0 5 1,16 * *'   # días 1 y 16 de cada mes, 07:00 hora de España (verano)
-  workflow_dispatch:          # botón "Run workflow" para lanzarlo a mano
-
-permissions:
-  contents: write
+    - cron: '23 5 * * *'
+    - cron: '41 11 * * *'
+    - cron: '7 18 * * *'
+  workflow_dispatch:          # botón "Run workflow" → actualiza al momento
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      correr: ${{ steps.c.outputs.correr }}
+    steps:
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Lanzado a mano — se actualiza ya."; echo "correr=si" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          ULTIMO=$(gh api "repos/${{ github.repository }}/commits?path=temporada.html&per_page=1" \
+                   --jq '.[0].commit.committer.date' 2>/dev/null || echo "")
+          if [ -n "$ULTIMO" ]; then
+            DIFF=$(( $(date -u +%s) - $(date -u -d "$ULTIMO" +%s) ))
+            if [ "$DIFF" -lt 561600 ]; then   # 6,5 días
+              echo "Última actualización $ULTIMO (hace $((DIFF/3600)) h) — todavía no toca."
+              echo "correr=no" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          fi
+          echo "Toca actualizar (última: ${ULTIMO:-nunca})."; echo "correr=si" >> "$GITHUB_OUTPUT"
+
   actualizar:
+    needs: check
+    if: needs.check.outputs.correr == 'si'
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    permissions:
+      contents: write
+    env:
+      TZ: Europe/Madrid
     steps:
       - uses: actions/checkout@v5
 
@@ -33,13 +69,53 @@ jobs:
           CNA_BASE: pipeline/base_2526.json.gz
           CNA_NEW: raw_2627
           CNA_OUT: temporada.html
+          CNA_SUMMARY: resumen.txt
         run: python pipeline/generar.py
 
       - name: Publicar
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add temporada.html
-          git diff --cached --quiet && exit 0
-          git commit -m "Actualizar informe temporada 26-27 — $(date +%d/%m/%Y)"
-          git push
+          git commit -m "Actualizar informe temporada 26-27 — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
+          for i in 1 2 3; do
+            git push origin main && exit 0
+            git pull --rebase origin main || { git rebase --abort; exit 1; }
+          done
+          exit 1
+
+      - name: Preparar correo
+        id: correo
+        run: |
+          {
+            echo "fecha=$(date '+%d/%m/%Y %H:%M')"
+            d="EOF_$(openssl rand -hex 8)"
+            echo "cuerpo<<$d"; cat resumen.txt; echo "$d"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Correo de éxito
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: andrescovidelpi@gmail.com
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Natación C.N. Axarquía <andrescovidelpi@gmail.com>
+          to: andrescovidelpi@gmail.com
+          subject: "🏊 Informe natación 26-27 actualizado — ${{ steps.correo.outputs.fecha }}"
+          body: ${{ steps.correo.outputs.cuerpo }}
+
+      - name: Correo de error
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: andrescovidelpi@gmail.com
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Natación C.N. Axarquía <andrescovidelpi@gmail.com>
+          to: andrescovidelpi@gmail.com
+          subject: "⚠️ Falló la actualización del informe de natación 26-27"
+          body: |
+            Algo falló al actualizar el informe de natación. Se reintentará automáticamente en unas horas.
+            Detalle: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
