@@ -96,7 +96,10 @@ function kpisClub(list) {
   let t10 = 0, podAn = 0, oroMa = 0;
   list.forEach(s => s.ev.forEach(e => { const r = e.rk.y || {};
     if (r.es && r.es[0] <= 10) t10++; if (r.an && r.an[0] <= 3) podAn++; if (r.ma && r.ma[0] == 1) oroMa++; }));
-  return {t10, podAn, oroMa};
+  // podios (1º-3º) en Campeonatos de Andalucía y de España, puesto real en la competición
+  const ids = new Set(list.map(s => s.id));
+  const ctoPod = (DATA.destacados || []).filter(x => ids.has(x.id) && x.pos <= 3).length;
+  return {t10, podAn, oroMa, ctoPod};
 }
 
 /* Datos de «importancia» de un nadador: campeonatos de España nadados (no cuenta la Copa de Clubes),

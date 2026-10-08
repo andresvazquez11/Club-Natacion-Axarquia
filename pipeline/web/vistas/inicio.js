@@ -29,9 +29,10 @@ function vistaInicio(app) {
 
   app.innerHTML = `
     <div class="hd"><div><h1>Club Natación Axarquía</h1><p>Temporada 26-27 · datos RFEN · actualizado ${DATA.fecha}</p></div></div>
-    <div class="kpis">
-      ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 de España (su año)', K.t10, 'pos|es10|'],
-         [k.podAn, 'podios de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 de Málaga (su año)', K.oro, 'pos|ma1|']]
+    <div class="kpis k5">
+      ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
+         [k.podAn, 'pruebas en el top-3 del ranking de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 del ranking de Málaga (su año)', K.oro, 'pos|ma1|'],
+         [k.ctoPod, 'podios en Campeonatos de Andalucía y España', null, 'cto|3|', 'cto']]
         .map(([v, l, c, st, cls]) => `<button class="kpi ${cls || ''}" data-stat="${st}"><b>${v}</b><span>${l}</span>${cmpLines(c)}<span class="vd">Ver detalle ›</span></button>`).join('')}
     </div>
     <div class="note">${DATA.new_marks

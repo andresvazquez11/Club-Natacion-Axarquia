@@ -38,11 +38,12 @@ function vistaClub(app, p) {
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.length], ['M', '♂ Chicos', base.filter(s => s.g === 'M').length], ['F', '♀ Chicas', base.filter(s => s.g === 'F').length]], g)}</div>
       <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos'], ...c.yrs.map(yr => [yr, `${yr} <span class="n">${c.yrs.indexOf(yr) === c.yrs.length - 1 ? '1er' : '2º'} año</span>`, base.filter(s => s.y === yr).length])], y)}</div>
     </div>
-    <div class="kpis" style="margin:4px 0 14px">
+    <div class="kpis k5" style="margin:4px 0 14px">
       <button class="kpi hl" ${ds('sw|')}><b>${list.length}</b><span>nadadores</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
-      <button class="kpi" ${ds('pos|es10')}><b>${k.t10}</b><span>top-10 España</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
-      <button class="kpi" ${ds('pos|an3')}><b>${k.podAn}</b><span>podios Andalucía</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
-      <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi" ${ds('pos|es10')}><b>${k.t10}</b><span>top-10 ranking España</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi" ${ds('pos|an3')}><b>${k.podAn}</b><span>top-3 ranking Andalucía</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 ranking Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi cto" ${ds('cto|3')}><b>${k.ctoPod}</b><span>podios en campeonatos</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
     </div>
     <div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('o', ORDEN_NAD_TXT, o)}</div>
     ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España ${FLAG_ES}, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}

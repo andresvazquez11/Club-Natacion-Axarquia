@@ -76,6 +76,10 @@ h3{font-size:.95rem;font-weight:800;margin-bottom:8px}
 
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 @media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpis.k5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1100px){.kpis.k5{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.kpis.k5{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis.k5>.kpi:last-child{grid-column:1/-1}}
+.kpi.cto{border-color:var(--sun)}
 .kpi{background:var(--glass);border:1px solid var(--line);border-radius:14px;padding:14px 12px}
 .kpi b{display:block;font-size:1.75rem;font-weight:900;line-height:1;letter-spacing:-.5px}
 .kpi span{display:block;font-size:.72rem;color:var(--ink3);margin-top:6px;line-height:1.25}
@@ -332,7 +336,10 @@ function kpisClub(list) {
   let t10 = 0, podAn = 0, oroMa = 0;
   list.forEach(s => s.ev.forEach(e => { const r = e.rk.y || {};
     if (r.es && r.es[0] <= 10) t10++; if (r.an && r.an[0] <= 3) podAn++; if (r.ma && r.ma[0] == 1) oroMa++; }));
-  return {t10, podAn, oroMa};
+  // podios (1º-3º) en Campeonatos de Andalucía y de España, puesto real en la competición
+  const ids = new Set(list.map(s => s.id));
+  const ctoPod = (DATA.destacados || []).filter(x => ids.has(x.id) && x.pos <= 3).length;
+  return {t10, podAn, oroMa, ctoPod};
 }
 
 /* Datos de «importancia» de un nadador: campeonatos de España nadados (no cuenta la Copa de Clubes),
@@ -507,9 +514,14 @@ function cmpBind(root) {
    data-stat="tipo|nivel|ámbito": tipo = sw · pos · avg · cat; nivel = ma/an/es (+ puesto máximo en «pos»: es10, an3, ma1, an8…);
    ámbito = '' (club entero), 'ALE' (categoría) o 'M|ALE' (categoría y sexo). */
 let statBack = null;
+<<<<<<< Updated upstream
 let statF = {};             // filtros y orden de la ventana de detalle (se mantienen al «Volver» de una evolución)
 function openStat(st, mantenerScroll) {
   const [kind, lvx, ...sc] = st.split('|'), scope = sc.join('|'), lv = lvx.slice(0, 2), mx = +lvx.slice(2) || 0;
+=======
+function openStat(st) {
+  const [kind, lvx, ...sc] = st.split('|'), scope = sc.join('|'), lv = /^(ma|an|es)/.test(lvx) ? lvx.slice(0, 2) : '', mx = +lvx.replace(/^(ma|an|es)/, '') || 0;
+>>>>>>> Stashed changes
   const [sg, sk] = scope.includes('|') ? scope.split('|') : ['', scope];
   const cat = sk ? catOf(sk) : null;
   const S0 = DATA.swimmers.filter(s => (!sk || s.cat === sk) && (!sg || s.g === sg));
@@ -537,16 +549,31 @@ function openStat(st, mantenerScroll) {
     const R = []; S.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) R.push([s, e, r]); }));
     R.sort((a, b) => a[2][0] - b[2][0] || a[2][1] - b[2][1] || a[0].n.localeCompare(b[0].n));
     const nom = {1: 'nº1', 3: 'en el podio (top-3)', 8: 'en el top-8', 10: 'en el top-10'}[mx];
+<<<<<<< Updated upstream
     title = `${R.length} pruebas ${nom} de ${LVN[lv]}${donde}`;
     let n0 = 0; S0.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) n0++; }));
     if (filtrado) title = `${R.length} de ${n0} pruebas ${nom} de ${LVN[lv]}${donde}`;
     intro = `Pruebas en las que un nadador del club está ${nom} del ranking de ${LVN[lv]} entre los nacidos en su mismo año. Pulsa una para ver su evolución.`;
+=======
+    title = `${R.length} pruebas ${nom} del ranking de ${LVN[lv]}${donde}`;
+    intro = `Pruebas en las que un nadador del club está ${nom} del <b>ranking de ${LVN[lv]} de la temporada</b> (mejor marca de cada nadador, entre los nacidos en su mismo año). No es el puesto en un campeonato: eso está en «podios en campeonatos». Pulsa una para ver su evolución.`;
+>>>>>>> Stashed changes
     rank = (scope || !['es10', 'an3', 'ma1'].includes(lvx)) ? rk(mx === 1 ? 'n1' : 't8') : top({es10: 't10', an3: 'pod', ma1: 'oro'}[lvx]);
     body = R.length ? `<table class="rt cards"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th class="num">Pts</th><th>Fecha</th></tr>` +
       R.map(([s, e, r]) => `<tr class="click ${s.benicio ? 'me' : ''}" data-evo="${s.id}|${e.e}"><td class="t" data-l="">${posB(r[0], r[1])}<span class="m-only">&nbsp; ${esc(s.n)}</span></td>
         <td class="hide-m" data-l="Nadador"><b>${esc(s.n)}</b><div class="tiny muted">${s.y} · ${s.catl || ''} ${SEXO[s.g]}</div></td><td data-l="Prueba">${e.e} <span class="of">${e.pool}</span></td>
         <td class="num" data-l="Marca"><b>${fmt(e.cs)}</b></td><td class="num" data-l="Pts">${e.pts}</td><td data-l="Fecha">${dtag(e.date)}</td></tr>`).join('') + '</table>'
       : '<p class="empty">Ninguna todavía.</p>';
+  } else if (kind === 'cto') {
+    const R = (DATA.destacados || []).filter(x => x.pos <= mx && (!lv || x.lv === lv) && S.some(s => s.id === x.id))
+      .sort((a, b) => a.pos - b.pos || (a.date < b.date ? 1 : -1));
+    title = `${R.length} podios en Campeonatos${lv ? ' de ' + LVN[lv] : ' de Andalucía y España'}${donde}`;
+    intro = 'Puesto real en el campeonato, entre los nacidos en su mismo año (incluidas las fases de zona). Pulsa uno para ver la evolución de esa prueba.';
+    body = R.length ? `<table class="rt cards"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th>Campeonato</th><th>Fecha</th></tr>` +
+      R.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" data-evo="${x.id}|${x.ev}"><td class="t" data-l="">${posB(x.pos)}<span class="of">de ${x.of}</span><span class="m-only">&nbsp; ${esc(x.n)}</span></td>
+        <td class="hide-m" data-l="Nadador"><b>${esc(x.n)}</b><div class="tiny muted">${x.y} ${SEXO[x.g]}</div></td><td data-l="Prueba">${x.ev} <span class="of">${x.pool}</span></td>
+        <td class="num" data-l="Marca"><b>${fmt(x.cs)}</b></td><td data-l="Campeonato" style="white-space:normal">${x.lv === 'es' ? '🇪🇸' : '🟢'} ${esc(x.comp)}</td><td data-l="Fecha">${dtag(x.date)}</td></tr>`).join('') + '</table>'
+      : '<p class="empty">Ninguno todavía.</p>';
   } else if (kind === 'sw' || kind === 'avg') {
     // Orden «Importancia» (por defecto en nadadores): 1º quien ha nadado un Campeonato de España,
     // 2º su mejor puesto en el ranking de España (entre los de su año), 3º los puntos World Aquatics.
@@ -619,9 +646,10 @@ function vistaInicio(app) {
 
   app.innerHTML = `
     <div class="hd"><div><h1>Club Natación Axarquía</h1><p>Temporada 26-27 · datos RFEN · actualizado ${DATA.fecha}</p></div></div>
-    <div class="kpis">
-      ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 de España (su año)', K.t10, 'pos|es10|'],
-         [k.podAn, 'podios de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 de Málaga (su año)', K.oro, 'pos|ma1|']]
+    <div class="kpis k5">
+      ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
+         [k.podAn, 'pruebas en el top-3 del ranking de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 del ranking de Málaga (su año)', K.oro, 'pos|ma1|'],
+         [k.ctoPod, 'podios en Campeonatos de Andalucía y España', null, 'cto|3|', 'cto']]
         .map(([v, l, c, st, cls]) => `<button class="kpi ${cls || ''}" data-stat="${st}"><b>${v}</b><span>${l}</span>${cmpLines(c)}<span class="vd">Ver detalle ›</span></button>`).join('')}
     </div>
     <div class="note">${DATA.new_marks
@@ -691,11 +719,12 @@ function vistaClub(app, p) {
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.length], ['M', '♂ Chicos', base.filter(s => s.g === 'M').length], ['F', '♀ Chicas', base.filter(s => s.g === 'F').length]], g)}</div>
       <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos'], ...c.yrs.map(yr => [yr, `${yr} <span class="n">${c.yrs.indexOf(yr) === c.yrs.length - 1 ? '1er' : '2º'} año</span>`, base.filter(s => s.y === yr).length])], y)}</div>
     </div>
-    <div class="kpis" style="margin:4px 0 14px">
+    <div class="kpis k5" style="margin:4px 0 14px">
       <button class="kpi hl" ${ds('sw|')}><b>${list.length}</b><span>nadadores</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
-      <button class="kpi" ${ds('pos|es10')}><b>${k.t10}</b><span>top-10 España</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
-      <button class="kpi" ${ds('pos|an3')}><b>${k.podAn}</b><span>podios Andalucía</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
-      <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi" ${ds('pos|es10')}><b>${k.t10}</b><span>top-10 ranking España</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi" ${ds('pos|an3')}><b>${k.podAn}</b><span>top-3 ranking Andalucía</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 ranking Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
+      <button class="kpi cto" ${ds('cto|3')}><b>${k.ctoPod}</b><span>podios en campeonatos</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
     </div>
     <div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('o', ORDEN_NAD_TXT, o)}</div>
     ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España ${FLAG_ES}, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}
@@ -844,9 +873,9 @@ function tabResumen(s) {
   const wins = swims.filter(([x]) => x[6] === 1).length, pods = swims.filter(([x]) => x[6] && x[6] <= 3).length;
   const mn = s.cat === 'ALE' ? minimasDe(s) : null;
   const kp = [[s.np, 'pruebas con marca'], [s.best, 'mejores puntos World Aquatics'],
-    [evY.filter(r => r.es && r.es[0] <= 10).length, `top-10 España (nacidos ${s.y})`], [evY.filter(r => r.an && r.an[0] <= 8).length, 'top-8 Andalucía (finalista)'],
-    [evY.filter(r => r.ma && r.ma[0] == 1).length, 'nº1 de Málaga'], [cl.length, 'competiciones'],
-    [`${wins}🥇 ${pods}🏅`, 'victorias · podios (en su año)'], mn ? [`${mn.ok}/${mn.rows.length}`, `mínimas de España (${mn.age} años)`] : [s.top3, 'suma de sus 3 mejores pts']];
+    [evY.filter(r => r.es && r.es[0] <= 10).length, `top-10 del ranking de España (nacidos ${s.y})`], [evY.filter(r => r.an && r.an[0] <= 8).length, 'top-8 del ranking de Andalucía'],
+    [evY.filter(r => r.ma && r.ma[0] == 1).length, 'nº1 del ranking de Málaga'], [(DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3).length, 'podios en Campeonatos de Andalucía/España'],
+    [`${wins}🥇 ${pods}🏅`, `victorias · podios en sus ${cl.length} competiciones`], mn ? [`${mn.ok}/${mn.rows.length}`, `mínimas de España (${mn.age} años)`] : [s.top3, 'suma de sus 3 mejores pts']];
   const {F, M} = analisis(s);
   const perfil = (fn, keys) => keys.map(k => { const es = s.ev.filter(e => fn(e.e) === k); return [k, es.length ? Math.round(es.reduce((a, e) => a + e.pts, 0) / es.length) : 0, es.length]; });
   const pSt = perfil(strokeOf, STROKES), pDi = perfil(ev => { const d = distOf(ev); return d <= 50 ? '50 m' : d <= 100 ? '100 m' : d <= 200 ? '200 m' : '400 m o más'; }, ['50 m', '100 m', '200 m', '400 m o más']);

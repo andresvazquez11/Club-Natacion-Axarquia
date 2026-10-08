@@ -69,9 +69,9 @@ function tabResumen(s) {
   const wins = swims.filter(([x]) => x[6] === 1).length, pods = swims.filter(([x]) => x[6] && x[6] <= 3).length;
   const mn = s.cat === 'ALE' ? minimasDe(s) : null;
   const kp = [[s.np, 'pruebas con marca'], [s.best, 'mejores puntos World Aquatics'],
-    [evY.filter(r => r.es && r.es[0] <= 10).length, `top-10 España (nacidos ${s.y})`], [evY.filter(r => r.an && r.an[0] <= 8).length, 'top-8 Andalucía (finalista)'],
-    [evY.filter(r => r.ma && r.ma[0] == 1).length, 'nº1 de Málaga'], [cl.length, 'competiciones'],
-    [`${wins}🥇 ${pods}🏅`, 'victorias · podios (en su año)'], mn ? [`${mn.ok}/${mn.rows.length}`, `mínimas de España (${mn.age} años)`] : [s.top3, 'suma de sus 3 mejores pts']];
+    [evY.filter(r => r.es && r.es[0] <= 10).length, `top-10 del ranking de España (nacidos ${s.y})`], [evY.filter(r => r.an && r.an[0] <= 8).length, 'top-8 del ranking de Andalucía'],
+    [evY.filter(r => r.ma && r.ma[0] == 1).length, 'nº1 del ranking de Málaga'], [(DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3).length, 'podios en Campeonatos de Andalucía/España'],
+    [`${wins}🥇 ${pods}🏅`, `victorias · podios en sus ${cl.length} competiciones`], mn ? [`${mn.ok}/${mn.rows.length}`, `mínimas de España (${mn.age} años)`] : [s.top3, 'suma de sus 3 mejores pts']];
   const {F, M} = analisis(s);
   const perfil = (fn, keys) => keys.map(k => { const es = s.ev.filter(e => fn(e.e) === k); return [k, es.length ? Math.round(es.reduce((a, e) => a + e.pts, 0) / es.length) : 0, es.length]; });
   const pSt = perfil(strokeOf, STROKES), pDi = perfil(ev => { const d = distOf(ev); return d <= 50 ? '50 m' : d <= 100 ? '100 m' : d <= 200 ? '200 m' : '400 m o más'; }, ['50 m', '100 m', '200 m', '400 m o más']);
