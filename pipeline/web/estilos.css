@@ -202,3 +202,6 @@ ul.ins li::before{content:attr(data-i);position:absolute;left:0;top:0}
 .m-only{display:none}
 @media (max-width:899px){.m-only{display:inline}table.rt.cards td.hide-m{display:none}}
 .empty{padding:24px;text-align:center;color:var(--ink3)}
+/* filtros dentro de la ventana de detalle: sin salirse del borde */
+#modal .chips{margin:0;padding-left:0;padding-right:0}
+.cto-es{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:9px;background:var(--sun);color:var(--sun-ink);margin-left:4px;vertical-align:middle;white-space:nowrap}

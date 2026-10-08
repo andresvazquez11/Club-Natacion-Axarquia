@@ -50,23 +50,53 @@ function cmpBind(root) {
 /* ── Detalle de una estadística (ventana) ──
    data-stat="tipo|nivel|ámbito": tipo = sw · pos · avg · cat; nivel = ma/an/es (+ puesto máximo en «pos»: es10, an3, ma1, an8…);
    ámbito = '' (club entero), 'ALE' (categoría) o 'M|ALE' (categoría y sexo). */
+/* Datos de «importancia» de un nadador: campeonatos de España nadados (no cuenta la Copa de Clubes),
+   prueba con su mejor puesto en el ranking de España (entre los de su año) y prueba de más puntos. */
+const CTO_ES = /\b(cto|campeonato)\b.*espa[ñn]a/i;
+function nadImp(s) {
+  const ctos = new Set(); let evEs = null, evPts = null;
+  s.ev.forEach(e => {
+    e.h.forEach(x => { if (CTO_ES.test(x[3] || '') && !/clubes/i.test(x[3])) ctos.add(x[3]); });
+    const r = (e.rk.y || {}).es, rb = evEs && evEs.rk.y.es;
+    if (r && (!rb || r[0] < rb[0] || (r[0] === rb[0] && e.pts > evEs.pts))) evEs = e;
+    if (!evPts || e.pts > evPts.pts) evPts = e;
+  });
+  return {ctoEs: ctos.size ? [...ctos] : null, evEs: evEs || evPts, evPts, esPos: evEs ? evEs.rk.y.es[0] : 1e9};
+}
 let statBack = null;
-function openStat(st) {
+let statF = {};             // filtros y orden de la ventana de detalle (se mantienen al «Volver» de una evolución)
+function openStat(st, mantenerScroll) {
   const [kind, lvx, ...sc] = st.split('|'), scope = sc.join('|'), lv = lvx.slice(0, 2), mx = +lvx.slice(2) || 0;
   const [sg, sk] = scope.includes('|') ? scope.split('|') : ['', scope];
   const cat = sk ? catOf(sk) : null;
-  const S = DATA.swimmers.filter(s => (!sk || s.cat === sk) && (!sg || s.g === sg));
+  const S0 = DATA.swimmers.filter(s => (!sk || s.cat === sk) && (!sg || s.g === sg));
+  // filtros de la ventana: sexo, categoría y año (solo los que tienen sentido en este ámbito)
+  const F = statF, fg = sg ? 'all' : (F.g || 'all'), fc = sk ? 'all' : (F.c || 'all');
+  const S1 = S0.filter(s => (fg === 'all' || s.g === fg) && (fc === 'all' || s.cat === fc));
+  const yrs = [...new Set(S1.map(s => s.y))].sort((a, b) => b - a);
+  const fy = yrs.includes(+F.y) ? +F.y : 'all';
+  const S = S1.filter(s => fy === 'all' || s.y === fy);
+  const filtrado = S.length !== S0.length;
+  const cats = DATA.cats.map(c => c.key).filter((k, i, a) => a.indexOf(k) === i).map(catOf)
+    .filter(c => S0.some(s => s.cat === c.key && (fg === 'all' || s.g === fg)));
+  const filtros = (orden) => `<div class="stat-flt">
+    ${sg ? '' : `<div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('sg', [['all', 'Todos', S0.length], ['M', '♂ Chicos', S0.filter(s => s.g === 'M').length], ['F', '♀ Chicas', S0.filter(s => s.g === 'F').length]], fg)}</div>`}
+    ${sk ? '' : `<div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('sc', [['all', 'Todas'], ...cats.map(c => [c.key, c.label, S0.filter(s => s.cat === c.key && (fg === 'all' || s.g === fg)).length])], fc)}</div>`}
+    <div class="flt"><span class="flt-l">Año</span>${chipsHTML('sy', [['all', 'Todos'], ...yrs.map(y => [y, y, S1.filter(s => s.y === y).length])], fy)}</div>
+    ${orden ? `<div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('so', orden, F.o || orden[0][0])}</div>` : ''}</div>`;
   const donde = cat ? ` · ${cat.label}${sg ? ' ' + SEXO_TXT[sg].toLowerCase() : ''}` : '';
   const C = cmpDe(scope);
   const rk = m => { const r = C && C.lv[lv] && C.lv[lv].r[m]; return r ? `<p class="small" style="margin:4px 0 10px">${medal(r[0])}<b class="lv-${lv}">${r[0]}º de ${r[1]} clubes</b> de ${LVN[lv]} en esta estadística · el mejor club tiene ${r[2].toLocaleString('es')}</p>` : ''; };
   const top = k => { const K = ((DATA.comparativa || {}).kpi || {})[k]; return K ? `<p class="small" style="margin:4px 0 10px">${cmpLines(K).replace('class="cmp"', '')}</p>` : ''; };
   const posLv = (e, l) => { const r = (e.rk.y || {})[l]; return r ? posB(r[0], r[1]) : '—'; };
-  let title = '', intro = '', body = '', rank = '';
+  let title = '', intro = '', body = '', rank = '', orden = null;
   if (kind === 'pos') {
     const R = []; S.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) R.push([s, e, r]); }));
     R.sort((a, b) => a[2][0] - b[2][0] || a[2][1] - b[2][1] || a[0].n.localeCompare(b[0].n));
     const nom = {1: 'nº1', 3: 'en el podio (top-3)', 8: 'en el top-8', 10: 'en el top-10'}[mx];
     title = `${R.length} pruebas ${nom} de ${LVN[lv]}${donde}`;
+    let n0 = 0; S0.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) n0++; }));
+    if (filtrado) title = `${R.length} de ${n0} pruebas ${nom} de ${LVN[lv]}${donde}`;
     intro = `Pruebas en las que un nadador del club está ${nom} del ranking de ${LVN[lv]} entre los nacidos en su mismo año. Pulsa una para ver su evolución.`;
     rank = (scope || !['es10', 'an3', 'ma1'].includes(lvx)) ? rk(mx === 1 ? 'n1' : 't8') : top({es10: 't10', an3: 'pod', ma1: 'oro'}[lvx]);
     body = R.length ? `<table class="rt cards"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th class="num">Pts</th><th>Fecha</th></tr>` +
@@ -75,25 +105,47 @@ function openStat(st) {
         <td class="num" data-l="Marca"><b>${fmt(e.cs)}</b></td><td class="num" data-l="Pts">${e.pts}</td><td data-l="Fecha">${dtag(e.date)}</td></tr>`).join('') + '</table>'
       : '<p class="empty">Ninguna todavía.</p>';
   } else if (kind === 'sw' || kind === 'avg') {
-    const R = S.map(s => [s, s.ev.reduce((a, e) => !a || e.pts > a.pts ? e : a, null)]).filter(x => x[1]);
-    R.sort(kind === 'avg' ? (a, b) => b[1].pts - a[1].pts : (a, b) => a[0].y - b[0].y || a[0].g.localeCompare(b[0].g) || a[0].n.localeCompare(b[0].n));
+    // Orden «Importancia» (por defecto en nadadores): 1º quien ha nadado un Campeonato de España,
+    // 2º su mejor puesto en el ranking de España (entre los de su año), 3º los puntos World Aquatics.
+    const ORD = {imp: (a, b) => (b[0].ctoEs ? 1 : 0) - (a[0].ctoEs ? 1 : 0) || a[0].esPos - b[0].esPos || b[0].best - a[0].best,
+      es: (a, b) => a[0].esPos - b[0].esPos || b[0].best - a[0].best,
+      pts: (a, b) => b[0].best - a[0].best || a[0].esPos - b[0].esPos,
+      np: (a, b) => b[0].np - a[0].np || b[0].best - a[0].best, y: (a, b) => b[0].y - a[0].y || b[0].best - a[0].best,
+      n: (a, b) => a[0].n.localeCompare(b[0].n)};
+    const ord = ORD[F.o] ? F.o : (kind === 'avg' ? 'pts' : 'imp');
+    // prueba que se enseña en cada fila: la de mejor puesto en España, salvo al ordenar por puntos
+    const verPts = ord === 'pts' || kind === 'avg';
+    const R = S.map(s => [Object.assign(s, nadImp(s)), null]).map(([s]) => [s, verPts ? s.evPts : s.evEs]).filter(x => x[1]);
+    R.sort(ORD[ord]);
     const media = R.length ? Math.round(R.reduce((a, x) => a + x[1].pts, 0) / R.length) : 0;
-    title = kind === 'avg' ? `Nivel medio: ${media} pts World Aquatics${donde}` : `${S.length} nadadores del club en el ranking${donde}`;
-    intro = kind === 'avg' ? 'Media de los puntos World Aquatics de la mejor marca de cada nadador, de más a menos puntos.' : 'Nadadores del club con marca, con su prueba de más puntos y sus puestos entre los nacidos en su año.';
+    title = kind === 'avg' ? `Nivel medio: ${media} pts World Aquatics${donde}` : `${S0.length} nadadores del club en el ranking${donde}`;
+    if (filtrado) title = kind === 'avg' ? `Nivel medio: ${media} pts · ${R.length} nadadores${donde}` : `${R.length} de ${S0.length} nadadores del club${donde}`;
+    intro = (kind === 'avg' ? 'Media de los puntos World Aquatics de la mejor marca de cada nadador.' : 'Nadadores del club con marca, con su mejor prueba y sus puestos entre los nacidos en su año.') +
+      (kind === 'avg' ? ' De más a menos puntos.' : ' Arriba los más importantes: primero los que han nadado un <b>Campeonato de España</b> 🇪🇸, después por su <b>mejor puesto en el ranking de España</b> y, a igualdad, por puntos.') +
+      ' Pulsa un nadador para ver la evolución de esa prueba.';
+    orden = [...(kind === 'avg' ? [] : [['imp', 'Importancia']]), ['pts', 'Puntos'], ['es', 'Puesto en España'], ['np', 'Nº de pruebas'], ['y', 'Año'], ['n', 'Nombre']];
+    if (kind === 'avg') orden.push(['imp', 'Importancia']);
     rank = scope || lv ? rk(kind) : top('sw');
-    body = `<table class="rt cards"><tr><th>Nadador</th><th>Año</th><th>Mejor prueba</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>` +
-      R.map(([s, e]) => `<tr class="click ${s.benicio ? 'me' : ''}" data-evo="${s.id}|${e.e}"><td class="t" data-l=""><b>${esc(s.n)}</b></td><td data-l="Año">${s.y} <span class="of">${s.catl || ''} ${SEXO[s.g]}</span></td>
-        <td data-l="Mejor prueba">${e.e} <b>${fmt(e.cs)}</b></td><td class="num" data-l="Pts">${e.pts}</td><td data-l="Málaga">${posLv(e, 'ma')}</td><td data-l="Andalucía">${posLv(e, 'an')}</td><td data-l="España">${posLv(e, 'es')}</td></tr>`).join('') + '</table>';
+    body = `<table class="rt cards"><tr><th>Nadador</th><th>Año</th><th>${verPts ? 'Prueba de más puntos' : 'Mejor puesto en España'}</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>` +
+      R.map(([s, e], k) => `<tr class="click ${s.benicio ? 'me' : ''}" data-evo="${s.id}|${e.e}"><td class="t" data-l=""><span class="of">${k + 1}.</span> <b>${esc(s.n)}</b>${s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">🇪🇸 Cto. España</span>` : ''}</td><td data-l="Año">${s.y} <span class="of">${s.catl || ''} ${SEXO[s.g]}</span></td>
+        <td data-l="${verPts ? 'Más puntos' : 'Mejor en España'}">${e.e} <b>${fmt(e.cs)}</b></td><td class="num" data-l="Pts">${e.pts}</td><td data-l="Málaga">${posLv(e, 'ma')}</td><td data-l="Andalucía">${posLv(e, 'an')}</td><td data-l="España">${posLv(e, 'es')}</td></tr>`).join('') + '</table>';
   }
+  if ((kind === 'sw' || kind === 'avg') && !S.length) body = '<p class="empty">Ningún nadador con estos filtros.</p>';
   statBack = st;
-  document.querySelector('#modal .box').innerHTML = `<button class="close" onclick="closeEvo()">Cerrar ✕</button>
-    <h1 style="font-size:1.25rem;font-weight:900">${title}</h1>${rank}<p class="small muted" style="margin-bottom:12px">${intro}</p>${body}`;
-  const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0;
+  const m = document.getElementById('modal'), box = m.querySelector('.box'), wasOpen = m.classList.contains('open');
+  const keep = wasOpen && mantenerScroll ? m.scrollTop : 0;
+  box.innerHTML = `<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+    <h1 style="font-size:1.25rem;font-weight:900">${title}</h1>${rank}<p class="small muted" style="margin-bottom:12px">${intro}</p>
+    ${kind === 'cat' ? '' : filtros(orden)}${body}`;
+  const set = (k, v) => { statF = Object.assign({}, statF, {[k]: v}); if (k !== 'y' && k !== 'o') delete statF.y; openStat(st, true); };
+  onChips(box, 'sg', v => set('g', v)); onChips(box, 'sc', v => set('c', v));
+  onChips(box, 'sy', v => set('y', v)); onChips(box, 'so', v => set('o', v));
+  m.classList.add('open'); m.scrollTop = keep;
   document.body.style.overflow = 'hidden';
 }
 
 /* clic en una estadística → detalle (la vuelta desde la evolución la gestiona openEvo) */
 document.addEventListener('click', ev => {
   const st = ev.target.closest('[data-stat]');
-  if (st) openStat(st.dataset.stat);
+  if (st) { statF = {}; openStat(st.dataset.stat); }
 });
