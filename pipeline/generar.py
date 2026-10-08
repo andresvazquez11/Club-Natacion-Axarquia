@@ -431,6 +431,10 @@ def montar_html():
     """Une plantilla + estilos + JS en un único HTML (sirve también abierto desde el disco)."""
     leer = lambda n: open(os.path.join(WEB_DIR, n), encoding='utf-8').read()
     js = '\n'.join(f'/* ── {n} ── */\n' + leer(n) for n in JS_ORDEN)
+    # Protección: nunca publicar una página con restos de un conflicto de git
+    for n in JS_ORDEN + ['estilos.css', 'plantilla.html']:
+        if re.search(r'^(<<<<<<<|>>>>>>>) ', leer(n), re.M):
+            raise SystemExit(f'ERROR: {n} tiene marcas de conflicto de git sin resolver; no se genera la página.')
     return leer('plantilla.html').replace('/*__CSS__*/', leer('estilos.css')).replace('/*__JS__*/', js)
 
 

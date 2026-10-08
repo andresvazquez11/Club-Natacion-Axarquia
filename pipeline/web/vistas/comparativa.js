@@ -51,14 +51,9 @@ function cmpBind(root) {
    data-stat="tipo|nivel|ámbito": tipo = sw · pos · avg · cat; nivel = ma/an/es (+ puesto máximo en «pos»: es10, an3, ma1, an8…);
    ámbito = '' (club entero), 'ALE' (categoría) o 'M|ALE' (categoría y sexo). */
 let statBack = null;
-<<<<<<< Updated upstream
 let statF = {};             // filtros y orden de la ventana de detalle (se mantienen al «Volver» de una evolución)
 function openStat(st, mantenerScroll) {
-  const [kind, lvx, ...sc] = st.split('|'), scope = sc.join('|'), lv = lvx.slice(0, 2), mx = +lvx.slice(2) || 0;
-=======
-function openStat(st) {
   const [kind, lvx, ...sc] = st.split('|'), scope = sc.join('|'), lv = /^(ma|an|es)/.test(lvx) ? lvx.slice(0, 2) : '', mx = +lvx.replace(/^(ma|an|es)/, '') || 0;
->>>>>>> Stashed changes
   const [sg, sk] = scope.includes('|') ? scope.split('|') : ['', scope];
   const cat = sk ? catOf(sk) : null;
   const S0 = DATA.swimmers.filter(s => (!sk || s.cat === sk) && (!sg || s.g === sg));
@@ -86,15 +81,10 @@ function openStat(st) {
     const R = []; S.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) R.push([s, e, r]); }));
     R.sort((a, b) => a[2][0] - b[2][0] || a[2][1] - b[2][1] || a[0].n.localeCompare(b[0].n));
     const nom = {1: 'nº1', 3: 'en el podio (top-3)', 8: 'en el top-8', 10: 'en el top-10'}[mx];
-<<<<<<< Updated upstream
-    title = `${R.length} pruebas ${nom} de ${LVN[lv]}${donde}`;
-    let n0 = 0; S0.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) n0++; }));
-    if (filtrado) title = `${R.length} de ${n0} pruebas ${nom} de ${LVN[lv]}${donde}`;
-    intro = `Pruebas en las que un nadador del club está ${nom} del ranking de ${LVN[lv]} entre los nacidos en su mismo año. Pulsa una para ver su evolución.`;
-=======
     title = `${R.length} pruebas ${nom} del ranking de ${LVN[lv]}${donde}`;
+    let n0 = 0; S0.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) n0++; }));
+    if (filtrado) title = `${R.length} de ${n0} pruebas ${nom} del ranking de ${LVN[lv]}${donde}`;
     intro = `Pruebas en las que un nadador del club está ${nom} del <b>ranking de ${LVN[lv]} de la temporada</b> (mejor marca de cada nadador, entre los nacidos en su mismo año). No es el puesto en un campeonato: eso está en «podios en campeonatos». Pulsa una para ver su evolución.`;
->>>>>>> Stashed changes
     rank = (scope || !['es10', 'an3', 'ma1'].includes(lvx)) ? rk(mx === 1 ? 'n1' : 't8') : top({es10: 't10', an3: 'pod', ma1: 'oro'}[lvx]);
     body = R.length ? `<table class="rt cards"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th class="num">Pts</th><th>Fecha</th></tr>` +
       R.map(([s, e, r]) => `<tr class="click ${s.benicio ? 'me' : ''}" data-evo="${s.id}|${e.e}"><td class="t" data-l="">${posB(r[0], r[1])}<span class="m-only">&nbsp; ${esc(s.n)}</span></td>
