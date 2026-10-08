@@ -651,10 +651,14 @@ function swCard(s, k) {
   const logros = [];
   const t10 = s.ev.filter(x => x.rk.y && x.rk.y.es && x.rk.y.es[0] <= 10).length;
   const ma1 = s.ev.filter(x => x.rk.y && x.rk.y.ma && x.rk.y.ma[0] == 1).length;
-  const cto = (DATA.destacados || []).filter(x => x.id === s.id).length;
-  if (t10) logros.push(`<span class="tag gold">🇪🇸 ${t10} top-10</span>`);
-  if (cto) logros.push(`<span class="tag">🏆 ${cto} en campeonatos</span>`);
-  if (ma1) logros.push(`<span class="tag">🥇 ${ma1} nº1 Málaga</span>`);
+  // top-10 en campeonatos (entre los de su año), separados por campeonato
+  const cto = lv => (DATA.destacados || []).filter(x => x.id === s.id && x.lv === lv).length;
+  const ctoEs = cto('es'), ctoAn = cto('an');
+  const veces = n => n === 1 ? '1 vez' : `${n} veces`;
+  if (ctoEs) logros.push(`<span class="tag gold" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de España">🏆 Top-10 en Cto. España: ${veces(ctoEs)}</span>`);
+  if (ctoAn) logros.push(`<span class="tag" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de Andalucía">🏆 Top-10 en Cto. Andalucía: ${veces(ctoAn)}</span>`);
+  if (t10) logros.push(`<span class="tag" title="Pruebas en las que está entre los 10 mejores de España de su año, con su mejor marca">📊 Top-10 ranking España: ${t10} ${t10 === 1 ? 'prueba' : 'pruebas'}</span>`);
+  if (ma1) logros.push(`<span class="tag" title="Pruebas en las que tiene la mejor marca de Málaga de su año">🥇 Nº1 ranking Málaga: ${ma1} ${ma1 === 1 ? 'prueba' : 'pruebas'}</span>`);
   return `<a class="card link sw ${s.benicio ? 'ben' : ''}" href="${fichaHref(s)}" style="text-decoration:none">
     <div class="sw-top"><div><div class="sw-n"><span class="of">${k + 1}.</span> ${esc(s.n)}${s.benicio ? ' ⭐' : ''}${ctoTag(s)}</div>
       <div class="sw-m">${s.y} · ${s.cy}º año · ${s.np} pruebas · ${s.best} pts</div></div><span class="sw-g" title="${SEXO_TXT[s.g]}">${SEXO[s.g]}</span></div>
