@@ -133,6 +133,7 @@ select.sel{min-height:42px;border-radius:12px;border:1px solid var(--line);backg
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 .rt th{font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:800}
+.rt th.num,.rt td.num{text-align:right}
 .rt td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:middle}
 .rt tr.me td{background:rgba(255,214,10,.16)}
 .rt tr.club td{background:rgba(255,255,255,.06)}
@@ -167,7 +168,8 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 /* ═══ Ficha de atleta ═══ */
 .hero{background:linear-gradient(135deg,rgba(3,4,94,.6),rgba(0,119,182,.35));border:1px solid var(--line);border-radius:22px;padding:20px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,10,.25),transparent 70%)}
-.hero .back{font-size:.8rem;color:var(--ink3);text-decoration:none;display:inline-block;margin-bottom:8px}
+.hero .back{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;margin-bottom:12px;border-radius:12px;background:var(--glass2);border:1px solid var(--line);color:var(--ink);font-weight:800;font-size:.85rem;text-decoration:none;position:relative;z-index:1}
+.hero .back:hover{background:var(--sun);color:var(--sun-ink)}
 .hero h1{font-size:1.7rem;font-weight:900;letter-spacing:-.5px;line-height:1.05}
 .hero .meta{font-size:.82rem;color:var(--ink2);margin:6px 0 12px}
 .tabs{position:sticky;top:0;z-index:10;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:14px -16px 14px;padding:10px 16px;

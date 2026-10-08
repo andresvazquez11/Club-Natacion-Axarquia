@@ -141,6 +141,7 @@ select.sel{min-height:42px;border-radius:12px;border:1px solid var(--line);backg
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 .rt th{font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;color:var(--ink3);text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:800}
+.rt th.num,.rt td.num{text-align:right}
 .rt td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:middle}
 .rt tr.me td{background:rgba(255,214,10,.16)}
 .rt tr.club td{background:rgba(255,255,255,.06)}
@@ -175,7 +176,8 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 /* ═══ Ficha de atleta ═══ */
 .hero{background:linear-gradient(135deg,rgba(3,4,94,.6),rgba(0,119,182,.35));border:1px solid var(--line);border-radius:22px;padding:20px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,10,.25),transparent 70%)}
-.hero .back{font-size:.8rem;color:var(--ink3);text-decoration:none;display:inline-block;margin-bottom:8px}
+.hero .back{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;margin-bottom:12px;border-radius:12px;background:var(--glass2);border:1px solid var(--line);color:var(--ink);font-weight:800;font-size:.85rem;text-decoration:none;position:relative;z-index:1}
+.hero .back:hover{background:var(--sun);color:var(--sun-ink)}
 .hero h1{font-size:1.7rem;font-weight:900;letter-spacing:-.5px;line-height:1.05}
 .hero .meta{font-size:.82rem;color:var(--ink2);margin:6px 0 12px}
 .tabs{position:sticky;top:0;z-index:10;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:14px -16px 14px;padding:10px 16px;
@@ -882,6 +884,17 @@ function tabAndalucia(s, p) {
     <p class="tiny muted" style="margin-top:8px">25 m y 50 m no son comparables: usa el filtro de piscina para afinar.</p>`;
 }
 
+/* botón «Volver»: a la pantalla de la que se vino; si se entró directo, a la categoría del nadador */
+function volverHTML(s, cat) {
+  const NOM = {inicio: 'Inicio', club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', benicio: 'Benicio', nadador: 'ficha anterior'};
+  if (volverA) {
+    const sec = volverA.slice(1).split(/[/?]/)[0] || 'inicio';
+    return `<a class="back" href="${esc(volverA)}">‹ Volver a ${NOM[sec] || 'la pantalla anterior'}</a>`;
+  }
+  if (!s.benicio && cat) return `<a class="back" href="#club/${cat.key}">‹ Volver a ${cat.label}</a>`;
+  return '';
+}
+
 /* ── vista ── */
 function vistaFicha(app, s, tab, p) {
   const tabs = fichaTabs(s);
@@ -906,7 +919,7 @@ function vistaFicha(app, s, tab, p) {
 
   app.innerHTML = `
     <div class="hero">
-      ${!s.benicio && cat ? `<a class="back" href="#club/${cat.key}">← ${cat.label}</a>` : ''}
+      ${volverHTML(s, cat)}
       <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
       <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${s.catl} ${s.cy}º año en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
       <div class="tags">${logros.slice(0, 6).join('')}${logros.length > 6 ? `<span class="tag">+${logros.length - 6}</span>` : ''}</div>
@@ -973,11 +986,22 @@ function parseHash() {
 }
 
 let lastSec = null;
+let lastHash = null;        // dirección completa de la última pantalla mostrada
+let volverA = null;         // pantalla a la que lleva el botón «Volver» de la ficha
+const scrollPos = {};       // altura de scroll de cada pantalla visitada
 function route() {
   closeEvo();
   const app = document.getElementById('app');
   const {parts, params} = parseHash();
   let sec = parts[0] || 'inicio';
+  // Al entrar en una ficha desde otra pantalla, se guarda esa pantalla para «Volver».
+  // Cambiar de pestaña o filtro dentro de la misma ficha no la sustituye.
+  const fichaDe = h => { const m = (h || '').match(/^#(benicio|nadador\/\d+)/); return m ? m[1] : null; };
+  const esFicha = sec === 'benicio' || sec === 'nadador';
+  if (esFicha && fichaDe(location.hash) !== fichaDe(lastHash)) volverA = lastHash;
+  if (!esFicha) volverA = null;
+  if (lastHash) scrollPos[lastHash] = window.scrollY;   // recordar por dónde iba en la pantalla que deja
+  lastHash = location.hash || '#inicio';
   if (sec === 'benicio' && !BEN) sec = 'inicio';
   if (sec === 'nadador' && !SW[parts[1]]) sec = 'club';
 
@@ -992,7 +1016,8 @@ function route() {
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.sec === navSec));
   // al cambiar de sección o de nadador se sube arriba; al cambiar un filtro se mantiene la posición
   const key = sec + '/' + (parts[1] || '') + '/' + (sec === 'nadador' || sec === 'benicio' ? (parts[sec === 'nadador' ? 2 : 1] || '') : '');
-  if (key !== lastSec) window.scrollTo(0, 0);
+  // al volver a una pantalla ya vista se recupera su altura; si es nueva, se empieza arriba
+  if (key !== lastSec) window.scrollTo(0, scrollPos[location.hash || '#inicio'] || 0);
   lastSec = key;
 }
 

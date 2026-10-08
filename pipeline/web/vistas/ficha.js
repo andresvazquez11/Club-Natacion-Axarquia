@@ -185,6 +185,17 @@ function tabAndalucia(s, p) {
     <p class="tiny muted" style="margin-top:8px">25 m y 50 m no son comparables: usa el filtro de piscina para afinar.</p>`;
 }
 
+/* botón «Volver»: a la pantalla de la que se vino; si se entró directo, a la categoría del nadador */
+function volverHTML(s, cat) {
+  const NOM = {inicio: 'Inicio', club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', benicio: 'Benicio', nadador: 'ficha anterior'};
+  if (volverA) {
+    const sec = volverA.slice(1).split(/[/?]/)[0] || 'inicio';
+    return `<a class="back" href="${esc(volverA)}">‹ Volver a ${NOM[sec] || 'la pantalla anterior'}</a>`;
+  }
+  if (!s.benicio && cat) return `<a class="back" href="#club/${cat.key}">‹ Volver a ${cat.label}</a>`;
+  return '';
+}
+
 /* ── vista ── */
 function vistaFicha(app, s, tab, p) {
   const tabs = fichaTabs(s);
@@ -209,7 +220,7 @@ function vistaFicha(app, s, tab, p) {
 
   app.innerHTML = `
     <div class="hero">
-      ${!s.benicio && cat ? `<a class="back" href="#club/${cat.key}">← ${cat.label}</a>` : ''}
+      ${volverHTML(s, cat)}
       <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
       <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${s.catl} ${s.cy}º año en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
       <div class="tags">${logros.slice(0, 6).join('')}${logros.length > 6 ? `<span class="tag">+${logros.length - 6}</span>` : ''}</div>
