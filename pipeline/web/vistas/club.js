@@ -1,6 +1,6 @@
 /* 👥 Club: categorías con los dos sexos juntos + filtros de sexo, año y nombre */
-function swCard(s) {
-  const e = s.ev[0], r = (e && e.rk.y) || {};
+function swCard(s, k) {
+  const e = s.evEs, r = (e && e.rk.y) || {};
   const logros = [];
   const t10 = s.ev.filter(x => x.rk.y && x.rk.y.es && x.rk.y.es[0] <= 10).length;
   const ma1 = s.ev.filter(x => x.rk.y && x.rk.y.ma && x.rk.y.ma[0] == 1).length;
@@ -9,20 +9,20 @@ function swCard(s) {
   if (cto) logros.push(`<span class="tag">🏆 ${cto} en campeonatos</span>`);
   if (ma1) logros.push(`<span class="tag">🥇 ${ma1} nº1 Málaga</span>`);
   return `<a class="card link sw ${s.benicio ? 'ben' : ''}" href="${fichaHref(s)}" style="text-decoration:none">
-    <div class="sw-top"><div><div class="sw-n">${esc(s.n)}${s.benicio ? ' ⭐' : ''}</div>
+    <div class="sw-top"><div><div class="sw-n"><span class="of">${k + 1}.</span> ${esc(s.n)}${s.benicio ? ' ⭐' : ''}${ctoTag(s)}</div>
       <div class="sw-m">${s.y} · ${s.cy}º año · ${s.np} pruebas · ${s.best} pts</div></div><span class="sw-g" title="${SEXO_TXT[s.g]}">${SEXO[s.g]}</span></div>
-    ${e ? `<div class="sw-best">Mejor prueba: <b>${e.e}</b> · <b class="sun">${fmt(e.cs)}</b> ${dtag(e.date)}</div>
+    ${e ? `<div class="sw-best">Mejor puesto en España: <b>${e.e}</b> · <b class="sun">${fmt(e.cs)}</b> ${dtag(e.date)}</div>
     <div class="sw-lv">${LV.map(([lv, l]) => `<div><small class="lv-${lv}">${l}</small>${r[lv] ? posB(r[lv][0], r[lv][1]) : '—'}</div>`).join('')}</div>` : ''}
     ${logros.length ? `<div class="tags">${logros.join('')}</div>` : ''}</a>`;
 }
 
 function vistaClub(app, p) {
   const c = catOf(p.cat) || catOf('ALE') || DATA.cats[0];
-  const g = p.g || 'all', y = p.y || 'all';
+  const g = p.g || 'all', y = p.y || 'all', o = ORDEN_NAD[p.o] ? p.o : 'imp';
   const base = c.ids.map(id => SW[String(id)]);
   const list = base.filter(s => (g === 'all' || s.g === g) && (y === 'all' || String(s.y) === String(y)))
-                   .sort((a, b) => b.top3 - a.top3);
-  const go = (o) => { const q = Object.assign({g, y}, o); location.hash = `#club/${o.cat || c.key}?g=${q.g}&y=${q.y}`; };
+                   .sort(ORDEN_NAD[o]);
+  const go = (x) => { const q = Object.assign({g, y, o}, x); location.hash = `#club/${x.cat || c.key}?g=${q.g}&y=${q.y}&o=${q.o}`; };
   const k = kpisClub(list), sc = cmpScope(c.key, g);
   // el detalle de cada cifra es por categoría y sexo: con un año filtrado las cifras no se abren
   const ds = st => y === 'all' ? `data-stat="${st}|${sc}"` : '';
@@ -40,6 +40,8 @@ function vistaClub(app, p) {
       <button class="kpi" ${ds('pos|an3')}><b>${k.podAn}</b><span>podios Andalucía</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
       <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
     </div>
+    <div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('o', ORDEN_NAD_TXT, o)}</div>
+    ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España 🇪🇸, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}
     <input class="search" id="q" type="search" placeholder="🔍 Buscar nadador por nombre…" autocomplete="off">
     <div class="swl" id="swl" style="margin-top:12px"></div>
 
@@ -49,11 +51,12 @@ function vistaClub(app, p) {
   const pinta = (q) => {
     const qq = (q || '').trim().toLowerCase();
     const L = list.filter(s => !qq || s.n.toLowerCase().includes(qq));
-    document.getElementById('swl').innerHTML = L.length ? L.map(swCard).join('') : '<p class="empty">Ningún nadador con esos filtros.</p>';
+    document.getElementById('swl').innerHTML = L.length ? L.map((s, k) => swCard(s, k)).join('') : '<p class="empty">Ningún nadador con esos filtros.</p>';
   };
   pinta(''); cmpBind(app);
   document.getElementById('q').oninput = ev => pinta(ev.target.value);
   onChips(app, 'cat', v => go({cat: v, y: 'all'}));
   onChips(app, 'g', v => go({g: v}));
   onChips(app, 'y', v => go({y: v}));
+  onChips(app, 'o', v => go({o: v}));
 }

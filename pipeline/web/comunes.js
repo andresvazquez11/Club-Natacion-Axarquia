@@ -93,3 +93,30 @@ function kpisClub(list) {
     if (r.es && r.es[0] <= 10) t10++; if (r.an && r.an[0] <= 3) podAn++; if (r.ma && r.ma[0] == 1) oroMa++; }));
   return {t10, podAn, oroMa};
 }
+
+/* Datos de «importancia» de un nadador: campeonatos de España nadados (no cuenta la Copa de Clubes),
+   prueba con su mejor puesto en el ranking de España (entre los de su año) y prueba de más puntos. */
+const CTO_ES = /\b(cto|campeonato)\b.*espa[ñn]a/i;
+function nadImp(s) {
+  const ctos = new Set(); let evEs = null, evPts = null;
+  s.ev.forEach(e => {
+    e.h.forEach(x => { if (CTO_ES.test(x[3] || '') && !/clubes/i.test(x[3])) ctos.add(x[3]); });
+    const r = (e.rk.y || {}).es, rb = evEs && evEs.rk.y.es;
+    if (r && (!rb || r[0] < rb[0] || (r[0] === rb[0] && e.pts > evEs.pts))) evEs = e;
+    if (!evPts || e.pts > evPts.pts) evPts = e;
+  });
+  return {ctoEs: ctos.size ? [...ctos] : null, evEs: evEs || evPts, evPts, esPos: evEs ? evEs.rk.y.es[0] : 1e9};
+}
+/* Órdenes de nadadores que usa toda la página (fichas del club y ventanas de detalle).
+   «Importancia» (por defecto): 1º quien ha nadado un Campeonato de España, 2º su mejor puesto
+   en el ranking de España (entre los de su año), 3º los puntos World Aquatics. */
+const ORDEN_NAD = {
+  imp: (a, b) => (b.ctoEs ? 1 : 0) - (a.ctoEs ? 1 : 0) || a.esPos - b.esPos || b.best - a.best,
+  pts: (a, b) => b.best - a.best || a.esPos - b.esPos,
+  es: (a, b) => a.esPos - b.esPos || b.best - a.best,
+  np: (a, b) => b.np - a.np || b.best - a.best,
+  y: (a, b) => b.y - a.y || b.best - a.best,
+  n: (a, b) => a.n.localeCompare(b.n)};
+const ORDEN_NAD_TXT = [['imp', 'Importancia'], ['pts', 'Puntos'], ['es', 'Puesto en España'], ['np', 'Nº de pruebas'], ['y', 'Año'], ['n', 'Nombre']];
+DATA.swimmers.forEach(s => Object.assign(s, nadImp(s)));   // se calcula una vez al cargar
+const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">🇪🇸 Cto. España</span>` : '';

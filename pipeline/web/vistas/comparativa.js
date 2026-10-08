@@ -50,19 +50,6 @@ function cmpBind(root) {
 /* ── Detalle de una estadística (ventana) ──
    data-stat="tipo|nivel|ámbito": tipo = sw · pos · avg · cat; nivel = ma/an/es (+ puesto máximo en «pos»: es10, an3, ma1, an8…);
    ámbito = '' (club entero), 'ALE' (categoría) o 'M|ALE' (categoría y sexo). */
-/* Datos de «importancia» de un nadador: campeonatos de España nadados (no cuenta la Copa de Clubes),
-   prueba con su mejor puesto en el ranking de España (entre los de su año) y prueba de más puntos. */
-const CTO_ES = /\b(cto|campeonato)\b.*espa[ñn]a/i;
-function nadImp(s) {
-  const ctos = new Set(); let evEs = null, evPts = null;
-  s.ev.forEach(e => {
-    e.h.forEach(x => { if (CTO_ES.test(x[3] || '') && !/clubes/i.test(x[3])) ctos.add(x[3]); });
-    const r = (e.rk.y || {}).es, rb = evEs && evEs.rk.y.es;
-    if (r && (!rb || r[0] < rb[0] || (r[0] === rb[0] && e.pts > evEs.pts))) evEs = e;
-    if (!evPts || e.pts > evPts.pts) evPts = e;
-  });
-  return {ctoEs: ctos.size ? [...ctos] : null, evEs: evEs || evPts, evPts, esPos: evEs ? evEs.rk.y.es[0] : 1e9};
-}
 let statBack = null;
 let statF = {};             // filtros y orden de la ventana de detalle (se mantienen al «Volver» de una evolución)
 function openStat(st, mantenerScroll) {
@@ -107,27 +94,21 @@ function openStat(st, mantenerScroll) {
   } else if (kind === 'sw' || kind === 'avg') {
     // Orden «Importancia» (por defecto en nadadores): 1º quien ha nadado un Campeonato de España,
     // 2º su mejor puesto en el ranking de España (entre los de su año), 3º los puntos World Aquatics.
-    const ORD = {imp: (a, b) => (b[0].ctoEs ? 1 : 0) - (a[0].ctoEs ? 1 : 0) || a[0].esPos - b[0].esPos || b[0].best - a[0].best,
-      es: (a, b) => a[0].esPos - b[0].esPos || b[0].best - a[0].best,
-      pts: (a, b) => b[0].best - a[0].best || a[0].esPos - b[0].esPos,
-      np: (a, b) => b[0].np - a[0].np || b[0].best - a[0].best, y: (a, b) => b[0].y - a[0].y || b[0].best - a[0].best,
-      n: (a, b) => a[0].n.localeCompare(b[0].n)};
-    const ord = ORD[F.o] ? F.o : (kind === 'avg' ? 'pts' : 'imp');
+    const ord = ORDEN_NAD[F.o] ? F.o : (kind === 'avg' ? 'pts' : 'imp');
     // prueba que se enseña en cada fila: la de mejor puesto en España, salvo al ordenar por puntos
     const verPts = ord === 'pts' || kind === 'avg';
-    const R = S.map(s => [Object.assign(s, nadImp(s)), null]).map(([s]) => [s, verPts ? s.evPts : s.evEs]).filter(x => x[1]);
-    R.sort(ORD[ord]);
+    const R = S.map(s => [s, verPts ? s.evPts : s.evEs]).filter(x => x[1]);
+    R.sort((a, b) => ORDEN_NAD[ord](a[0], b[0]));
     const media = R.length ? Math.round(R.reduce((a, x) => a + x[1].pts, 0) / R.length) : 0;
     title = kind === 'avg' ? `Nivel medio: ${media} pts World Aquatics${donde}` : `${S0.length} nadadores del club en el ranking${donde}`;
     if (filtrado) title = kind === 'avg' ? `Nivel medio: ${media} pts · ${R.length} nadadores${donde}` : `${R.length} de ${S0.length} nadadores del club${donde}`;
     intro = (kind === 'avg' ? 'Media de los puntos World Aquatics de la mejor marca de cada nadador.' : 'Nadadores del club con marca, con su mejor prueba y sus puestos entre los nacidos en su año.') +
       (kind === 'avg' ? ' De más a menos puntos.' : ' Arriba los más importantes: primero los que han nadado un <b>Campeonato de España</b> 🇪🇸, después por su <b>mejor puesto en el ranking de España</b> y, a igualdad, por puntos.') +
       ' Pulsa un nadador para ver la evolución de esa prueba.';
-    orden = [...(kind === 'avg' ? [] : [['imp', 'Importancia']]), ['pts', 'Puntos'], ['es', 'Puesto en España'], ['np', 'Nº de pruebas'], ['y', 'Año'], ['n', 'Nombre']];
-    if (kind === 'avg') orden.push(['imp', 'Importancia']);
+    orden = kind === 'avg' ? [...ORDEN_NAD_TXT.slice(1), ORDEN_NAD_TXT[0]] : ORDEN_NAD_TXT;
     rank = scope || lv ? rk(kind) : top('sw');
     body = `<table class="rt cards"><tr><th>Nadador</th><th>Año</th><th>${verPts ? 'Prueba de más puntos' : 'Mejor puesto en España'}</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>` +
-      R.map(([s, e], k) => `<tr class="click ${s.benicio ? 'me' : ''}" data-evo="${s.id}|${e.e}"><td class="t" data-l=""><span class="of">${k + 1}.</span> <b>${esc(s.n)}</b>${s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">🇪🇸 Cto. España</span>` : ''}</td><td data-l="Año">${s.y} <span class="of">${s.catl || ''} ${SEXO[s.g]}</span></td>
+      R.map(([s, e], k) => `<tr class="click ${s.benicio ? 'me' : ''}" data-evo="${s.id}|${e.e}"><td class="t" data-l=""><span class="of">${k + 1}.</span> <b>${esc(s.n)}</b>${ctoTag(s)}</td><td data-l="Año">${s.y} <span class="of">${s.catl || ''} ${SEXO[s.g]}</span></td>
         <td data-l="${verPts ? 'Más puntos' : 'Mejor en España'}">${e.e} <b>${fmt(e.cs)}</b></td><td class="num" data-l="Pts">${e.pts}</td><td data-l="Málaga">${posLv(e, 'ma')}</td><td data-l="Andalucía">${posLv(e, 'an')}</td><td data-l="España">${posLv(e, 'es')}</td></tr>`).join('') + '</table>';
   }
   if ((kind === 'sw' || kind === 'avg') && !S.length) body = '<p class="empty">Ningún nadador con estos filtros.</p>';
