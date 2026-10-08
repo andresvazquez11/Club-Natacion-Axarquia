@@ -18,7 +18,7 @@ function vistaInicio(app) {
           <div style="font-size:1.2rem;font-weight:900;margin-top:2px">${esc(BEN.n)}</div>
           <div class="small muted">${BEN.y} · ${BEN.catl} ${BEN.cy}º año</div></div>
         <div style="text-align:right"><div title="Evolución ${e0.e}">${spark(h0, 110, 40)}</div><div class="tiny muted">${e0.e}</div></div></div>
-      <div class="tags" style="margin-top:12px">${top.map(e => `<span class="tag ${e.rk.y.es[0] <= 10 ? 'gold' : ''}">🇪🇸 ${e.rk.y.es[0]}º ${e.e}</span>`).join('')}</div>
+      <div class="tags" style="margin-top:12px">${top.map(e => `<span class="tag ${e.rk.y.es[0] <= 10 ? 'gold' : ''}">${FLAG_ES} ${e.rk.y.es[0]}º ${e.e}</span>`).join('')}</div>
       <div style="margin-top:12px"><span class="btn">Ver su ficha →</span></div></a>`;
   }
 
@@ -42,7 +42,7 @@ function vistaInicio(app) {
       ${ben}
       <div class="card"><div class="bar-row" style="margin:0 0 6px"><h3 style="margin:0">🏆 Últimos top-10 en campeonatos</h3><a class="small sun" href="#campeonatos">Ver todos →</a></div>
         ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" data-evo="${x.id}|${x.ev}">
-          <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${x.ev} · ${x.lv === 'es' ? '🇪🇸 Cto. España' : '🟢 Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
+          <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${x.ev} · ${x.lv === 'es' ? FLAG_ES + ' Cto. España' : FLAG_AN + ' Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
           : '<p class="empty">Todavía no hay top-10 en campeonatos.</p>'}</div>
     </div>
 

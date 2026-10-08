@@ -184,7 +184,7 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 .bar-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
 ul.ins{list-style:none;display:flex;flex-direction:column;gap:9px}
 ul.ins li{font-size:.86rem;line-height:1.45;padding-left:22px;position:relative}
-ul.ins li::before{content:attr(data-i);position:absolute;left:0;top:0}
+ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 
 /* evolución */
 .chart{width:100%;height:auto;display:block}
@@ -205,3 +205,4 @@ ul.ins li::before{content:attr(data-i);position:absolute;left:0;top:0}
 /* filtros dentro de la ventana de detalle: sin salirse del borde */
 #modal .chips{margin:0;padding-left:0;padding-right:0}
 .cto-es{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:9px;background:var(--sun);color:var(--sun-ink);margin-left:4px;vertical-align:middle;white-space:nowrap}
+.flag{display:inline-block;vertical-align:-1px;border-radius:2px;flex-shrink:0}

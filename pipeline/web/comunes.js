@@ -39,6 +39,11 @@ const SW = Object.fromEntries(DATA.swimmers.map(s => [String(s.id), s]));
 const BEN = DATA.swimmers.find(s => s.benicio) || null;
 const SEXO = {M: '♂', F: '♀'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
+/* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */
+const bandera = (cols, t) => `<svg class="flag" viewBox="0 0 18 12" width="18" height="12" role="img" aria-label="${t}"><title>${t}</title>` +
+  cols.map(([y, h, f]) => `<rect y="${y}" width="18" height="${h}" fill="${f}"/>`).join('') + '<rect width="18" height="12" fill="none" stroke="rgba(0,0,0,.25)" stroke-width=".8"/></svg>';
+const FLAG_ES = bandera([[0, 3, '#AA151B'], [3, 6, '#F1BF00'], [9, 3, '#AA151B']], 'España');
+const FLAG_AN = bandera([[0, 4, '#007A3D'], [4, 4, '#FFFFFF'], [8, 4, '#007A3D']], 'Andalucía');
 const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const SEASON_NEW = '2026-09-01';
 const STROKES = ['Libre', 'Espalda', 'Braza', 'Mariposa', 'Estilos'];
@@ -119,4 +124,4 @@ const ORDEN_NAD = {
   n: (a, b) => a.n.localeCompare(b.n)};
 const ORDEN_NAD_TXT = [['imp', 'Importancia'], ['pts', 'Puntos'], ['es', 'Puesto en España'], ['np', 'Nº de pruebas'], ['y', 'Año'], ['n', 'Nombre']];
 DATA.swimmers.forEach(s => Object.assign(s, nadImp(s)));   // se calcula una vez al cargar
-const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">🇪🇸 Cto. España</span>` : '';
+const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">${FLAG_ES} Cto. España</span>` : '';

@@ -16,12 +16,12 @@ function vistaCampeonatos(app, p) {
       <td data-l="Nadador" class="hide-m"><b>${esc(x.n)}</b><div class="tiny muted">${x.y} ${SEXO[x.g]} · ${SW[String(x.id)].catl || ''}</div></td>
       <td data-l="Prueba">${x.ev} <span class="of">${x.pool}</span></td>
       <td class="num" data-l="Marca"><b>${fmt(x.cs)}</b></td>
-      <td data-l="Campeonato" style="white-space:normal">${x.lv === 'es' ? '🇪🇸' : '🟢'} ${esc(x.comp)}</td>
+      <td data-l="Campeonato" style="white-space:normal">${x.lv === 'es' ? FLAG_ES : FLAG_AN} ${esc(x.comp)}</td>
       <td data-l="Fecha">${dtag(x.date)}</td></tr>`;
 
   app.innerHTML = `
     <div class="hd"><div><h1>🏆 Campeonatos</h1><p>Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una fila para ver la evolución.</p></div></div>
-    <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos'], ['es', '🇪🇸 España', (DATA.destacados || []).filter(x => x.lv === 'es').length], ['an', '🟢 Andalucía', (DATA.destacados || []).filter(x => x.lv === 'an').length]], lv)}</div>
+    <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos'], ['es', FLAG_ES + ' España', (DATA.destacados || []).filter(x => x.lv === 'es').length], ['an', FLAG_AN + ' Andalucía', (DATA.destacados || []).filter(x => x.lv === 'an').length]], lv)}</div>
     <div class="grid g2" style="gap:6px 12px">
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas'], ...DATA.cats.map(c => [c.key, c.label])], cat)}</div>
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos'], ['M', '♂ Chicos'], ['F', '♀ Chicas']], g)}</div>

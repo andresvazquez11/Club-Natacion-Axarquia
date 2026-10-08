@@ -8,9 +8,9 @@ function swCard(s, k) {
   const cto = lv => (DATA.destacados || []).filter(x => x.id === s.id && x.lv === lv).length;
   const ctoEs = cto('es'), ctoAn = cto('an');
   const veces = n => n === 1 ? '1 vez' : `${n} veces`;
-  if (ctoEs) logros.push(`<span class="tag gold" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de España">🏆 Top-10 en Cto. España: ${veces(ctoEs)}</span>`);
-  if (ctoAn) logros.push(`<span class="tag" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de Andalucía">🏆 Top-10 en Cto. Andalucía: ${veces(ctoAn)}</span>`);
-  if (t10) logros.push(`<span class="tag" title="Pruebas en las que está entre los 10 mejores de España de su año, con su mejor marca">📊 Top-10 ranking España: ${t10} ${t10 === 1 ? 'prueba' : 'pruebas'}</span>`);
+  if (ctoEs) logros.push(`<span class="tag gold" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de España">${FLAG_ES} 🏆 Top-10 en Cto. España: ${veces(ctoEs)}</span>`);
+  if (ctoAn) logros.push(`<span class="tag" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de Andalucía">${FLAG_AN} 🏆 Top-10 en Cto. Andalucía: ${veces(ctoAn)}</span>`);
+  if (t10) logros.push(`<span class="tag" title="Pruebas en las que está entre los 10 mejores de España de su año, con su mejor marca">${FLAG_ES} 📊 Top-10 ranking España: ${t10} ${t10 === 1 ? 'prueba' : 'pruebas'}</span>`);
   if (ma1) logros.push(`<span class="tag" title="Pruebas en las que tiene la mejor marca de Málaga de su año">🥇 Nº1 ranking Málaga: ${ma1} ${ma1 === 1 ? 'prueba' : 'pruebas'}</span>`);
   return `<a class="card link sw ${s.benicio ? 'ben' : ''}" href="${fichaHref(s)}" style="text-decoration:none">
     <div class="sw-top"><div><div class="sw-n"><span class="of">${k + 1}.</span> ${esc(s.n)}${s.benicio ? ' ⭐' : ''}${ctoTag(s)}</div>
@@ -45,7 +45,7 @@ function vistaClub(app, p) {
       <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
     </div>
     <div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('o', ORDEN_NAD_TXT, o)}</div>
-    ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España 🇪🇸, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}
+    ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España ${FLAG_ES}, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}
     <input class="search" id="q" type="search" placeholder="🔍 Buscar nadador por nombre…" autocomplete="off">
     <div class="swl" id="swl" style="margin-top:12px"></div>
 

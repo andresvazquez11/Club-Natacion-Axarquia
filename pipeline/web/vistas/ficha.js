@@ -26,7 +26,7 @@ function analisis(s) {
   const byPts = [...s.ev].sort((a, b) => b.pts - a.pts);
   if (byPts.length) F.push(['💎', `Sus pruebas de más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const t10 = evY.filter(x => x.r.es && x.r.es[0] <= 10);
-  if (t10.length) F.push(['🇪🇸', `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
+  if (t10.length) F.push([FLAG_ES, `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
   const mo = evY.filter(x => x.r.ma && x.r.ma[0] == 1);
   if (mo.length) F.push(['🥇', `Número 1 de Málaga en ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
   const cto = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3);
@@ -79,7 +79,7 @@ function tabResumen(s) {
   const toBars = arr => barsHTML(arr.map(([k, v, n]) => [`${k} <span class="of">${n} pr.</span>`, v, n ? v : '—']), mx);
   const months = {}; swims.forEach(([x]) => { const m = x[0].slice(0, 7); months[m] = (months[m] || 0) + 1; });
   const mBars = Object.keys(months).sort().map(m => [`${MES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`, months[m]]);
-  const li = arr => arr.map(([i, t]) => `<li data-i="${i}">${t}</li>`).join('');
+  const li = arr => arr.map(([i, t]) => `<li><i class="ins-i">${i}</i>${t}</li>`).join('');
 
   return `<div class="kpis">${kp.map(([v, l], i) => `<div class="kpi ${i === 1 ? 'hl' : ''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
     <div class="grid g2" style="margin-top:12px">
@@ -143,7 +143,7 @@ function tabRivales(s, sk, ev) {
   if (!e) return '<p class="empty">Sin marcas.</p>';
   const txt = LV.map(([lv, lbl]) => { const r = e.rk[sk] && e.rk[sk][lv]; if (!r) return '';
     const nb = e.nb[sk][lv], i = nb.findIndex(x => x[0] === s.n && x[6] === s.y), a = nb[i - 1], b = nb[i + 1];
-    return `<li data-i="${lv === 'ma' ? '🔵' : lv === 'an' ? '🟢' : '🇪🇸'}"><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
+    return `<li><i class="ins-i">${lv === 'ma' ? '🔵' : lv === 'an' ? FLAG_AN : FLAG_ES}</i><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
       ? (b ? ` · le sigue ${esc(b[0])} (${club(b[1])}) a ${secs(b[3] - e.cs)} s` : '')
       : ` · a ${secs(r[2])} s del líder · delante: ${esc(a[0])} (${club(a[1])}) a ${secs(e.cs - a[3])} s`}</li>`; }).join('');
   return `<div class="bar-row"><p class="small muted">Comparando con: <b>${scopeLbl(s, sk)}</b></p>${segScope(s, sk)}</div>
@@ -206,7 +206,7 @@ function vistaFicha(app, s, tab, p) {
   (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).forEach(x =>
     logros.push(`<span class="tag ${x.pos <= 3 ? 'gold' : ''}">🏆 ${x.pos}º ${x.lv === 'es' ? 'Cto. España' : 'Cto. AND'} · ${x.ev}</span>`));
   s.ev.forEach(e => { const r = e.rk.y || {};
-    if (r.es && r.es[0] <= 10) logros.push(`<span class="tag gold">🇪🇸 ${r.es[0]}º España · ${e.e}</span>`);
+    if (r.es && r.es[0] <= 10) logros.push(`<span class="tag gold">${FLAG_ES} ${r.es[0]}º España · ${e.e}</span>`);
     else if (r.ma && r.ma[0] == 1) logros.push(`<span class="tag">🥇 1º Málaga · ${e.e}</span>`); });
   const cat = s.cat ? catOf(s.cat) : null;
 

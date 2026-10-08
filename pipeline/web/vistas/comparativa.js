@@ -103,7 +103,7 @@ function openStat(st, mantenerScroll) {
     title = kind === 'avg' ? `Nivel medio: ${media} pts World Aquatics${donde}` : `${S0.length} nadadores del club en el ranking${donde}`;
     if (filtrado) title = kind === 'avg' ? `Nivel medio: ${media} pts · ${R.length} nadadores${donde}` : `${R.length} de ${S0.length} nadadores del club${donde}`;
     intro = (kind === 'avg' ? 'Media de los puntos World Aquatics de la mejor marca de cada nadador.' : 'Nadadores del club con marca, con su mejor prueba y sus puestos entre los nacidos en su año.') +
-      (kind === 'avg' ? ' De más a menos puntos.' : ' Arriba los más importantes: primero los que han nadado un <b>Campeonato de España</b> 🇪🇸, después por su <b>mejor puesto en el ranking de España</b> y, a igualdad, por puntos.') +
+      (kind === 'avg' ? ' De más a menos puntos.' : ' Arriba los más importantes: primero los que han nadado un <b>Campeonato de España</b> ${FLAG_ES}, después por su <b>mejor puesto en el ranking de España</b> y, a igualdad, por puntos.') +
       ' Pulsa un nadador para ver la evolución de esa prueba.';
     orden = kind === 'avg' ? [...ORDEN_NAD_TXT.slice(1), ORDEN_NAD_TXT[0]] : ORDEN_NAD_TXT;
     rank = scope || lv ? rk(kind) : top('sw');
