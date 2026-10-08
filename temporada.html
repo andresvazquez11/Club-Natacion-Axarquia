@@ -192,7 +192,7 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 .bar-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
 ul.ins{list-style:none;display:flex;flex-direction:column;gap:9px}
 ul.ins li{font-size:.86rem;line-height:1.45;padding-left:22px;position:relative}
-ul.ins li::before{content:attr(data-i);position:absolute;left:0;top:0}
+ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 
 /* evolución */
 .chart{width:100%;height:auto;display:block}
@@ -213,6 +213,7 @@ ul.ins li::before{content:attr(data-i);position:absolute;left:0;top:0}
 /* filtros dentro de la ventana de detalle: sin salirse del borde */
 #modal .chips{margin:0;padding-left:0;padding-right:0}
 .cto-es{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:9px;background:var(--sun);color:var(--sun-ink);margin-left:4px;vertical-align:middle;white-space:nowrap}
+.flag{display:inline-block;vertical-align:-1px;border-radius:2px;flex-shrink:0}
 
 </style>
 </head>
@@ -274,6 +275,11 @@ const SW = Object.fromEntries(DATA.swimmers.map(s => [String(s.id), s]));
 const BEN = DATA.swimmers.find(s => s.benicio) || null;
 const SEXO = {M: '♂', F: '♀'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
+/* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */
+const bandera = (cols, t) => `<svg class="flag" viewBox="0 0 18 12" width="18" height="12" role="img" aria-label="${t}"><title>${t}</title>` +
+  cols.map(([y, h, f]) => `<rect y="${y}" width="18" height="${h}" fill="${f}"/>`).join('') + '<rect width="18" height="12" fill="none" stroke="rgba(0,0,0,.25)" stroke-width=".8"/></svg>';
+const FLAG_ES = bandera([[0, 3, '#AA151B'], [3, 6, '#F1BF00'], [9, 3, '#AA151B']], 'España');
+const FLAG_AN = bandera([[0, 4, '#007A3D'], [4, 4, '#FFFFFF'], [8, 4, '#007A3D']], 'Andalucía');
 const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const SEASON_NEW = '2026-09-01';
 const STROKES = ['Libre', 'Espalda', 'Braza', 'Mariposa', 'Estilos'];
@@ -354,7 +360,7 @@ const ORDEN_NAD = {
   n: (a, b) => a.n.localeCompare(b.n)};
 const ORDEN_NAD_TXT = [['imp', 'Importancia'], ['pts', 'Puntos'], ['es', 'Puesto en España'], ['np', 'Nº de pruebas'], ['y', 'Año'], ['n', 'Nombre']];
 DATA.swimmers.forEach(s => Object.assign(s, nadImp(s)));   // se calcula una vez al cargar
-const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">🇪🇸 Cto. España</span>` : '';
+const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">${FLAG_ES} Cto. España</span>` : '';
 
 /* ── graficos.js ── */
 /* Gráficos SVG y ventana de evolución */
@@ -553,7 +559,7 @@ function openStat(st, mantenerScroll) {
     title = kind === 'avg' ? `Nivel medio: ${media} pts World Aquatics${donde}` : `${S0.length} nadadores del club en el ranking${donde}`;
     if (filtrado) title = kind === 'avg' ? `Nivel medio: ${media} pts · ${R.length} nadadores${donde}` : `${R.length} de ${S0.length} nadadores del club${donde}`;
     intro = (kind === 'avg' ? 'Media de los puntos World Aquatics de la mejor marca de cada nadador.' : 'Nadadores del club con marca, con su mejor prueba y sus puestos entre los nacidos en su año.') +
-      (kind === 'avg' ? ' De más a menos puntos.' : ' Arriba los más importantes: primero los que han nadado un <b>Campeonato de España</b> 🇪🇸, después por su <b>mejor puesto en el ranking de España</b> y, a igualdad, por puntos.') +
+      (kind === 'avg' ? ' De más a menos puntos.' : ' Arriba los más importantes: primero los que han nadado un <b>Campeonato de España</b> ${FLAG_ES}, después por su <b>mejor puesto en el ranking de España</b> y, a igualdad, por puntos.') +
       ' Pulsa un nadador para ver la evolución de esa prueba.';
     orden = kind === 'avg' ? [...ORDEN_NAD_TXT.slice(1), ORDEN_NAD_TXT[0]] : ORDEN_NAD_TXT;
     rank = scope || lv ? rk(kind) : top('sw');
@@ -602,7 +608,7 @@ function vistaInicio(app) {
           <div style="font-size:1.2rem;font-weight:900;margin-top:2px">${esc(BEN.n)}</div>
           <div class="small muted">${BEN.y} · ${BEN.catl} ${BEN.cy}º año</div></div>
         <div style="text-align:right"><div title="Evolución ${e0.e}">${spark(h0, 110, 40)}</div><div class="tiny muted">${e0.e}</div></div></div>
-      <div class="tags" style="margin-top:12px">${top.map(e => `<span class="tag ${e.rk.y.es[0] <= 10 ? 'gold' : ''}">🇪🇸 ${e.rk.y.es[0]}º ${e.e}</span>`).join('')}</div>
+      <div class="tags" style="margin-top:12px">${top.map(e => `<span class="tag ${e.rk.y.es[0] <= 10 ? 'gold' : ''}">${FLAG_ES} ${e.rk.y.es[0]}º ${e.e}</span>`).join('')}</div>
       <div style="margin-top:12px"><span class="btn">Ver su ficha →</span></div></a>`;
   }
 
@@ -626,7 +632,7 @@ function vistaInicio(app) {
       ${ben}
       <div class="card"><div class="bar-row" style="margin:0 0 6px"><h3 style="margin:0">🏆 Últimos top-10 en campeonatos</h3><a class="small sun" href="#campeonatos">Ver todos →</a></div>
         ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" data-evo="${x.id}|${x.ev}">
-          <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${x.ev} · ${x.lv === 'es' ? '🇪🇸 Cto. España' : '🟢 Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
+          <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${x.ev} · ${x.lv === 'es' ? FLAG_ES + ' Cto. España' : FLAG_AN + ' Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
           : '<p class="empty">Todavía no hay top-10 en campeonatos.</p>'}</div>
     </div>
 
@@ -655,9 +661,9 @@ function swCard(s, k) {
   const cto = lv => (DATA.destacados || []).filter(x => x.id === s.id && x.lv === lv).length;
   const ctoEs = cto('es'), ctoAn = cto('an');
   const veces = n => n === 1 ? '1 vez' : `${n} veces`;
-  if (ctoEs) logros.push(`<span class="tag gold" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de España">🏆 Top-10 en Cto. España: ${veces(ctoEs)}</span>`);
-  if (ctoAn) logros.push(`<span class="tag" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de Andalucía">🏆 Top-10 en Cto. Andalucía: ${veces(ctoAn)}</span>`);
-  if (t10) logros.push(`<span class="tag" title="Pruebas en las que está entre los 10 mejores de España de su año, con su mejor marca">📊 Top-10 ranking España: ${t10} ${t10 === 1 ? 'prueba' : 'pruebas'}</span>`);
+  if (ctoEs) logros.push(`<span class="tag gold" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de España">${FLAG_ES} 🏆 Top-10 en Cto. España: ${veces(ctoEs)}</span>`);
+  if (ctoAn) logros.push(`<span class="tag" title="Veces que ha quedado entre los 10 primeros de su año en un Campeonato de Andalucía">${FLAG_AN} 🏆 Top-10 en Cto. Andalucía: ${veces(ctoAn)}</span>`);
+  if (t10) logros.push(`<span class="tag" title="Pruebas en las que está entre los 10 mejores de España de su año, con su mejor marca">${FLAG_ES} 📊 Top-10 ranking España: ${t10} ${t10 === 1 ? 'prueba' : 'pruebas'}</span>`);
   if (ma1) logros.push(`<span class="tag" title="Pruebas en las que tiene la mejor marca de Málaga de su año">🥇 Nº1 ranking Málaga: ${ma1} ${ma1 === 1 ? 'prueba' : 'pruebas'}</span>`);
   return `<a class="card link sw ${s.benicio ? 'ben' : ''}" href="${fichaHref(s)}" style="text-decoration:none">
     <div class="sw-top"><div><div class="sw-n"><span class="of">${k + 1}.</span> ${esc(s.n)}${s.benicio ? ' ⭐' : ''}${ctoTag(s)}</div>
@@ -692,7 +698,7 @@ function vistaClub(app, p) {
       <button class="kpi" ${ds('pos|ma1')}><b>${k.oroMa}</b><span>nº1 Málaga</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
     </div>
     <div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('o', ORDEN_NAD_TXT, o)}</div>
-    ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España 🇪🇸, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}
+    ${o === 'imp' ? '<p class="tiny muted" style="margin:-4px 0 10px">Importancia: primero quien ha nadado un Campeonato de España ${FLAG_ES}, después su mejor puesto en el ranking de España y, a igualdad, los puntos.</p>' : ''}
     <input class="search" id="q" type="search" placeholder="🔍 Buscar nadador por nombre…" autocomplete="off">
     <div class="swl" id="swl" style="margin-top:12px"></div>
 
@@ -731,12 +737,12 @@ function vistaCampeonatos(app, p) {
       <td data-l="Nadador" class="hide-m"><b>${esc(x.n)}</b><div class="tiny muted">${x.y} ${SEXO[x.g]} · ${SW[String(x.id)].catl || ''}</div></td>
       <td data-l="Prueba">${x.ev} <span class="of">${x.pool}</span></td>
       <td class="num" data-l="Marca"><b>${fmt(x.cs)}</b></td>
-      <td data-l="Campeonato" style="white-space:normal">${x.lv === 'es' ? '🇪🇸' : '🟢'} ${esc(x.comp)}</td>
+      <td data-l="Campeonato" style="white-space:normal">${x.lv === 'es' ? FLAG_ES : FLAG_AN} ${esc(x.comp)}</td>
       <td data-l="Fecha">${dtag(x.date)}</td></tr>`;
 
   app.innerHTML = `
     <div class="hd"><div><h1>🏆 Campeonatos</h1><p>Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una fila para ver la evolución.</p></div></div>
-    <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos'], ['es', '🇪🇸 España', (DATA.destacados || []).filter(x => x.lv === 'es').length], ['an', '🟢 Andalucía', (DATA.destacados || []).filter(x => x.lv === 'an').length]], lv)}</div>
+    <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos'], ['es', FLAG_ES + ' España', (DATA.destacados || []).filter(x => x.lv === 'es').length], ['an', FLAG_AN + ' Andalucía', (DATA.destacados || []).filter(x => x.lv === 'an').length]], lv)}</div>
     <div class="grid g2" style="gap:6px 12px">
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas'], ...DATA.cats.map(c => [c.key, c.label])], cat)}</div>
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos'], ['M', '♂ Chicos'], ['F', '♀ Chicas']], g)}</div>
@@ -795,7 +801,7 @@ function analisis(s) {
   const byPts = [...s.ev].sort((a, b) => b.pts - a.pts);
   if (byPts.length) F.push(['💎', `Sus pruebas de más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const t10 = evY.filter(x => x.r.es && x.r.es[0] <= 10);
-  if (t10.length) F.push(['🇪🇸', `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
+  if (t10.length) F.push([FLAG_ES, `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
   const mo = evY.filter(x => x.r.ma && x.r.ma[0] == 1);
   if (mo.length) F.push(['🥇', `Número 1 de Málaga en ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
   const cto = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3);
@@ -848,7 +854,7 @@ function tabResumen(s) {
   const toBars = arr => barsHTML(arr.map(([k, v, n]) => [`${k} <span class="of">${n} pr.</span>`, v, n ? v : '—']), mx);
   const months = {}; swims.forEach(([x]) => { const m = x[0].slice(0, 7); months[m] = (months[m] || 0) + 1; });
   const mBars = Object.keys(months).sort().map(m => [`${MES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`, months[m]]);
-  const li = arr => arr.map(([i, t]) => `<li data-i="${i}">${t}</li>`).join('');
+  const li = arr => arr.map(([i, t]) => `<li><i class="ins-i">${i}</i>${t}</li>`).join('');
 
   return `<div class="kpis">${kp.map(([v, l], i) => `<div class="kpi ${i === 1 ? 'hl' : ''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
     <div class="grid g2" style="margin-top:12px">
@@ -912,7 +918,7 @@ function tabRivales(s, sk, ev) {
   if (!e) return '<p class="empty">Sin marcas.</p>';
   const txt = LV.map(([lv, lbl]) => { const r = e.rk[sk] && e.rk[sk][lv]; if (!r) return '';
     const nb = e.nb[sk][lv], i = nb.findIndex(x => x[0] === s.n && x[6] === s.y), a = nb[i - 1], b = nb[i + 1];
-    return `<li data-i="${lv === 'ma' ? '🔵' : lv === 'an' ? '🟢' : '🇪🇸'}"><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
+    return `<li><i class="ins-i">${lv === 'ma' ? '🔵' : lv === 'an' ? FLAG_AN : FLAG_ES}</i><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
       ? (b ? ` · le sigue ${esc(b[0])} (${club(b[1])}) a ${secs(b[3] - e.cs)} s` : '')
       : ` · a ${secs(r[2])} s del líder · delante: ${esc(a[0])} (${club(a[1])}) a ${secs(e.cs - a[3])} s`}</li>`; }).join('');
   return `<div class="bar-row"><p class="small muted">Comparando con: <b>${scopeLbl(s, sk)}</b></p>${segScope(s, sk)}</div>
@@ -975,7 +981,7 @@ function vistaFicha(app, s, tab, p) {
   (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).forEach(x =>
     logros.push(`<span class="tag ${x.pos <= 3 ? 'gold' : ''}">🏆 ${x.pos}º ${x.lv === 'es' ? 'Cto. España' : 'Cto. AND'} · ${x.ev}</span>`));
   s.ev.forEach(e => { const r = e.rk.y || {};
-    if (r.es && r.es[0] <= 10) logros.push(`<span class="tag gold">🇪🇸 ${r.es[0]}º España · ${e.e}</span>`);
+    if (r.es && r.es[0] <= 10) logros.push(`<span class="tag gold">${FLAG_ES} ${r.es[0]}º España · ${e.e}</span>`);
     else if (r.ma && r.ma[0] == 1) logros.push(`<span class="tag">🥇 1º Málaga · ${e.e}</span>`); });
   const cat = s.cat ? catOf(s.cat) : null;
 
