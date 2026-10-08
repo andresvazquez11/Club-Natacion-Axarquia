@@ -28,6 +28,25 @@ h3{font-size:1rem;font-weight:800;margin:18px 0 8px}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center}
 .kpi b{display:block;font-size:1.6rem;font-weight:900}
 .kpi span{font-size:.7rem;color:var(--soft)}
+.kpi[data-stat],.cmp-m>div[data-stat]{cursor:pointer;transition:border-color .15s,background .15s}
+.kpi[data-stat]:hover,.cmp-m>div[data-stat]:hover{border-color:rgba(56,189,248,.55);background:var(--card2)}
+.vd{display:block;margin-top:6px;font-size:.66rem;font-weight:700;color:var(--blue)}
+.kpi .cmp{display:block;margin-top:7px;padding-top:6px;border-top:1px solid var(--border);font-size:.68rem;color:var(--soft);line-height:1.5}
+.kpi .cmp i{font-style:normal;font-weight:800}
+/* comparativa con otros clubes */
+.cmp-head{display:flex;flex-wrap:wrap;align-items:center;gap:18px}
+.cmp-pos{font-size:3rem;font-weight:900;line-height:1}
+.cmp-pos small{font-size:1rem;color:var(--soft);font-weight:700}
+.cmp-txt{flex:1;min-width:220px}
+.cmp-txt b{font-size:1.1rem}
+.cmp-m{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:14px}
+.cmp-m>div{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:10px;padding:10px}
+.cmp-m b{font-size:1.2rem;font-weight:900;margin-right:4px}
+.cmp-m .lbl{display:block;font-size:.7rem;color:var(--soft);margin-top:3px}
+.cmp-m .meter{margin-top:6px}
+.cmp-t td,.cmp-t th{padding:6px 6px}
+.cmp-t td.cn{white-space:normal;min-width:90px}
+@media(max-width:520px){.cmp-t td,.cmp-t th{padding:6px 2px;font-size:.72rem}.cmp-t th{font-size:.6rem;letter-spacing:0}.cmp-t .pos{min-width:24px;padding:2px 3px;font-size:.7rem}.cmp-t td.cn{min-width:0}}
 .note{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:10px 14px;font-size:.8rem;color:#fde68a;margin:14px 0}
 /* cards */
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
@@ -129,6 +148,7 @@ footer{text-align:center;color:var(--soft);font-size:.72rem;margin-top:40px}
   </nav>
 
   <div id="view-club" class="view">
+    <section id="comparativa"></section>
     <section id="destacados"></section>
     <h2>🏊 El club por categorías 26-27</h2>
     <div class="tabs" id="cat-tabs"></div>
@@ -206,15 +226,59 @@ function kpis(){
   let t10=0,podAn=0,oroMa=0,ptsT=0;
   DATA.swimmers.forEach(s=>s.ev.forEach(e=>{const r=e.rk.y||{};
     if(r.es&&r.es[0]<=10)t10++; if(r.an&&r.an[0]<=3)podAn++; if(r.ma&&r.ma[0]==1)oroMa++; ptsT+=e.pts;}));
-  const k=[[DATA.swimmers.length,'Nadadores del club en ranking'],[t10,'Pruebas en top-10 España (por año)'],
-    [podAn,'Pruebas en podio Andalucía (por año)'],[oroMa,'Pruebas nº1 en Málaga (por año)'],
-    [DATA.cats.length,'Categorías con nadadores']];
-  document.getElementById('kpis').innerHTML=k.map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+  const K=(DATA.comparativa||{}).kpi||{};
+  const k=[[DATA.swimmers.length,'Nadadores del club en ranking',K.sw,'sw||'],[t10,'Pruebas en top-10 España (por año)',K.t10,'pos|es10|'],
+    [podAn,'Pruebas en podio Andalucía (por año)',K.pod,'pos|an3|'],[oroMa,'Pruebas nº1 en Málaga (por año)',K.oro,'pos|ma1|'],
+    [DATA.cats.length,'Categorías con nadadores',null,'cat||']];
+  document.getElementById('kpis').innerHTML=k.map(([v,l,c,st])=>`<div class="kpi" data-stat="${st}" title="Ver el detalle"><b>${v}</b><span>${l}</span>${c?cmpLines(c):''}<span class="vd">Ver detalle ›</span></div>`).join('');
   document.getElementById('sub').textContent=`Mejores marcas recolocadas en las categorías 26-27 · Actualizado ${DATA.fecha}`;
   document.getElementById('note').innerHTML = DATA.new_marks
     ? `La temporada 26-27 ya tiene ${DATA.new_marks.toLocaleString('es')} marcas en RFEN. Para cada nadador se usa su mejor marca entre la 25-26 y la 26-27 (las de la nueva temporada llevan la etiqueta <span class="ss">26-27</span>).`
     : `⏱️ La RFEN todavía no tiene ninguna marca de la temporada 26-27. Este es el <b>punto de partida</b>: lo mejor que cada nadador hizo en la 25-26, comparado con quienes serán sus rivales en la nueva categoría. Mejor marca en cualquier piscina (25 m o 50 m), como el ranking RFEN «todas las piscinas».`;
   document.getElementById('foot').innerHTML=`Fuente: ranking RFEN temporadas 25-26 y 26-27 (todas las piscinas y cronos) · Andalucía = clubes de las 8 provincias andaluzas · Málaga = clubes de la provincia · Puntos FINA/World Aquatics = 1000×(récord/marca)³`;
+}
+
+/* ── Comparación con el resto de clubes ── */
+const medal = p => p==1?'🥇':p==2?'🥈':p==3?'🥉':'';
+const LVN = {ma:'Málaga',an:'Andalucía',es:'España'};
+function cmpLines(c){
+  return '<span class="cmp">'+LV.filter(([lv])=>c[lv]).map(([lv,l])=>
+    `${medal(c[lv][0])}<i class="lv-${lv}">${c[lv][0]}º</i> de ${c[lv][1]} clubes · ${l}`).join('<br>')+'</span>';
+}
+/* Panel de puesto del club en Málaga / Andalucía / España.
+   C = bloque de DATA.comparativa (club entero o una categoría), id = prefijo único,
+   suf = '' o ' en Alevín masculino' para los textos. */
+function cmpPanel(C,id,suf){
+  const show=lv=>{
+    const L=C.lv[lv], me=L.rows.find(x=>x[7]), up=L.rows.find(x=>x[0]===L.pos-1);
+    const r=L.r, ent={ma:'de la provincia de Málaga',an:'de Andalucía',es:'de España'}[lv];
+    let msg = L.pos===1
+      ? (L.rows[1] ? `🏆 <b>Mejor club ${ent}${suf}</b> en esta cuenta. El segundo, ${esc(L.rows[1][1])}, suma ${L.rows[1][4]} presencias en el top-8 frente a las ${me[4]} del club.`
+                   : `🏆 <b>Único club ${ent}</b> con nadadores${suf}.`)
+      : `Para subir al ${L.pos-1}º puesto, por delante de <b>${esc(up[1])}</b>, faltan <b>${up[4]-me[4]+1}</b> presencias más en el top-8.`;
+    const met=(v,lbl,rk,u='',st='')=>{const pct=rk[2]?Math.round(v/rk[2]*100):0;
+      return `<div data-stat="${st}|${C.key||''}" title="Ver el detalle"><b>${v.toLocaleString('es')}${u}</b> <span class="pos ${rk[0]==1?'p1':rk[0]==2?'p2':rk[0]==3?'p3':rk[0]<=10?'p10':''}">${rk[0]}º</span><span class="lbl">${lbl} · el mejor club tiene ${rk[2].toLocaleString('es')}${u}</span><div class="meter"><i class="${pct>=75?'':pct>=40?'w':'f'}" style="width:${pct}%"></i></div><span class="vd">Ver detalle ›</span></div>`;};
+    let h=`<div class="cmp-head"><div class="cmp-pos lv-${lv}">${medal(L.pos)}${L.pos}º <small>de ${L.t}</small></div>
+      <div class="cmp-txt"><b>C.N. Axarquía es el ${L.pos}º club ${ent}${suf}</b><div class="insight" style="margin-top:4px">${msg}</div></div></div>
+      <div class="cmp-m">${met(me[4],'Presencias en el top-8',r.t8,'','pos|'+lv+'8')}${met(me[5],'Pruebas nº1',r.n1,'','pos|'+lv+'1')}${met(me[3],'Nadadores en ranking',r.sw,'','sw|'+lv)}${met(me[6],'Nivel medio (pts World Aquatics)',r.avg,' pts','avg|'+lv)}</div>
+      <div class="card" style="margin-top:14px"><div class="tw"><table class="cmp-t"><tr><th>#</th><th>Club</th><th class="num">Nadad.</th><th class="num">Top-8</th><th class="num">Nº1</th><th class="num">Nivel</th></tr>`;
+    L.rows.forEach((x,k)=>{ if(k>0&&x[0]-L.rows[k-1][0]>1) h+=`<tr class="sep"><td colspan="6">· · ·</td></tr>`;
+      h+=`<tr class="${x[7]?'me':''}"><td>${posB(x[0])}</td><td class="cn">${esc(x[1])}${lv==='ma'?'':`<div class="tot">${esc(x[2])}</div>`}</td><td class="num">${x[3]}</td><td class="num">${x[4]}</td><td class="num">${x[5]}</td><td class="num">${x[6]}</td></tr>`;});
+    h+=`</table></div><p class="muted small" style="margin-top:8px">Nivel medio = media de los puntos World Aquatics de la mejor marca de cada nadador del club.</p></div>`;
+    document.getElementById(id+'-body').innerHTML=h;
+    document.querySelectorAll('#'+id+'-seg button').forEach(b=>b.classList.toggle('act',b.dataset.v===lv));};
+  document.querySelectorAll('#'+id+'-seg button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+  show('ma');
+}
+const cmpHtml = id => `<div class="seg" id="${id}-seg">${LV.map(([lv,l])=>`<button data-v="${lv}">${l}</button>`).join('')}</div>
+    <div class="spot" style="margin-top:10px" id="${id}-body"></div>`;
+function comparativa(){
+  const C=DATA.comparativa, host=document.getElementById('comparativa');
+  if(!C){host.innerHTML='';return;}
+  host.innerHTML=`<h2>📍 El club frente a los demás</h2>
+    <p class="muted small">Todos los clubes con nadadores de prebenjamín a junior (nacidos entre 2010 y 2018) en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba (en Málaga, en Andalucía o en España). Cada categoría tiene también su propia comparación al pulsarla más abajo.</p>
+    ${cmpHtml('cmp')}`;
+  cmpPanel(C,'cmp','');
 }
 
 /* ── Paneles de rivales de una prueba ── */
@@ -465,10 +529,11 @@ function showCat(i){
     h+=`<tr class="click" data-id="${s.id}"><td class="muted">${k+1}</td><td><b>${esc(s.n)}</b>${s.benicio?' ⭐':''}</td><td>${s.y} <span class="pill">${s.cy}º año</span></td><td class="num">${s.np}</td><td class="num">${s.best}</td><td class="num">${s.top3}</td>
       <td>${e?e.e+' <span class="muted">'+fmt(e.cs)+'</span>':'—'}</td>${LV.map(([lv])=>`<td>${r[lv]?posB(r[lv][0],r[lv][1]):'—'}</td>`).join('')}</tr>`;});
   h+=`</table></div></div><div class="detail" id="cat-detail"></div>`;
-  // Club rivals
-  h+=`<h3>🏆 Clubes rivales en la categoría <span class="muted small">(presencias en el top-8 de cada prueba)</span></h3>
-     <div class="seg" id="rv-seg">${LV.map(([lv,l])=>`<button data-v="${lv}" class="${lv==='an'?'act':''}">${l}</button>`).join('')}</div>
-     <div class="card" style="margin-top:8px"><div class="tw" id="rv-body"></div></div>`;
+  // Cómo está el club en esta categoría frente al resto de clubes
+  const CC=((DATA.comparativa||{}).cat||{})[c.key], catN=`${c.label} ${CATG[c.g].toLowerCase()}`;
+  if(CC) h+=`<h3>📍 Cómo está el club en ${catN}</h3>
+     <p class="muted small" style="margin-bottom:8px">Solo nadadores ${c.g==='M'?'masculinos':'femeninos'} nacidos en ${c.yrs.join(' y ')}: cuántas veces mete cada club a un nadador entre los 8 mejores de su año en cada prueba.</p>
+     ${cmpHtml('cc')}`;
   // Explorer
   const evs=Object.keys(DATA.lists).filter(k=>k.startsWith(c.key+'|')).map(k=>k.split('|')[2]);
   h+=`<h3>🔎 Ranking por prueba</h3><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -483,11 +548,7 @@ function showCat(i){
     d.insertAdjacentHTML('afterbegin','<button class="close" id="cl">Cerrar ✕</button>');
     document.getElementById('cl').onclick=()=>{d.innerHTML='';d.className='detail';};
     d.scrollIntoView({behavior:'smooth',block:'start'});});
-  const rv=lv=>{const R=(DATA.rivals[c.key]||{})[lv]||[];
-    document.getElementById('rv-body').innerHTML=`<table><tr><th>#</th><th>Club</th><th class="num">Top-8</th><th class="num">Nº1</th><th class="num">Pts FINA top-8</th></tr>`+
-      R.map((x,k)=>`<tr class="${/AXARQ/i.test(x[0])?'me':''}"><td class="muted">${k+1}</td><td>${esc(x[0])}</td><td class="num">${x[1]}</td><td class="num">${x[2]}</td><td class="num">${x[3].toLocaleString('es')}</td></tr>`).join('')+'</table>';
-    document.querySelectorAll('#rv-seg button').forEach(b=>b.classList.toggle('act',b.dataset.v===lv));};
-  document.querySelectorAll('#rv-seg button').forEach(b=>b.onclick=()=>rv(b.dataset.v)); rv('an');
+  if(CC) cmpPanel(Object.assign(CC,{key:c.key}),'cc',` en ${catN}`);
   let exLv='an';
   const ex=()=>{const L=DATA.lists[document.getElementById('ex-sc').value+'|'+document.getElementById('ex-ev').value];
     const b=document.getElementById('ex-body');
@@ -559,12 +620,71 @@ function openEvo(id,evName){
   document.getElementById('modal').classList.add('open');
   document.body.style.overflow='hidden';
 }
+/* ── Detalle de una tarjeta de estadísticas ──
+   data-stat="tipo|nivel|ámbito": tipo = sw (nadadores) · pos (pruebas en un puesto) · avg (nivel medio) · cat (categorías);
+   nivel = ma/an/es (+ puesto máximo en «pos», p. ej. es10, an3, ma1); ámbito = '' (club entero) o 'M|ALE' (una categoría). */
+let statBack=null;
+function openStat(st){
+  const [kind,lvx,...sc]=st.split('|'), scope=sc.join('|'), lv=lvx.slice(0,2), mx=+lvx.slice(2)||0;
+  const cat=scope?DATA.cats.find(c=>c.key===scope):null;
+  const S=DATA.swimmers.filter(s=>!cat||(s.g===cat.g&&s.cat===cat.cat));
+  const donde=cat?` · ${cat.label} ${CATG[cat.g].toLowerCase()}`:'';
+  const C=scope?((DATA.comparativa||{}).cat||{})[scope]:DATA.comparativa;
+  const rk=m=>{const r=C&&C.lv[lv]&&C.lv[lv].r[m]; return r?`<p class="small" style="margin:4px 0 10px">${medal(r[0])}<b class="lv-${lv}">${r[0]}º de ${r[1]} clubes</b> de ${LVN[lv]} en esta estadística · el mejor club tiene ${r[2].toLocaleString('es')}</p>`:'';};
+  const top=k=>{const K=((DATA.comparativa||{}).kpi||{})[k]; return K?`<p class="small" style="margin:4px 0 10px">${cmpLines(K).replace('class="cmp"','')}</p>`:'';};
+  const posLv=(e,l)=>{const r=(e.rk.y||{})[l]; return r?posB(r[0],r[1]):'—';};
+  let h=`<button class="close" onclick="closeEvo()">Cerrar ✕</button>`, title='', intro='', body='';
+  if(kind==='pos'){
+    const R=[]; S.forEach(s=>s.ev.forEach(e=>{const r=(e.rk.y||{})[lv]; if(r&&r[0]<=mx) R.push([s,e,r]);}));
+    R.sort((a,b)=>a[2][0]-b[2][0]||a[2][1]-b[2][1]||a[0].n.localeCompare(b[0].n));
+    const nom={1:'nº1',3:'en el podio (top-3)',8:'en el top-8',10:'en el top-10'}[mx];
+    title=`${R.length} pruebas ${nom} de ${LVN[lv]}${donde}`;
+    intro=`Cada fila es una prueba en la que un nadador del club está ${nom} del ranking de ${LVN[lv]} entre los nacidos en su mismo año, con su mejor marca. Pulsa una fila para ver la evolución de esa prueba.`;
+    const per={}; R.forEach(([s])=>per[s.id]=(per[s.id]||0)+1);
+    const chips=Object.entries(per).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`<span class="chip">${esc(SW[id].n)} <b>×${n}</b></span>`).join('');
+    body=(R.length?`<div class="chips" style="margin-bottom:10px">${chips}</div>`:'')+`<div class="tw"><table><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th class="num">Pts</th><th>Fecha</th></tr>`+
+      R.map(([s,e,r])=>`<tr class="click ${s.benicio?'me':''}" data-evo="${s.id}|${e.e}"><td>${posB(r[0],r[1])}</td><td>${esc(s.n)}<div class="tot">${s.y} · ${s.catl||''} ${s.g==='M'?'♂':'♀'}</div></td><td>${e.e}<div class="tot">${e.pool}</div></td><td class="num">${fmt(e.cs)}</td><td class="num">${e.pts}</td><td>${dtag(e.date)}</td></tr>`).join('')+'</table></div>';
+    if(!R.length) body='<p class="muted small">Ninguna todavía.</p>';
+    h+=`<div style="font-size:1.25rem;font-weight:900">${title}</div>`+(scope||lvx!=='es10'&&lvx!=='an3'&&lvx!=='ma1'?rk(mx===1?'n1':'t8'):top({es10:'t10',an3:'pod',ma1:'oro'}[lvx]));
+  } else if(kind==='sw'||kind==='avg'){
+    const R=S.map(s=>{const b=s.ev.reduce((a,e)=>!a||e.pts>a.pts?e:a,null); return [s,b];}).filter(x=>x[1]);
+    R.sort(kind==='avg'?(a,b)=>b[1].pts-a[1].pts:(a,b)=>a[0].g.localeCompare(b[0].g)||a[0].y-b[0].y||a[0].n.localeCompare(b[0].n));
+    const media=R.length?Math.round(R.reduce((a,x)=>a+x[1].pts,0)/R.length):0;
+    title=kind==='avg'?`Nivel medio: ${media} pts World Aquatics${donde}`:`${S.length} nadadores del club en el ranking${donde}`;
+    intro=kind==='avg'?`Media de los puntos World Aquatics de la mejor marca de cada nadador. Ordenados de más a menos puntos. Pulsa una fila para ver la evolución de su mejor prueba.`
+      :`Todos los nadadores del club con marca en el ranking RFEN, con su mejor prueba (la de más puntos) y sus puestos entre los nacidos en su mismo año. Pulsa una fila para ver su evolución.`;
+    body=`<div class="tw"><table><tr><th>Nadador</th><th>Año</th><th class="num">Pruebas</th><th>Mejor prueba</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>`+
+      R.map(([s,e])=>`<tr class="click ${s.benicio?'me':''}" data-evo="${s.id}|${e.e}"><td>${esc(s.n)}</td><td>${s.y} <span class="tot">${s.catl||''} ${s.g==='M'?'♂':'♀'}</span></td><td class="num">${s.np}</td><td>${e.e} <span class="muted">${fmt(e.cs)}</span></td><td class="num">${e.pts}</td><td>${posLv(e,'ma')}</td><td>${posLv(e,'an')}</td><td>${posLv(e,'es')}</td></tr>`).join('')+'</table></div>';
+    h+=`<div style="font-size:1.25rem;font-weight:900">${title}</div>`+(scope||lv?rk(kind):top('sw'));
+  } else if(kind==='cat'){
+    title=`${DATA.cats.length} categorías con nadadores`;
+    intro='Categorías de la temporada 26-27 en las que el club tiene nadadores con marca. Pulsa una para ir a ella.';
+    body=`<div class="tw"><table><tr><th>Categoría</th><th>Años</th><th class="num">Nadadores</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>`+
+      DATA.cats.map((c,i)=>{const CC=((DATA.comparativa||{}).cat||{})[c.key], p=l=>CC?posB(CC.lv[l].pos,CC.lv[l].t):'—';
+        return `<tr class="click" data-cat="${i}"><td><b>${c.label} ${c.g==='M'?'♂':'♀'}</b></td><td>${c.yrs.join(' y ')}</td><td class="num">${c.ids.length}</td><td>${p('ma')}</td><td>${p('an')}</td><td>${p('es')}</td></tr>`;}).join('')+'</table></div>'+
+      '<p class="muted small" style="margin-top:8px">Málaga / Andalucía / España = puesto del club en esa categoría frente al resto de clubes.</p>';
+    h+=`<div style="font-size:1.25rem;font-weight:900">${title}</div>`;
+  }
+  h+=`<p class="muted small" style="margin-bottom:10px">${intro}</p>${body}`;
+  statBack=st;
+  document.querySelector('#modal .box').innerHTML=h;
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal').scrollTop=0;
+  document.body.style.overflow='hidden';
+}
 function closeEvo(){ document.getElementById('modal').classList.remove('open'); document.body.style.overflow=''; }
-document.addEventListener('click',ev=>{ const b=ev.target.closest('[data-evo]'); if(b){ const [id,...n]=b.dataset.evo.split('|'); openEvo(+id||id,n.join('|')); }
+document.addEventListener('click',ev=>{
+  const st=ev.target.closest('[data-stat]'), ct=ev.target.closest('#modal [data-cat]');
+  if(st){ openStat(st.dataset.stat); return; }
+  if(ct){ closeEvo(); showView('club'); showCat(+ct.dataset.cat); document.getElementById('cat-tabs').scrollIntoView({behavior:'smooth'}); return; }
+  const b=ev.target.closest('[data-evo]');
+  if(b){ const back=b.closest('#modal')&&statBack; const [id,...n]=b.dataset.evo.split('|'); openEvo(+id||id,n.join('|'));
+    if(back) document.querySelector('#modal .box').insertAdjacentHTML('afterbegin',`<button class="close" style="float:left;margin-right:8px" onclick="openStat('${back}')">‹ Volver</button>`);
+    document.getElementById('modal').scrollTop=0; }
   else if(ev.target.id==='modal') closeEvo(); });
 document.addEventListener('keydown',ev=>{ if(ev.key==='Escape') closeEvo(); });
 
-kpis(); destacados(); benicio(); catTabs(); showView(location.hash.startsWith('#b')?'benicio':'club');
+kpis(); comparativa(); destacados(); benicio(); catTabs(); showView(location.hash.startsWith('#b')?'benicio':'club');
 </script>
 </body>
 </html>

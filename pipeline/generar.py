@@ -253,24 +253,94 @@ def main():
             'benicio': 'BENICIO VAZQUEZ' in i['n'].upper(),
         })
 
-    # ── Clubes rivales: presencias en top-8 por categoría y nivel ───────────
-    rivals = {}
-    for g, cats in CATEGORIAS.items():
-        for ck, _, _ in cats:
-            scope = f'{g}|{ck}'
-            if scope not in club_scopes:
+    # ── El club frente a los demás clubes (Málaga, Andalucía, España) ────────
+    # Las mismas cuentas que los KPIs de la cabecera (puesto entre los nacidos en el
+    # mismo año), hechas para TODOS los clubes, para saber en qué puesto queda el club.
+    # Se calcula para el club entero y para cada categoría (sexo + categoría 26-27).
+    def ckey(i):
+        return 'AXARQ' if i['ax'] else i['c']
+
+    def comparar(sel, kpi=False):
+        """sel(i) → el nadador cuenta. Devuelve los rankings de clubes de los 3 niveles."""
+        cl = defaultdict(lambda: {'n': defaultdict(int), 'p': defaultdict(int), 'sw': set(), 'pts': {},
+                                  't10': 0, 'pod': 0, 'oro': 0,
+                                  't8': {'ma': 0, 'an': 0, 'es': 0}, 'n1': {'ma': 0, 'an': 0, 'es': 0}})
+        for pid, i in info.items():
+            if sel(i):
+                c = cl[ckey(i)]
+                c['n'][i['c']] += 1
+                c['p'][i['p']] += 1
+                c['sw'].add(pid)
+        for (pid, ev), b in best.items():
+            c = cl.get(ckey(info[pid]))
+            if c is not None and pid in c['sw']:
+                c['pts'][pid] = max(c['pts'].get(pid, 0), b['pts'])
+        for sk, sc in scopes.items():
+            g, y = sk.split('|')
+            if not y.isdigit() or not sel({'g': g, 'y': int(y)}):   # solo ámbitos por año de nacimiento
                 continue
-            rivals[scope] = {}
-            for lv in ('an', 'ma', 'es'):
-                cnt = defaultdict(lambda: [0, 0, 0])   # top8, oros, pts
-                for ev in scopes[scope]:
-                    for k, (cs, pid) in enumerate(level_list(scope, ev, lv)[:8]):
-                        c = cnt[info[pid]['c']]
-                        c[0] += 1
-                        c[1] += 1 if k == 0 else 0
-                        c[2] += best[(pid, ev)]['pts']
-                rivals[scope][lv] = sorted([[c] + v for c, v in cnt.items()],
-                                           key=lambda x: (-x[1], -x[3]))[:12]
+            for ev in sc:
+                for lv in LEVELS:
+                    for k, (cs, pid) in enumerate(level_list(sk, ev, lv)[:10]):
+                        c = cl[ckey(info[pid])]
+                        if k < 8:
+                            c['t8'][lv] += 1
+                        if k == 0:
+                            c['n1'][lv] += 1
+                        if lv == 'es':
+                            c['t10'] += 1
+                        elif lv == 'an' and k < 3:
+                            c['pod'] += 1
+                        elif lv == 'ma' and k == 0:
+                            c['oro'] += 1
+        clubes = []
+        for key, c in cl.items():
+            if not c['sw']:
+                continue
+            prov = max(c['p'], key=c['p'].get)
+            p = strip_acc(prov)
+            pts = c['pts'].values()
+            clubes.append({'k': key, 'n': max(c['n'], key=c['n'].get), 'p': prov,
+                           'lv': {'es': True, 'an': p in ANDALUCIA, 'ma': p == 'MALAGA'},
+                           'sw': len(c['sw']), 't10': c['t10'], 'pod': c['pod'], 'oro': c['oro'],
+                           't8': c['t8'], 'n1': c['n1'], 'avg': round(sum(pts) / len(pts)) if pts else 0})
+        ax = next((c for c in clubes if c['k'] == 'AXARQ'), None)
+        if not ax:
+            return None
+
+        def rango(lv, val):
+            """[puesto, nº de clubes, valor del líder] del club en el nivel lv (empates comparten puesto)."""
+            cs = [c for c in clubes if c['lv'][lv]]
+            return [1 + sum(1 for c in cs if val(c) > val(ax)), len(cs), max(val(c) for c in cs)]
+        out = {'lv': {}}
+        if kpi:
+            out['kpi'] = {
+                'sw':  {lv: rango(lv, lambda c: c['sw']) for lv in LEVELS},
+                't10': {lv: rango(lv, lambda c: c['t10']) for lv in LEVELS},
+                'pod': {lv: rango(lv, lambda c: c['pod']) for lv in ('ma', 'an')},
+                'oro': {lv: rango(lv, lambda c: c['oro']) for lv in ('ma',)},
+            }
+        for lv in LEVELS:
+            cs = sorted((c for c in clubes if c['lv'][lv]),
+                        key=lambda c: (-c['t8'][lv], -c['n1'][lv], -c['avg'], c['n']))
+            pos = next(k for k, c in enumerate(cs) if c['k'] == 'AXARQ')
+            keep = set(range(min(15, len(cs)))) | set(range(max(0, pos - 2), min(len(cs), pos + 3)))
+            out['lv'][lv] = {
+                'pos': pos + 1, 't': len(cs),
+                'r': {m: rango(lv, f) for m, f in (('t8', lambda c: c['t8'][lv]), ('n1', lambda c: c['n1'][lv]),
+                                                   ('sw', lambda c: c['sw']), ('avg', lambda c: c['avg']))},
+                'rows': [[k + 1, cs[k]['n'], cs[k]['p'], cs[k]['sw'], cs[k]['t8'][lv], cs[k]['n1'][lv],
+                          cs[k]['avg'], 1 if cs[k]['k'] == 'AXARQ' else 0] for k in sorted(keep)],
+            }
+        return out
+
+    comparativa = comparar(lambda i: bool(cat_of(i['g'], i['y'])[0]), kpi=True)
+    if comparativa:
+        comparativa['cat'] = {}
+        for g, cats in CATEGORIAS.items():
+            for ck, _, yrs in cats:
+                if f'{g}|{ck}' in club_scopes:
+                    comparativa['cat'][f'{g}|{ck}'] = comparar(lambda i, g=g, yrs=yrs: i['g'] == g and i['y'] in yrs)
 
     # ── Pruebas clave de Benicio: marcas de referencia por nivel y piscina ────
     claves = None
@@ -339,7 +409,7 @@ def main():
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
-            'lists': lists, 'rivals': rivals, 'new_marks': new_marks, 'claves': claves, 'destacados': destacados}
+            'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves': claves, 'destacados': destacados}
 
     with open(TPL, encoding='utf-8') as f:
         html = f.read()
