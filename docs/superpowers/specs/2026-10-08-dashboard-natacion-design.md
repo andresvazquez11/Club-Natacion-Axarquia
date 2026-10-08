@@ -97,3 +97,10 @@ La ficha de Benicio y la de cualquier nadador son el mismo componente; Benicio s
 - Comprobar que funcionan los enlaces directos (`#benicio`, `#nadador/<id>`) y el botón atrás del navegador.
 - Comprobar que no hay errores en la consola.
 - Comprobar que el workflow de GitHub Actions genera la página nueva sin errores.
+
+## Integración posterior
+
+Mientras se construía el rediseño, otra sesión (commit 195d7c2) añadió la **comparación del club frente al resto de clubes** y el **detalle de cada estadística**. Se integró en el nuevo diseño:
+- en Inicio, el puesto del club bajo cada KPI y el panel «El club frente a los demás clubes»;
+- en Club, el panel «Cómo está el club en <categoría>», que sustituye a «clubes rivales» y respeta el filtro de sexo;
+- las tarjetas de estadísticas abren su detalle, y desde la evolución se puede volver al detalle (`vistas/comparativa.js`).

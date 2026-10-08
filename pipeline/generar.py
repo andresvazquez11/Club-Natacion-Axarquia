@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RAW_DIR  = os.environ.get('CNA_BASE', os.path.join(BASE_DIR, 'RAW_2526'))   # carpeta o .json.gz
 RAW_NEW  = os.environ.get('CNA_NEW', os.path.join(BASE_DIR, 'RAW_2627'))
 HTML_OUT = os.environ.get('CNA_OUT', os.path.expanduser('~/Desktop/CNA_Temporada_26-27.html'))
-TPL      = os.path.join(BASE_DIR, 'temporada_2627_template.html')
+WEB_DIR  = os.path.join(BASE_DIR, 'web')   # plantilla, estilos y JS de la página
 
 CLUB_MATCH = 'AXARQ'
 ANDALUCIA  = {'ALMERIA', 'CADIZ', 'CORDOBA', 'GRANADA', 'HUELVA', 'JAEN', 'MALAGA', 'SEVILLA'}
@@ -341,6 +341,10 @@ def main():
             for ck, _, yrs in cats:
                 if f'{g}|{ck}' in club_scopes:
                     comparativa['cat'][f'{g}|{ck}'] = comparar(lambda i, g=g, yrs=yrs: i['g'] == g and i['y'] in yrs)
+        # La misma categoría con los dos sexos juntos (clave sin sexo: 'ALE')
+        for ck, _, yrs in _CATS:
+            if any(f'{g}|{ck}' in comparativa['cat'] for g in CATEGORIAS):
+                comparativa['cat'][ck] = comparar(lambda i, yrs=yrs: i['y'] in yrs)
 
     # ── Pruebas clave de Benicio: marcas de referencia por nivel y piscina ────
     claves = None
@@ -400,25 +404,34 @@ def main():
                                        'pos': cpos, 'of': cn, 'lv': nivel})
     destacados.sort(key=lambda x: (x['lv'] != 'es', x['pos'], x['date']))
 
+    # Categorías con los dos sexos juntos (los rankings siguen siendo por sexo)
     cats_out = []
-    for g, cats in CATEGORIAS.items():
-        for ck, lbl, yrs in cats:
-            ids = [s['id'] for s in swimmers if s['g'] == g and s['cat'] == ck]
-            if ids:
-                cats_out.append({'key': f'{g}|{ck}', 'g': g, 'cat': ck, 'label': lbl, 'yrs': yrs, 'ids': ids})
+    for ck, lbl, yrs in _CATS:
+        ids = [s['id'] for s in swimmers if s['cat'] == ck]
+        if ids:
+            cats_out.append({'key': ck, 'label': lbl, 'yrs': yrs, 'ids': ids})
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
             'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves': claves, 'destacados': destacados}
 
-    with open(TPL, encoding='utf-8') as f:
-        html = f.read()
-    html = html.replace('/*__DATA__*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':')))
+    html = montar_html().replace('/*__DATA__*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':')))
     with open(HTML_OUT, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f'{len(swimmers)} nadadores del club · {len(lists)} listas · {os.path.getsize(HTML_OUT)/1e6:.1f} MB')
     if os.environ.get('CNA_SUMMARY'):
         escribir_resumen(os.environ['CNA_SUMMARY'], swimmers, rows_new, claves)
+
+
+JS_ORDEN = ['comunes.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/inicio.js', 'vistas/club.js', 'vistas/campeonatos.js',
+            'vistas/ficha.js', 'vistas/rankings.js', 'app.js']
+
+
+def montar_html():
+    """Une plantilla + estilos + JS en un único HTML (sirve también abierto desde el disco)."""
+    leer = lambda n: open(os.path.join(WEB_DIR, n), encoding='utf-8').read()
+    js = '\n'.join(f'/* ── {n} ── */\n' + leer(n) for n in JS_ORDEN)
+    return leer('plantilla.html').replace('/*__CSS__*/', leer('estilos.css')).replace('/*__JS__*/', js)
 
 
 def fmt_cs(cs):
