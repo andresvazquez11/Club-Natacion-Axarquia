@@ -165,24 +165,37 @@ function clubRecords(app, p, c, head) {
   const recs = DATA.recs || {};
   const catsR = _CATS_REC.filter(([k]) => Object.keys(recs).some(x => x.split('|')[1] === k));
   const want = p.cat || c.key, ck = catsR.find(x => x[0] === want) ? want : (catsR.find(x => x[0] === c.key) ? c.key : (catsR[0] || [])[0]);
-  const g = p.g === 'F' ? 'F' : p.g === 'M' ? 'M' : (BEN ? BEN.g : 'M'), pl = p.pl === '25m' ? '25m' : '50m';
+  const g = p.g === 'F' ? 'F' : p.g === 'M' ? 'M' : (BEN ? BEN.g : 'M');
+  const pl = ['50m', '25m'].includes(p.pl) ? p.pl : 'mix';     // por defecto: 25 y 50 m juntas
   const go = o => { const q = Object.assign({g, pl}, o); location.hash = `#club/${o.cat || ck}/records?g=${q.g}&pl=${q.pl}`; };
-  const filas = ORD_PRUEBAS.map(ev => [ev, recs[`${g}|${ck}|${ev}|${pl}`]]).filter(x => x[1]);
+  const otra = x => x === '50m' ? '25m' : '50m';
+  // 25 y 50 m juntas: se ordenan por su equivalente en 50 m (puntos World Aquatics). Las 3 mejores de cada piscina
+  // bastan: dentro de una piscina el orden no cambia al convertir.
+  const lista = ev => {
+    if (pl !== 'mix') return (recs[`${g}|${ck}|${ev}|${pl}`] || []).map(x => [...x, pl]);
+    const todos = ['50m', '25m'].flatMap(q => (recs[`${g}|${ck}|${ev}|${q}`] || []).map(x => [...x, q, conv(x[1], q, '50m', g, ev)]))
+      .filter(x => x[6] !== null).sort((a, b) => a[6] - b[6]);
+    const vistos = new Set(); return todos.filter(x => !vistos.has(x[0]) && vistos.add(x[0])).slice(0, 3);
+  };
+  const filas = ORD_PRUEBAS.map(ev => [ev, lista(ev)]).filter(x => x[1].length);
   const nom = pid => SW[String(pid)];
   const fecha = d => d && d.length === 10 ? dtag(d) : `<span class="dt">temp. ${esc(d)}</span>`;
-  // edad con la que hizo la marca: año de la marca − año de nacimiento (como cuenta la federación);
-  // si solo se conoce la temporada («23-24»), el año en que acaba
+  // edad con la que hizo la marca: año de la marca − año de nacimiento (como cuenta la federación)
   const edad = (d, y) => !y ? '' : `<span class="of">${(d && d.length === 10 ? +d.slice(0, 4) : 2000 + +String(d).slice(3, 5)) - y} años</span>`;
+  // marca real + su piscina y, entre paréntesis, su equivalente en la otra piscina
+  const marca = (x, ev, k) => { const eq = conv(x[1], x[5], otra(x[5]), g, ev);
+    return `${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} <span class="of">${x[5].replace('m', ' m')}</span>${eq ? ` <span class="tiny muted">(≈ ${fmt(eq)} en ${otra(x[5]).replace('m', ' m')})</span>` : ''}`; };
   app.innerHTML = `${head}
     <div class="flt"><span class="flt-l">Categoría (edad en el momento de la marca)</span>${chipsHTML('cat', catsR.map(([k, l, e]) => [k, `${l} <span class="n">${e}</span>`]), ck)}</div>
-    <div class="bar-row"><div class="seg" data-rg>${[['M', '♂ Chicos'], ['F', '♀ Chicas']].map(([k, l]) => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${l}</button>`).join('')}</div>
-      <div class="seg" data-rpl><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Piscina de 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Piscina de 25 m</button></div></div>
+    <div class="flt"><span class="flt-l">Sexo</span><div class="seg" data-rg>${[['M', '♂ Chicos'], ['F', '♀ Chicas']].map(([k, l]) => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    <div class="flt"><span class="flt-l">Piscina</span><div class="seg" data-rpl><button data-v="mix" class="${pl === 'mix' ? 'on' : ''}">25 y 50 m juntas</button><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Solo 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Solo 25 m</button></div></div>
+    ${pl === 'mix' ? '<p class="tiny muted" style="margin:-2px 0 8px">Ordenadas por su equivalencia entre piscinas (puntos World Aquatics). Cada marca con su piscina real y, entre paréntesis, su equivalente en la otra.</p>' : ''}
     ${filas.length ? `<table class="rt cards recs"><tr><th>Prueba</th><th>🥇 Récord</th><th>🥈 2ª mejor</th><th>🥉 3ª mejor</th></tr>
       ${filas.map(([ev, L]) => `<tr class="${L.some(x => nom(x[0]) && nom(x[0]).benicio) ? 'me' : ''}"><td class="t" data-l=""><b>${ev}</b></td>
         ${[0, 1, 2].map(k => { const x = L[k]; if (!x) return `<td data-l="${['Récord', '2ª', '3ª'][k]}" class="muted">—</td>`; const s = nom(x[0]);
-          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} ${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${fecha(x[2])}</td>`; }).join('')}</tr>`).join('')}</table>`
+          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${marca(x, ev, k)}<div>${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${fecha(x[2])}</div></td>`; }).join('')}</tr>`).join('')}</table>`
       : '<p class="empty">No hay marcas del club en esta categoría y piscina.</p>'}
-    <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 10-11, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad en el año de la marca: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad que tenía (año de la marca − año de nacimiento, como cuenta la federación).</p>`;
+    <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 10-11, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad en el año de la marca: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad que tenía (año de la marca − año de nacimiento, como cuenta la federación). La conversión entre piscinas es orientativa: los récords oficiales son por piscina.</p>`;
   onChips(app, 'cat', v => go({cat: v}));
   app.querySelectorAll('[data-rg] button').forEach(b => b.onclick = () => go({g: b.dataset.v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
