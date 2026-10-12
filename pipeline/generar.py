@@ -533,8 +533,12 @@ def fmt_cs(cs):
 def escribir_resumen(ruta, swimmers, rows_new, claves, movimientos=()):
     """Texto plano para el correo semanal."""
     hace8 = (datetime.now().date().toordinal() - 8)
-    L = ['Informe C.N. Axarquía · Temporada 26-27',
-         'https://andresvazquez11.github.io/Club-Natacion-Axarquia/temporada.html', '',
+    L = ['Informe C.N. Axarquía · Temporada 26-27', '',
+         'ENLACES',
+         '  · Página de Benicio (la tuya, con Benicio fijo como estrella):',
+         '    https://andresvazquez11.github.io/Club-Natacion-Axarquia/temporada.html',
+         '  · Página del club para compartir con las familias (cada una elige a su nadador):',
+         '    https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html', '',
          f'Marcas de la temporada 26-27 en la RFEN (todos los clubes): {len(rows_new):,}'.replace(',', '.')]
     nuevas, todas = [], 0
     for s in swimmers:
