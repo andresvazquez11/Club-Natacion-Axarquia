@@ -50,7 +50,6 @@ function clubNadadores(app, p, c, head) {
   app.innerHTML = `${head}
     <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', DATA.cats.map(x => [x.key, `${x.label} <span class="n">${catYrs(x)}</span>`, x.ids.filter(id => g === 'all' || SW[String(id)].g === g).length]), c.key)}</div>
     <div class="grid g2" style="gap:6px 12px">
-      ${edadesCat.length > 1 ? `<div class="flt"><span class="flt-l">Edad (federativa)</span>${chipsHTML('ed', [['', 'Toda la categoría'], ...edadesCat.map(e => [e, `${e} años`])], ed)}</div>` : ''}
     <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.filter(s => y === 'all' || String(s.y) === String(y)).length], ...['M', 'F'].map(x => [x, x === 'M' ? '♂ Chicos' : '♀ Chicas', base.filter(s => s.g === x && (y === 'all' || String(s.y) === String(y))).length])], g)}</div>
       <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos', base.filter(s => g === 'all' || s.g === g).length], ...c.yrs.map(yr => [yr, c.key === 'ABS' ? String(yr) : `${yr} <span class="n">${Math.max(...c.yrs) - yr + 1}º año</span>`, base.filter(s => s.y === yr && (g === 'all' || s.g === g)).length])], y)}</div>
     </div>
