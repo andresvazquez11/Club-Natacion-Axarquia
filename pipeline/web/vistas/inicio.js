@@ -50,7 +50,7 @@ function vistaInicio(app) {
     <div class="grid g2">
       ${ben}
       <div class="card"><div class="bar-row" style="margin:0 0 6px"><h3 style="margin:0">🏆 Últimos top-10 en campeonatos</h3><a class="small sun" href="#campeonatos">Ver todos →</a></div>
-        ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" data-evo="${x.id}|${x.ev}">
+        ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>
           <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${x.ev} · ${x.lv === 'es' ? FLAG_ES + ' Cto. España' : FLAG_AN + ' Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
           : '<p class="empty">Todavía no hay top-10 en campeonatos.</p>'}</div>
     </div>

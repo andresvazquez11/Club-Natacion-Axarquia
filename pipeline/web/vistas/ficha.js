@@ -208,7 +208,7 @@ function tabPruebas(s, sk, p) {
           <span class="pr-lv">${LV.map(([lv, l]) => r[lv] ? `<span><small class="lv-${lv}">${l.slice(0, 3)}.</small>${posB(r[lv][0])}</span>` : '').join('')}</span>
           <span class="pr-x">${ab ? '▲' : '▼'}</span></button>
         ${ab ? `<div class="pr-b">
-          <div class="kv"><span>Fecha</span><b>${dtag(e.date)} ${esc(e.comp)}</b></div>
+          <div class="kv"><span>Fecha</span><b class="cmp-l" ${cmpAttr(s, e.date, e.comp, e.e)}>${dtag(e.date)} ${esc(e.comp)} <span class="sun">›</span></b></div>
           ${e.cpos ? `<div class="kv"><span>Puesto en esa competición</span><b>${posB(e.cpos[0])} de ${e.cpos[1]}</b></div>` : ''}
           ${mej > 0 ? `<div class="kv"><span>Mejora en la temporada</span><b class="good">−${secs(mej)} s</b></div>` : ''}
           <div class="kv"><span>Ranking (${scopeLbl(s, sk)})</span><b>${LV.map(([lv, l]) => r[lv] ? `${l} ${r[lv][0]}º/${r[lv][1]}` : '').filter(Boolean).join(' · ')}</b></div>
@@ -284,16 +284,16 @@ function rivalLista(s, e, sk, lv, lbl) {
 
 function tabMinimas(s) {
   const mn = minimasDe(s);
-  const celda = (P, cls) => !P.x ? `<td class="num muted" data-l="Su mejor ${cls}">—</td>` :
-    `<td class="num" data-l="Su mejor ${cls}"><b>${fmt(P.x[1])}</b> ${dtag(P.x[0])}<div class="tiny ${P.d <= 0 ? 'good' : 'bad'}">${P.d <= 0 ? '✓ −' + secs(P.d) : '+' + secs(P.d) + ' s'} (${pctTxt(P.p)})</div></td>`;
+  const celda = (P, cls, ev) => !P.x ? `<td class="num muted" data-l="Su mejor ${cls}">—</td>` :
+    `<td class="num click" data-l="Su mejor ${cls}" ${cmpAttr(s, P.x[0], P.x[3], ev)} title="Pulsa para ver la competición"><b>${fmt(P.x[1])}</b> ${dtag(P.x[0])}<div class="tiny ${P.d <= 0 ? 'good' : 'bad'}">${P.d <= 0 ? '✓ −' + secs(P.d) : '+' + secs(P.d) + ' s'} (${pctTxt(P.p)})</div></td>`;
   return `<p class="small muted" style="margin-bottom:12px">Las mínimas de 2027 aún no se han publicado; se usan las del <a class="sun" href="${MIN_FUENTE}" target="_blank" rel="noopener">XIII Campeonato de España Alevín 2026</a>. Al ser alevín de ${s.cy}º año le corresponde la columna de <b>${mn.age} años</b>. Tabla A = piscina de 50 m · Tabla B = piscina de 25 m.</p>
     <div class="kpis" style="margin-bottom:12px"><div class="kpi hl"><b>${mn.ok}/${mn.rows.length}</b><span>mínimas conseguidas</span></div>
       ${mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp).slice(0, 3).map(r => `<div class="kpi"><b>${r.bestd <= 0 ? '✓' : secs(r.bestd) + ' s'}</b><span>${r.ev} · ${r.bestd <= 0 ? 'conseguida' : `le faltan (${r.bestp.toFixed(1)}%, ${r.bestpl})`}</span></div>`).join('')}</div>
     <table class="rt cards"><tr><th>Prueba</th><th class="num">Mínima 50 m (${mn.age} años)</th><th class="num">Su mejor 50 m</th><th class="num">Mínima 25 m (${mn.age} años)</th><th class="num">Su mejor 25 m</th><th>Estado</th></tr>
     ${[...mn.rows].sort((a, b) => (a.bestp === null) - (b.bestp === null) || (a.bestp - b.bestp)).map(r => `<tr>
       <td class="t" data-l=""><b>${r.ev}</b></td>
-      <td class="num" data-l="Mínima 50 m (${mn.age} años)"><b>${fmt(r.pools['50m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['50m'].min13)}</div>` : ''}</td>${celda(r.pools['50m'], '50 m')}
-      <td class="num" data-l="Mínima 25 m (${mn.age} años)"><b>${fmt(r.pools['25m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['25m'].min13)}</div>` : ''}</td>${celda(r.pools['25m'], '25 m')}
+      <td class="num" data-l="Mínima 50 m (${mn.age} años)"><b>${fmt(r.pools['50m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['50m'].min13)}</div>` : ''}</td>${celda(r.pools['50m'], '50 m', r.ev)}
+      <td class="num" data-l="Mínima 25 m (${mn.age} años)"><b>${fmt(r.pools['25m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['25m'].min13)}</div>` : ''}</td>${celda(r.pools['25m'], '25 m', r.ev)}
       <td data-l="Estado">${r.bestp === null ? '<span class="muted">Sin marca</span>' : r.bestp <= 0 ? '<span class="good"><b>✓ Conseguida</b></span>'
         : `faltan <b>${secs(r.bestd)} s</b> <span class="of">(${r.bestp.toFixed(1)}%, ${r.bestpl})</span><div class="meter"><i style="width:${Math.max(4, 100 - r.bestp * 5)}%"></i></div>`}</td></tr>`).join('')}</table>`;
 }
@@ -353,10 +353,10 @@ function vistaFicha(app, s, tab, p) {
   const href = (t, q) => fichaHref(s, t) + (q ? '?' + q : '');
   const logros = [];
   (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).forEach(x =>
-    logros.push(`<span class="tag ${x.pos <= 3 ? 'gold' : ''}">🏆 ${x.pos}º ${x.lv === 'es' ? 'Cto. España' : 'Cto. AND'} · ${x.ev}</span>`));
+    logros.push(`<span class="tag click ${x.pos <= 3 ? 'gold' : ''}" ${cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">🏆 ${x.pos}º ${x.lv === 'es' ? 'Cto. España' : 'Cto. AND'} · ${x.ev}</span>`));
   s.ev.forEach(e => { const r = e.rk.y || {};
-    if (r.es && r.es[0] <= 10) logros.push(`<span class="tag gold">${FLAG_ES} ${r.es[0]}º España · ${e.e}</span>`);
-    else if (r.ma && r.ma[0] == 1) logros.push(`<span class="tag">🥇 1º Málaga · ${e.e}</span>`); });
+    if (r.es && r.es[0] <= 10) logros.push(`<a class="tag gold" style="text-decoration:none" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">${FLAG_ES} ${r.es[0]}º España · ${e.e}</a>`);
+    else if (r.ma && r.ma[0] == 1) logros.push(`<a class="tag" style="text-decoration:none;color:inherit" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">🥇 1º Málaga · ${e.e}</a>`); });
   const cat = s.cat ? catOf(s.cat) : null;
   const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
 
@@ -402,11 +402,11 @@ function vistaFicha(app, s, tab, p) {
 /* Ventana con el detalle de cada dato del Resumen: qué pruebas, cuándo, dónde y con qué marca */
 function abrirKpiFicha(s, k) {
   const ir = ev => `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}`;
-  const filaEv = (e, extra) => `<tr class="click" data-goto="${ir(e.e)}"><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
+  const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
       <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
   const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
   const nadadas = []; s.ev.forEach(e => e.h.forEach(x => nadadas.push([e, x])));
-  const filaNado = ([e, x]) => `<tr class="click" data-goto="${ir(e.e)}"><td>${dtag(x[0])} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
+  const filaNado = ([e, x]) => `<tr class="click" ${cmpAttr(s, x[0], x[3], e.e)}><td>${dtag(x[0])} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
       <td class="num"><b>${fmt(x[1])}</b></td><td class="num">${posB(x[6])}<span class="of">de ${x[7]}</span></td></tr>`;
   let tit = '', cuerpo = '';
   if (k === 'np' || k === 'pts') {
@@ -421,7 +421,7 @@ function abrirKpiFicha(s, k) {
   } else if (k === 'cto') {
     const L = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3).sort((a, b) => a.date < b.date ? 1 : -1);
     tit = 'Podios en Campeonatos de Andalucía y España';
-    cuerpo = L.length ? `<table class="rt">${L.map(x => `<tr class="click" data-goto="${ir(x.ev)}"><td>${dtag(x.date)} <b>${x.ev}</b> <span class="of">${x.pool}</span><div class="tiny muted">${x.lv === 'es' ? FLAG_ES : FLAG_AN} ${esc(x.comp)}</div></td>
+    cuerpo = L.length ? `<table class="rt">${L.map(x => `<tr class="click" ${cmpAttr(s, x.date, x.comp, x.ev)}><td>${dtag(x.date)} <b>${x.ev}</b> <span class="of">${x.pool}</span><div class="tiny muted">${x.lv === 'es' ? FLAG_ES : FLAG_AN} ${esc(x.comp)}</div></td>
         <td class="num"><b>${fmt(x.cs)}</b></td><td class="num">${posB(x.pos)}<span class="of">de ${x.of}</span></td></tr>`).join('')}</table>` : '<p class="empty">Todavía ningún podio en campeonatos.</p>';
   } else if (k === 'pod') {
     const L = nadadas.filter(([, x]) => x[6] && x[6] <= 3).sort((a, b) => a[1][0] < b[1][0] ? 1 : -1);
@@ -439,7 +439,7 @@ function abrirKpiFicha(s, k) {
   }
   document.querySelector('#modal .box').innerHTML = `<button class="close" onclick="closeEvo()">Cerrar ✕</button>
     <h1 style="font-size:1.25rem;font-weight:900">${esc(s.n)}</h1><p class="sun" style="font-weight:800;margin:2px 0 12px">${tit}</p>${cuerpo}
-    <p class="tiny muted" style="margin-top:10px">Pulsa una fila para ver todas sus marcas en esa prueba.</p>`;
+    <p class="tiny muted" style="margin-top:10px">Pulsa una fila para ver toda esa competición: todas las pruebas que nadó, con tiempos y puestos.</p>`;
   const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0; document.body.style.overflow = 'hidden';
   m.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { closeEvo(); location.hash = el.dataset.goto; });
 }

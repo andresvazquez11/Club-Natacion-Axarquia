@@ -311,3 +311,7 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 .rel-tot2{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
 .rel-tot2 small{font-size:.66rem;color:var(--ink2)}
 .rel h3 .tag{font-size:.6rem;vertical-align:middle;margin-left:4px}
+
+.cmp-l{cursor:pointer}.cmp-l:hover{color:var(--sun)}
+td.click{cursor:pointer}
+.tag.click{cursor:pointer}

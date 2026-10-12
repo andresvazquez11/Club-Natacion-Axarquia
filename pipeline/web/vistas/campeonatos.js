@@ -14,7 +14,7 @@ function vistaCampeonatos(app, p) {
   const medL = Object.values(med).sort((a, b) => b.o - a.o || b.p - a.p || b.b - a.b || b.t - a.t);
   const tot = medL.reduce((a, m) => ({o: a.o + m.o, p: a.p + m.p, b: a.b + m.b}), {o: 0, p: 0, b: 0});
 
-  const fila = x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" data-evo="${x.id}|${x.ev}">
+  const fila = x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>
       <td class="t" data-l="">${posB(x.pos)}<span class="of">de ${x.of}</span><span class="m-only">&nbsp; ${esc(x.n)}</span></td>
       <td data-l="Nadador" class="hide-m"><b>${esc(x.n)}</b><div class="tiny muted">${x.y} ${SEXO[x.g]} · ${SW[String(x.id)].catl || ''}</div></td>
       <td data-l="Prueba">${x.ev} <span class="of">${x.pool}</span></td>
@@ -23,7 +23,7 @@ function vistaCampeonatos(app, p) {
       <td data-l="Fecha">${dtag(x.date)}</td></tr>`;
 
   app.innerHTML = `
-    <div class="hd"><div><h1>🏆 Campeonatos</h1><p>Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una fila para ver la evolución.</p></div></div>
+    <div class="hd"><div><h1>🏆 Campeonatos</h1><p>Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una fila para ver toda esa competición del nadador.</p></div></div>
     <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos', cuentaC({lv: 'all'})], ['es', FLAG_ES + ' España', cuentaC({lv: 'es'})], ['an', FLAG_AN + ' Andalucía', cuentaC({lv: 'an'})]], lv)}</div>
     <div class="grid g2" style="gap:6px 12px">
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas', cuentaC({cat: 'all'})], ...DATA.cats.map(c => [c.key, c.label, cuentaC({cat: c.key})])], cat)}</div>

@@ -98,7 +98,7 @@ function relCard(r, pl, lv) {
     : mix ? `Mínima Cto. de España (suma) · ${minUna(P.min['50m'], P.tot, '50 m')}${P.tot25 ? ' · ' + minUna(P.min['25m'], P.tot25, '25 m') : ''}`
     : `Mínima Cto. de España (suma) · ${minUna(P.min, P.tot, pl.replace('m', ' m'))}`;
   const eq = P.eq.map((x, k) => `<tr><td class="small muted" style="width:64px">${r.tipo === 'E' ? strokeOf(x[2]) : 'Posta ' + (k + 1)}</td>
-      <td>${nadLink(x[0], x[1])}<div>${dtag(x[4])}</div></td>
+      <td>${nadLink(x[0], x[1])}<div class="${SW[String(x[0])] ? 'cmp-l' : ''}" ${SW[String(x[0])] ? cmpAttr(SW[String(x[0])], x[4], '', x[2]) : ''}>${dtag(x[4])}${SW[String(x[0])] ? ' <span class="tiny sun">ver competición ›</span>' : ''}</div></td>
       ${mix ? `<td class="num"><b>${fmt(x[5])}</b> <span class="of">${x[6]}</span><div class="tiny muted">≈ ${fmt(x[3])} en 50 · ${x[7] ? fmt(x[7]) : '—'} en 25</div></td>`
             : `<td class="num"><b>${fmt(x[3])}</b></td>`}</tr>`).join('');
   const falta = P.falta.length ? `<details class="rel-det"><summary>🔜 Quién puede entrar <span class="of">(${P.falta.length})</span></summary>
@@ -193,7 +193,7 @@ function clubRecords(app, p, c, head) {
     ${filas.length ? `<table class="rt cards recs"><tr><th>Prueba</th><th>🥇 Récord</th><th>🥈 2ª mejor</th><th>🥉 3ª mejor</th></tr>
       ${filas.map(([ev, L]) => `<tr class="${L.some(x => nom(x[0]) && nom(x[0]).benicio) ? 'me' : ''}"><td class="t" data-l=""><b>${ev}</b></td>
         ${[0, 1, 2].map(k => { const x = L[k]; if (!x) return `<td data-l="${['Récord', '2ª', '3ª'][k]}" class="muted">—</td>`; const s = nom(x[0]);
-          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${marca(x, ev, k)}<div>${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${fecha(x[2])}</div></td>`; }).join('')}</tr>`).join('')}</table>`
+          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${marca(x, ev, k)}<div>${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${s ? `<span class="cmp-l" ${cmpAttr(s, x[2], '', ev)} title="Pulsa para ver la competición">${fecha(x[2])} <span class="tiny sun">›</span></span>` : fecha(x[2])}</div></td>`; }).join('')}</tr>`).join('')}</table>`
       : '<p class="empty">No hay marcas del club en esta categoría y piscina.</p>'}
     <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 13-14, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad en el año de la marca: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad que tenía (año de la marca − año de nacimiento, como cuenta la federación). La conversión entre piscinas es orientativa: los récords oficiales son por piscina.</p>${convNota()}`;
   onChips(app, 'cat', v => go({cat: v}));

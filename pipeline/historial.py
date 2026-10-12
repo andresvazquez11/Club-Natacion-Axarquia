@@ -93,6 +93,15 @@ def resumen_temporada(filas, club, cohorte=False):
     Con cohorte=True devuelve también el nivel de TODOS los nadadores de los mismos ámbitos (sexo|año):
     {'M|2015': {pid: nivel}} para comparar al nadador con el resto de España."""
     info, mejor, mejor_pl, comps = {}, {}, {}, defaultdict(dict)
+    # puesto real en cada competición: entre los nacidos en el mismo año, misma prueba, piscina y sexo
+    comp_best = defaultdict(dict)
+    marcas_club = defaultdict(list)
+    for r, d in limpiar(filas):
+        if r.get('id_competicion'):
+            g_ = comp_best[(r['id_competicion'], r['estilo'], r.get('id_tipo_piscina'), r['genero'], r['fecha_nacimiento'])]
+            v = int(r['valor_original'])
+            if r['profile_id'] not in g_ or v < g_[r['profile_id']]:
+                g_[r['profile_id']] = v
     for r, d in limpiar(filas):
         pid, ev, cs, pl = r['profile_id'], r['estilo'], int(r['valor_original']), r.get('id_tipo_piscina')
         prov = _acc(r.get('provincia'))
@@ -109,6 +118,10 @@ def resumen_temporada(filas, club, cohorte=False):
         if pid in club:
             c = comps[pid].setdefault((d.isoformat(), r.get('competition_name')), [0])
             c[0] += 1
+            g_ = comp_best.get((r.get('id_competicion'), ev, pl, r['genero'], r['fecha_nacimiento'])) if r.get('id_competicion') else None
+            cpos = (1 + sum(1 for p_, v in g_.items() if v < cs and p_ != pid), len(g_)) if g_ and g_.get(pid) == cs else (None, None)
+            marcas_club[pid].append([d.isoformat(), ev, cs, pl, ' '.join(str(r.get('competition_name') or '').split()).title(),
+                                     ' '.join(str(r.get('location') or '').split()).title(), _fina(r.get('record_mundo'), cs), cpos[0], cpos[1]])
 
     # listas ordenadas por ámbito (sexo, año), prueba y nivel
     listas = defaultdict(lambda: {lv: [] for lv in NIVELES})
@@ -142,7 +155,11 @@ def resumen_temporada(filas, club, cohorte=False):
             evs[ev] = {'cs': b[0], 'pool': b[1], 'date': b[2], 'pts': b[3], 'comp': b[4], 'rk': rk,
                        'pl': {pl: mejor_pl[(pid, ev, pl)] for pl in ('25m', '50m') if (pid, ev, pl) in mejor_pl}}
         lista_c = sorted(([dd, (c or '').title(), n[0]] for (dd, c), n in comps[pid].items()), reverse=True)
-        out[pid] = {'club': clubn, 'ev': evs, 'nc': len(lista_c), 'np': sum(x[2] for x in lista_c), 'comps': lista_c}
+        # todas sus marcas de la temporada: [fecha, prueba, marca, piscina, competición, lugar, pts, puesto, de]
+        # (si ese día nadó la misma prueba dos veces —eliminatoria y final— se dejan las dos)
+        m = sorted({tuple(x) for x in marcas_club[pid]})
+        out[pid] = {'club': clubn, 'ev': evs, 'nc': len(lista_c), 'np': sum(x[2] for x in lista_c), 'comps': lista_c,
+                    'm': [list(x) for x in m]}
     if not cohorte:
         return out
     ambitos = {(g, y) for g, y in club.values()}
