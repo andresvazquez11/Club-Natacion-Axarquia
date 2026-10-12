@@ -1,7 +1,8 @@
 /* ⭐ Ficha de atleta con pestañas (la de Benicio y la de cualquier nadador) */
 
 function fichaTabs(s) {
-  const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['evolucion', 'Evolución'], ['rivales', 'Rivales']];
+  const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['evolucion', 'Evolución'], ['rivales', 'Rivales'],
+             ['historial', 'Historial'], ['ranking', 'Ranking']];
   if (s.cat === 'ALE') t.push(['minimas', 'Mínimas España']);
   if (s.benicio && DATA.claves) t.push(['andalucia', 'Cto. Andalucía']);
   return t;
@@ -217,6 +218,7 @@ function vistaFicha(app, s, tab, p) {
   else if (tab === 'rivales') body = tabRivales(s, sk, p.ev);
   else if (tab === 'minimas') body = tabMinimas(s);
   else if (tab === 'andalucia') body = tabAndalucia(s, p);
+  else if (tab === 'historial' || tab === 'ranking') body = '<div id="hist-host"><p class="empty">Cargando el historial…</p></div>';
 
   app.innerHTML = `
     <div class="hero">
@@ -233,5 +235,6 @@ function vistaFicha(app, s, tab, p) {
   app.querySelectorAll('[data-ksc] button').forEach(b => b.onclick = () => keep({sc: b.dataset.v}));
   app.querySelectorAll('[data-kpool] button').forEach(b => b.onclick = () => keep({pool: b.dataset.v}));
   onChips(app, 'ev', v => keep({ev: v}));
+  if (tab === 'historial' || tab === 'ranking') pintarHistorial(s, tab, p, keep);
   const on = app.querySelector('.tabs a.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
 }

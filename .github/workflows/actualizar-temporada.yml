@@ -64,8 +64,16 @@ jobs:
           CNA_RAW_OUT: raw_2627
         run: python pipeline/descargar.py --temporada 2627
 
+      - name: Descargar la temporada 25-26 completa (historial y ranking de 12 meses)
+        env:
+          RFEN_USER: ${{ secrets.RFEN_USER }}
+          RFEN_PASS: ${{ secrets.RFEN_PASS }}
+          CNA_RAW_OUT: raw_2526
+        run: python pipeline/descargar.py --temporada 2526
+
       - name: Generar informe
         env:
+          CNA_2526_RAW: raw_2526
           CNA_BASE: pipeline/base_2526.json.gz
           CNA_NEW: raw_2627
           CNA_OUT: temporada.html
@@ -76,7 +84,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add temporada.html
+          git add temporada.html historial.json historico_ranking.json
           git commit -m "Actualizar informe temporada 26-27 — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
           for i in 1 2 3; do
             git push origin main && exit 0

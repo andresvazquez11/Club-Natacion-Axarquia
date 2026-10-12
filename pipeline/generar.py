@@ -23,6 +23,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RAW_DIR  = os.environ.get('CNA_BASE', os.path.join(BASE_DIR, 'RAW_2526'))   # carpeta o .json.gz
 RAW_NEW  = os.environ.get('CNA_NEW', os.path.join(BASE_DIR, 'RAW_2627'))
 HTML_OUT = os.environ.get('CNA_OUT', os.path.expanduser('~/Desktop/CNA_Temporada_26-27.html'))
+# Historial de 6 temporadas y fotos semanales del ranking
+RAW_2526 = os.environ.get('CNA_2526_RAW', '')     # descarga completa de la 25-26 (si no, se usa CNA_BASE)
+HIST_BASE = os.path.join(BASE_DIR, 'historial_base.json.gz')
+HIST_RANK = os.environ.get('CNA_HIST_RANK', os.path.join(os.path.dirname(BASE_DIR), 'historico_ranking.json'))
+HIST_OUT = os.environ.get('CNA_HIST_OUT', os.path.join(os.path.dirname(os.path.abspath(HTML_OUT)), 'historial.json'))
 WEB_DIR  = os.path.join(BASE_DIR, 'web')   # plantilla, estilos y JS de la página
 
 CLUB_MATCH = 'AXARQ'
@@ -419,12 +424,13 @@ def main():
     with open(HTML_OUT, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f'{len(swimmers)} nadadores del club · {len(lists)} listas · {os.path.getsize(HTML_OUT)/1e6:.1f} MB')
+    movimientos = escribir_historial(swimmers, rows_new)
     if os.environ.get('CNA_SUMMARY'):
-        escribir_resumen(os.environ['CNA_SUMMARY'], swimmers, rows_new, claves)
+        escribir_resumen(os.environ['CNA_SUMMARY'], swimmers, rows_new, claves, movimientos)
 
 
 JS_ORDEN = ['comunes.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/inicio.js', 'vistas/club.js', 'vistas/campeonatos.js',
-            'vistas/ficha.js', 'vistas/rankings.js', 'app.js']
+            'vistas/ficha.js', 'vistas/historial.js', 'vistas/rankings.js', 'app.js']
 
 
 def montar_html():
@@ -438,12 +444,61 @@ def montar_html():
     return leer('plantilla.html').replace('/*__CSS__*/', leer('estilos.css')).replace('/*__JS__*/', js)
 
 
+def escribir_historial(swimmers, rows_new):
+    """historial.json (6 temporadas + análisis + ranking semanal) y actualiza historico_ranking.json.
+    Devuelve los mayores cambios de ranking de la semana para el correo."""
+    import historial as H
+    from datetime import timedelta
+    club = {s['id']: (s['g'], s['y']) for s in swimmers}
+    base = H.cargar(HIST_BASE) if os.path.exists(HIST_BASE) else {'temps': {}}
+    temps = {t: v for t, v in base['temps'].items()}
+    f26 = H.cargar(RAW_2526 or RAW_DIR)
+    temps['2526'] = {str(k): v for k, v in H.resumen_temporada(f26, club).items()}
+    temps['2627'] = {str(k): v for k, v in H.resumen_temporada(rows_new, club).items()}
+    por_nad, analisis = {}, {}
+    for pid in map(str, club):
+        tt = {t: temps[t][pid] for t in H.TEMPORADAS if pid in temps.get(t, {})}
+        por_nad[pid] = tt
+        analisis[pid] = H.analisis(tt)
+
+    # fotos del ranking: se añaden las semanas que falten y se rehace la semana en curso
+    guardadas = json.load(open(HIST_RANK, encoding='utf-8')) if os.path.exists(HIST_RANK) else {}
+    hoy = date.today()
+    actual = hoy - timedelta(days=(hoy.weekday() + 1) % 7)          # último domingo
+    desde = (datetime.strptime(max(guardadas), '%Y-%m-%d').date() + timedelta(days=7)) if guardadas else date(2025, 9, 7)
+    semanas = sorted(set(H.domingos(min(desde, actual), actual)))
+    marcas, prov = H.preparar_marcas([f26, rows_new], club)
+    fotos = H.fusionar_fotos(guardadas, H.fotos(marcas, prov, club, semanas), sobrescribir={actual.isoformat()})
+    with open(HIST_RANK, 'w', encoding='utf-8') as f:
+        json.dump(fotos, f, ensure_ascii=False, separators=(',', ':'))
+
+    out = {'fecha': hoy.strftime('%d/%m/%Y'), 'temps': por_nad, 'an': analisis, 'rank': H.para_pagina(fotos, club)}
+    with open(HIST_OUT, 'w', encoding='utf-8') as f:
+        json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
+    print(f'Historial: {sum(len(v) for v in por_nad.values())} temporadas-nadador · {len(fotos)} semanas de ranking · '
+          f'{os.path.getsize(HIST_OUT) / 1e6:.1f} MB → {HIST_OUT}')
+
+    # cambios de la última semana en el ranking de España (modo temporada)
+    sem = sorted(fotos)
+    mov = []
+    if len(sem) >= 2:
+        a, b = fotos[sem[-2]]['p'], fotos[sem[-1]]['p']
+        nombre = {str(s['id']): s['n'] for s in swimmers}
+        for pid, evs in b.items():
+            for ev, v in evs.items():
+                antes = a.get(pid, {}).get(ev)
+                if v[0] and antes and antes[0] and antes[0] != v[0]:
+                    mov.append((antes[0] - v[0], nombre.get(pid, pid), ev, antes[0], v[0]))
+    mov.sort(key=lambda x: -abs(x[0]))
+    return mov[:12]
+
+
 def fmt_cs(cs):
     m, s, c = cs // 6000, cs % 6000 // 100, cs % 100
     return f'{m}:{s:02d}.{c:02d}' if m else f'{s}.{c:02d}'
 
 
-def escribir_resumen(ruta, swimmers, rows_new, claves):
+def escribir_resumen(ruta, swimmers, rows_new, claves, movimientos=()):
     """Texto plano para el correo semanal."""
     hace8 = (datetime.now().date().toordinal() - 8)
     L = ['Informe C.N. Axarquía · Temporada 26-27',
@@ -481,6 +536,9 @@ def escribir_resumen(ruta, swimmers, rows_new, claves):
                 d = sc[lv]['all']
                 partes.append(f"{d['mp']}º/{d['t']} {nom}")
             L.append(f"  · {ev['e']}: {fmt_cs(me)} · " + ' · '.join(partes))
+    if movimientos:
+        L += ['', 'CAMBIOS EN EL RANKING DE ESPAÑA ESTA SEMANA (temporada, entre los de su año):']
+        L += [f"  · {n} — {ev}: {a}º → {b}º ({'▲' if d > 0 else '▼'}{abs(d)})" for d, n, ev, a, b in movimientos]
     with open(ruta, 'w', encoding='utf-8') as f:
         f.write('\n'.join(L) + '\n')
     print('→', HTML_OUT)

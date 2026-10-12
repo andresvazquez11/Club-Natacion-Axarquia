@@ -210,3 +210,7 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 #modal .chips{margin:0;padding-left:0;padding-right:0}
 .cto-es{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:9px;background:var(--sun);color:var(--sun-ink);margin-left:4px;vertical-align:middle;white-space:nowrap}
 .flag{display:inline-block;vertical-align:-1px;border-radius:2px;flex-shrink:0}
+
+/* mapa de pruebas × temporadas del historial */
+.hmap th,.hmap td{padding:6px 5px;font-size:.78rem}
+.hmap td:first-child{white-space:normal;min-width:76px}
