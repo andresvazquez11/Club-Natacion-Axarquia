@@ -316,3 +316,4 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 td.click{cursor:pointer}
 .tag.click{cursor:pointer}
 .edad{display:inline-block;font-size:.66rem;font-weight:800;color:var(--sun-ink);background:rgba(255,214,10,.85);border-radius:8px;padding:0 6px;margin-left:2px;vertical-align:middle;white-space:nowrap}
+tr.hueco td{opacity:.75;font-style:italic}

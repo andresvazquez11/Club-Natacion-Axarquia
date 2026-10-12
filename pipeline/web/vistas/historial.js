@@ -110,15 +110,21 @@ function histTotal(s, T, ts, p) {
     if (rows.length > 1) graf += `<div class="card" style="margin-bottom:12px"><h3>${ev} · piscina de ${pl} <span class="muted small">· mejor marca de cada temporada · pulsa un punto para ver la competición</span></h3>${evoChart(rows.sort((a, b) => a[0] < b[0] ? -1 : 1), s)}</div>`;
   });
   if (!graf) graf = `<p class="small muted" style="margin-bottom:12px">Solo tiene ${filas.length} temporada con ${ev}; el gráfico aparece cuando hay al menos dos en la misma piscina.</p>`;
-  let prev = null;
+  let prev = null, prevT = null;
+  // todas sus temporadas desde la primera con esta prueba: las que no la nadó salen como hueco (así la edad no «salta»)
+  const t0 = filas.length ? filas[0][0] : null, t1 = filas.length ? filas[filas.length - 1][0] : null;
+  const todas = ts.filter(t => t0 && t >= t0 && t <= t1).map(t => [t, T[t].ev[ev] || null]);
   const tabla = `<table class="rt cards"><tr><th>Temporada</th><th class="num">Mejor 25 m</th><th class="num">Mejor 50 m</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>
-    ${filas.map(([t, e]) => { const pe = prev; prev = e;
+    ${todas.map(([t, e]) => { if (!e) return `<tr class="hueco"><td class="t" data-l=""><b>${tLbl(t)}</b> <span class="edad">${edadTemp(t, s.y)}</span></td>
+        <td colspan="6" data-l="" class="muted small" style="white-space:normal">No nadó ${ev} esa temporada (sí nadó ${T[t].np} prueba${T[t].np === 1 ? '' : 's'} de ${Object.keys(T[t].ev).length} tipo${Object.keys(T[t].ev).length === 1 ? '' : 's'}: ${Object.keys(T[t].ev).slice(0, 4).join(', ')}${Object.keys(T[t].ev).length > 4 ? '…' : ''}).</td></tr>`;
+      const pe = prev, peT = prevT; prev = e; prevT = t;
+      const salto = peT && ts.indexOf(t) - ts.indexOf(peT) > 1 ? ` <span class="muted">vs ${tLbl(peT)}</span>` : '';
       const mc = pl => (T[t].m || []).find(x => x[1] === ev && x[3] === pl && x[2] === e.pl[pl]);
-      const celda = pl => e.pl[pl] ? `<span class="cmp-l" ${(m => m ? cmpAttr(s, m[0], m[4], ev) : '')(mc(pl))}><b>${fmt(e.pl[pl])}</b>${(m => m ? `<div class="tiny muted">${dfmt(m[0])} · ${edadFecha(m[0], s.y)} años</div>` : '')(mc(pl))}</span>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) || '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
+      const celda = pl => e.pl[pl] ? `<span class="cmp-l" ${(m => m ? cmpAttr(s, m[0], m[4], ev) : '')(mc(pl))}><b>${fmt(e.pl[pl])}</b>${(m => m ? `<div class="tiny muted">${dfmt(m[0])} · ${edadFecha(m[0], s.y)} años</div>` : '')(mc(pl))}</span>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) ? mejoraTxt(pe, e, pl) + salto : '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
       const dp = pe ? e.pts - pe.pts : null;
       return `<tr><td class="t" data-l=""><b>${tLbl(t)}</b> <span class="edad">${edadTemp(t, s.y)}</span>${t === '2627' ? ' <span class="of">en curso</span>' : ''}</td>
         <td class="num" data-l="Mejor 25 m">${celda('25m')}</td><td class="num" data-l="Mejor 50 m">${celda('50m')}</td>
-        <td class="num" data-l="Puntos"><b>${e.pts}</b>${dp === null ? '' : `<div class="tiny ${dp > 0 ? 'good' : dp < 0 ? 'bad' : 'muted'}">${dp > 0 ? '+' : ''}${dp} pts</div>`}</td>
+        <td class="num" data-l="Puntos"><b>${e.pts}</b>${dp === null ? '' : `<div class="tiny ${dp > 0 ? 'good' : dp < 0 ? 'bad' : 'muted'}">${dp > 0 ? '+' : ''}${dp} pts${salto}</div>`}</td>
         ${LV.map(([lv, l]) => `<td data-l="${l}" class="click" ${cmpAttr(s, e.date, e.comp, ev)} title="Puesto con su mejor marca de la temporada (${dfmt(e.date)}): pulsa para ver la competición">${e.rk[lv] ? posB(e.rk[lv][0], e.rk[lv][1]) : '—'}</td>`).join('')}</tr>`; }).join('')}</table>`;
   // mapa de todas las pruebas por temporada (puntos)
   const mx = Math.max(...ts.flatMap(t => Object.values(T[t].ev).map(e => e.pts)), 1);

@@ -159,11 +159,14 @@ function cmpCuerpo(C, ids, p) {
       <div class="tiny muted">${ts.length} temporada${ts.length === 1 ? '' : 's'} con marcas</div></div>`; }).join('');
 
   // ejes: temporadas o edades
-  const xsT = CMP_TEMPS.filter(t => ids.some(id => T(id)[t] && T(id)[t][ev]));
+  // sin huecos: todas las temporadas (o edades) entre la primera y la última con marca, aunque alguna no tenga marca
+  const conT = CMP_TEMPS.filter(t => ids.some(id => T(id)[t] && T(id)[t][ev]));
+  const xsT = conT.length ? CMP_TEMPS.slice(CMP_TEMPS.indexOf(conT[0]), CMP_TEMPS.indexOf(conT[conT.length - 1]) + 1) : [];
   let xs, valor;
   if (modo === 'temp') { xs = xsT.map(tLbl); valor = (id, k, pl) => cmpValor((T(id)[xsT[k]] || {})[ev], pl, C.d[id][2], ev); }
   else {
-    const edades = [...new Set(ids.flatMap(id => CMP_TEMPS.filter(t => T(id)[t] && T(id)[t][ev]).map(t => edadEn(t, C.d[id][3]))))].sort((a, b) => a - b);
+    const conE = [...new Set(ids.flatMap(id => CMP_TEMPS.filter(t => T(id)[t] && T(id)[t][ev]).map(t => edadEn(t, C.d[id][3]))))].sort((a, b) => a - b);
+    const edades = conE.length ? Array.from({length: conE[conE.length - 1] - conE[0] + 1}, (_, k) => conE[0] + k) : [];
     xs = edades.map(a => `${a} años`);
     valor = (id, k, pl) => { const t = CMP_TEMPS.find(t => edadEn(t, C.d[id][3]) === edades[k]); return t ? cmpValor((T(id)[t] || {})[ev], pl, C.d[id][2], ev) : null; };
   }
