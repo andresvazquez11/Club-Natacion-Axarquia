@@ -1303,14 +1303,14 @@ function histTotal(s, T, ts, p) {
   });
   if (!graf) graf = `<p class="small muted" style="margin-bottom:12px">Solo tiene ${filas.length} temporada con ${ev}; el gráfico aparece cuando hay al menos dos en la misma piscina.</p>`;
   let prev = null;
-  const tabla = `<table class="rt cards"><tr><th>Temporada</th><th class="num">Mejor 25 m</th><th class="num">Mejor 50 m</th><th class="num">Pts</th><th class="lv-es">España</th><th class="lv-an">Andalucía</th></tr>
+  const tabla = `<table class="rt cards"><tr><th>Temporada</th><th class="num">Mejor 25 m</th><th class="num">Mejor 50 m</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>
     ${filas.map(([t, e]) => { const pe = prev; prev = e;
       const celda = pl => e.pl[pl] ? `<b>${fmt(e.pl[pl])}</b>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) || '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
       const dp = pe ? e.pts - pe.pts : null;
       return `<tr><td class="t" data-l=""><b>${tLbl(t)}</b>${t === '2627' ? ' <span class="of">en curso</span>' : ''}</td>
         <td class="num" data-l="Mejor 25 m">${celda('25m')}</td><td class="num" data-l="Mejor 50 m">${celda('50m')}</td>
         <td class="num" data-l="Puntos"><b>${e.pts}</b>${dp === null ? '' : `<div class="tiny ${dp > 0 ? 'good' : dp < 0 ? 'bad' : 'muted'}">${dp > 0 ? '+' : ''}${dp} pts</div>`}</td>
-        <td data-l="España">${e.rk.es ? posB(e.rk.es[0], e.rk.es[1]) : '—'}</td><td data-l="Andalucía">${e.rk.an ? posB(e.rk.an[0], e.rk.an[1]) : '—'}</td></tr>`; }).join('')}</table>`;
+        ${LV.map(([lv, l]) => `<td data-l="${l}">${e.rk[lv] ? posB(e.rk[lv][0], e.rk[lv][1]) : '—'}</td>`).join('')}</tr>`; }).join('')}</table>`;
   // mapa de todas las pruebas por temporada (puntos)
   const mx = Math.max(...ts.flatMap(t => Object.values(T[t].ev).map(e => e.pts)), 1);
   const mapa = `<div class="tw"><table class="rt hmap"><tr><th>Prueba</th>${ts.map(t => `<th class="num">${tLbl(t)}</th>`).join('')}</tr>
