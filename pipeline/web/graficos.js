@@ -82,7 +82,7 @@ function evolucionHTML(s, e) {
     const eq = Object.assign({}, e, {cs: Math.min(...rows.map(x => x[1])), pool: to});
     return `<div class="card" style="margin-bottom:12px"><h3>Todo convertido a piscina de ${to} <span class="muted small">· ${rows.length} marcas${tot > 0 ? ` · mejora <span class="good">−${secs(tot)} s</span>` : ''}</span></h3>
       ${rows.length > 1 ? evoChart(rows) : ''}<div class="tw" style="margin-top:8px">${tablaMarcas(rows, eq, to)}</div></div>
-      <p class="tiny muted">Marcas de la otra piscina convertidas con la equivalencia de puntos World Aquatics (orientativo). En «Lugar» se indica la marca original.</p>`;
+      <p class="tiny muted">En «Lugar» se indica la marca original.</p>${convNota()}`;
   }
   const pools = [...new Set(e.h.map(x => x[2]))].sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
   return pools.map(pl => {

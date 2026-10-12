@@ -240,3 +240,9 @@ function relOrig(x) {
   if (x.pl === 'mix' && fila) return x.rol === 'F' ? {cs: fila[5] ?? x.cs, pl: fila[6] || ''} : {cs: fila[5], pl: fila[6]};
   return {cs: x.cs, pl: x.pl === 'mix' ? '' : x.pl};
 }
+/* Nota al pie con el sistema de conversión entre piscinas (se pone en todos los sitios donde se convierten tiempos) */
+function convNota() {
+  const w = ((DATA.wr || {}).M || {})['100 Libre'] || {};
+  const ej = w['25m'] && w['50m'] ? ` Ejemplo (100 libre masculino, récords del mundo ${fmt(w['50m'])} en 50 m y ${fmt(w['25m'])} en 25 m): 1:00.00 en 25 m ≈ ${fmt(Math.round(6000 * w['50m'] / w['25m']))} en 50 m.` : '';
+  return `<p class="tiny muted conv-nota">🔄 <b>Conversión entre piscinas</b>: equivalencia por puntos World Aquatics. Marca en la otra piscina = marca × récord del mundo de esa prueba y sexo en la piscina de destino ÷ récord del mundo en la piscina de origen; así las dos marcas valen los mismos puntos (1000 × (récord ÷ marca)³).${ej} Es orientativa: los rankings, los récords oficiales y las mínimas cuentan la marca real en su piscina.</p>`;
+}

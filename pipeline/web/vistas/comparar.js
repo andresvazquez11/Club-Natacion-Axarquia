@@ -214,7 +214,7 @@ function cmpCuerpo(C, ids, p) {
       return `<tr class="click" data-cev="${x}"><td><b>${x}</b></td>${vs.map(v => !v ? '<td class="num muted">—</td>' :
         `<td class="num" ${v.pts === mejorPts ? 'style="background:rgba(255,214,10,.18)"' : ''}><b>${fmt(v.c)}</b> <span class="of">${v.pl}</span>
           <div class="tiny">${v.pts} pts · ${v.rk}º España · ${tLbl(v.t)}</div></td>`).join('')}</tr>`; }).join('')}</table></div>
-    <p class="tiny muted" style="margin-top:6px">Mejor marca de la última temporada con marcas de cada uno. En amarillo, el de más puntos World Aquatics (comparables aunque sean piscinas distintas). Pulsa una prueba para verla arriba.</p>`;
+    <p class="tiny muted" style="margin-top:6px">Mejor marca de la última temporada con marcas de cada uno. En amarillo, el de más puntos World Aquatics (comparables aunque sean piscinas distintas). Pulsa una prueba para verla arriba.</p>${convNota()}`;
 
   setTimeout(() => document.querySelectorAll('#cmp-host tr[data-cev]').forEach(tr => tr.onclick = () => {
     const q = new URLSearchParams(location.hash.split('?')[1] || ''); q.set('ev', tr.dataset.cev); location.hash = '#comparar?' + q; }), 0);

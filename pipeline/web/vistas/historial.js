@@ -49,7 +49,7 @@ function tabHistorial(s, p, H) {
   const T = H.temps[String(s.id)] || {}, ts = Object.keys(T).sort();
   if (!ts.length) {    // sin temporadas anteriores: solo sus marcas actuales
     const e = s.ev.find(x => x.e === p.hev) || s.ev[0];
-    return e ? `${pruebaSel('hev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.h.length + ' marcas'])))}<div class="bar-row">${piscSeg()}</div>${evolucionHTML(s, e)}` : '<p class="empty">Sin marcas.</p>';
+    return e ? `${pruebaSel('hev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.h.length + ' marcas'])))}<div class="bar-row">${piscSeg()}</div>${evolucionHTML(s, e)}${convNota()}` : '<p class="empty">Sin marcas.</p>';
   }
   const vista = p.hv || 'total';
   const niv = ts.map(t => [tLbl(t) + (t === '2627' ? ' <span class="of">(en curso)</span>' : ''), nivelTemp(T[t]), `${nivelTemp(T[t])} pts`]);
@@ -130,7 +130,7 @@ function histTotal(s, T, ts, p) {
     <div class="bar-row">${piscSeg()}</div>
     ${graf}<div class="card"><h3>${ev}, temporada a temporada</h3>${tabla}</div>
     ${s.ev.find(x => x.e === ev) ? `<p class="small" style="margin:10px 0"><a class="sun" href="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">⏱️ Ver todas sus marcas de ${ev} →</a></p>` : ''}
-    <div class="card" style="margin-top:12px"><h3>🗺️ Todas sus pruebas, temporada a temporada</h3>${mapa}</div>`;
+    <div class="card" style="margin-top:12px"><h3>🗺️ Todas sus pruebas, temporada a temporada</h3>${mapa}</div>${convNota()}`;
 }
 
 /* ── Ranking semana a semana ── */

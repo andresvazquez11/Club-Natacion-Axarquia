@@ -216,7 +216,7 @@ function tabPruebas(s, sk, p) {
           <div class="pr-acc"><a class="chip" href="#comparar?ids=${s.id}&ev=${encodeURIComponent(e.e)}">⚖️ Comparar esta prueba</a>
             <a class="chip" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">📊 Rivales y ranking</a>
             <a class="chip" href="${fichaHref(s, 'historial')}?hev=${encodeURIComponent(e.e)}">📈 Por temporadas</a></div>
-          ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>`;
+          ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>${p.ev && piscDestino() ? '' : convNota()}`;
 }
 
 /* Ranking: dónde está hoy (rivales por delante y por detrás) y, debajo, su puesto semana a semana */
@@ -253,7 +253,7 @@ function relevosFicha(s) {
   return `<h2 class="st">🤝 Relevos del club</h2>
     <p class="small muted" style="margin-bottom:10px">Relevo teórico con las mejores marcas de los últimos 14 meses (regla «suma de tiempos»), con 25 y 50 m juntas: cada marca se convierte a su equivalente en la otra piscina para elegir a los mejores. <a class="sun" href="#club/${s.cat}/relevos">Ver todos los relevos de ${esc(s.catl)} →</a></p>
     ${rd.length ? `<table class="rt cards"><tr><th>Relevo</th><th>Situación</th><th>Equipo del club</th></tr>${rd.map(fila).join('')}</table><p class="tiny muted" style="margin-top:6px">Pulsa un relevo para ver el equipo completo, sus marcas y quién más puede entrar.</p>`
-      : `<p class="empty">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`}`;
+      : `<p class="empty">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`}${convNota()}`;
 }
 function tabObjetivos(s) {
   let h = '';
