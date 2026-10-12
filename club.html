@@ -324,6 +324,7 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 td.click{cursor:pointer}
 .tag.click{cursor:pointer}
 .edad{display:inline-block;font-size:.66rem;font-weight:800;color:var(--sun-ink);background:rgba(255,214,10,.85);border-radius:8px;padding:0 6px;margin-left:2px;vertical-align:middle;white-space:nowrap}
+tr.hueco td{opacity:.75;font-style:italic}
 
 </style>
 </head>
@@ -1834,15 +1835,21 @@ function histTotal(s, T, ts, p) {
     if (rows.length > 1) graf += `<div class="card" style="margin-bottom:12px"><h3>${ev} · piscina de ${pl} <span class="muted small">· mejor marca de cada temporada · pulsa un punto para ver la competición</span></h3>${evoChart(rows.sort((a, b) => a[0] < b[0] ? -1 : 1), s)}</div>`;
   });
   if (!graf) graf = `<p class="small muted" style="margin-bottom:12px">Solo tiene ${filas.length} temporada con ${ev}; el gráfico aparece cuando hay al menos dos en la misma piscina.</p>`;
-  let prev = null;
+  let prev = null, prevT = null;
+  // todas sus temporadas desde la primera con esta prueba: las que no la nadó salen como hueco (así la edad no «salta»)
+  const t0 = filas.length ? filas[0][0] : null, t1 = filas.length ? filas[filas.length - 1][0] : null;
+  const todas = ts.filter(t => t0 && t >= t0 && t <= t1).map(t => [t, T[t].ev[ev] || null]);
   const tabla = `<table class="rt cards"><tr><th>Temporada</th><th class="num">Mejor 25 m</th><th class="num">Mejor 50 m</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>
-    ${filas.map(([t, e]) => { const pe = prev; prev = e;
+    ${todas.map(([t, e]) => { if (!e) return `<tr class="hueco"><td class="t" data-l=""><b>${tLbl(t)}</b> <span class="edad">${edadTemp(t, s.y)}</span></td>
+        <td colspan="6" data-l="" class="muted small" style="white-space:normal">No nadó ${ev} esa temporada (sí nadó ${T[t].np} prueba${T[t].np === 1 ? '' : 's'} de ${Object.keys(T[t].ev).length} tipo${Object.keys(T[t].ev).length === 1 ? '' : 's'}: ${Object.keys(T[t].ev).slice(0, 4).join(', ')}${Object.keys(T[t].ev).length > 4 ? '…' : ''}).</td></tr>`;
+      const pe = prev, peT = prevT; prev = e; prevT = t;
+      const salto = peT && ts.indexOf(t) - ts.indexOf(peT) > 1 ? ` <span class="muted">vs ${tLbl(peT)}</span>` : '';
       const mc = pl => (T[t].m || []).find(x => x[1] === ev && x[3] === pl && x[2] === e.pl[pl]);
-      const celda = pl => e.pl[pl] ? `<span class="cmp-l" ${(m => m ? cmpAttr(s, m[0], m[4], ev) : '')(mc(pl))}><b>${fmt(e.pl[pl])}</b>${(m => m ? `<div class="tiny muted">${dfmt(m[0])} · ${edadFecha(m[0], s.y)} años</div>` : '')(mc(pl))}</span>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) || '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
+      const celda = pl => e.pl[pl] ? `<span class="cmp-l" ${(m => m ? cmpAttr(s, m[0], m[4], ev) : '')(mc(pl))}><b>${fmt(e.pl[pl])}</b>${(m => m ? `<div class="tiny muted">${dfmt(m[0])} · ${edadFecha(m[0], s.y)} años</div>` : '')(mc(pl))}</span>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) ? mejoraTxt(pe, e, pl) + salto : '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
       const dp = pe ? e.pts - pe.pts : null;
       return `<tr><td class="t" data-l=""><b>${tLbl(t)}</b> <span class="edad">${edadTemp(t, s.y)}</span>${t === '2627' ? ' <span class="of">en curso</span>' : ''}</td>
         <td class="num" data-l="Mejor 25 m">${celda('25m')}</td><td class="num" data-l="Mejor 50 m">${celda('50m')}</td>
-        <td class="num" data-l="Puntos"><b>${e.pts}</b>${dp === null ? '' : `<div class="tiny ${dp > 0 ? 'good' : dp < 0 ? 'bad' : 'muted'}">${dp > 0 ? '+' : ''}${dp} pts</div>`}</td>
+        <td class="num" data-l="Puntos"><b>${e.pts}</b>${dp === null ? '' : `<div class="tiny ${dp > 0 ? 'good' : dp < 0 ? 'bad' : 'muted'}">${dp > 0 ? '+' : ''}${dp} pts${salto}</div>`}</td>
         ${LV.map(([lv, l]) => `<td data-l="${l}" class="click" ${cmpAttr(s, e.date, e.comp, ev)} title="Puesto con su mejor marca de la temporada (${dfmt(e.date)}): pulsa para ver la competición">${e.rk[lv] ? posB(e.rk[lv][0], e.rk[lv][1]) : '—'}</td>`).join('')}</tr>`; }).join('')}</table>`;
   // mapa de todas las pruebas por temporada (puntos)
   const mx = Math.max(...ts.flatMap(t => Object.values(T[t].ev).map(e => e.pts)), 1);
@@ -2137,11 +2144,14 @@ function cmpCuerpo(C, ids, p) {
       <div class="tiny muted">${ts.length} temporada${ts.length === 1 ? '' : 's'} con marcas</div></div>`; }).join('');
 
   // ejes: temporadas o edades
-  const xsT = CMP_TEMPS.filter(t => ids.some(id => T(id)[t] && T(id)[t][ev]));
+  // sin huecos: todas las temporadas (o edades) entre la primera y la última con marca, aunque alguna no tenga marca
+  const conT = CMP_TEMPS.filter(t => ids.some(id => T(id)[t] && T(id)[t][ev]));
+  const xsT = conT.length ? CMP_TEMPS.slice(CMP_TEMPS.indexOf(conT[0]), CMP_TEMPS.indexOf(conT[conT.length - 1]) + 1) : [];
   let xs, valor;
   if (modo === 'temp') { xs = xsT.map(tLbl); valor = (id, k, pl) => cmpValor((T(id)[xsT[k]] || {})[ev], pl, C.d[id][2], ev); }
   else {
-    const edades = [...new Set(ids.flatMap(id => CMP_TEMPS.filter(t => T(id)[t] && T(id)[t][ev]).map(t => edadEn(t, C.d[id][3]))))].sort((a, b) => a - b);
+    const conE = [...new Set(ids.flatMap(id => CMP_TEMPS.filter(t => T(id)[t] && T(id)[t][ev]).map(t => edadEn(t, C.d[id][3]))))].sort((a, b) => a - b);
+    const edades = conE.length ? Array.from({length: conE[conE.length - 1] - conE[0] + 1}, (_, k) => conE[0] + k) : [];
     xs = edades.map(a => `${a} años`);
     valor = (id, k, pl) => { const t = CMP_TEMPS.find(t => edadEn(t, C.d[id][3]) === edades[k]); return t ? cmpValor((T(id)[t] || {})[ev], pl, C.d[id][2], ev) : null; };
   }
