@@ -662,11 +662,13 @@ def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
             pl = r.get('id_tipo_piscina')
             if pl not in ('25m', '50m'):
                 continue
-            y = int(r['fecha_nacimiento']); cat = EDAD_CAT.get(d.year + (1 if d.month >= 10 else 0) - y)   # edad federativa
+            y = int(r['fecha_nacimiento']); edad = d.year + (1 if d.month >= 10 else 0) - y   # edad federativa
+            cat = EDAD_CAT.get(edad)
             if not cat:
                 continue
-            k = f"{r['genero']}|{cat}|{r['estilo']}|{pl}"
             pid, cs = r['profile_id'], int(r['valor_original'])
-            if pid not in mejor[k] or cs < mejor[k][pid][1]:
-                mejor[k][pid] = [pid, cs, d.isoformat(), ' '.join(str(r.get('nombre') or '').split()).title(), y]
+            for grupo in (cat, f'E{edad}'):          # por categoría y por edad («E12» = 12 años)
+                k = f"{r['genero']}|{grupo}|{r['estilo']}|{pl}"
+                if pid not in mejor[k] or cs < mejor[k][pid][1]:
+                    mejor[k][pid] = [pid, cs, d.isoformat(), ' '.join(str(r.get('nombre') or '').split()).title(), y]
     return {k: sorted(v.values(), key=lambda x: x[1])[:top] for k, v in mejor.items()}

@@ -503,12 +503,14 @@ def records_club(swimmers, hist):
             d, cs, pool = x[0], x[1], x[2]
             if x[8] or pool not in ('25m', '50m'):
                 continue
-            cat = H.EDAD_CAT.get(int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0) - s['y'])   # edad federativa
+            edad = int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0) - s['y']   # edad federativa
+            cat = H.EDAD_CAT.get(edad)
             if not cat:
                 continue
-            k = f"{s['g']}|{cat}|{ev}|{pool}"
-            if pid not in top[k] or cs < top[k][pid][1]:
-                top[k][pid] = [pid, cs, d, s['n'], s['y']]
+            for grupo in (cat, f'E{edad}'):            # por categoría y por edad («E12» = 12 años)
+                k = f"{s['g']}|{grupo}|{ev}|{pool}"
+                if pid not in top[k] or cs < top[k][pid][1]:
+                    top[k][pid] = [pid, cs, d, s['n'], s['y']]
     return {k: sorted(v.values(), key=lambda x: x[1])[:3] for k, v in top.items()}
 
 

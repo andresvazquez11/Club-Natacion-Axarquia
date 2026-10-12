@@ -50,7 +50,8 @@ function clubNadadores(app, p, c, head) {
   app.innerHTML = `${head}
     <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', DATA.cats.map(x => [x.key, `${x.label} <span class="n">${catYrs(x)}</span>`, x.ids.filter(id => g === 'all' || SW[String(id)].g === g).length]), c.key)}</div>
     <div class="grid g2" style="gap:6px 12px">
-      <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.filter(s => y === 'all' || String(s.y) === String(y)).length], ...['M', 'F'].map(x => [x, x === 'M' ? '♂ Chicos' : '♀ Chicas', base.filter(s => s.g === x && (y === 'all' || String(s.y) === String(y))).length])], g)}</div>
+      ${edadesCat.length > 1 ? `<div class="flt"><span class="flt-l">Edad (federativa)</span>${chipsHTML('ed', [['', 'Toda la categoría'], ...edadesCat.map(e => [e, `${e} años`])], ed)}</div>` : ''}
+    <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.filter(s => y === 'all' || String(s.y) === String(y)).length], ...['M', 'F'].map(x => [x, x === 'M' ? '♂ Chicos' : '♀ Chicas', base.filter(s => s.g === x && (y === 'all' || String(s.y) === String(y))).length])], g)}</div>
       <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos', base.filter(s => g === 'all' || s.g === g).length], ...c.yrs.map(yr => [yr, c.key === 'ABS' ? String(yr) : `${yr} <span class="n">${Math.max(...c.yrs) - yr + 1}º año</span>`, base.filter(s => s.y === yr && (g === 'all' || s.g === g)).length])], y)}</div>
     </div>
     <div class="kpis k5" style="margin:4px 0 14px">
@@ -163,17 +164,22 @@ const ORD_PRUEBAS = ['50 Libre', '100 Libre', '200 Libre', '400 Libre', '800 Lib
   '50 Braza', '100 Braza', '200 Braza', '50 Mariposa', '100 Mariposa', '200 Mariposa', '100 Estilos', '200 Estilos', '400 Estilos'];
 function clubRecords(app, p, c, head) {
   const recs = DATA.recs || {};
-  const catsR = _CATS_REC.filter(([k]) => Object.keys(recs).some(x => x.split('|')[1] === k));
+  const catsR = _CATS_REC.filter(([k]) => Object.keys(recs).some(x => x.split('|')[1] === k));   // claves 'E12'… = por edad
   const want = p.cat || c.key, ck = catsR.find(x => x[0] === want) ? want : (catsR.find(x => x[0] === c.key) ? c.key : (catsR[0] || [])[0]);
   const g = p.g === 'F' ? 'F' : p.g === 'M' ? 'M' : (BEN ? BEN.g : 'M');
   const pl = ['50m', '25m'].includes(p.pl) ? p.pl : 'mix';     // por defecto: 25 y 50 m juntas
-  const go = o => { const q = Object.assign({g, pl}, o); location.hash = `#club/${o.cat || ck}/records?g=${q.g}&pl=${q.pl}`; };
+  // edad dentro de la categoría (edad federativa): '' = toda la categoría
+  const EDADES = {PRE: [7, 8, 9], BEN: [10, 11], ALE: [12, 13], INF: [14, 15], JUN: [16, 17, 18], ABS: Array.from({length: 22}, (_, k) => 19 + k)};
+  const edadesCat = (EDADES[ck] || []).filter(e => Object.keys(recs).some(k => k.split('|')[1] === 'E' + e && k.startsWith(g + '|')));
+  const ed = edadesCat.includes(+p.e) ? +p.e : '';
+  const grupo = ed ? 'E' + ed : ck;
+  const go = o => { const q = Object.assign({g, pl, e: ed}, o); location.hash = `#club/${o.cat || ck}/records?g=${q.g}&pl=${q.pl}${q.e && !o.cat ? '&e=' + q.e : ''}`; };
   const otra = x => x === '50m' ? '25m' : '50m';
   // 25 y 50 m juntas: se ordenan por su equivalente en 50 m (puntos World Aquatics). Las 3 mejores de cada piscina
   // bastan: dentro de una piscina el orden no cambia al convertir.
   const lista = ev => {
-    if (pl !== 'mix') return (recs[`${g}|${ck}|${ev}|${pl}`] || []).map(x => [...x, pl]);
-    const todos = ['50m', '25m'].flatMap(q => (recs[`${g}|${ck}|${ev}|${q}`] || []).map(x => [...x, q, conv(x[1], q, '50m', g, ev)]))
+    if (pl !== 'mix') return (recs[`${g}|${grupo}|${ev}|${pl}`] || []).map(x => [...x, pl]);
+    const todos = ['50m', '25m'].flatMap(q => (recs[`${g}|${grupo}|${ev}|${q}`] || []).map(x => [...x, q, conv(x[1], q, '50m', g, ev)]))
       .filter(x => x[6] !== null).sort((a, b) => a[6] - b[6]);
     const vistos = new Set(); return todos.filter(x => !vistos.has(x[0]) && vistos.add(x[0])).slice(0, 3);
   };
@@ -187,6 +193,7 @@ function clubRecords(app, p, c, head) {
     return `${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} <span class="of">${x[5].replace('m', ' m')}</span>${eq ? ` <span class="tiny muted">(≈ ${fmt(eq)} en ${otra(x[5]).replace('m', ' m')})</span>` : ''}`; };
   app.innerHTML = `${head}
     <div class="flt"><span class="flt-l">Categoría (edad en el momento de la marca)</span>${chipsHTML('cat', catsR.map(([k, l, e]) => [k, `${l} <span class="n">${e}</span>`]), ck)}</div>
+    ${edadesCat.length > 1 ? `<div class="flt"><span class="flt-l">Edad (federativa)</span>${chipsHTML('ed', [['', 'Toda la categoría'], ...edadesCat.map(e => [e, `${e} años`])], ed)}</div>` : ''}
     <div class="flt"><span class="flt-l">Sexo</span><div class="seg" data-rg>${[['M', '♂ Chicos'], ['F', '♀ Chicas']].map(([k, l]) => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     <div class="flt"><span class="flt-l">Piscina</span><div class="seg" data-rpl><button data-v="mix" class="${pl === 'mix' ? 'on' : ''}">25 y 50 m juntas</button><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Solo 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Solo 25 m</button></div></div>
     ${pl === 'mix' ? '<p class="tiny muted" style="margin:-2px 0 8px">Ordenadas por su equivalencia entre piscinas (puntos World Aquatics). Cada marca con su piscina real y, entre paréntesis, su equivalente en la otra.</p>' : ''}
@@ -199,5 +206,6 @@ function clubRecords(app, p, c, head) {
   onChips(app, 'cat', v => go({cat: v}));
   app.querySelectorAll('[data-rg] button').forEach(b => b.onclick = () => go({g: b.dataset.v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
+  onChips(app, 'ed', v => go({e: v}));
 }
 const _CATS_REC = [['PRE', 'Prebenjamín', '8-9 años'], ['BEN', 'Benjamín', '10-11'], ['ALE', 'Alevín', '12-13'], ['INF', 'Infantil', '14-15'], ['JUN', 'Junior', '16-18'], ['ABS', 'Absoluto', '19 o más']];
