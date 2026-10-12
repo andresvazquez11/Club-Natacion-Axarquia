@@ -214,12 +214,12 @@ function bindBuscador(id) {
 
 /* 🤝 Relevos de un nadador: titular (T), en un equipo aún incompleto (I) o lo que le falta para entrar (F) */
 const REL = DATA.relevos || {cats: []};
-function relevosDe(s) {
+function relevosDe(s, pools = ['mix']) {
   const c = REL.cats.find(x => x.key === s.cat); if (!c) return [];
   const out = [];
   c.rel.forEach(r => {
-    if (r.g !== 'X' && r.g !== s.g) return;
-    ['50m', '25m'].forEach(pl => {
+    if ((r.g !== 'X' && r.g !== s.g) || !r.of) return;   // solo relevos oficiales (de los Campeonatos de Andalucía y de España)
+    pools.forEach(pl => {
       const P = r.p[pl]; if (!P) return;
       const t = P.eq.find(x => x[0] === s.id);
       if (t) out.push({r, pl, P, rol: P.tot ? 'T' : 'I', leg: t[2], cs: t[3]});
@@ -230,3 +230,10 @@ function relevosDe(s) {
 }
 const relNom = r => `${r.n}${r.g === 'X' ? '' : r.g === 'M' ? ' masculino' : ' femenino'}`;
 const relId = r => (r.g + '-' + r.n).replace(/[^A-Za-z0-9]+/g, '-');
+const plLbl = pl => pl === 'mix' ? '25 y 50 m' : pl.replace('m', ' m');
+/* marca original (y su piscina) de un relevista: en el modo «25 y 50 m juntas» las marcas van convertidas a 50 m */
+function relOrig(x) {
+  const fila = x.rol === 'F' ? x.P.falta.find(f => f[2] === x.cs && f[1] === x.leg) : x.P.eq.find(e => e[2] === x.leg && e[3] === x.cs);
+  if (x.pl === 'mix' && fila) return x.rol === 'F' ? {cs: fila[5] ?? x.cs, pl: fila[6] || ''} : {cs: fila[5], pl: fila[6]};
+  return {cs: x.cs, pl: x.pl === 'mix' ? '' : x.pl};
+}

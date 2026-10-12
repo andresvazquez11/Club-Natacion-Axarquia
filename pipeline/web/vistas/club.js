@@ -86,29 +86,36 @@ function clubNadadores(app, p, c, head) {
   onChips(app, 'o', v => go({o: v}));
 }
 
-/* ── 🤝 Relevos ── */
-const POSTA = {Espalda: 'Espalda', Braza: 'Braza', Mariposa: 'Mariposa', Libre: 'Libre'};
+/* ── 🤝 Relevos ──
+   pl = 'mix' (25 y 50 m juntas, predeterminado: todo convertido a 50 m con la equivalencia de puntos World Aquatics),
+   '50m' o '25m' (solo marcas de esa piscina). En 'mix' cada relevista lleva [.., marca original, su piscina, equivalente en 25 m]. */
 function relCard(r, pl, lv) {
-  const P = r.p[pl], L = P.lv[lv], completo = !!P.tot;
+  const P = r.p[pl], L = P.lv[lv], completo = !!P.tot, mix = pl === 'mix';
   const nadLink = (pid, n) => SW[String(pid)] ? `<a class="sw-l ${SW[String(pid)].benicio ? 'sun' : ''}" href="${fichaHref(SW[String(pid)])}">${SW[String(pid)].benicio ? '⭐ ' : ''}${esc(n)}</a>` : esc(n);
   const posTxt = LV.map(([k, l]) => P.lv[k].pos ? `<span class="rel-pos"><small class="lv-${k}">${l}</small>${posB(P.lv[k].pos, P.lv[k].t)}</span>` : '').join('');
-  const minTxt = P.min ? (completo ? (P.tot <= P.min ? `<span class="good"><b>✓ Mínima del Cto. de España conseguida</b> (${fmt(P.min)})</span>`
-      : `Mínima Cto. de España (suma): <b>${fmt(P.min)}</b> · le faltan <b class="bad">${secs(P.tot - P.min)} s</b>`) : `Mínima Cto. de España (suma): <b>${fmt(P.min)}</b>`) : '';
+  const minUna = (m, t, lbl) => t <= m ? `<span class="good"><b>✓</b> ${lbl}: ${fmt(m)}</span>` : `${lbl}: <b>${fmt(m)}</b> · le faltan <b class="bad">${secs(t - m)} s</b>`;
+  const minTxt = !P.min ? '' : !completo ? `Mínima Cto. de España (suma): ${mix ? `<b>${fmt(P.min['50m'])}</b> (50 m) · <b>${fmt(P.min['25m'])}</b> (25 m)` : `<b>${fmt(P.min)}</b>`}`
+    : mix ? `Mínima Cto. de España (suma) · ${minUna(P.min['50m'], P.tot, '50 m')}${P.tot25 ? ' · ' + minUna(P.min['25m'], P.tot25, '25 m') : ''}`
+    : `Mínima Cto. de España (suma) · ${minUna(P.min, P.tot, pl.replace('m', ' m'))}`;
   const eq = P.eq.map((x, k) => `<tr><td class="small muted" style="width:64px">${r.tipo === 'E' ? strokeOf(x[2]) : 'Posta ' + (k + 1)}</td>
-      <td>${nadLink(x[0], x[1])}</td><td class="num"><b>${fmt(x[3])}</b><div>${dtag(x[4])}</div></td></tr>`).join('');
+      <td>${nadLink(x[0], x[1])}<div>${dtag(x[4])}</div></td>
+      ${mix ? `<td class="num"><b>${fmt(x[5])}</b> <span class="of">${x[6]}</span><div class="tiny muted">≈ ${fmt(x[3])} en 50 · ${x[7] ? fmt(x[7]) : '—'} en 25</div></td>`
+            : `<td class="num"><b>${fmt(x[3])}</b></td>`}</tr>`).join('');
   const falta = P.falta.length ? `<details class="rel-det"><summary>🔜 Quién puede entrar <span class="of">(${P.falta.length})</span></summary>
       <table class="rt" style="margin-top:6px">${P.falta.map(f => { const s = SW[String(f[0])];
         return `<tr class="${s && s.benicio ? 'me' : ''}"><td>${s ? nadLink(f[0], s.n) : ''}<div class="tiny muted">${r.tipo === 'E' ? 'posta de ' + strokeOf(f[1]).toLowerCase() : f[1]}</div></td>
-          <td class="num">${f[2] ? fmt(f[2]) : '<span class="muted">sin marca</span>'}</td>
-          <td class="num small">${f[3] === null ? '<span class="good">con cualquier marca entraría</span>' : f[4] !== null && f[4] <= 0 ? '<span class="good">entra ya</span>' : `necesita <b>${fmt(f[3])}</b>${f[4] !== null ? `<div class="bad tiny">le faltan ${secs(f[4])} s</div>` : ''}`}</td></tr>`; }).join('')}</table>
+          <td class="num">${f[2] ? (mix && f[5] ? `${fmt(f[5])} <span class="of">${f[6]}</span><div class="tiny muted">≈ ${fmt(f[2])} en 50</div>` : fmt(f[2])) : '<span class="muted">sin marca</span>'}</td>
+          <td class="num small">${f[3] === null ? '<span class="good">con cualquier marca entraría</span>' : f[4] !== null && f[4] <= 0 ? '<span class="good">entra ya</span>' : `necesita <b>${mix ? '≈ ' : ''}${fmt(f[3])}</b>${mix ? ' <span class="of">en 50</span>' : ''}${f[4] !== null ? `<div class="bad tiny">le faltan ${secs(f[4])} s</div>` : ''}`}</td></tr>`; }).join('')}</table>
       <p class="tiny muted" style="margin-top:6px">«Necesita»: con ese tiempo o mejor, el relevo del club sería más rápido con él o ella dentro.</p></details>` : '';
   const clubes = L.rows.length ? `<details class="rel-det"><summary>🏁 Mejores clubes · ${LV.find(x => x[0] === lv)[1]}</summary>
       <table class="rt" style="margin-top:6px">${L.rows.map((x, k) => (k && x[0] - L.rows[k - 1][0] > 1 ? '<tr class="sep"><td colspan="3">· · ·</td></tr>' : '') +
-        `<tr class="${x[3] ? 'me' : ''}"><td style="width:44px">${posB(x[0])}</td><td>${club(x[1])}</td><td class="num"><b>${fmt(x[2])}</b></td></tr>`).join('')}</table></details>` : '';
+        `<tr class="${x[3] ? 'me' : ''}"><td style="width:44px">${posB(x[0])}</td><td>${club(x[1])}</td><td class="num"><b>${mix ? '≈ ' : ''}${fmt(x[2])}</b></td></tr>`).join('')}</table>
+      ${mix ? '<p class="tiny muted" style="margin-top:4px">Tiempos equivalentes en piscina de 50 m.</p>' : ''}</details>` : '';
   return `<div class="card rel ${eq && P.eq.some(x => SW[String(x[0])] && SW[String(x[0])].benicio) ? 'ben' : ''}" id="rel-${relId(r)}">
-    <div class="bar-row" style="margin:0 0 6px"><h3 style="margin:0">${r.n}</h3>
-      ${completo ? `<b class="sun rel-tot">${fmt(P.tot)}</b>` : `<span class="small bad">Faltan ${4 - P.eq.length} relevista${4 - P.eq.length > 1 ? 's' : ''}</span>`}</div>
-    ${completo ? `<div class="rel-poss">${posTxt}</div>` : `<p class="small muted">El club no tiene ${r.g === 'X' ? '2 chicos y 2 chicas' : '4 nadadores'} con marca en estas pruebas en piscina de ${pl.replace('m', ' m')} en los últimos 14 meses.</p>`}
+    <div class="bar-row" style="margin:0 0 6px"><h3 style="margin:0">${r.n}${r.cto ? `<div class="tiny muted" style="font-weight:600">🏆 ${esc(r.cto)}</div>` : ''}</h3>
+      ${completo ? (mix ? `<span class="rel-tot2"><b class="sun rel-tot">≈ ${fmt(P.tot)}</b><small>en 50 m${P.tot25 ? ` · ≈ ${fmt(P.tot25)} en 25 m` : ''}</small></span>` : `<b class="sun rel-tot">${fmt(P.tot)}</b>`)
+        : `<span class="small bad">Faltan ${4 - P.eq.length} relevista${4 - P.eq.length > 1 ? 's' : ''}</span>`}</div>
+    ${completo ? `<div class="rel-poss">${posTxt}</div>` : `<p class="small muted">El club no tiene ${r.g === 'X' ? '2 chicos y 2 chicas' : '4 nadadores'} con marca en estas pruebas${mix ? '' : ` en piscina de ${pl.replace('m', ' m')}`} en los últimos 14 meses.</p>`}
     ${minTxt ? `<p class="small" style="margin:6px 0">${minTxt}</p>` : ''}
     ${eq ? `<table class="rt">${eq}</table>` : ''}
     ${completo ? clubes : ''}${falta}</div>`;
@@ -116,24 +123,37 @@ function relCard(r, pl, lv) {
 
 function clubRelevos(app, p, c, cats, head) {
   const R = REL.cats.find(x => x.key === c.key);
-  const pl = p.pl === '25m' ? '25m' : '50m', lv = ['ma', 'an', 'es'].includes(p.lv) ? p.lv : 'an';
-  const go = o => { const q = Object.assign({pl, lv}, o); location.hash = `#club/${o.cat || c.key}/relevos?pl=${q.pl}&lv=${q.lv}${p.r && !o.cat ? '&r=' + p.r : ''}`; };
-  const grupo = (g, t) => { const rs = R.rel.filter(r => r.g === g); if (!rs.length) return '';
-    return `<h2 class="st">${t}</h2><div class="grid g2">${rs.map(r => relCard(r, pl, lv)).join('')}</div>`; };
+  const pl = ['50m', '25m'].includes(p.pl) ? p.pl : 'mix', lv = ['ma', 'an', 'es'].includes(p.lv) ? p.lv : 'an';
+  const gs = ['M', 'F', 'X'].includes(p.gs) ? p.gs : 'all';
+  const go = o => { const q = Object.assign({pl, lv, gs}, o); location.hash = `#club/${o.cat || c.key}/relevos?pl=${q.pl}&lv=${q.lv}&gs=${q.gs}${p.r && !o.cat ? '&r=' + p.r : ''}`; };
+  const grupo = (g, t) => { if (gs !== 'all' && gs !== g) return '';
+    const rs = R.rel.filter(r => r.g === g && r.of), otros = R.rel.filter(r => r.g === g && !r.of);
+    if (!rs.length && !otros.length) return '';
+    return `<h2 class="st">${t}</h2>${rs.length ? `<div class="grid g2">${rs.map(r => relCard(r, pl, lv)).join('')}</div>`
+        : `<p class="small muted">${g === 'X' ? `En ${esc(c.label.toLowerCase())} no hay relevos mixtos en los Campeonatos de Andalucía ni de España.` : ''}</p>`}
+      ${otros.length ? `<details class="card rel-otros" style="margin-top:10px" ${p.r && otros.some(r => relId(r) === p.r) ? 'open' : ''}><summary class="sun" style="cursor:pointer;font-weight:800">Otros mixtos · trofeos y ligas <span class="of">(${otros.length})</span></summary>
+        <p class="tiny muted" style="margin:6px 0 10px">No están en los Campeonatos de Andalucía ni de España, pero se nadan en trofeos, ligas y el Campeonato de Andalucía de Clubes.</p>
+        <div class="grid g2">${otros.map(r => relCard(r, pl, lv)).join('')}</div></details>` : ''}`; };
+  const n = g => R ? R.rel.filter(r => (g === 'all' || r.g === g) && r.of).length : 0;
   app.innerHTML = `${p.r ? '<a class="back" href="#" id="rel-back">‹ Volver</a>' : ''}${head}
     <div class="note">🤝 <b>Relevo teórico</b>: suma de las mejores marcas de 4 nadadores del club en los <b>últimos 14 meses</b> (desde el ${dfmt(REL.desde)}), como en la regla «suma de tiempos» de la RFEN y la FAN. El puesto se calcula haciendo lo mismo con todos los clubes.
-      <details style="margin-top:4px"><summary class="sun" style="cursor:pointer">Más información</summary>La RFEN no publica un ranking de relevos de clubes. Para inscribir un relevo en los Campeonatos de Andalucía de invierno se usa la suma de las marcas individuales de los 4 relevistas (circular FAN NAT.01/26). ${R && R.fuente ? `Mínimas: ${R.fuente}; las de 2027 aún no se han publicado.` : ''}</details></div>
+      <details style="margin-top:4px"><summary class="sun" style="cursor:pointer">Más información</summary>La RFEN no publica un ranking de relevos de clubes. Para inscribir un relevo en los Campeonatos de Andalucía de invierno se usa la suma de las marcas individuales de los 4 relevistas (circular FAN NAT.01/26).
+        Con <b>«25 y 50 m juntas»</b> cada marca se convierte a la otra piscina con la equivalencia de puntos World Aquatics (marca × récord del mundo de una piscina / récord de la otra), así se elige a los mejores aunque hayan nadado en piscinas distintas; es orientativo, para inscribir cuenta la marca real.
+        ${R && R.fuente ? `Mínimas: ${R.fuente}; las de 2027 aún no se han publicado.` : ''}</details></div>
     <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', cats.map(x => [x.key, `${x.label} <span class="n">${x.yrs.join('-')}</span>`]), c.key)}</div>
-    <div class="bar-row"><div class="seg" data-rpl><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Piscina de 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Piscina de 25 m</button></div>
-      <div class="seg" data-rlv2>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    <div class="flt"><span class="flt-l">Relevos</span>${chipsHTML('gs', [['all', 'Todos', n('all')], ['M', '♂ Masculino', n('M')], ['F', '♀ Femenino', n('F')], ['X', '⚥ Mixtos', n('X')]], gs)}</div>
+    <div class="flt"><span class="flt-l">Piscina</span><div class="seg" data-rpl><button data-v="mix" class="${pl === 'mix' ? 'on' : ''}">25 y 50 m juntas</button><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Solo 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Solo 25 m</button></div></div>
+    <div class="flt"><span class="flt-l">Comparar con los clubes de</span><div class="seg" data-rlv2>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    ${pl === 'mix' ? '<p class="tiny muted" style="margin:-2px 0 8px">Cada relevista con su marca real y su piscina; el tiempo del equipo, en su equivalente en 50 m y en 25 m.</p>' : ''}
     ${R ? grupo('M', '♂ Masculino') + grupo('F', '♀ Femenino') + grupo('X', '⚥ Mixtos <span class="muted small">· 2 chicos y 2 chicas</span>') : '<p class="empty">Esta categoría no tiene relevos.</p>'}
-    <p class="tiny muted" style="margin-top:12px">Pruebas de relevos de los programas oficiales 26-27 (Campeonatos de Andalucía de la FAN y de España de la RFEN). En los relevos de estilos el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido. 25 m y 50 m no se mezclan. ${c.key === 'JUN' ? 'En junior no se incluyen los nacidos en 2009.' : ''}</p>`;
+    <p class="tiny muted" style="margin-top:12px">Relevos de los programas 26-27 de los Campeonatos de Andalucía (FAN) y de España (RFEN). Debajo de cada relevo se indica en qué campeonato se nada; los demás mixtos están en «Otros mixtos · trofeos y ligas». En los relevos de estilos el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido. ${c.key === 'JUN' ? 'En junior no se incluyen los nacidos en 2009.' : ''}</p>`;
   const vb = document.getElementById('rel-back'); if (vb) vb.onclick = ev => { ev.preventDefault(); history.back(); };
   // llegada desde la ficha (Objetivos): se abre y resalta ese relevo
   const foco = p.r && document.getElementById('rel-' + p.r);
   if (foco) { foco.classList.add('foco'); foco.querySelectorAll('details').forEach(d => d.open = true);
     setTimeout(() => window.scrollTo(0, scrollY + foco.getBoundingClientRect().top - 70), 0); }
   onChips(app, 'cat', v => go({cat: v}));
+  onChips(app, 'gs', v => go({gs: v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
   app.querySelectorAll('[data-rlv2] button').forEach(b => b.onclick = () => go({lv: b.dataset.v}));
 }

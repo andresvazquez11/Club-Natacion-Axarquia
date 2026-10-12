@@ -15,13 +15,23 @@ EST = ['Espalda', 'Braza', 'Mariposa', 'Libre']     # orden oficial del relevo d
 
 # Pruebas de relevos de cada categoría 26-27 (programas FAN NAT.09/10/13/14/16/17-26 y RFEN 26-406/407)
 # tipo: L = libre (4 veces la misma prueba), E = estilos; sexo: M, F o X (mixto: 2 chicos y 2 chicas)
+MIXTOS = [('4x50 Libre mixto', 'L', 50), ('4x50 Estilos mixto', 'E', 50), ('4x100 Libre mixto', 'L', 100), ('4x100 Estilos mixto', 'E', 100)]
 RELEVOS = {
-    'BEN': [('4x50 Libre', 'L', 50), ('4x50 Estilos', 'E', 50), ('4x100 Libre', 'L', 100), ('4x100 Estilos', 'E', 100)],
-    'ALE': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100), ('4x100 Estilos mixto', 'E', 100)],
-    'INF': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100), ('4x100 Estilos mixto', 'E', 100)],
-    'JUN': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100),
-            ('4x50 Libre mixto', 'L', 50), ('4x50 Estilos mixto', 'E', 50), ('4x100 Estilos mixto', 'E', 100)],
+    'BEN': [('4x50 Libre', 'L', 50), ('4x50 Estilos', 'E', 50), ('4x100 Libre', 'L', 100), ('4x100 Estilos', 'E', 100)] + MIXTOS,
+    'ALE': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
+    'INF': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
+    'JUN': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
 }
+# Relevos mixtos que están en el programa de los Campeonatos de Andalucía (FAN) o de España (RFEN) 26-27;
+# el resto se nada en trofeos, ligas y el Campeonato de Andalucía de Clubes.
+MIXTOS_OFICIALES = {('ALE', '4x100 Estilos mixto'): 'Cto. de Andalucía de verano y Cto. de España',
+                    ('INF', '4x100 Estilos mixto'): 'Cto. de Andalucía de verano y Cto. de España',
+                    ('JUN', '4x50 Libre mixto'): 'Cto. de Andalucía absoluto-júnior de verano',
+                    ('JUN', '4x50 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior de verano',
+                    ('JUN', '4x100 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior de verano'}
+# Campeonatos en los que se nadan los relevos por sexo de cada categoría
+CTO_SEXO = {'BEN': 'Cto. de Andalucía benjamín', 'ALE': 'Cto. de Andalucía y Cto. de España',
+            'INF': 'Cto. de Andalucía y Cto. de España', 'JUN': 'Cto. de Andalucía y Cto. de España'}
 # Mínimas «suma de tiempos» del Campeonato de España 2026 (centésimas): {(cat, relevo, sexo): {piscina: cs}}
 def _t(s):
     m, r = s.split(':'); sg, c = r.split(',')
@@ -94,9 +104,11 @@ def _resolver_forzado(patas, cand, k, pid):
     return best
 
 
-def calcular(marcas, info, club_ids, cats, hoy, es_club):
+def calcular(marcas, info, club_ids, cats, hoy, es_club, wr=None):
     """marcas: {(g, año, prueba): [(fecha, cs, pid, temporada, piscina, pts)]} · info: pid → (andaluz, malagueño, nombre, club).
-    club_ids: {pid: (g, año)} del club · cats: [(clave, etiqueta, años)] · es_club(nombre_club) → bool."""
+    club_ids: {pid: (g, año)} del club · cats: [(clave, etiqueta, años)] · es_club(nombre_club) → bool.
+    wr: récords del mundo {sexo: {prueba: {piscina: cs}}} para el modo «mix» (25 y 50 m juntas, todo convertido
+    a 50 m con la equivalencia de puntos World Aquatics: marca_50 = marca_25 × récord_50 / récord_25)."""
     desde = hoy - timedelta(days=VENTANA_DIAS)
     mejor = {}                                   # (pid, prueba, piscina) → (cs, fecha)
     for (g, y, ev), M in marcas.items():
@@ -106,6 +118,23 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
             k = (pid, ev, pl)
             if k not in mejor or cs < mejor[k][0]:
                 mejor[k] = (cs, d)
+    sexo_anyo = {}
+    for (g, y, ev), M in marcas.items():
+        for d, cs, pid, t, pl, pts in M:
+            sexo_anyo[pid] = (g, y)
+
+    def conv(cs, de, a, g, ev):
+        if de == a: return cs
+        w = ((wr or {}).get(g) or {}).get(ev) or {}
+        return round(cs * w[a] / w[de]) if w.get(a) and w.get(de) else None
+    # modo «mix»: mejor marca de cada nadador y prueba en cualquier piscina, convertida a 50 m → (cs50, fecha, cs original, piscina)
+    for (pid, ev, pl), (cs, d) in list(mejor.items()):
+        if pid not in sexo_anyo: continue
+        c50 = conv(cs, pl, '50m', sexo_anyo[pid][0], ev)
+        if c50 is None: continue
+        k = (pid, ev, 'mix')
+        if k not in mejor or c50 < mejor[k][0]:
+            mejor[k] = (c50, d, cs, pl)
     # club de cada nadador y nivel del club (por mayoría de sus nadadores)
     def cclave(pid):
         c = info.get(pid, (0, 0, '', ''))[3]
@@ -117,11 +146,6 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
         votos[k][0] += 1; votos[k][1] += 1 if v[0] else 0; votos[k][2] += 1 if v[1] else 0
         nom_club.setdefault(k, v[3])
     nivel = {k: {'es': True, 'an': v[1] * 2 > v[0], 'ma': v[2] * 2 > v[0]} for k, v in votos.items()}
-    sexo_anyo = {}
-    for (g, y, ev), M in marcas.items():
-        for d, cs, pid, t, pl, pts in M:
-            sexo_anyo[pid] = (g, y)
-
     out = []
     for ck, lbl, yrs in cats:
         if ck not in RELEVOS:
@@ -132,11 +156,11 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
             for sx in sexos:
                 variantes = _patas(tipo, dist, sx)
                 por_piscina = {}
-                for pl in POOLS:
+                for pl in ('mix',) + POOLS:
                     # candidatos por club y posta
                     cand_club = defaultdict(lambda: defaultdict(list))
                     pruebas = {ev for pat in variantes for ev, _ in pat}
-                    for (pid, ev, p2), (cs, d) in mejor.items():
+                    for (pid, ev, p2), (cs, d, *_) in mejor.items():
                         if p2 != pl or ev not in pruebas or pid not in sexo_anyo:
                             continue
                         g, y = sexo_anyo[pid]
@@ -165,10 +189,16 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
                         niveles[lv] = {'pos': pos + 1 if pos is not None else None, 't': len(ll), 'rows': filas}
                     cand = cand_club.get('AXARQ', {})
                     equipo, faltan = [], []
+
+                    def fila_eq(pid, ev, cs, pl=pl):
+                        m = mejor[(pid, ev, pl)]
+                        f = [pid, info[pid][2], ev, cs, m[1].isoformat()]
+                        if pl == 'mix':      # marca original, su piscina y el equivalente en 25 m
+                            f += [m[2], m[3], conv(cs, '50m', '25m', sexo_anyo[pid][0], ev)]
+                        return f
                     if mio:
                         (tot, eq), pat = mio[2]
-                        equipo = [[pid, info[pid][2], pat[k][0], cs, mejor[(pid, pat[k][0], pl)][1].isoformat()]
-                                  for k, (pid, cs) in enumerate(eq)]
+                        equipo = [fila_eq(pid, pat[k][0], cs) for k, (pid, cs) in enumerate(eq)]
                     else:   # equipo incompleto: los que hay (mejor posta de cada uno, sin repetir)
                         usados = set()
                         for k in range(4):
@@ -176,7 +206,7 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
                             for cs, pid in cand.get(pat[k], []):
                                 if pid not in usados:
                                     usados.add(pid)
-                                    equipo.append([pid, info[pid][2], pat[k][0], cs, mejor[(pid, pat[k][0], pl)][1].isoformat()])
+                                    equipo.append(fila_eq(pid, pat[k][0], cs))
                                     break
                     # qué le falta a cada nadador del club de esa categoría y sexo
                     en_equipo = {x[0] for x in equipo}
@@ -202,10 +232,19 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
                             continue
                         opciones.sort(key=lambda o: o[0])
                         _, ev, suyo, need, gap = opciones[0]
-                        faltan.append([pid, ev, suyo, need, gap])
+                        f = [pid, ev, suyo, need, gap]
+                        if pl == 'mix' and (pid, ev, 'mix') in mejor:
+                            f += [mejor[(pid, ev, 'mix')][2], mejor[(pid, ev, 'mix')][3]]
+                        faltan.append(f)
                     faltan.sort(key=lambda f: (f[4] is None, f[4] if f[4] is not None else 0, f[2] is None))
+                    mins = MINIMAS.get((ck, nombre, sx), {})
                     por_piscina[pl] = {'tot': mio[0] if mio else None, 'eq': equipo, 'lv': niveles, 'falta': faltan[:12],
-                                       'min': MINIMAS.get((ck, nombre, sx), {}).get(pl)}
-                rel_out.append({'n': nombre, 'g': sx, 'd': dist, 'tipo': tipo, 'p': por_piscina})
+                                       'min': mins.get(pl) if pl != 'mix' else (mins or None)}
+                    if pl == 'mix' and mio:
+                        t25 = [x[7] for x in equipo]
+                        por_piscina[pl]['tot25'] = sum(t25) if None not in t25 else None
+                rel_out.append({'n': nombre, 'g': sx, 'd': dist, 'tipo': tipo, 'p': por_piscina,
+                                'of': sx != 'X' or (ck, nombre) in MIXTOS_OFICIALES,
+                                'cto': CTO_SEXO.get(ck) if sx != 'X' else MIXTOS_OFICIALES.get((ck, nombre))})
         out.append({'key': ck, 'label': lbl, 'yrs': list(yrs), 'rel': rel_out, 'fuente': MIN_FUENTE.get(ck)})
     return {'desde': desde.isoformat(), 'cats': out}

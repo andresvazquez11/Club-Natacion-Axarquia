@@ -86,9 +86,8 @@ function objetivos(s) {
   if (t10) O.push([FLAG_ES, `Entrar en el top-10 de España en <b>${t10.e.e}</b> (ahora ${t10.pos}º): <b>${secs(t10.d)} s</b>`, Math.max(4, 100 - t10.d / t10.e.cs * 1000), 'ranking?rev=' + encodeURIComponent(t10.e.e)]);
   // relevos
   const rd = relevosDe(s), tit = rd.filter(x => x.rol === 'T'), cerca = rd.filter(x => x.rol === 'F' && x.gap !== null && x.gap > 0).sort((a, b) => a.gap - b.gap);
-  if (tit.length) { const pz = {}; tit.forEach(x => (pz[x.r.n] = pz[x.r.n] || []).push(x.pl.replace('m', '')));
-    O.push(['🤝', `Titular en ${Object.entries(pz).map(([n, ps]) => `<b>${n}</b> (${ps.sort().join(' y ')} m)`).join(', ')}`, 100, 'objetivos']); }
-  if (cerca[0]) O.push(['🤝', `Entrar en el <b>${cerca[0].r.n}</b> (${cerca[0].pl.replace('m', ' m')}): le faltan <b>${secs(cerca[0].gap)} s</b> en ${cerca[0].leg}`, Math.max(4, 100 - cerca[0].gap / 10), 'objetivos']);
+  if (tit.length) O.push(['🤝', `Titular en ${[...new Set(tit.map(x => x.r.n))].map(n => `<b>${n}</b>`).join(', ')}`, 100, 'objetivos']);
+  if (cerca[0]) O.push(['🤝', `Entrar en el <b>${cerca[0].r.n}</b>: le faltan <b>${secs(cerca[0].gap)} s</b> en ${cerca[0].leg} (≈ 50 m)`, Math.max(4, 100 - cerca[0].gap / 10), 'objetivos']);
   return O;
 }
 function objetivosCard(s) {
@@ -243,15 +242,15 @@ function relevosFicha(s) {
   const rd = relevosDe(s);
   const c = REL.cats.find(x => x.key === s.cat);
   if (!c) return '';
-  const fila = x => `<tr class="click" data-goto="#club/${s.cat}/relevos?pl=${x.pl}&lv=an&r=${relId(x.r)}"><td class="t" data-l=""><b>${x.r.n}</b> <span class="of">${x.pl.replace('m', ' m')}</span> <span class="sun">›</span></td>
-    <td data-l="Situación">${x.rol === 'T' ? `<span class="good"><b>✓ Titular</b></span> · ${x.r.tipo === 'E' ? 'posta de ' + strokeOf(x.leg).toLowerCase() : x.leg} · <b>${fmt(x.cs)}</b>`
-      : x.rol === 'I' ? `En el equipo (${x.leg} · <b>${fmt(x.cs)}</b>), pero <span class="bad">faltan relevistas</span>`
-      : x.need === null ? `Sin marca en ${x.leg} en piscina de ${x.pl.replace('m', ' m')}: <span class="good">con cualquier marca entraría</span> (al equipo le faltan relevistas)`
+  const fila = x => `<tr class="click" data-goto="#club/${s.cat}/relevos?pl=mix&lv=an&r=${relId(x.r)}"><td class="t" data-l=""><b>${x.r.n}</b> <span class="sun">›</span></td>
+    <td data-l="Situación">${x.rol === 'T' ? `<span class="good"><b>✓ Titular</b></span> · ${x.r.tipo === 'E' ? 'posta de ' + strokeOf(x.leg).toLowerCase() : x.leg} · <b>${fmt(relOrig(x).cs)}</b> <span class="of">${relOrig(x).pl}</span>`
+      : x.rol === 'I' ? `En el equipo (${x.leg} · <b>${fmt(relOrig(x).cs)}</b> <span class="of">${relOrig(x).pl}</span>), pero <span class="bad">faltan relevistas</span>`
+      : x.need === null ? `Sin marca en ${x.leg}: <span class="good">con cualquier marca entraría</span> (al equipo le faltan relevistas)`
       : x.gap !== null && x.gap <= 0 ? `<span class="good">Entraría</span> (${x.leg})`
-      : `${x.cs ? `Su ${x.leg}: <b>${fmt(x.cs)}</b> · ` : `Sin marca en ${x.leg} · `}necesita <b>${fmt(x.need)}</b>${x.gap !== null ? ` · <span class="bad">le faltan ${secs(x.gap)} s</span>` : ''}`}</td>
-    <td data-l="Equipo">${x.P.tot ? `<b>${fmt(x.P.tot)}</b> <span class="of">${x.P.lv.an.pos ? x.P.lv.an.pos + 'º Andalucía' : ''}</span>` : '<span class="muted">incompleto</span>'}</td></tr>`;
+      : `${x.cs ? `Su ${x.leg}: <b>${fmt(relOrig(x).cs)}</b> <span class="of">${relOrig(x).pl}</span> · ` : `Sin marca en ${x.leg} · `}necesita <b>≈ ${fmt(x.need)}</b> <span class="of">en 50 m</span>${x.gap !== null ? ` · <span class="bad">le faltan ${secs(x.gap)} s</span>` : ''}`}</td>
+    <td data-l="Equipo">${x.P.tot ? `<b>≈ ${fmt(x.P.tot)}</b> <span class="of">50 m</span>${x.P.tot25 ? ` · ≈ ${fmt(x.P.tot25)} <span class="of">25 m</span>` : ''}<div class="of">${x.P.lv.an.pos ? x.P.lv.an.pos + 'º de Andalucía' : ''}</div>` : '<span class="muted">incompleto</span>'}</td></tr>`;
   return `<h2 class="st">🤝 Relevos del club</h2>
-    <p class="small muted" style="margin-bottom:10px">Relevo teórico con las mejores marcas de los últimos 14 meses (regla «suma de tiempos»). <a class="sun" href="#club/${s.cat}/relevos">Ver todos los relevos de ${esc(s.catl)} →</a></p>
+    <p class="small muted" style="margin-bottom:10px">Relevo teórico con las mejores marcas de los últimos 14 meses (regla «suma de tiempos»), con 25 y 50 m juntas: cada marca se convierte a su equivalente en la otra piscina para elegir a los mejores. <a class="sun" href="#club/${s.cat}/relevos">Ver todos los relevos de ${esc(s.catl)} →</a></p>
     ${rd.length ? `<table class="rt cards"><tr><th>Relevo</th><th>Situación</th><th>Equipo del club</th></tr>${rd.map(fila).join('')}</table><p class="tiny muted" style="margin-top:6px">Pulsa un relevo para ver el equipo completo, sus marcas y quién más puede entrar.</p>`
       : `<p class="empty">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`}`;
 }

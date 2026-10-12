@@ -442,7 +442,7 @@ def main():
     import relevos as RV
     club = {s['id']: (s['g'], s['y']) for s in swimmers}
     marcas, minfo = H.unir_marcas(H.cargar_marcas(MARCAS_2526), H.preparar_marcas({'2627': rows_new}, club))
-    relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper())
+    relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper(), records)
     movimientos = escribir_historial(swimmers, rows_new, marcas, minfo)
 
     new_marks = len(rows_new)
