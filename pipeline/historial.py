@@ -566,3 +566,64 @@ def para_pagina(fotos_guardadas, club):
             T.setdefault(k, [0] * len(semanas))[i] = v
         N.update(F.get('n', {}))
     return {'s': semanas, 'cols': [f'{m}{lv}' for m, lv in COLS], 'p': P, 'c': C, 'x': X, 't': T, 'n': N}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. Nadadores comparables (sección «Comparar»)
+# ═══════════════════════════════════════════════════════════════════════════
+def bolsa_comparables(filas, club, años=range(2010, 2019), top_es=30, top_an=30):
+    """Nadadores que se pueden comparar: los del club, todos los de la provincia de Málaga y los
+    `top_es` de España y `top_an` de Andalucía de cada sexo, año y prueba (con las marcas de `filas`)."""
+    mejor, info = {}, {}
+    for r, d in limpiar(filas):
+        y = int(r['fecha_nacimiento'])
+        if y not in años:
+            continue
+        pid, ev, cs = r['profile_id'], r['estilo'], int(r['valor_original'])
+        p = _acc(r.get('provincia'))
+        if pid not in info or info[pid][0] <= d:
+            info[pid] = (d, r['genero'], y, p in ANDALUCIA, p == 'MALAGA')
+        if (pid, ev) not in mejor or cs < mejor[(pid, ev)]:
+            mejor[(pid, ev)] = cs
+    listas = defaultdict(list)
+    for (pid, ev), cs in mejor.items():
+        _, g, y, an, ma = info[pid]
+        listas[(g, y, ev)].append((cs, pid, an))
+    bolsa = set(club) | {pid for pid, v in info.items() if v[4]}
+    for L in listas.values():
+        L.sort()
+        bolsa |= {pid for _, pid, _ in L[:top_es]}
+        bolsa |= {pid for _, pid, _ in [x for x in L if x[2]][:top_an]}     # los mejores andaluces
+    return bolsa
+
+
+def resumen_comparables(filas, bolsa):
+    """Por nadador de la bolsa: {pid: {prueba: [mejor25, mejor50, pts, puesto España, total]}} de una temporada,
+    y sus datos {pid: [nombre, club, sexo, año, andaluz, malagueño]} (los de su última marca)."""
+    info, mejor, mejor_pl = {}, {}, {}
+    for r, d in limpiar(filas):
+        pid, ev, cs, pl = r['profile_id'], r['estilo'], int(r['valor_original']), r.get('id_tipo_piscina')
+        p = _acc(r.get('provincia'))
+        if pid not in info or info[pid][0] <= d:
+            info[pid] = (d, r['genero'], int(r['fecha_nacimiento']), p in ANDALUCIA, p == 'MALAGA',
+                         ' '.join(str(r.get('nombre') or '').split()).title(), ' '.join(str(r.get('club') or '').split()))
+        if (pid, ev) not in mejor or cs < mejor[(pid, ev)][0]:
+            mejor[(pid, ev)] = (cs, _fina(r.get('record_mundo'), cs))
+        if pl in ('25m', '50m') and ((pid, ev, pl) not in mejor_pl or cs < mejor_pl[(pid, ev, pl)]):
+            mejor_pl[(pid, ev, pl)] = cs
+    listas = defaultdict(list)
+    for (pid, ev), (cs, _) in mejor.items():
+        _, g, y, *_ = info[pid]
+        listas[(g, y, ev)].append(cs)
+    for L in listas.values():
+        L.sort()
+    out, datos = {}, {}
+    for (pid, ev), (cs, pts) in mejor.items():
+        if pid not in bolsa:
+            continue
+        _, g, y, an, ma, nom, clubn = info[pid]
+        L = listas[(g, y, ev)]
+        out.setdefault(pid, {})[ev] = [mejor_pl.get((pid, ev, '25m'), 0), mejor_pl.get((pid, ev, '50m'), 0), pts,
+                                       bisect.bisect_left(L, cs) + 1, len(L)]
+        datos[pid] = [nom, clubn, g, y, 1 if an else 0, 1 if ma else 0]
+    return out, datos

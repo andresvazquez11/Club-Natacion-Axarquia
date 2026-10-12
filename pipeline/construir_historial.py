@@ -4,7 +4,8 @@ Precalcula, en local, lo que no cambia:
   · las temporadas cerradas 21-22 a 25-26 de los nadadores del club y el nivel de todos los nadadores de
     sus mismos ámbitos (para comparar) → pipeline/historial_base.json.gz
   · las marcas de la 25-26 de esos ámbitos → pipeline/marcas_2526.json.gz
-  · las fotos semanales del ranking desde octubre de 2025 → historico_ranking.json (raíz del repo)
+  · las fotos semanales del ranking desde octubre de 2025 → historico_ranking.json.gz (raíz del repo)
+  · los nadadores comparables (club + Málaga + 30 mejores de Andalucía y España) → pipeline/comparables_base.json.gz
 
 Uso:
   python3 pipeline/construir_historial.py <carpeta con RAW_2122…RAW_2425, RAW_2526(_v2), RAW_2627> [temporada.html]
@@ -39,15 +40,25 @@ def main():
     club = club_actual(html)
     print(f'{len(club)} nadadores del club')
 
-    temps, coh = {}, {}
+    # nadadores comparables (sección «Comparar»): club + provincia de Málaga + 30 mejores de Andalucía y de España
+    bolsa = H.bolsa_comparables(H.cargar(raw(carpeta, '2526')), club)
+    print(f'  {len(bolsa)} nadadores comparables')
+    temps, coh, comp_t, comp_d = {}, {}, {}, {}
     for t in ('2122', '2223', '2324', '2425', '2526'):
         p = raw(carpeta, t)
         if not p:
             print(f'  ⚠ falta RAW_{t}'); continue
-        out, niv = H.resumen_temporada(H.cargar(p), club, cohorte=True)
+        filas = H.cargar(p)
+        out, niv = H.resumen_temporada(filas, club, cohorte=True)
         temps[t] = {str(k): v for k, v in out.items()}
         coh[t] = {amb: {str(k): v for k, v in d.items()} for amb, d in niv.items()}
-        print(f'  {H.etiqueta(t)}: {len(temps[t])} nadadores del club con marcas')
+        ct, cd = H.resumen_comparables(filas, bolsa)
+        comp_t[t] = {str(k): v for k, v in ct.items()}
+        comp_d.update({str(k): v for k, v in cd.items()})      # gana la temporada más reciente
+        print(f'  {H.etiqueta(t)}: {len(temps[t])} nadadores del club con marcas · {len(ct)} comparables')
+    with gzip.open(os.path.join(BASE, 'comparables_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
+        json.dump({'bolsa': sorted(bolsa), 't': comp_t, 'd': comp_d}, f, ensure_ascii=False, separators=(',', ':'))
+    print(f'  comparables guardados ({os.path.getsize(os.path.join(BASE, "comparables_base.json.gz")) / 1e6:.1f} MB)')
     with gzip.open(os.path.join(BASE, 'historial_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump({'club': list(club), 'temps': temps, 'coh': coh}, f, ensure_ascii=False, separators=(',', ':'))
 

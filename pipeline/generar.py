@@ -30,6 +30,8 @@ CLUB_OUT = os.environ.get('CNA_CLUB_OUT', os.path.join(os.path.dirname(os.path.a
 HIST_RANK = os.environ.get('CNA_HIST_RANK', os.path.join(os.path.dirname(BASE_DIR), 'historico_ranking.json.gz'))
 HIST_OUT = os.environ.get('CNA_HIST_OUT', os.path.join(os.path.dirname(os.path.abspath(HTML_OUT)), 'historial.json'))
 RANK_OUT = os.path.join(os.path.dirname(os.path.abspath(HIST_OUT)), 'ranking.json')   # se carga solo en la pestaña Ranking
+COMP_BASE = os.path.join(BASE_DIR, 'comparables_base.json.gz')
+COMP_OUT = os.path.join(os.path.dirname(os.path.abspath(HIST_OUT)), 'comparar.json')  # se carga solo en «Comparar»
 WEB_DIR  = os.path.join(BASE_DIR, 'web')   # plantilla, estilos y JS de la página
 
 CLUB_MATCH = 'AXARQ'
@@ -455,7 +457,7 @@ def main():
 
 
 JS_ORDEN = ['comunes.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/inicio.js', 'vistas/club.js', 'vistas/campeonatos.js',
-            'vistas/ficha.js', 'vistas/historial.js', 'vistas/elegir.js', 'vistas/rankings.js', 'app.js']
+            'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'app.js']
 
 
 def montar_html():
@@ -508,6 +510,23 @@ def escribir_historial(swimmers, rows_new):
     import gzip
     with gzip.open(HIST_RANK, 'wt', 9, encoding='utf-8') as f:
         json.dump(fotos, f, ensure_ascii=False, separators=(',', ':'))
+
+    # nadadores comparables: temporadas cerradas guardadas + 26-27 descargada
+    if os.path.exists(COMP_BASE):
+        cb = H.cargar(COMP_BASE)
+        bolsa = set(cb['bolsa']) | set(club)
+        ct, cd = H.resumen_comparables(rows_new, bolsa)
+        tt = dict(cb['t'])
+        tt['2627'] = {str(k): v for k, v in ct.items()}
+        datos = dict(cb['d'])
+        datos.update({str(k): v for k, v in cd.items()})
+        por = {}
+        for t, d in tt.items():
+            for pid, evs in d.items():
+                por.setdefault(pid, {})[t] = evs
+        with open(COMP_OUT, 'w', encoding='utf-8') as f:
+            json.dump({'d': datos, 't': por}, f, ensure_ascii=False, separators=(',', ':'))
+        print(f'Comparar: {len(datos)} nadadores · {os.path.getsize(COMP_OUT) / 1e6:.1f} MB → {COMP_OUT}')
 
     out = {'fecha': hoy.strftime('%d/%m/%Y'), 'temps': por_nad, 'an': analisis, 'clasif': clasif}
     with open(HIST_OUT, 'w', encoding='utf-8') as f:

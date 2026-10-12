@@ -29,12 +29,15 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .nav a.on{color:var(--sun-ink);background:var(--sun)}
 .brand{display:none}
 .nav-foot{display:none}
+.nav a span.corto{display:none}
 
 /* Móvil y tableta: barra inferior */
 @media (max-width:899px){
   .nav{left:0;right:0;bottom:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:8px 6px env(safe-area-inset-bottom);
     background:rgba(3,4,94,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);justify-content:space-around}
-  .nav a{flex-direction:column;gap:3px;font-size:.66rem;padding:6px 4px;min-width:58px;justify-content:center}
+  .nav a{flex-direction:column;gap:3px;font-size:.6rem;padding:6px 1px;min-width:0;flex:1 1 0;justify-content:center;overflow:hidden}
+  .nav a span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nav a span.largo{display:none}.nav a span.corto{display:inline}
 }
 /* Ordenador: menú lateral */
 @media (min-width:900px){
@@ -219,3 +222,6 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 .psel .chips + .chips.sub{margin-top:2px}
 .chips.sub .chip{min-height:32px;font-size:.78rem;padding:0 12px;background:rgba(3,4,94,.35)}
 .chips.sub .chip.on{background:#fff;color:var(--navy);border-color:#fff}
+
+/* chips con nombres largos (Comparar): pueden ocupar dos líneas */
+.tags .chip{white-space:normal;height:auto;min-height:38px;text-align:left;padding:6px 12px;max-width:100%}

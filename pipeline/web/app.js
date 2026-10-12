@@ -32,6 +32,7 @@ function route() {
   if (sec === 'club') vistaClub(app, Object.assign({cat: parts[1]}, params));
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
+  else if (sec === 'comparar') vistaComparar(app, params);
   else if (sec === 'benicio' && !BEN) vistaElegir(app, params);
   else if (sec === 'benicio') vistaFicha(app, BEN, parts[1], params);
   else if (sec === 'nadador') vistaFicha(app, SW[parts[1]], parts[2], params);

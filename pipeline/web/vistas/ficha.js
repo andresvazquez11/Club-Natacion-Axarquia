@@ -257,6 +257,7 @@ function vistaFicha(app, s, tab, p) {
     <div class="hero">
       ${volverHTML(s, cat)}
       <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
+      <a class="chip" href="#comparar?ids=${s.id}" style="margin:6px 6px 4px 0;text-decoration:none">⚖️ Comparar con otros</a>
       ${ESTRELLA_ELEGIBLE ? `<button class="chip" data-mi-estrella style="margin:6px 0 4px">${s.benicio ? '⭐ Es mi nadador · quitar' : '☆ Marcar como mi nadador'}</button>` : ''}
       <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${s.catl} ${s.cy}º año en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
       <div class="tags">${logros.slice(0, 6).join('')}${logros.length > 6 ? `<span class="tag">+${logros.length - 6}</span>` : ''}</div>

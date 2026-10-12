@@ -76,7 +76,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz
+          git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json
           git commit -m "Actualizar informe temporada 26-27 — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
           for i in 1 2 3; do
             git push origin main && exit 0
