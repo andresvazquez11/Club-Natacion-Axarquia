@@ -486,7 +486,7 @@ def montar_html():
 def records_club(swimmers, hist):
     """Récords del club: las 3 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
     (año de la marca − año de nacimiento), prueba y piscina → [[pid, cs, fecha, nombre, año]].
-    Temporadas cerradas desde la 10-11 en records_base.json.gz (también nadadores que ya no están) + marcas actuales."""
+    Temporadas cerradas desde la 13-14 en records_base.json.gz (también nadadores que ya no están) + marcas actuales."""
     import historial as H
     ruta = os.path.join(BASE_DIR, 'records_base.json.gz')
     top = defaultdict(dict)

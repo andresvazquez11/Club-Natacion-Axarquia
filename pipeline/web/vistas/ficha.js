@@ -157,7 +157,8 @@ function tabResumen(s) {
   const mBars = Object.keys(months).sort().map(m => [`${MES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`, months[m]]);
   const li = arr => arr.map(([i, t]) => `<li><i class="ins-i">${i}</i>${t}</li>`).join('');
 
-  return `<div class="kpis">${kp.map(([v, l], i) => `<div class="kpi ${i === 1 ? 'hl' : ''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
+  const KD = ['np', 'pts', 'es10', 'an8', 'ma1', 'cto', 'pod', mn ? 'min' : 'top3'];
+  return `<div class="kpis">${kp.map(([v, l], i) => `<button class="kpi ${i === 1 ? 'hl' : ''}" data-kd="${KD[i]}"><b>${v}</b><span>${l}</span><span class="vd">Ver detalle ›</span></button>`).join('')}</div>
     <div class="grid g2" style="margin-top:12px">${objetivosCard(s)}${insigniasCard(s)}</div>
     <h2 class="st">🧠 Análisis de ${nombreCorto(s)}</h2>
     <div class="grid g2" id="an-host">
@@ -385,7 +386,7 @@ function vistaFicha(app, s, tab, p) {
   if (tab === 'historial') pintarHistorial(s, tab, p, keep);
   if (tab === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);
   if (tab === 'objetivos') pintarClasif(s);
-  if (tab === 'resumen') pintarAnalisis(s);
+  if (tab === 'resumen') { pintarAnalisis(s); app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd)); }
   app.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { location.hash = el.dataset.goto; });
   app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
     if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">✓ conseguida</span>' : ''}`; });
@@ -396,4 +397,49 @@ function vistaFicha(app, s, tab, p) {
   // al abrir una prueba, que se vea su cabecera
   if (tab === 'pruebas' && p.ev) setTimeout(() => { const el = document.getElementById('pr-' + p.ev.replace(/ /g, '-'));
     if (el) { const t = el.getBoundingClientRect().top; if (t < 50 || t > innerHeight * 0.55) window.scrollTo(0, scrollY + t - 60); } }, 0);
+}
+
+/* Ventana con el detalle de cada dato del Resumen: qué pruebas, cuándo, dónde y con qué marca */
+function abrirKpiFicha(s, k) {
+  const ir = ev => `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}`;
+  const filaEv = (e, extra) => `<tr class="click" data-goto="${ir(e.e)}"><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
+      <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
+  const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
+  const nadadas = []; s.ev.forEach(e => e.h.forEach(x => nadadas.push([e, x])));
+  const filaNado = ([e, x]) => `<tr class="click" data-goto="${ir(e.e)}"><td>${dtag(x[0])} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
+      <td class="num"><b>${fmt(x[1])}</b></td><td class="num">${posB(x[6])}<span class="of">de ${x[7]}</span></td></tr>`;
+  let tit = '', cuerpo = '';
+  if (k === 'np' || k === 'pts') {
+    const L = [...s.ev].sort((a, b) => k === 'pts' ? b.pts - a.pts : 0);
+    tit = k === 'pts' ? 'Sus pruebas por puntos World Aquatics' : `Sus ${s.np} pruebas con marca`;
+    cuerpo = `<table class="rt">${L.map(e => filaEv(e, pos(e, 'es') + '<div class="tiny muted">España</div>')).join('')}</table>`;
+  } else if (['es10', 'an8', 'ma1'].includes(k)) {
+    const lv = k.slice(0, 2), lim = k === 'es10' ? 10 : k === 'an8' ? 8 : 1;
+    const L = s.ev.filter(e => e.rk.y && e.rk.y[lv] && e.rk.y[lv][0] <= lim);
+    tit = {es10: `Top-10 del ranking de España (nacidos en ${s.y})`, an8: 'Top-8 del ranking de Andalucía', ma1: 'Número 1 del ranking de Málaga'}[k];
+    cuerpo = L.length ? `<table class="rt">${L.map(e => filaEv(e, pos(e, lv))).join('')}</table>` : '<p class="empty">Ninguna prueba por ahora.</p>';
+  } else if (k === 'cto') {
+    const L = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3).sort((a, b) => a.date < b.date ? 1 : -1);
+    tit = 'Podios en Campeonatos de Andalucía y España';
+    cuerpo = L.length ? `<table class="rt">${L.map(x => `<tr class="click" data-goto="${ir(x.ev)}"><td>${dtag(x.date)} <b>${x.ev}</b> <span class="of">${x.pool}</span><div class="tiny muted">${x.lv === 'es' ? FLAG_ES : FLAG_AN} ${esc(x.comp)}</div></td>
+        <td class="num"><b>${fmt(x.cs)}</b></td><td class="num">${posB(x.pos)}<span class="of">de ${x.of}</span></td></tr>`).join('')}</table>` : '<p class="empty">Todavía ningún podio en campeonatos.</p>';
+  } else if (k === 'pod') {
+    const L = nadadas.filter(([, x]) => x[6] && x[6] <= 3).sort((a, b) => a[1][0] < b[1][0] ? 1 : -1);
+    tit = 'Victorias y podios en sus competiciones';
+    cuerpo = L.length ? `<p class="small muted" style="margin-bottom:8px">Puesto entre los nacidos en ${s.y} en cada competición.</p><table class="rt">${L.map(filaNado).join('')}</table>` : '<p class="empty">Todavía ningún podio.</p>';
+  } else if (k === 'min') {
+    const mn = minimasDe(s);
+    tit = `Mínimas del Campeonato de España (${mn.age} años)`;
+    cuerpo = `<table class="rt">${[...mn.rows].sort((a, b) => (a.bestp === null) - (b.bestp === null) || a.bestp - b.bestp).map(r => `<tr><td><b>${r.ev}</b></td>
+        <td class="num">${r.bestp === null ? '<span class="muted">sin marca</span>' : r.bestp <= 0 ? '<span class="good">✓ conseguida</span>' : `faltan <b>${secs(r.bestd)} s</b> <span class="of">${r.bestpl}</span>`}</td></tr>`).join('')}</table>
+      <p style="margin-top:10px"><a class="btn ghost" href="${fichaHref(s, 'objetivos')}">Ver en Objetivos →</a></p>`;
+  } else {
+    const L = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 3);
+    tit = 'Sus 3 mejores pruebas (puntos)'; cuerpo = `<table class="rt">${L.map(e => filaEv(e)).join('')}</table>`;
+  }
+  document.querySelector('#modal .box').innerHTML = `<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+    <h1 style="font-size:1.25rem;font-weight:900">${esc(s.n)}</h1><p class="sun" style="font-weight:800;margin:2px 0 12px">${tit}</p>${cuerpo}
+    <p class="tiny muted" style="margin-top:10px">Pulsa una fila para ver todas sus marcas en esa prueba.</p>`;
+  const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0; document.body.style.overflow = 'hidden';
+  m.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { closeEvo(); location.hash = el.dataset.goto; });
 }

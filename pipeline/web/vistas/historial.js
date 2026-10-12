@@ -53,7 +53,7 @@ function tabHistorial(s, p, H) {
   }
   const vista = p.hv || 'total';
   const niv = ts.map(t => [tLbl(t) + (t === '2627' ? ' <span class="of">(en curso)</span>' : ''), nivelTemp(T[t]), `${nivelTemp(T[t])} pts`]);
-  let h = `<p class="small muted" style="margin-bottom:10px">Su historia temporada a temporada (la RFEN tiene marcas desde la 10-11). El análisis escrito está en <a class="sun" href="${fichaHref(s, 'resumen')}">Resumen</a> y todas sus marcas, en <a class="sun" href="${fichaHref(s, 'pruebas')}">Pruebas</a>.</p>
+  let h = `<p class="small muted" style="margin-bottom:10px">Su historia temporada a temporada (la RFEN tiene marcas desde la 13-14). El análisis escrito está en <a class="sun" href="${fichaHref(s, 'resumen')}">Resumen</a> y todas sus marcas, en <a class="sun" href="${fichaHref(s, 'pruebas')}">Pruebas</a>.</p>
     <div class="card" style="margin-top:12px"><h3>📊 Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas</span></h3>${barsHTML(niv)}
       <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div>
     <div class="bar-row" style="margin-top:16px"><div class="seg" data-hv><button data-v="total" class="${vista === 'total' ? 'on' : ''}">Por prueba</button><button data-v="temp" class="${vista === 'temp' ? 'on' : ''}">Por temporada</button></div></div>`;

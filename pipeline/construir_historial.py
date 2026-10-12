@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Precalcula, en local, lo que no cambia:
-  · las temporadas cerradas 10-11 a 25-26 de los nadadores del club y el nivel de todos los nadadores de
+  · las temporadas cerradas 13-14 a 25-26 de los nadadores del club y el nivel de todos los nadadores de
     sus mismos ámbitos (para comparar) → pipeline/historial_base.json.gz
   · las marcas de la 25-26 de esos ámbitos → pipeline/marcas_2526.json.gz
   · las fotos semanales del ranking desde octubre de 2025 → historico_ranking.json.gz (raíz del repo)
@@ -44,7 +44,7 @@ def main():
     bolsa = H.bolsa_comparables(H.cargar(raw(carpeta, '2526')), club)
     print(f'  {len(bolsa)} nadadores comparables')
     temps, coh, comp_t, comp_d = {}, {}, {}, {}
-    for t in H.TEMPORADAS[:-1]:            # todas las cerradas (10-11 … 25-26)
+    for t in H.TEMPORADAS[:-1]:            # todas las cerradas (13-14 … 25-26)
         p = raw(carpeta, t)
         if not p:
             print(f'  ⚠ falta RAW_{t}'); continue

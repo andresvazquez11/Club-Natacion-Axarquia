@@ -3,7 +3,7 @@
 historial.py — historial de 6 temporadas y fotos semanales del ranking.
 
 Lo usan:
-  · construir_historial.py (local, una vez): precalcula las temporadas cerradas 10-11…25-26
+  · construir_historial.py (local, una vez): precalcula las temporadas cerradas 13-14…25-26
     y reconstruye las fotos semanales del ranking de la 25-26.
   · generar.py (cada semana): añade 25-26 y 26-27, la foto de la semana actual y escribe
     historial.json, que la página carga al abrir las pestañas «Historial» y «Ranking».
@@ -14,7 +14,7 @@ import bisect, glob, gzip, html, json, os
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-TEMPORADAS = ['1011', '1112', '1213', '1314', '1415', '1516', '1617', '1718', '1819', '1920', '2021', '2122', '2223', '2324', '2425', '2526', '2627']   # la RFEN tiene marcas desde la 10-11
+TEMPORADAS = ['1011', '1112', '1213', '1314', '1415', '1516', '1617', '1718', '1819', '1920', '2021', '2122', '2223', '2324', '2425', '2526', '2627']   # la RFEN tiene marcas desde la 13-14
 ANDALUCIA = {'ALMERIA', 'CADIZ', 'CORDOBA', 'GRANADA', 'HUELVA', 'JAEN', 'MALAGA', 'SEVILLA'}
 PRUEBAS = ['50 Libre', '100 Libre', '200 Libre', '400 Libre', '800 Libre', '1500 Libre',
            '50 Espalda', '100 Espalda', '200 Espalda', '50 Braza', '100 Braza', '200 Braza',
