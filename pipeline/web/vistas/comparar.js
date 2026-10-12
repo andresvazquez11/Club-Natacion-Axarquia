@@ -25,7 +25,7 @@ function cmpMarca(x, y, i, r = 5) {   // forma distinta para cada nadador
 /* Gráfico de varias líneas: xs = etiquetas del eje; series = [{nm, i, v: [cs|null por x]}]. Tiempo alto arriba, mejor abajo. */
 function cmpChart(xs, series) {
   const movil = window.innerWidth < 600;
-  const W = movil ? 400 : 860, H = movil ? 280 : 300, P = {l: 52, r: movil ? 118 : 150, t: 18, b: 36};
+  const W = movil ? 400 : 860, H = movil ? 280 : 300, P = {l: 52, r: movil ? 122 : 180, t: 18, b: 36};
   const vals = series.flatMap(s => s.v.filter(v => v));
   if (!vals.length) return '';
   const mn = Math.min(...vals), mx = Math.max(...vals), pad = Math.max((mx - mn) * 0.12, 30), lo = mn - pad, hi = mx + pad;
@@ -35,14 +35,21 @@ function cmpChart(xs, series) {
   for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.12)"/><text x="${P.l - 6}" y="${y + 4}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="end">${fmt(Math.round(c))}</text>`; }
   xs.forEach((x, i) => { g += `<text x="${X(i)}" y="${H - P.b + 18}" fill="rgba(202,240,248,.9)" font-size="11" text-anchor="middle">${x}</text>`; });
-  const etiquetas = [];
+  const etiquetas = [], puntos = [];
   series.forEach(s => {
     const pts = s.v.map((v, i) => v ? [X(i), Y(v), v, i] : null).filter(Boolean);
     if (pts.length > 1) g += `<polyline fill="none" stroke="${CMP_COL[s.i]}" stroke-width="2.5" stroke-dasharray="${CMP_DASH[s.i]}" stroke-linejoin="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
-    pts.forEach(p => { g += `<g fill="${CMP_COL[s.i]}" stroke="#023e8a" stroke-width="1.5"><title>${esc(s.nm)} · ${xs[p[3]]} · ${fmt(p[2])}</title>${cmpMarca(p[0], p[1], s.i)}</g>`; });
+    pts.forEach(p => { g += `<g fill="${CMP_COL[s.i]}" stroke="#023e8a" stroke-width="1.5"><title>${esc(s.nm)} · ${xs[p[3]]} · ${fmt(p[2])}</title>${cmpMarca(p[0], p[1], s.i)}</g>`;
+      if (p !== pts[pts.length - 1]) puntos.push({x: p[0], y: p[1], i: s.i, txt: fmt(p[2]), col: p[3]}); });
     const u = pts[pts.length - 1];
     if (u) etiquetas.push({x: u[0], y: u[1], i: s.i, txt: `${corto(s.nm)} ${fmt(u[2])}`});
   });
+  // tiempo en cada punto (salvo el último de cada nadador, que lleva nombre + tiempo): en cada columna
+  // se ordenan por altura y se separan para que no se pisen; van a la derecha del punto, en el color del nadador
+  const porCol = {};
+  puntos.forEach(q => (porCol[q.col] = porCol[q.col] || []).push(q));
+  Object.values(porCol).forEach(L => { L.sort((a, b) => a.y - b.y); L.forEach((q, k) => { q.ly = k ? Math.max(q.y, L[k - 1].ly + 13) : q.y; });
+    L.forEach(q => { g += `<text x="${q.x + 8}" y="${q.ly + 4}" fill="#fff" font-size="10.5" font-weight="700" stroke="#023e8a" stroke-width="3" paint-order="stroke">${q.txt}</text>`; }); });
   // nombres al final de cada línea sin que se monten (separación mínima de 15 px)
   etiquetas.sort((a, b) => a.y - b.y);
   etiquetas.forEach((e, k) => { e.ly = k ? Math.max(e.y, etiquetas[k - 1].ly + 15) : e.y; });

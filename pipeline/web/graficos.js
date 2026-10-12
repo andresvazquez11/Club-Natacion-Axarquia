@@ -24,12 +24,25 @@ function evoChart(rows) {
   g += `<polyline fill="none" stroke="#ffd60a" stroke-width="2" stroke-dasharray="5 4" points="${pb.join(' ')}"/>`;
   g += `<polyline fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" points="${rows.map(x => X(Date.parse(x[0])) + ',' + Y(x[1])).join(' ')}"/>`;
   best = Infinity;
+  // el tiempo se escribe en TODOS los puntos: las mejores marcas personales en amarillo (con la fecha) debajo
+  // del punto, el resto encima; si dos etiquetas quedan muy juntas se separan en vertical
+  const puestas = [];      // cajas de etiquetas ya colocadas: [x, y]
+  const libre = (x, y) => !puestas.some(([a, b]) => Math.abs(a - x) < 40 && Math.abs(b - y) < 13);
   rows.forEach(x => { const isPb = x[1] < best; if (isPb) best = x[1];
     const cx = X(Date.parse(x[0])), cy = Y(x[1]);
     const tip = `${dfmt(x[0])} · ${fmt(x[1])}${x[6] ? ' · ' + x[6] + 'º' : ''} · ${x[3] || ''}`;
     g += `<g><title>${esc(tip)}</title><circle cx="${cx}" cy="${cy}" r="16" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${isPb ? 6 : 4.5}" fill="${isPb ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="2"/></g>`;
-    if (isPb) { const anc = cx > W - 90 ? 'end' : cx < P.l + 40 ? 'start' : 'middle';
-      g += `<text x="${cx}" y="${cy + 21}" fill="#ffd60a" font-size="13" font-weight="800" text-anchor="${anc}">${fmt(x[1])}</text><text x="${cx}" y="${cy + 35}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="${anc}">${dfmt(x[0])}</text>`; } });
+    const anc = cx > W - 60 ? 'end' : cx < P.l + 30 ? 'start' : 'middle';
+    if (isPb) {
+      let ty = cy + 21; while (!libre(cx, ty)) ty += 13;
+      puestas.push([cx, ty], [cx, ty + 13]);
+      g += `<text x="${cx}" y="${ty}" fill="#ffd60a" font-size="12.5" font-weight="800" text-anchor="${anc}">${fmt(x[1])}</text><text x="${cx}" y="${ty + 13}" fill="rgba(202,240,248,.85)" font-size="10.5" text-anchor="${anc}">${dfmt(x[0])}</text>`;
+    } else {
+      let ty = cy - 10; while (!libre(cx, ty) && ty > P.t - 4) ty -= 13;
+      if (!libre(cx, ty)) { ty = cy + 20; while (!libre(cx, ty)) ty += 13; }
+      puestas.push([cx, ty]);
+      g += `<text x="${cx}" y="${ty}" fill="#fff" font-size="11" font-weight="700" text-anchor="${anc}">${fmt(x[1])}</text>`;
+    } });
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de las marcas">${g}</svg>`;
 }
 

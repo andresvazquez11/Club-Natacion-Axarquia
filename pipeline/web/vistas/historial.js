@@ -168,7 +168,8 @@ function rankChart(pts, modo) {
   pts.forEach((x, i) => { if (!x[1]) return; const b = x[1] === mejor, cx = X(i), cy = Y(x[1]);
     const prevP = pts.slice(0, i).reverse().find(y => y[1]);
     // número de puesto junto al punto: cuando cambia, en su mejor puesto y en la última semana (sin amontonar)
-    const etiq = (i === n - 1 || b || !prevP || prevP[1] !== x[1]) && (cx - ultEtiq > (movil ? 22 : 18) || i === n - 1);
+    // puesto escrito en todos los puntos que quepan sin pisarse (siempre en la última semana y en su mejor puesto)
+    const etiq = cx - ultEtiq > (movil ? 20 : 17) || i === n - 1 || b;
     if (etiq) ultEtiq = cx;
     g += `<g class="rk-pt" data-rk="${i}" style="cursor:pointer"><title>${dfmt(x[0])} · ${x[1]}º de ${x[2]} · pulsa para ver el detalle</title>
       <circle cx="${cx}" cy="${cy}" r="14" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${b ? 5.5 : 3.5}" fill="${b ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="1.5"/>
