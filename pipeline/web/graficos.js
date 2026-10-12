@@ -59,6 +59,18 @@ function tablaMarcas(rows, e, pl) {
 
 /* bloque de evolución de una prueba (todas las piscinas) — se usa en la ficha y en la ventana */
 function evolucionHTML(s, e) {
+  const to = piscDestino();
+  if (to) {     // todas las marcas convertidas a una piscina: un solo gráfico
+    const rows = e.h.map(x => { const c = conv(x[1], x[2], to, s.g, e.e); return c === null ? null :
+      [x[0], c, to, x[3], x[4] + (x[2] !== to ? ` · original ${fmt(x[1])} en ${x[2]}` : ''), x[5], x[6], x[7], x[8], x[9]]; })
+      .filter(Boolean).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+    if (!rows.length) return '<p class="empty">Sin marcas.</p>';
+    const tot = rows[0][1] - Math.min(...rows.map(x => x[1]));
+    const eq = Object.assign({}, e, {cs: Math.min(...rows.map(x => x[1])), pool: to});
+    return `<div class="card" style="margin-bottom:12px"><h3>Todo convertido a piscina de ${to} <span class="muted small">· ${rows.length} marcas${tot > 0 ? ` · mejora <span class="good">−${secs(tot)} s</span>` : ''}</span></h3>
+      ${rows.length > 1 ? evoChart(rows) : ''}<div class="tw" style="margin-top:8px">${tablaMarcas(rows, eq, to)}</div></div>
+      <p class="tiny muted">Marcas de la otra piscina convertidas con la equivalencia de puntos World Aquatics (orientativo). En «Lugar» se indica la marca original.</p>`;
+  }
   const pools = [...new Set(e.h.map(x => x[2]))].sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
   return pools.map(pl => {
     const rows = e.h.filter(x => x[2] === pl).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);

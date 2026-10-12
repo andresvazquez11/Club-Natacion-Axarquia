@@ -36,7 +36,29 @@ const MINIMAS = (() => {
 
 const LV = [['ma', 'Málaga'], ['an', 'Andalucía'], ['es', 'España']];
 const SW = Object.fromEntries(DATA.swimmers.map(s => [String(s.id), s]));
-const BEN = DATA.swimmers.find(s => s.benicio) || null;
+/* ⭐ Nadador estrella.
+   · temporada.html (la tuya): fijo, DATA.estrella_fija = Benicio.
+   · club.html (la que se comparte): cada familia elige al suyo y queda guardado en su dispositivo;
+     también se puede mandar un enlace con ?nadador=ID para que ya venga elegido. */
+const ESTRELLA_LS = 'cna_estrella';
+function idEstrella() {
+  if (DATA.estrella_fija) return String(DATA.estrella_fija);
+  const q = new URLSearchParams(location.search).get('nadador');
+  if (q && SW[q]) { try { localStorage.setItem(ESTRELLA_LS, q); } catch (e) {} return q; }
+  try { const v = localStorage.getItem(ESTRELLA_LS); if (v && SW[v]) return v; } catch (e) {}
+  return null;
+}
+DATA.swimmers.forEach(s => { s.benicio = false; });
+const BEN_ID = idEstrella();
+if (BEN_ID) SW[BEN_ID].benicio = true;
+const BEN = BEN_ID ? SW[BEN_ID] : null;
+const ESTRELLA_ELEGIBLE = !DATA.estrella_fija;
+const nombreCorto = s => esc(String(s.n).split(' ')[0]);
+function elegirEstrella(id) {
+  try { if (id) localStorage.setItem(ESTRELLA_LS, String(id)); else localStorage.removeItem(ESTRELLA_LS); } catch (e) {}
+  location.hash = id ? '#benicio' : '#inicio';
+  location.reload();
+}
 const SEXO = {M: '♂', F: '♀'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
 /* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */
@@ -67,6 +89,33 @@ const catOf = key => DATA.cats.find(c => c.key === key);
 const scopeKey = (s, sk) => sk === 'y' ? `${s.g}|${s.y}` : `${s.g}|${s.cat}`;
 const scopeLbl = (s, sk) => sk === 'y' ? `nacidos en ${s.y}` : `${s.catl} ${SEXO_TXT[s.g].toLowerCase()} (${s.y - s.cy + 1}-${s.y - s.cy + 2})`;
 const fichaHref = (s, tab) => (s.benicio ? '#benicio' : `#nadador/${s.id}`) + (tab ? '/' + tab : '');
+
+/* ── Piscinas de 25 y 50 m ──
+   Separadas (como la RFEN) o convertidas a una sola piscina. La conversión mantiene los puntos World Aquatics:
+   marca_destino = marca × récord_destino / récord_origen (récord del mundo de esa prueba y sexo en cada piscina).
+   Es una equivalencia orientativa; los rankings y las mínimas oficiales siguen siendo por piscina. */
+const PISC_LS = 'cna_piscina';
+let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'sep'; } catch (e) { return 'sep'; } })();
+const piscDestino = () => PISC === '50' ? '50m' : PISC === '25' ? '25m' : null;
+function conv(cs, from, to, g, ev) {
+  if (!to || from === to) return cs;
+  const w = ((DATA.wr || {})[g] || {})[ev];
+  return w && w[from] && w[to] ? Math.round(cs * w[to] / w[from]) : null;
+}
+function piscSeg() {
+  return `<div class="seg" data-pisc title="Convierte las marcas a una sola piscina con la equivalencia de puntos World Aquatics">${[['sep', '25 m y 50 m separadas'], ['50', 'Todo a 50 m'], ['25', 'Todo a 25 m']]
+    .map(([v, l]) => `<button data-v="${v}" class="${PISC === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+}
+function bindPisc(root) {
+  root.querySelectorAll('[data-pisc] button').forEach(b => b.onclick = () => { PISC = b.dataset.v; try { localStorage.setItem(PISC_LS, PISC); } catch (e) {} route(); });
+}
+/* mejor marca de una prueba convertida a la piscina elegida: [cs equivalente, cs original, piscina original, fecha] */
+function mejorConv(s, e) {
+  const to = piscDestino(); if (!to) return null;
+  let m = null;
+  e.h.forEach(x => { const c = conv(x[1], x[2], to, s.g, e.e); if (c !== null && (!m || c < m[0])) m = [c, x[1], x[2], x[0]]; });
+  return m;
+}
 
 /* mejor marca por piscina (sin parciales) */
 function bestPoolMarks(e) {

@@ -19,6 +19,7 @@ function pintarHistorial(s, tab, p, keep) {
     onChips(host, 'ht', v => keep({ht: v}));
     onChips(host, 'hev', v => keep({hev: v}));
     onChips(host, 'rev', v => keep({rev: v}));
+    bindPisc(host);
     host.querySelectorAll('[data-hv] button').forEach(b => b.onclick = () => keep({hv: b.dataset.v}));
     host.querySelectorAll('[data-rmo] button').forEach(b => b.onclick = () => keep({rmo: b.dataset.v}));
     host.querySelectorAll('[data-rlv] button').forEach(b => b.onclick = () => keep({rlv: b.dataset.v}));
@@ -33,13 +34,19 @@ function nivelTemp(T) { const p = Object.values(T.ev).map(e => e.pts).sort((a, b
 function tabHistorial(s, p, H) {
   const T = H.temps[String(s.id)] || {}, ts = Object.keys(T).sort();
   if (!ts.length) return '<p class="empty">Sin historial.</p>';
-  const an = (H.an[String(s.id)] || []).map(([i, t]) => `<li data-i="${i}">${t}</li>`).join('');
+  const A = H.an[String(s.id)] || {}, li = arr => (arr || []).map(([i, t]) => `<li data-i="${i}">${t}</li>`).join('') || '<li data-i="·">—</li>';
   const vista = p.hv || 'total';
   const niv = ts.map(t => [tLbl(t) + (t === '2627' ? ' <span class="of">(en curso)</span>' : ''), nivelTemp(T[t]), `${nivelTemp(T[t])} pts`]);
-  let h = `<div class="grid g2">
-      <div class="card"><h3>🧠 Análisis de su evolución</h3><ul class="ins">${an || '<li>—</li>'}</ul></div>
-      <div class="card"><h3>📊 Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas</span></h3>${barsHTML(niv)}
-        <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div></div>
+  let h = `<h2 class="st" style="margin-top:4px">🧠 Resumen de ${nombreCorto(s)}</h2>
+    <div class="grid g2">
+      <div class="card"><h3 class="good">💪 Lo bueno</h3><ul class="ins">${li(A.bueno)}</ul></div>
+      <div class="card"><h3 class="sun">🎯 A mejorar</h3><ul class="ins">${li(A.malo)}</ul></div>
+      <div class="card"><h3>⚖️ Comparado con los demás</h3><ul class="ins">${li(A.comp)}</ul>
+        <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p></div>
+      <div class="card"><h3>📈 Su evolución</h3><ul class="ins">${li(A.evo)}</ul></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h3>📊 Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas</span></h3>${barsHTML(niv)}
+      <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div>
     <div class="bar-row" style="margin-top:16px"><div class="seg" data-hv><button data-v="total" class="${vista === 'total' ? 'on' : ''}">Evolución total</button><button data-v="temp" class="${vista === 'temp' ? 'on' : ''}">Por temporada</button></div></div>`;
   return h + (vista === 'temp' ? histTemporada(s, T, ts, p) : histTotal(s, T, ts, p));
 }
@@ -69,7 +76,13 @@ function histTotal(s, T, ts, p) {
   const ev = evs.includes(p.hev) ? p.hev : evs[0];
   const filas = ts.filter(t => T[t].ev[ev]).map(t => [t, T[t].ev[ev]]);
   let graf = '';
-  ['25m', '50m'].forEach(pl => {
+  const to = piscDestino();
+  if (to) {
+    const rows = filas.map(([t, e]) => { const cands = Object.entries(e.pl).map(([pl, cs]) => [conv(cs, pl, to, s.g, ev), pl, cs]).filter(c => c[0] !== null);
+      if (!cands.length) return null; const b = cands.reduce((a, c) => c[0] < a[0] ? c : a);
+      return [e.date, b[0], to, 'Temporada ' + tLbl(t) + (b[1] !== to ? ` (original ${fmt(b[2])} en ${b[1]})` : ''), '', 0, 0, 0, 0, []]; }).filter(Boolean);
+    if (rows.length > 1) graf = `<div class="card" style="margin-bottom:12px"><h3>${ev} · todo convertido a ${to} <span class="muted small">· mejor marca de cada temporada</span></h3>${evoChart(rows.sort((a, b) => a[0] < b[0] ? -1 : 1))}</div>`;
+  } else ['25m', '50m'].forEach(pl => {
     const rows = filas.filter(([, e]) => e.pl[pl]).map(([t, e]) => [e.pool === pl ? e.date : `${2000 + +t.slice(2)}-06-30`, e.pl[pl], pl, 'Temporada ' + tLbl(t), '', 0, 0, 0, 0, []]);
     if (rows.length > 1) graf += `<div class="card" style="margin-bottom:12px"><h3>${ev} · piscina de ${pl} <span class="muted small">· mejor marca de cada temporada</span></h3>${evoChart(rows.sort((a, b) => a[0] < b[0] ? -1 : 1))}</div>`;
   });
@@ -90,6 +103,7 @@ function histTotal(s, T, ts, p) {
   setTimeout(() => document.querySelectorAll('#hist-host [data-hev]').forEach(tr => tr.onclick = () => {
     const c = document.querySelector(`#hist-host [data-chips="hev"] .chip[data-v="${tr.dataset.hev}"]`); if (c) c.click(); }), 0);
   return `<div class="flt"><span class="flt-l">Prueba</span>${chipsHTML('hev', evs.map(x => [x, x, ts.filter(t => T[t].ev[x]).length]), ev)}</div>
+    <div class="bar-row">${piscSeg()}</div>
     ${graf}<div class="card"><h3>${ev}, temporada a temporada</h3>${tabla}</div>
     <div class="card" style="margin-top:12px"><h3>🗺️ Todas sus pruebas por temporada</h3>${mapa}</div>`;
 }

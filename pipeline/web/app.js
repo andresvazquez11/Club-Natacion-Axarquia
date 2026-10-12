@@ -22,12 +22,13 @@ function route() {
   if (!esFicha) volverA = null;
   if (lastHash) scrollPos[lastHash] = window.scrollY;   // recordar por dónde iba en la pantalla que deja
   lastHash = location.hash || '#inicio';
-  if (sec === 'benicio' && !BEN) sec = 'inicio';
+  if (sec === 'benicio' && !BEN && !ESTRELLA_ELEGIBLE) sec = 'inicio';
   if (sec === 'nadador' && !SW[parts[1]]) sec = 'club';
 
   if (sec === 'club') vistaClub(app, Object.assign({cat: parts[1]}, params));
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
+  else if (sec === 'benicio' && !BEN) vistaElegir(app, params);
   else if (sec === 'benicio') vistaFicha(app, BEN, parts[1], params);
   else if (sec === 'nadador') vistaFicha(app, SW[parts[1]], parts[2], params);
   else { sec = 'inicio'; vistaInicio(app); }
@@ -42,6 +43,9 @@ function route() {
 }
 
 document.getElementById('nav-foot').innerHTML = `Actualizado ${DATA.fecha}<br>Datos: RFEN`;
-if (!BEN) document.getElementById('nav-ben').hidden = true;
+// pestaña ⭐: nombre del nadador estrella (o «Mi nadador» en la página compartida)
+const navBen = document.getElementById('nav-ben');
+if (!BEN && !ESTRELLA_ELEGIBLE) navBen.hidden = true;
+navBen.querySelector('span').textContent = BEN ? String(BEN.n).split(' ')[0] : 'Mi nadador';
 window.addEventListener('hashchange', route);
 route();

@@ -24,8 +24,9 @@ RAW_DIR  = os.environ.get('CNA_BASE', os.path.join(BASE_DIR, 'RAW_2526'))   # ca
 RAW_NEW  = os.environ.get('CNA_NEW', os.path.join(BASE_DIR, 'RAW_2627'))
 HTML_OUT = os.environ.get('CNA_OUT', os.path.expanduser('~/Desktop/CNA_Temporada_26-27.html'))
 # Historial de 6 temporadas y fotos semanales del ranking
-RAW_2526 = os.environ.get('CNA_2526_RAW', '')     # descarga completa de la 25-26 (si no, se usa CNA_BASE)
 HIST_BASE = os.path.join(BASE_DIR, 'historial_base.json.gz')
+MARCAS_2526 = os.path.join(BASE_DIR, 'marcas_2526.json.gz')
+CLUB_OUT = os.environ.get('CNA_CLUB_OUT', os.path.join(os.path.dirname(os.path.abspath(HTML_OUT)), 'club.html'))   # 25-26 cerrada: no hace falta volver a descargarla
 HIST_RANK = os.environ.get('CNA_HIST_RANK', os.path.join(os.path.dirname(BASE_DIR), 'historico_ranking.json'))
 HIST_OUT = os.environ.get('CNA_HIST_OUT', os.path.join(os.path.dirname(os.path.abspath(HTML_OUT)), 'historial.json'))
 WEB_DIR  = os.path.join(BASE_DIR, 'web')   # plantilla, estilos y JS de la página
@@ -125,6 +126,7 @@ def main():
     # ── Mejor marca por nadador+prueba e historial ─────────────────────────────
     best, hist, info = {}, defaultdict(list), {}
     best_pool = {}   # (pid, prueba, piscina) -> (cs, fecha)
+    records = {}     # récord del mundo por sexo, prueba y piscina (para convertir marcas entre 25 y 50 m)
     for r in rows:
         if not r.get('valor_original') or not r.get('profile_id'):
             continue
@@ -146,6 +148,8 @@ def main():
             hist[(pid, ev)].append((iso(r['date']), cs, r['id_tipo_piscina'],
                                     norm(r.get('competition_name')).title(), norm(r.get('location')).title(),
                                     fina(r['record_mundo'], cs), cpos, cn, 1 if r.get('parcial') else 0))
+        if r.get('record_mundo') and r.get('id_tipo_piscina') in ('25m', '50m'):
+            records.setdefault(r['genero'], {}).setdefault(ev, {})[r['id_tipo_piscina']] = int(r['record_mundo'])
         kp = (pid, ev, r['id_tipo_piscina'])
         if kp not in best_pool or cs < best_pool[kp][0]:
             best_pool[kp] = (cs, iso(r['date']))
@@ -351,42 +355,56 @@ def main():
             if any(f'{g}|{ck}' in comparativa['cat'] for g in CATEGORIAS):
                 comparativa['cat'][ck] = comparar(lambda i, yrs=yrs: i['y'] in yrs)
 
-    # ── Pruebas clave de Benicio: marcas de referencia por nivel y piscina ────
-    claves = None
-
+    # ── Pruebas clave del Campeonato de Andalucía (todos los alevines) ──────────
+    # Las listas de referencia se calculan una vez por (sexo, ámbito, prueba, nivel, piscina) y se comparten;
+    # de cada nadador solo se guarda su marca y su puesto en cada lista.
     def fecha_de(pid, ev, pool):
         return best[(pid, ev)]['date'] if pool == 'all' else best_pool[(pid, ev, pool)][1]
-    ben = next((s for s in swimmers if s['benicio']), None)
-    if ben:
-        bid, by = ben['id'], ben['y']
-        in_scope = {'y': lambda i: i['y'] == by,
-                    'c': lambda i: cat_of(i['g'], i['y'])[0] == ben['cat']}
-        claves = {'events': []}
+    ale = [s for s in swimmers if s['cat'] == 'ALE']
+    listas_cl = defaultdict(list)          # (g, ámbito, prueba, nivel, piscina) → [(cs, pid)]
+    if ale:
         for ev in CLAVES_BENICIO:
-            eo = {'e': ev, 'sc': {}}
-            for skey, fn in in_scope.items():
-                eo['sc'][skey] = {}
+            fuentes = [('all', [(b['cs'], pid) for (pid, e2), b in best.items() if e2 == ev])] + \
+                      [(pl, [(v[0], pid) for (pid, e2, pl2), v in best_pool.items() if e2 == ev and pl2 == pl]) for pl in ('25m', '50m')]
+            for pool, ll in fuentes:
+                for cs, pid in ll:
+                    i = info[pid]
+                    if cat_of(i['g'], i['y'])[0] != 'ALE':
+                        continue
+                    for lv in LEVELS:
+                        if LEVELS[lv](i):
+                            listas_cl[(i['g'], str(i['y']), ev, lv, pool)].append((cs, pid))
+                            listas_cl[(i['g'], 'ALE', ev, lv, pool)].append((cs, pid))
+        for v in listas_cl.values():
+            v.sort()
+    claves_ref = {}
+    for (g, sc, ev, lv, pool), ll in listas_cl.items():
+        claves_ref[f'{g}|{sc}|{ev}|{lv}|{pool}'] = {
+            't': len(ll), 'med': ll[len(ll) // 2][0] if ll else None,
+            'refs': [[p, ll[p - 1][0], info[ll[p - 1][1]]['n'], info[ll[p - 1][1]]['c'], fecha_de(ll[p - 1][1], ev, pool)]
+                     for p in REF_POS if p <= len(ll)]}
+    claves_by = {}
+    for s_ in ale:
+        sid, mine = s_['id'], {}
+        for ev in CLAVES_BENICIO:
+            for sk, sc in (('y', str(s_['y'])), ('c', 'ALE')):
                 for lv in LEVELS:
-                    eo['sc'][skey][lv] = {}
                     for pool in ('all', '25m', '50m'):
-                        if pool == 'all':
-                            ll = [(b['cs'], pid) for (pid, e2), b in best.items() if e2 == ev]
-                        else:
-                            ll = [(v[0], pid) for (pid, e2, pl), v in best_pool.items() if e2 == ev and pl == pool]
-                        ll = sorted((cs, pid) for cs, pid in ll
-                                    if info[pid]['g'] == ben['g'] and fn(info[pid]) and LEVELS[lv](info[pid]))
-                        me = (best[(bid, ev)]['cs'] if pool == 'all' else best_pool.get((bid, ev, pool), (None,))[0]) \
-                            if (bid, ev) in best else None
-                        eo['sc'][skey][lv][pool] = {
-                            't': len(ll),
-                            'refs': [[p, ll[p - 1][0], info[ll[p - 1][1]]['n'], info[ll[p - 1][1]]['c'],
-                                       fecha_de(ll[p - 1][1], ev, pool)]
-                                     for p in REF_POS if p <= len(ll)],
-                            'med': ll[len(ll) // 2][0] if ll else None,
-                            'me': me,
-                            'mp': (sum(1 for cs, p in ll if cs < me and p != bid) + 1) if me else None,
-                        }
-            claves['events'].append(eo)
+                        ll = listas_cl.get((s_['g'], sc, ev, lv, pool), [])
+                        me = (best[(sid, ev)]['cs'] if pool == 'all' else best_pool.get((sid, ev, pool), (None,))[0]) \
+                            if (sid, ev) in best else None
+                        mine[f'{ev}|{sk}|{lv}|{pool}'] = [me, (sum(1 for cs, p in ll if cs < me and p != sid) + 1) if me else None]
+        claves_by[str(sid)] = mine
+
+    # formato antiguo, solo para el correo semanal de Benicio
+    claves = None
+    ben = next((s for s in swimmers if s['benicio']), None)
+    if ben and str(ben['id']) in claves_by:
+        mb = claves_by[str(ben['id'])]
+        claves = {'events': [{'e': ev, 'sc': {sk: {lv: {pool: dict(claves_ref.get(f"{ben['g']}|{sc}|{ev}|{lv}|{pool}", {'t': 0, 'refs': [], 'med': None}),
+                                                                   me=mb[f'{ev}|{sk}|{lv}|{pool}'][0], mp=mb[f'{ev}|{sk}|{lv}|{pool}'][1])
+                                                        for pool in ('all', '25m', '50m')} for lv in LEVELS}
+                                              for sk, sc in (('y', str(ben['y'])), ('c', 'ALE'))}} for ev in CLAVES_BENICIO]}
 
     # ── Top-10 en Campeonatos de Andalucía y de España ───────────────────────
     destacados = []
@@ -418,11 +436,17 @@ def main():
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
-            'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves': claves, 'destacados': destacados}
+            'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves_ref': claves_ref, 'claves_by': claves_by, 'claves_ev': CLAVES_BENICIO,
+            'destacados': destacados, 'wr': records, 'estrella_fija': None}
 
-    html = montar_html().replace('/*__DATA__*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':')))
-    with open(HTML_OUT, 'w', encoding='utf-8') as f:
-        f.write(html)
+    # Dos páginas con los mismos datos: la tuya (Benicio fijo como estrella) y la del club para compartir
+    # (cada familia elige a su nadador y queda guardado en su dispositivo).
+    ben = next((s_ for s_ in swimmers if s_['benicio']), None)
+    plantilla = montar_html()
+    for ruta, fija in ((HTML_OUT, ben['id'] if ben else None), (CLUB_OUT, None)):
+        data['estrella_fija'] = fija
+        with open(ruta, 'w', encoding='utf-8') as f:
+            f.write(plantilla.replace('/*__DATA__*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':'))))
     print(f'{len(swimmers)} nadadores del club · {len(lists)} listas · {os.path.getsize(HTML_OUT)/1e6:.1f} MB')
     movimientos = escribir_historial(swimmers, rows_new)
     if os.environ.get('CNA_SUMMARY'):
@@ -430,7 +454,7 @@ def main():
 
 
 JS_ORDEN = ['comunes.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/inicio.js', 'vistas/club.js', 'vistas/campeonatos.js',
-            'vistas/ficha.js', 'vistas/historial.js', 'vistas/rankings.js', 'app.js']
+            'vistas/ficha.js', 'vistas/historial.js', 'vistas/elegir.js', 'vistas/rankings.js', 'app.js']
 
 
 def montar_html():
@@ -445,40 +469,48 @@ def montar_html():
 
 
 def escribir_historial(swimmers, rows_new):
-    """historial.json (6 temporadas + análisis + ranking semanal) y actualiza historico_ranking.json.
-    Devuelve los mayores cambios de ranking de la semana para el correo."""
+    """historial.json (6 temporadas, análisis, ranking semanal y clasificación al Campeonato de Andalucía)
+    y actualiza historico_ranking.json. Devuelve los mayores cambios de ranking de la semana para el correo."""
     import historial as H
     from datetime import timedelta
     club = {s['id']: (s['g'], s['y']) for s in swimmers}
-    base = H.cargar(HIST_BASE) if os.path.exists(HIST_BASE) else {'temps': {}}
-    temps = {t: v for t, v in base['temps'].items()}
-    f26 = H.cargar(RAW_2526 or RAW_DIR)
-    temps['2526'] = {str(k): v for k, v in H.resumen_temporada(f26, club).items()}
-    temps['2627'] = {str(k): v for k, v in H.resumen_temporada(rows_new, club).items()}
+    base = H.cargar(HIST_BASE) if os.path.exists(HIST_BASE) else {'temps': {}, 'coh': {}}
+    temps, coh = dict(base['temps']), {t: v for t, v in base.get('coh', {}).items()}
+    out27, niv27 = H.resumen_temporada(rows_new, club, cohorte=True)
+    temps['2627'] = {str(k): v for k, v in out27.items()}
+    coh['2627'] = {amb: {str(k): v for k, v in d.items()} for amb, d in niv27.items()}
+
     por_nad, analisis = {}, {}
-    for pid in map(str, club):
+    for s in swimmers:
+        pid, amb = str(s['id']), f"{s['g']}|{s['y']}"
         tt = {t: temps[t][pid] for t in H.TEMPORADAS if pid in temps.get(t, {})}
+        cohs = {t: coh[t].get(amb, {}) for t in coh}
+        compis = {str(x['id']) for x in swimmers if x['g'] == s['g'] and x['y'] == s['y']}
+        club_niv = {t: {p: v for p, v in d.items() if p in compis} for t, d in cohs.items()}
         por_nad[pid] = tt
-        analisis[pid] = H.analisis(tt)
+        analisis[pid] = H.analisis(tt, pid, amb, cohs, club_niv)
+
+    # marcas: 25-26 guardada + 26-27 descargada
+    marcas, info = H.unir_marcas(H.cargar_marcas(MARCAS_2526), H.preparar_marcas({'2627': rows_new}, club))
+    clasif = H.clasificacion_andalucia(marcas, info, club)
 
     # fotos del ranking: se añaden las semanas que falten y se rehace la semana en curso
     guardadas = json.load(open(HIST_RANK, encoding='utf-8')) if os.path.exists(HIST_RANK) else {}
     hoy = date.today()
     actual = hoy - timedelta(days=(hoy.weekday() + 1) % 7)          # último domingo
-    desde = (datetime.strptime(max(guardadas), '%Y-%m-%d').date() + timedelta(days=7)) if guardadas else date(2025, 9, 7)
+    desde = (datetime.strptime(max(guardadas), '%Y-%m-%d').date() + timedelta(days=7)) if guardadas else date(2025, 10, 5)
     semanas = sorted(set(H.domingos(min(desde, actual), actual)))
-    marcas, prov = H.preparar_marcas([f26, rows_new], club)
-    fotos = H.fusionar_fotos(guardadas, H.fotos(marcas, prov, club, semanas), sobrescribir={actual.isoformat()})
+    fotos = H.fusionar_fotos(guardadas, H.fotos(marcas, info, club, semanas), sobrescribir={actual.isoformat()})
     with open(HIST_RANK, 'w', encoding='utf-8') as f:
         json.dump(fotos, f, ensure_ascii=False, separators=(',', ':'))
 
-    out = {'fecha': hoy.strftime('%d/%m/%Y'), 'temps': por_nad, 'an': analisis, 'rank': H.para_pagina(fotos, club)}
+    out = {'fecha': hoy.strftime('%d/%m/%Y'), 'temps': por_nad, 'an': analisis, 'rank': H.para_pagina(fotos, club),
+           'clasif': clasif}
     with open(HIST_OUT, 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
     print(f'Historial: {sum(len(v) for v in por_nad.values())} temporadas-nadador · {len(fotos)} semanas de ranking · '
           f'{os.path.getsize(HIST_OUT) / 1e6:.1f} MB → {HIST_OUT}')
 
-    # cambios de la última semana en el ranking de España (modo temporada)
     sem = sorted(fotos)
     mov = []
     if len(sem) >= 2:

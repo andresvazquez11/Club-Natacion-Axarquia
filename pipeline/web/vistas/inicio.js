@@ -14,12 +14,18 @@ function vistaInicio(app) {
     const h0 = e0.h.filter(x => x[2] === e0.pool).sort((a, b) => a[0] < b[0] ? -1 : 1);
     ben = `<a class="card link" href="#benicio" style="text-decoration:none;display:block;border-color:var(--sun)">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-        <div><div class="tiny sun" style="font-weight:800;letter-spacing:.5px">⭐ BENICIO</div>
+        <div><div class="tiny sun" style="font-weight:800;letter-spacing:.5px">⭐ ${ESTRELLA_ELEGIBLE ? 'MI NADADOR' : nombreCorto(BEN).toUpperCase()}</div>
           <div style="font-size:1.2rem;font-weight:900;margin-top:2px">${esc(BEN.n)}</div>
           <div class="small muted">${BEN.y} · ${BEN.catl} ${BEN.cy}º año</div></div>
         <div style="text-align:right"><div title="Evolución ${e0.e}">${spark(h0, 110, 40)}</div><div class="tiny muted">${e0.e}</div></div></div>
       <div class="tags" style="margin-top:12px">${top.map(e => `<span class="tag ${e.rk.y.es[0] <= 10 ? 'gold' : ''}">${FLAG_ES} ${e.rk.y.es[0]}º ${e.e}</span>`).join('')}</div>
       <div style="margin-top:12px"><span class="btn">Ver su ficha →</span></div></a>`;
+  } else if (ESTRELLA_ELEGIBLE) {
+    ben = `<a class="card link" href="#benicio" style="text-decoration:none;display:block;border-color:var(--sun)">
+      <div class="tiny sun" style="font-weight:800;letter-spacing:.5px">⭐ MI NADADOR</div>
+      <div style="font-size:1.15rem;font-weight:900;margin:4px 0 6px">Elige a tu hijo o hija</div>
+      <p class="small muted">Lo verás siempre destacado en la estrella ⭐ y en el inicio. Se guarda solo en este dispositivo.</p>
+      <div style="margin-top:12px"><span class="btn">Elegir nadador →</span></div></a>`;
   }
 
   const catBars = DATA.cats.map(c => {

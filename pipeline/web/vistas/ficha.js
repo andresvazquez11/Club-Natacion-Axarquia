@@ -4,7 +4,7 @@ function fichaTabs(s) {
   const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['evolucion', 'Evolución'], ['rivales', 'Rivales'],
              ['historial', 'Historial'], ['ranking', 'Ranking']];
   if (s.cat === 'ALE') t.push(['minimas', 'Mínimas España']);
-  if (s.benicio && DATA.claves) t.push(['andalucia', 'Cto. Andalucía']);
+  if ((DATA.claves_by || {})[String(s.id)]) t.push(['andalucia', 'Cto. Andalucía']);
   return t;
 }
 
@@ -44,8 +44,8 @@ function analisis(s) {
     const far = mn.rows.filter(r => r.bestp !== null && r.bestp > 10).sort((a, b) => b.bestp - a.bestp).slice(0, 3);
     if (far.length) M.push(['📏', `Más lejos de la mínima: ${far.map(r => `<b>${r.ev}</b> (a ${pctTxt(r.bestp)})`).join(', ')}.`]);
   }
-  if (s.benicio && DATA.claves) {
-    const sin = DATA.claves.events.map(x => x.e).filter(ev => !s.ev.find(e => e.e === ev));
+  if ((DATA.claves_by || {})[String(s.id)]) {
+    const sin = DATA.claves_ev.filter(ev => !s.ev.find(e => e.e === ev));
     if (sin.length) M.unshift(['⚠️', `<b>${sin.join(', ')}</b>: sin marca y es prueba clave para el Campeonato de Andalucía. Conviene nadarla pronto.`]);
   }
   if (byPts.length > 3) M.push(['🔻', `Pruebas con menos puntos: ${byPts.slice(-3).reverse().map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
@@ -104,10 +104,12 @@ function segScope(s, sk) {
 
 function tabPruebas(s, sk) {
   return `<div class="bar-row"><p class="small muted">De su mejor a su peor prueba (puesto en España entre los de su año). Comparando con: <b>${scopeLbl(s, sk)}</b>.</p>${segScope(s, sk)}</div>
+    <div class="bar-row">${piscSeg()}</div>
     <table class="rt cards"><tr><th>Prueba</th><th class="num">Mejor marca</th><th>Fecha</th><th>Puesto comp.</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th><th>Evolución</th></tr>
     ${s.ev.map(e => { const r = e.rk[sk] || {}, h = e.h.filter(x => x[2] === e.pool), mej = e.first - e.cs;
       return `<tr><td class="t" data-l=""><b>${e.e}</b>${e.ss === '26-27' ? '<span class="ss">26-27</span>' : ''}&nbsp;<span class="of">${e.pool}</span></td>
-        <td class="num" data-l="Mejor marca"><b class="sun">${fmt(e.cs)}</b>${mej > 0 ? `<div class="tiny good">−${secs(mej)} s en la temporada</div>` : ''}</td>
+        <td class="num" data-l="Mejor marca">${(m => m ? `<b class="sun">≈ ${fmt(m[0])}</b><div class="tiny muted">${m[2] === piscDestino() ? 'marca real' : `equiv. de ${fmt(m[1])} en ${m[2]}`}</div>`
+          : `<b class="sun">${fmt(e.cs)}</b>${mej > 0 ? `<div class="tiny good">−${secs(mej)} s en la temporada</div>` : ''}`)(mejorConv(s, e))}</td>
         <td data-l="Fecha">${dtag(e.date)}</td>
         <td data-l="Puesto en la competición">${e.cpos ? posB(e.cpos[0]) + `<span class="of">de ${e.cpos[1]}</span>` : '—'}</td>
         <td class="num" data-l="Puntos">${e.pts}</td>
@@ -120,6 +122,7 @@ function tabEvolucion(s, ev) {
   const e = s.ev.find(x => x.e === ev) || s.ev[0];
   if (!e) return '<p class="empty">Sin marcas.</p>';
   return `<div class="flt"><span class="flt-l">Prueba</span>${chipsHTML('ev', s.ev.map(x => [x.e, x.e]), e.e)}</div>
+    <div class="bar-row">${piscSeg()}</div>
     <p class="small muted" style="margin-bottom:10px">Mejor marca <b class="sun">${fmt(e.cs)}</b> (${e.pool}, ${dfmt(e.date)}) · ${e.pts} pts${e.cpos ? ` · ${e.cpos[0]}º de ${e.cpos[1]} en ${esc(e.comp)}` : ''}</p>
     ${evolucionHTML(s, e)}`;
 }
@@ -170,20 +173,54 @@ function tabMinimas(s) {
 }
 
 function tabAndalucia(s, p) {
-  const sc = p.sc || 'y', pool = p.pool || 'all';
-  return `<p class="small muted" style="margin-bottom:10px">La clasificación al Campeonato de Andalucía depende de <b>100 libre, 100 braza, 100 mariposa y 100 espalda</b>. Tiempos de referencia de sus rivales en cada nivel, aunque él no tenga marca.</p>
+  const sc = p.sc || 'y', pool = p.pool || 'all', mine = DATA.claves_by[String(s.id)];
+  const scKey = sc === 'y' ? String(s.y) : 'ALE';
+  return `<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>
+    <h2 class="st">🎯 Referencias en las pruebas de 100</h2>
+    <p class="small muted" style="margin-bottom:10px">Tiempos de los rivales en cada nivel, aunque ${nombreCorto(s)} no tenga marca en esa prueba.</p>
     <div class="bar-row"><div class="seg" data-ksc><button data-v="y" class="${sc === 'y' ? 'on' : ''}">Nacidos en ${s.y}</button><button data-v="c" class="${sc === 'c' ? 'on' : ''}">${esc(s.catl)} completa</button></div>
       <div class="seg" data-kpool><button data-v="all" class="${pool === 'all' ? 'on' : ''}">Todas</button><button data-v="25m" class="${pool === '25m' ? 'on' : ''}">25 m</button><button data-v="50m" class="${pool === '50m' ? 'on' : ''}">50 m</button></div></div>
-    <div class="grid g2">${DATA.claves.events.map(ev => { const lvs = ev.sc[sc], me = lvs.es[pool].me;
-      return `<div class="card"><div class="bar-row" style="margin-bottom:6px"><h3 style="margin:0">${ev.e}</h3><span class="small">${me ? `Su marca <b class="sun">${fmt(me)}</b>` : '<span class="bad">Sin marca</span>'}</span></div>
-        <table class="rt cards"><tr><th>Nivel</th><th>Su puesto</th><th class="num">1º</th><th class="num">3º</th><th class="num">8º (final)</th><th class="num">Le falta</th></tr>
-        ${LV.map(([lv, lbl]) => { const R = lvs[lv][pool], ref = Object.fromEntries(R.refs.map(r => [r[0], r])), r8 = ref[8], need = R.me && r8 ? R.me - r8[1] : null;
+    <div class="grid g2">${DATA.claves_ev.map(ev => { const me = mine[`${ev}|${sc}|es|${pool}`][0];
+      return `<div class="card"><div class="bar-row" style="margin-bottom:6px"><h3 style="margin:0">${ev}</h3><span class="small">${me ? `Su marca <b class="sun">${fmt(me)}</b>` : '<span class="bad">Sin marca</span>'}</span></div>
+        <div class="tw"><table class="rt cards"><tr><th>Nivel</th><th>Su puesto</th><th class="num">1º</th><th class="num">3º</th><th class="num">8º (final)</th><th class="num">Le falta</th></tr>
+        ${LV.map(([lv, lbl]) => { const R = DATA.claves_ref[`${s.g}|${scKey}|${ev}|${lv}|${pool}`] || {t: 0, refs: []}, [mm, mp] = mine[`${ev}|${sc}|${lv}|${pool}`];
+          const ref = Object.fromEntries(R.refs.map(r => [r[0], r])), r8 = ref[8], need = mm && r8 ? mm - r8[1] : null;
           const c = k => ref[k] ? `<b>${fmt(ref[k][1])}</b><div class="tiny muted">${corto(ref[k][2])}</div>` : '—';
-          return `<tr><td class="t" data-l=""><span class="lv-${lv}">${lbl}</span>&nbsp;<span class="of">${R.t} nad.</span></td><td data-l="Su puesto">${R.mp ? posB(R.mp, R.t) : '—'}</td>
+          return `<tr><td class="t" data-l=""><span class="lv-${lv}">${lbl}</span>&nbsp;<span class="of">${R.t} nad.</span></td><td data-l="Su puesto">${mp ? posB(mp, R.t) : '—'}</td>
             <td class="num" data-l="1º">${c(1)}</td><td class="num" data-l="3º">${c(3)}</td><td class="num" data-l="8º (final)">${c(8)}</td>
             <td class="num" data-l="Le falta para el 8º">${need === null ? '—' : need <= 0 ? '<span class="good">✓ dentro</span>' : `<span class="bad">−${secs(need)} s</span>`}</td></tr>`; }).join('')}
-        </table></div>`; }).join('')}</div>
+        </table></div></div>`; }).join('')}</div>
     <p class="tiny muted" style="margin-top:8px">25 m y 50 m no son comparables: usa el filtro de piscina para afinar.</p>`;
+}
+
+/* Clasificación real para el Campeonato de Andalucía Alevín (circulares FAN): suma de puntos AQUA de 4 pruebas,
+   ranking territorial por año de nacimiento, entran los 120 primeros. Datos en historial.json. */
+function pintarClasif(s) {
+  const host = document.getElementById('clasif-host'); if (!host) return;
+  cargarHistorial().then(H => {
+    if (!document.body.contains(host)) return;
+    const amb = `${s.g}|${s.y}`;
+    host.innerHTML = '<h2 class="st" style="margin-top:4px">🏊 ¿Entra en el Campeonato de Andalucía?</h2>' + Object.values(H.clasif || {}).map(C => {
+      const A = C.amb[amb], ev = C.pruebas;
+      const cab = `<h3>${C.nombre} <span class="muted small">· circular FAN ${C.circular}</span></h3>
+        <p class="small muted" style="margin-bottom:10px">Entran los <b>${C.corte} mejores de Andalucía nacidos en ${s.y}</b> en la <b>suma de puntos AQUA</b> de ${ev.join(', ')} (marcas desde el ${dfmt(C.desde)}).</p>`;
+      if (!A) return `<div class="card" style="margin-bottom:12px">${cab}<p class="empty">${s.y === 2014 && C.pruebas.includes('200 Libre') ? 'Los nacidos en 2014 entran por mínimas en este campeonato.' : 'Todavía no hay marcas válidas de su año para este campeonato.'}</p></div>`;
+      const me = A.club[String(s.id)];
+      const falta = me && A.corte !== null && me.pts < A.corte ? A.corte - me.pts : 0;
+      const estado = !me ? `<div class="note">${nombreCorto(s)} todavía <b>no tiene ninguna marca válida</b> en estas pruebas desde el ${dfmt(C.desde)}.</div>`
+        : `<div class="kpis" style="margin-bottom:10px">
+            <div class="kpi hl"><b>${me.pos}º</b><span>de ${A.n} andaluces nacidos en ${s.y}</span></div>
+            <div class="kpi"><b>${me.pts}</b><span>puntos AQUA (suma)</span></div>
+            <div class="kpi"><b class="${me.pos <= C.corte ? 'good' : 'bad'}">${me.pos <= C.corte ? '✓ Dentro' : 'Fuera'}</b><span>${A.corte !== null ? `corte (${C.corte}º): ${A.corte} pts` : `hay menos de ${C.corte} nadadores: entran todos`}</span></div>
+            <div class="kpi"><b>${falta ? '+' + falta : '—'}</b><span>${falta ? 'puntos que le faltan' : me.pos <= C.corte && A.corte !== null ? `margen: ${me.pts - A.corte} pts` : ''}</span></div></div>
+          <table class="rt cards"><tr><th>Prueba</th><th class="num">Sus puntos</th><th>Comentario</th></tr>
+          ${ev.map((e, i) => `<tr><td class="t" data-l=""><b>${e}</b></td><td class="num" data-l="Puntos">${me.ev[i] || '<span class="bad">0</span>'}</td>
+            <td data-l="" style="white-space:normal">${me.ev[i] ? '' : `<span class="bad">Sin marca válida: suma 0. Nadarla le daría puntos.</span>`}</td></tr>`).join('')}</table>`;
+      return `<div class="card" style="margin-bottom:12px">${cab}${estado}
+        <details style="margin-top:10px"><summary class="small sun" style="cursor:pointer">Ver los 10 primeros de Andalucía</summary>
+        <table class="rt" style="margin-top:8px">${A.top.map(r => `<tr><td>${posB(r[0])}</td><td><b>${esc(r[1])}</b><div class="tiny muted">${club(r[2])}</div></td><td class="num"><b>${r[3]}</b> pts</td></tr>`).join('')}</table></details></div>`;
+    }).join('');
+  }).catch(() => { host.innerHTML = '<p class="empty">No se ha podido cargar la clasificación (ábrelo desde la web).</p>'; });
 }
 
 /* botón «Volver»: a la pantalla de la que se vino; si se entró directo, a la categoría del nadador */
@@ -224,6 +261,7 @@ function vistaFicha(app, s, tab, p) {
     <div class="hero">
       ${volverHTML(s, cat)}
       <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
+      ${ESTRELLA_ELEGIBLE ? `<button class="chip" data-mi-estrella style="margin:6px 0 4px">${s.benicio ? '⭐ Es mi nadador · quitar' : '☆ Marcar como mi nadador'}</button>` : ''}
       <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${s.catl} ${s.cy}º año en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
       <div class="tags">${logros.slice(0, 6).join('')}${logros.length > 6 ? `<span class="tag">+${logros.length - 6}</span>` : ''}</div>
     </div>
@@ -236,5 +274,9 @@ function vistaFicha(app, s, tab, p) {
   app.querySelectorAll('[data-kpool] button').forEach(b => b.onclick = () => keep({pool: b.dataset.v}));
   onChips(app, 'ev', v => keep({ev: v}));
   if (tab === 'historial' || tab === 'ranking') pintarHistorial(s, tab, p, keep);
+  if (tab === 'andalucia') pintarClasif(s);
+  bindPisc(app);
+  const est = app.querySelector('[data-mi-estrella]');
+  if (est) est.onclick = () => elegirEstrella(s.benicio ? null : s.id);
   const on = app.querySelector('.tabs a.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
 }

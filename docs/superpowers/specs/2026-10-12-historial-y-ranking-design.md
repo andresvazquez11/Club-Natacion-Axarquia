@@ -50,3 +50,11 @@
 
 - Nadadores que ya no están en el club.
 - Temporadas anteriores a 2021-22.
+
+## Ampliación (12/10/2026)
+
+- **25-26 cerrada:** se guarda en `historial_base.json.gz` y `marcas_2526.json.gz`; la nube ya no la descarga. La temporada RFEN va de octubre a septiembre.
+- **Clasificación al Campeonato de Andalucía Alevín** (circulares FAN NAT.10/26 y NAT.13/26): ranking territorial por año de la suma de puntos AQUA; invierno con 100 MA+ES+BR+LI desde el 01/01/2026 y verano (2015) con 100 MA+ES+BR y 200 LI desde el 01/09/2026; corte en el puesto 120. El Campeonato de España Alevín 2027 aún no tiene normativa publicada.
+- **Análisis:** lo bueno / a mejorar / comparación (percentil en España de su sexo y año, progresión frente a la mediana y puesto entre sus compañeros del club).
+- **Piscinas:** botón Separadas · Todo a 50 m · Todo a 25 m (equivalencia por puntos World Aquatics).
+- **Nadador estrella:** `temporada.html` con Benicio fijo; `club.html` para compartir, donde cada familia elige (se guarda en el dispositivo; acepta `?nadador=ID`).
