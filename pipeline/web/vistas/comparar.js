@@ -71,7 +71,9 @@ function cmpValor(e, pl, g, ev) {
 
 function vistaComparar(app, p) {
   const ids = (p.ids || '').split(',').filter(Boolean).slice(0, 4);
-  app.innerHTML = `<div class="hd"><div><h1>⚖️ Comparar nadadores</h1>
+  const de = ids.find(id => SW[id]);
+  app.innerHTML = `${de ? `<a class="back" href="${fichaHref(SW[de], 'pruebas')}">‹ Volver a la ficha de ${nombreCorto(SW[de])}</a>` : ''}
+    <div class="hd"><div><h1>⚖️ Comparar nadadores</h1>
       <p>Elige de 2 a 4 nadadores del club o de otros clubes (provincia de Málaga y los 30 mejores de Andalucía y de España de cada año y prueba).</p></div></div>
     <div id="cmp-host"><p class="empty">Cargando nadadores…</p></div>`;
   cargarComparar().then(C => pintarComparar(C, ids, p))

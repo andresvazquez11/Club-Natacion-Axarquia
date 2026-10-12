@@ -32,8 +32,8 @@ function pintarHistorial(s, tab, p, keep) {
     // pulsar un punto del gráfico o una fila de la tabla → detalle de esa semana
     host.querySelectorAll('[data-rk]').forEach(el => el.onclick = () => {
       const det = document.getElementById('rk-det'); if (!det) return;
-      const modo = p.rmo === 'A' ? 'A' : 'T', lv = ['es', 'an', 'ma'].includes(p.rlv) ? p.rlv : 'es';
-      const mine = H.p[String(s.id)], evs = Object.keys(mine), ev = evs.includes(p.rev) ? p.rev : host.querySelector('[data-chips="rev"] .chip.on')?.dataset.v;
+      const modo = (host.querySelector('[data-rmo] .on') || {dataset: {v: 'T'}}).dataset.v, lv = ['es', 'an', 'ma'].includes(p.rlv) ? p.rlv : 'es';
+      const ev = p.rev;
       det.innerHTML = rankDetalle(s, H, ev, modo, lv, +el.dataset.rk);
       det.scrollIntoView({behavior: 'smooth', block: 'nearest'});
     });
@@ -51,17 +51,9 @@ function tabHistorial(s, p, H) {
     const e = s.ev.find(x => x.e === p.hev) || s.ev[0];
     return e ? `${pruebaSel('hev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.h.length + ' marcas'])))}<div class="bar-row">${piscSeg()}</div>${evolucionHTML(s, e)}` : '<p class="empty">Sin marcas.</p>';
   }
-  const A = H.an[String(s.id)] || {}, li = arr => (arr || []).map(([i, t]) => `<li data-i="${i}">${t}</li>`).join('') || '<li data-i="·">—</li>';
   const vista = p.hv || 'total';
   const niv = ts.map(t => [tLbl(t) + (t === '2627' ? ' <span class="of">(en curso)</span>' : ''), nivelTemp(T[t]), `${nivelTemp(T[t])} pts`]);
-  let h = `<h2 class="st" style="margin-top:4px">🧠 Resumen de ${nombreCorto(s)}</h2>
-    <div class="grid g2">
-      <div class="card"><h3 class="good">💪 Lo bueno</h3><ul class="ins">${li(A.bueno)}</ul></div>
-      <div class="card"><h3 class="sun">🎯 A mejorar</h3><ul class="ins">${li(A.malo)}</ul></div>
-      <div class="card"><h3>⚖️ Comparado con los demás</h3><ul class="ins">${li(A.comp)}</ul>
-        <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p></div>
-      <div class="card"><h3>📈 Su evolución</h3><ul class="ins">${li(A.evo)}</ul></div>
-    </div>
+  let h = `<p class="small muted" style="margin-bottom:10px">Su historia desde la temporada 21-22. El análisis escrito está en <a class="sun" href="${fichaHref(s, 'resumen')}">Resumen</a> y todas sus marcas, en <a class="sun" href="${fichaHref(s, 'pruebas')}">Pruebas</a>.</p>
     <div class="card" style="margin-top:12px"><h3>📊 Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas</span></h3>${barsHTML(niv)}
       <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div>
     <div class="bar-row" style="margin-top:16px"><div class="seg" data-hv><button data-v="total" class="${vista === 'total' ? 'on' : ''}">Por prueba</button><button data-v="temp" class="${vista === 'temp' ? 'on' : ''}">Por temporada</button></div></div>`;
@@ -137,7 +129,7 @@ function histTotal(s, T, ts, p) {
   return `${pruebaSel('hev', evs, ev, Object.fromEntries(evs.map(x => [x, ts.filter(t => T[t].ev[x]).length + ' temp.'])))}
     <div class="bar-row">${piscSeg()}</div>
     ${graf}<div class="card"><h3>${ev}, temporada a temporada</h3>${tabla}</div>
-    ${(e => e ? `<h2 class="st">⏱️ Todas sus marcas de ${ev} <span class="muted small">· temporadas 25-26 y 26-27, con puesto y puntos</span></h2>${evolucionHTML(s, e)}` : '')(s.ev.find(x => x.e === ev))}
+    ${s.ev.find(x => x.e === ev) ? `<p class="small" style="margin:10px 0"><a class="sun" href="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">⏱️ Ver todas sus marcas de ${ev} →</a></p>` : ''}
     <div class="card" style="margin-top:12px"><h3>🗺️ Todas sus pruebas, temporada a temporada</h3>${mapa}</div>`;
 }
 
@@ -214,11 +206,12 @@ function rankDetalle(s, H, ev, modo, lv, i) {
 function tabRanking(s, p, H) {
   const R = H, mine = R.p[String(s.id)];
   if (!mine) return '<p class="empty">Todavía no hay fotos del ranking de este nadador.</p>';
-  const modo = p.rmo === 'A' ? 'A' : 'T', lv = ['es', 'an', 'ma'].includes(p.rlv) ? p.rlv : 'es', col = RCOL[modo][lv];
-  const evs = Object.keys(mine).sort((a, b) => {
-    const ua = mine[a].filter(Boolean).map(v => v[col]).filter(Boolean).pop() || 1e9, ub = mine[b].filter(Boolean).map(v => v[col]).filter(Boolean).pop() || 1e9;
-    return ua - ub; });
-  const ev = evs.includes(p.rev) ? p.rev : evs[0];
+  const lv = ['es', 'an', 'ma'].includes(p.rlv) ? p.rlv : 'es';
+  if (!mine[p.rev]) return `<p class="empty">Todavía no hay fotos semanales del ranking de ${esc(p.rev || '')}.</p>`;
+  const ev = p.rev;
+  // sin elegir modo: el oficial de la temporada; si aún no tiene marca esta temporada, los últimos 12 meses
+  const u = mine[ev][R.s.length - 1];
+  const modo = p.rmo === 'A' || p.rmo === 'T' ? p.rmo : (u && u[RCOL.T[lv]] ? 'T' : 'A'), col = RCOL[modo][lv];
   const tots = R.t[`${s.g}|${s.y}|${ev}`] || [];
   const pts = R.s.map((w, i) => [w, mine[ev][i] ? mine[ev][i][col] : 0, tots[i] ? tots[i][col] : 0]);
   const con = pts.filter(x => x[1]);
@@ -240,10 +233,9 @@ function tabRanking(s, p, H) {
         return `<tr class="${x[1] ? 'click' : ''}" ${x[1] ? `data-rk="${pts.length - 1 - i}"` : ''}><td>${dfmt(x[0])}</td><td class="num">${x[1] ? posB(x[1]) : '<span class="muted">sin marca</span>'}</td><td class="num">${x[2] || ''}</td>
           <td class="num">${!x[1] || !nx ? '' : d > 0 ? `<span class="good">▲ ${d}</span>` : d < 0 ? `<span class="bad">▼ ${-d}</span>` : '='}</td></tr>`; }).join('')}</table></div></div>`;
   }
-  return `<p class="small muted" style="margin-bottom:10px">Puesto de ${esc(s.n.split(' ')[0])} cada semana entre los nacidos en ${s.y}. Se reconstruye hacia atrás con las fechas de las marcas (desde septiembre de 2025) y cada semana se guarda una foto nueva.</p>
+  return `<p class="small muted" style="margin-bottom:10px">Puesto de ${esc(s.n.split(' ')[0])} en ${ev} cada semana entre los nacidos en ${s.y}. Se reconstruye hacia atrás con las fechas de las marcas (desde septiembre de 2025) y cada semana se guarda una foto nueva.</p>
     <div class="bar-row"><div class="seg" data-rmo><button data-v="T" class="${modo === 'T' ? 'on' : ''}">Temporada (oficial)</button><button data-v="A" class="${modo === 'A' ? 'on' : ''}">Últimos 12 meses</button></div>
       <div class="seg" data-rlv>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-    ${pruebaSel('rev', evs, ev, Object.fromEntries(evs.map(x => { const v = mine[x].filter(Boolean).map(z => z[col]).filter(Boolean).pop(); return [x, v ? v + 'º' : '']; })))}
     ${resumen}
     ${con.length ? `<div class="card"><h3>${ev} · ${modo === 'T' ? 'ranking de la temporada' : 'ranking de los últimos 12 meses'} · ${LV.find(x => x[0] === lv)[1]}</h3>${rankChart(pts, modo)}
       <p class="tiny muted" style="margin-top:6px">1º arriba · el número junto al punto es su puesto · <b>pulsa un punto</b> para ver su marca y por qué subió o bajó. Zonas: top-10 (amarillo), top-25 (verde) y primera mitad. ${modo === 'T' ? 'En octubre el ranking de temporada vuelve a empezar: la línea se corta hasta que nada su primera marca de la nueva temporada.' : 'Cuenta su mejor marca de los últimos 365 días: no se reinicia con la temporada.'}</p>

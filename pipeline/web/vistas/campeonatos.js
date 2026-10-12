@@ -43,9 +43,12 @@ function vistaCampeonatos(app, p) {
           ${medL.length > 10 ? `<p style="margin-top:10px"><button class="btn ghost" id="med-mas">Ver los ${medL.length} nadadores</button></p>` : ''}`
         : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
       <div class="card"><h3>📋 Todos los top-10 <span class="muted small">(${D.length})</span></h3>
-        ${D.length ? `<table class="rt cards camp"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th>Campeonato</th><th>Fecha</th></tr>${D.map(fila).join('')}</table>` : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
+        ${D.length ? `<table class="rt cards camp" id="camp-l"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th>Campeonato</th><th>Fecha</th></tr>${D.map((x, i) => fila(x).replace('<tr ', `<tr ${i >= 20 ? 'hidden ' : ''}`)).join('')}</table>
+          ${D.length > 20 ? `<p style="margin-top:10px;text-align:center"><button class="btn ghost" id="camp-mas">Ver los ${D.length} resultados</button></p>` : ''}` : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
     </div>`;
 
+  const cm = document.getElementById('camp-mas');
+  if (cm) cm.onclick = () => { app.querySelectorAll('#camp-l tr[hidden]').forEach(tr => tr.hidden = false); cm.remove(); };
   const mas = document.getElementById('med-mas');
   if (mas) mas.onclick = () => { app.querySelectorAll('#med tr[hidden]').forEach(tr => tr.hidden = false); mas.remove(); };
   app.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });

@@ -182,7 +182,7 @@ def main():
 
     def entry(pos, cs, pid):
         i, b = info[pid], best[(pid, ev_cur[0])]
-        return [i['n'], i['c'], i['p'], cs, b['pts'], pos, i['y'], 1 if i['ax'] else 0, b['date'], b['pool']]
+        return [i['n'], i['c'], i['p'], cs, b['pts'], pos, i['y'], 1 if i['ax'] else 0, b['date'], b['pool'], pid if i['ax'] else 0]
 
     ev_cur = [None]
     club_ids = sorted({pid for pid, i in info.items() if i['ax']}, key=lambda p: info[p]['n'])
@@ -437,10 +437,19 @@ def main():
         if ids:
             cats_out.append({'key': ck, 'label': lbl, 'yrs': yrs, 'ids': ids})
 
+    # ── Marcas de todos los nadadores (25-26 guardada + 26-27): relevos, historial y ranking semanal ──
+    import historial as H
+    import relevos as RV
+    club = {s['id']: (s['g'], s['y']) for s in swimmers}
+    marcas, minfo = H.unir_marcas(H.cargar_marcas(MARCAS_2526), H.preparar_marcas({'2627': rows_new}, club))
+    relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper())
+    movimientos = escribir_historial(swimmers, rows_new, marcas, minfo)
+
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
             'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves_ref': claves_ref, 'claves_by': claves_by, 'claves_ev': CLAVES_BENICIO,
-            'destacados': destacados, 'wr': records, 'estrella_fija': None}
+            'destacados': destacados, 'wr': records, 'estrella_fija': None,
+            'relevos': relevos, 'recs': records_club(swimmers, hist), 'mov': movimientos}
 
     # Dos páginas con los mismos datos: la tuya (Benicio fijo como estrella) y la del club para compartir
     # (cada familia elige a su nadador y queda guardado en su dispositivo).
@@ -451,7 +460,6 @@ def main():
         with open(ruta, 'w', encoding='utf-8') as f:
             f.write(plantilla.replace('/*__DATA__*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':'))))
     print(f'{len(swimmers)} nadadores del club · {len(lists)} listas · {os.path.getsize(HTML_OUT)/1e6:.1f} MB')
-    movimientos = escribir_historial(swimmers, rows_new)
     if os.environ.get('CNA_SUMMARY'):
         escribir_resumen(os.environ['CNA_SUMMARY'], swimmers, rows_new, claves, movimientos)
 
@@ -471,7 +479,53 @@ def montar_html():
     return leer('plantilla.html').replace('/*__CSS__*/', leer('estilos.css')).replace('/*__JS__*/', js)
 
 
-def escribir_historial(swimmers, rows_new):
+EDAD_CAT = {8: 'PRE', 9: 'PRE', 10: 'BEN', 11: 'BEN', 12: 'ALE', 13: 'ALE', 14: 'INF', 15: 'INF', 16: 'JUN', 17: 'JUN'}
+
+
+def records_club(swimmers, hist):
+    """Récords del club: las 3 mejores marcas (de nadadores distintos) HECHAS CON EL CLUB por sexo, categoría
+    de edad en el momento de la marca, prueba y piscina. Fuentes: todas las marcas 25-26 y 26-27 y la mejor
+    marca de cada temporada 21-22 a 24-25 (historial_base) de los nadadores actuales."""
+    import historial as H
+    marcas = []                                    # (g, cat, ev, pool, cs, pid, fecha o temporada)
+    by = {s['id']: s for s in swimmers}
+    for (pid, ev), xs in hist.items():
+        s = by.get(pid)
+        if not s:
+            continue
+        for x in xs:
+            d, cs, pool = x[0], x[1], x[2]
+            if x[8] or pool not in ('25m', '50m'):
+                continue
+            fin = int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0)   # la temporada termina en septiembre
+            cat = EDAD_CAT.get(fin - s['y'])
+            if cat:
+                marcas.append((s['g'], cat, ev, pool, cs, pid, d))
+    if os.path.exists(HIST_BASE):
+        base = H.cargar(HIST_BASE)['temps']
+        for t, d_ in base.items():
+            if t in ('2526', '2627'):
+                continue
+            fin = 2000 + int(t[2:])
+            for pid, v in d_.items():
+                s = by.get(int(pid))
+                if not s or CLUB_MATCH not in str(v.get('club', '')).upper():
+                    continue
+                cat = EDAD_CAT.get(fin - s['y'])
+                if not cat:
+                    continue
+                for ev, e in v.get('ev', {}).items():
+                    for pool, cs in (e.get('pl') or {e['pool']: e['cs']}).items():
+                        marcas.append((s['g'], cat, ev, pool, cs, s['id'], e['date'] if pool == e['pool'] else f'{t[:2]}-{t[2:]}'))
+    top = defaultdict(dict)
+    for g, cat, ev, pool, cs, pid, d in marcas:
+        k = f'{g}|{cat}|{ev}|{pool}'
+        if pid not in top[k] or cs < top[k][pid][0]:
+            top[k][pid] = (cs, d)
+    return {k: [[pid, cs, d] for pid, (cs, d) in sorted(v.items(), key=lambda x: x[1][0])[:3]] for k, v in top.items()}
+
+
+def escribir_historial(swimmers, rows_new, marcas, info):
     """historial.json (6 temporadas, análisis, ranking semanal y clasificación al Campeonato de Andalucía)
     y actualiza historico_ranking.json. Devuelve los mayores cambios de ranking de la semana para el correo."""
     import historial as H
@@ -493,8 +547,6 @@ def escribir_historial(swimmers, rows_new):
         por_nad[pid] = tt
         analisis[pid] = H.analisis(tt, pid, amb, cohs, club_niv)
 
-    # marcas: 25-26 guardada + 26-27 descargada
-    marcas, info = H.unir_marcas(H.cargar_marcas(MARCAS_2526), H.preparar_marcas({'2627': rows_new}, club))
     clasif = H.clasificacion_andalucia(marcas, info, club)
 
     # fotos del ranking: se añaden las semanas que falten y se rehace la semana en curso
@@ -545,9 +597,9 @@ def escribir_historial(swimmers, rows_new):
             for ev, v in evs.items():
                 antes = a.get(pid, {}).get(ev)
                 if v[0] and antes and antes[0] and antes[0] != v[0]:
-                    mov.append((antes[0] - v[0], nombre.get(pid, pid), ev, antes[0], v[0]))
+                    mov.append((antes[0] - v[0], nombre.get(pid, pid), ev, antes[0], v[0], int(pid), sem[-1]))
     mov.sort(key=lambda x: -abs(x[0]))
-    return mov[:12]
+    return mov[:60]
 
 
 def fmt_cs(cs):
@@ -599,7 +651,7 @@ def escribir_resumen(ruta, swimmers, rows_new, claves, movimientos=()):
             L.append(f"  · {ev['e']}: {fmt_cs(me)} · " + ' · '.join(partes))
     if movimientos:
         L += ['', 'CAMBIOS EN EL RANKING DE ESPAÑA ESTA SEMANA (temporada, entre los de su año):']
-        L += [f"  · {n} — {ev}: {a}º → {b}º ({'▲' if d > 0 else '▼'}{abs(d)})" for d, n, ev, a, b in movimientos]
+        L += [f"  · {n} — {ev}: {a}º → {b}º ({'▲' if d > 0 else '▼'}{abs(d)})" for d, n, ev, a, b, *_ in movimientos[:12]]
     with open(ruta, 'w', encoding='utf-8') as f:
         f.write('\n'.join(L) + '\n')
     print('→', HTML_OUT)

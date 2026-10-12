@@ -190,3 +190,42 @@ const ORDEN_NAD = {
 const ORDEN_NAD_TXT = [['imp', 'Importancia'], ['pts', 'Puntos'], ['es', 'Puesto en España'], ['np', 'Nº de pruebas'], ['y', 'Año'], ['n', 'Nombre']];
 DATA.swimmers.forEach(s => Object.assign(s, nadImp(s)));   // se calcula una vez al cargar
 const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">${FLAG_ES} Cto. España</span>` : '';
+
+/* 📘 Manual de uso (PDF publicado junto a la página) */
+const MANUAL_URL = 'manual.pdf';
+
+/* 🔍 Buscador de nadadores del club: escribe un nombre y lleva a su ficha */
+const sinAc = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function buscadorHTML(id, ph) {
+  return `<div class="buscador"><input class="search" id="${id}" type="search" placeholder="${ph || '🔍 Busca a cualquier nadador del club…'}" autocomplete="off">
+    <div class="bus-res" id="${id}-r" hidden></div></div>`;
+}
+function bindBuscador(id) {
+  const inp = document.getElementById(id), res = document.getElementById(id + '-r'); if (!inp) return;
+  inp.oninput = () => {
+    const q = sinAc(inp.value.trim());
+    if (q.length < 2) { res.hidden = true; return; }
+    const L = DATA.swimmers.filter(s => sinAc(s.n).includes(q)).sort((a, b) => a.n.localeCompare(b.n)).slice(0, 8);
+    res.innerHTML = L.length ? L.map(s => `<a href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}<b>${esc(s.n)}</b> <span class="of">${s.y} · ${SEXO[s.g]} · ${s.catl || ''}</span></a>`).join('')
+      : '<p class="small muted" style="padding:10px 12px">Ningún nadador del club con ese nombre.</p>';
+    res.hidden = false;
+  };
+}
+
+/* 🤝 Relevos de un nadador: titular (T), en un equipo aún incompleto (I) o lo que le falta para entrar (F) */
+const REL = DATA.relevos || {cats: []};
+function relevosDe(s) {
+  const c = REL.cats.find(x => x.key === s.cat); if (!c) return [];
+  const out = [];
+  c.rel.forEach(r => {
+    if (r.g !== 'X' && r.g !== s.g) return;
+    ['50m', '25m'].forEach(pl => {
+      const P = r.p[pl]; if (!P) return;
+      const t = P.eq.find(x => x[0] === s.id);
+      if (t) out.push({r, pl, P, rol: P.tot ? 'T' : 'I', leg: t[2], cs: t[3]});
+      else { const f = P.falta.find(x => x[0] === s.id); if (f) out.push({r, pl, P, rol: 'F', leg: f[1], cs: f[2], need: f[3], gap: f[4]}); }
+    });
+  });
+  return out;
+}
+const relNom = r => `${r.n}${r.g === 'X' ? '' : r.g === 'M' ? ' masculino' : ' femenino'}`;

@@ -29,7 +29,7 @@ function route() {
   if (sec === 'benicio' && !BEN && !ESTRELLA_ELEGIBLE) sec = 'inicio';
   if (sec === 'nadador' && !SW[parts[1]]) sec = 'club';
 
-  if (sec === 'club') vistaClub(app, Object.assign({cat: parts[1]}, params));
+  if (sec === 'club') vistaClub(app, Object.assign({cat: parts[1], tab: parts[2]}, params));
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
   else if (sec === 'comparar') vistaComparar(app, params);
@@ -38,7 +38,9 @@ function route() {
   else if (sec === 'nadador') vistaFicha(app, SW[parts[1]], parts[2], params);
   else { sec = 'inicio'; vistaInicio(app); }
 
-  const navSec = sec === 'nadador' ? (SW[parts[1]].benicio ? 'benicio' : 'club') : sec;
+  const cmpId = sec === 'comparar' ? (params.ids || '').split(',')[0] : null;   // Comparar se abre desde una ficha
+  const navSec = sec === 'nadador' ? (SW[parts[1]].benicio ? 'benicio' : 'club')
+    : sec === 'comparar' ? (SW[cmpId] && SW[cmpId].benicio ? 'benicio' : 'club') : sec;
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.sec === navSec));
   // al cambiar de sección o de nadador se sube arriba; al cambiar un filtro se mantiene la posición
   const key = sec + '/' + (parts[1] || '') + '/' + (sec === 'nadador' || sec === 'benicio' ? (parts[sec === 'nadador' ? 2 : 1] || '') : '');
@@ -48,7 +50,7 @@ function route() {
   lastSec = key;
 }
 
-document.getElementById('nav-foot').innerHTML = `Actualizado ${DATA.fecha}<br>Datos: RFEN`;
+document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
 // pestaña ⭐: nombre del nadador estrella (o «Mi nadador» en la página compartida)
 const navBen = document.getElementById('nav-ben');
 if (!BEN && !ESTRELLA_ELEGIBLE) navBen.hidden = true;
