@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual de uso · Estadísticas C.N. Axarquía</title>
+<style>
+@page{size:A4;margin:13mm 14mm 15mm}
+*{box-sizing:border-box}
+body{font-family:-apple-system,"Helvetica Neue",Arial,sans-serif;color:#1d2b3a;font-size:10.2pt;line-height:1.45;margin:0}
+h1,h2,h3{color:#03045e;margin:0}
+h2{font-size:18pt;padding:2px 0 7px;border-bottom:3px solid #ffd60a;margin-bottom:10px;break-after:avoid}
+h3{font-size:12pt;margin:10px 0 5px;color:#0353a4;break-after:avoid}
+p{margin:0 0 6px}
+ul,ol{margin:0 0 7px;padding-left:18px} li{margin-bottom:2px}
+b{color:#03045e}
+.sec{break-before:page}
+.sub{margin-top:14px;padding-top:8px;border-top:1px dashed #bcd6f5}
+.fila{display:flex;gap:14px;align-items:flex-start;margin:4px 0 10px;break-inside:avoid}
+.fila .tx{flex:1;min-width:0}
+.cap{flex:0 0 52mm;text-align:center}
+.cap img{width:100%;max-height:100mm;object-fit:cover;object-position:top;border-radius:9px;box-shadow:0 2px 9px rgba(3,4,94,.28);display:block}
+.cap img+img{margin-top:7px}
+.cap.alto img{max-height:128mm}
+.cap small{display:block;color:#5b6b7c;font-size:7.8pt;margin-top:3px;line-height:1.3}
+.duo{display:flex;gap:12px;justify-content:center;margin:6px 0 10px;break-inside:avoid}
+.duo .cap{flex:0 0 52mm}
+.paso{display:flex;gap:9px;margin:0 0 7px}
+.paso .n{flex:0 0 22px;height:22px;border-radius:50%;background:#ffd60a;color:#03045e;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:9.5pt}
+.ruta{display:inline-block;background:#eaf3ff;color:#03045e;border:1px solid #bcd6f5;border-radius:6px;padding:1px 7px;font-size:8.8pt;font-weight:700;margin-bottom:6px}
+.nota{background:#fff8d6;border-left:4px solid #ffd60a;padding:6px 10px;border-radius:4px;margin:7px 0;font-size:9.3pt;break-inside:avoid}
+.info{background:#eaf3ff;border-left:4px solid #0353a4;padding:6px 10px;border-radius:4px;margin:7px 0;font-size:9.3pt;break-inside:avoid}
+.chip{display:inline-block;background:#ffd60a;color:#03045e;border-radius:20px;padding:0 7px;font-weight:700;font-size:8.8pt}
+.chip.b{background:#03045e;color:#fff}
+table.g{width:100%;border-collapse:collapse;font-size:9.2pt;margin:5px 0 9px}
+table.g th{background:#03045e;color:#fff;text-align:left;padding:4px 7px}
+table.g td{border-bottom:1px solid #dbe5f0;padding:4px 7px;vertical-align:top}
+table.g tr{break-inside:avoid}
+.portada{height:268mm;margin:-13mm -14mm 0;padding:28mm 20mm 0;background:linear-gradient(170deg,#03045e 0%,#023e8a 35%,#0077b6 70%,#48cae4 100%);color:#fff;position:relative}
+.portada h1{color:#fff;font-size:33pt;line-height:1.08;margin:8px 0 10px}
+.portada .k{color:#ffd60a;font-weight:800;letter-spacing:1px;font-size:11pt}
+.portada p{font-size:12.3pt;color:#e6f6ff;max-width:112mm}
+.portada .url{margin-top:14px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 14px;display:inline-block;font-size:11.5pt}
+.portada .url b{color:#ffd60a}
+.portada .tel{position:absolute;right:20mm;bottom:22mm;width:60mm;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.portada .pie{position:absolute;left:20mm;bottom:22mm;font-size:10pt;color:#caf0f8;max-width:92mm}
+.indice{columns:2;column-gap:18px;font-size:10.4pt}
+.indice div{break-inside:avoid;margin-bottom:4px}
+.indice span{color:#0353a4;font-weight:800;margin-right:6px}
+</style></head><body>
+
+<div class="portada">
+  <div class="k">🏊 CLUB NATACIÓN AXARQUÍA · TEMPORADA 26-27</div>
+  <h1>Manual de uso de la página de estadísticas</h1>
+  <p>Qué puedes ver, dónde está cada cosa y cómo sacarle todo el partido. Usamos como ejemplo a <b style="color:#ffd60a">Benicio Vázquez Altamirano</b> (alevín, nacido en 2015).</p>
+  <div class="url">Dirección de la página:<br><b>andresvazquez11.github.io/Club-Natacion-Axarquia/club.html</b></div>
+  <p style="margin-top:14px;font-size:10.5pt">Funciona en el móvil, la tablet y el ordenador. No hace falta instalar nada ni registrarse. Este manual también se abre desde la página: botón <b style="color:#ffd60a">📘 Manual de uso</b> en el Inicio.</p>
+  <img class="tel" src="z/c_elegido.png">
+  <div class="pie">Datos oficiales del ranking de la Real Federación Española de Natación (RFEN). La página se actualiza sola cada semana.</div>
+</div>
+
+<div class="sec">
+<h2>Contenido</h2>
+<div class="indice">
+  <div><span>1</span>Primeros pasos</div>
+  <div><span>2</span>Elegir a tu nadador ⭐</div>
+  <div><span>3</span>🏠 Inicio</div>
+  <div><span>4</span>👥 Club: Nadadores, Relevos y Récords</div>
+  <div><span>5</span>🏆 Campeonatos</div>
+  <div><span>6</span>⭐ La ficha del nadador</div>
+  <div style="padding-left:18px">Resumen · Pruebas · Evolución · Ranking · Objetivos</div>
+  <div><span>7</span>⚖️ Comparar nadadores</div>
+  <div><span>8</span>📊 Rankings</div>
+  <div><span>9</span>Trucos y funciones comunes</div>
+  <div><span>10</span>Glosario</div>
+  <div><span>11</span>Preguntas frecuentes</div>
+</div>
+<h3 style="margin-top:20px">¿Qué es esta página?</h3>
+<p>Reúne en un solo sitio <b>todas las marcas oficiales</b> de los nadadores del C.N. Axarquía que aparecen en el ranking de la RFEN y las compara con las del resto de nadadores de <b>Málaga, Andalucía y España</b> nacidos en el mismo año. Con ella puedes:</p>
+<ul>
+  <li>ver las mejores marcas de tu hijo o hija en cada prueba, con fecha, competición, puesto y puntos;</li>
+  <li>saber en qué puesto está en el ranking de Málaga, Andalucía y España y cómo ha cambiado semana a semana;</li>
+  <li>seguir su evolución desde la temporada 21-22, con gráficos;</li>
+  <li>ver sus <b>próximos objetivos</b>: el rival a superar, la mínima más cercana, el top-10 de España…</li>
+  <li>comprobar las <b>mínimas del Campeonato de España</b> y si entra en el <b>Campeonato de Andalucía</b>;</li>
+  <li>conocer los <b>relevos del club</b>: quién los formaría, en qué puesto quedarían y qué le falta a cada uno para entrar;</li>
+  <li>consultar los <b>récords del club</b> y las <b>insignias</b> que ha conseguido;</li>
+  <li>compararlo con compañeros o con nadadores de otros clubes.</li>
+</ul>
+<div class="info"><b>¿De dónde salen los datos?</b> Del ranking oficial de la RFEN, que recoge las competiciones homologadas. La página se actualiza automáticamente <b>una vez por semana</b>; en el Inicio verás la fecha de la última actualización. Si una marca del fin de semana aún no aparece, estará en la siguiente.</div>
+</div>
+
+<div class="sec">
+<h2>1 · Primeros pasos</h2>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">Abrir la página</h3>
+  <p>Abre <b>andresvazquez11.github.io/Club-Natacion-Axarquia/club.html</b> en el navegador del móvil (Safari, Chrome…) o del ordenador.</p>
+  <h3>Tenerla siempre a mano en el móvil</h3>
+  <p><b>iPhone (Safari):</b> botón de compartir <b>⬆︎</b> → <b>«Añadir a pantalla de inicio»</b>.<br><b>Android (Chrome):</b> menú <b>⋮</b> → <b>«Añadir a pantalla de inicio»</b>.<br>Tendrás un icono como si fuera una aplicación.</p>
+  <h3>La barra de secciones</h3>
+  <p>En el <b>móvil</b> está <b>abajo</b>, siempre visible. En el <b>ordenador</b>, en la <b>columna de la izquierda</b> (ahí también está el enlace al manual). Tiene cinco secciones:</p>
+  <table class="g">
+    <tr><td>🏠 <b>Inicio</b></td><td>Resumen del club, novedades de la semana, buscador y acceso a tu nadador.</td></tr>
+    <tr><td>👥 <b>Club</b></td><td>Nadadores por categoría, <b>Relevos</b> y <b>Récords</b> del club.</td></tr>
+    <tr><td>🏆 <b>Cptos.</b></td><td>Top-10 en Campeonatos de España y Andalucía y medallero.</td></tr>
+    <tr><td>⭐ <b>Mi nadador</b></td><td>La ficha de tu hijo o hija (cuando lo eliges, aparece su nombre).</td></tr>
+    <tr><td>📊 <b>Rankings</b></td><td>Ranking completo por año, prueba y nivel.</td></tr>
+  </table>
+  <p>La sección en la que estás aparece en <span class="chip">amarillo</span>. <b>Comparar</b> se abre desde la ficha de cada nadador (apartado 7).</p>
+</div>
+<div class="cap"><img src="z/nav.png"><small>Barra inferior del móvil</small>
+<img src="z/d_inicio.png" style="margin-top:12px"><small>En el ordenador, las secciones están a la izquierda</small></div></div>
+</div>
+
+<div class="sec">
+<h2>2 · Elegir a tu nadador ⭐</h2>
+<p>Lo primero es <b>elegir a tu hijo o hija</b>. Desde ese momento la estrella ⭐ de la barra lleva a su ficha, aparece destacado en el Inicio (con sus novedades de la semana) y resaltado en todas las listas.</p>
+<div class="fila"><div class="tx">
+  <div class="paso"><div class="n">1</div><div>Al abrir la página por primera vez verás en el Inicio la tarjeta <b>«⭐ Mi nadador · Elige a tu hijo o hija»</b>. Pulsa <b>«Elegir nadador →»</b> (o la estrella <b>⭐ Mi nadador</b> de la barra).</div></div>
+  <div class="paso"><div class="n">2</div><div>Escribe su nombre o apellido en <b>«🔍 Escribe su nombre…»</b>. La lista se filtra mientras escribes.</div></div>
+  <div class="paso"><div class="n">3</div><div>Pulsa su tarjeta (<b>«Elegir ⭐»</b>). Se abre su ficha y la barra muestra su nombre en lugar de «Mi nadador».</div></div>
+  <h3>Otra forma: desde cualquier ficha</h3>
+  <p>En la ficha de un nadador, pulsa <b>«☆ Marcar como mi nadador»</b>. En la ficha del elegido el botón cambia a <b>«⭐ Es mi nadador · quitar»</b>: púlsalo para quitarlo y elegir a otro (por ejemplo, si tienes dos hijos en el club).</p>
+</div><div class="cap"><img src="z/c_elige.png"><img src="z/c_marcar.png"><small>Tarjeta del Inicio y botón «Marcar como mi nadador»</small></div></div>
+<div class="duo"><div class="cap"><img src="z/c_busca.png"><small>Buscar por nombre</small></div><div class="cap"><img src="z/c_elegido.png"><small>Ya elegido: la barra muestra «Benicio»</small></div></div>
+<div class="nota"><b>Importante:</b> la elección se guarda <b>solo en ese móvil u ordenador</b> (no hay usuarios ni contraseñas). En otro dispositivo, o si borras los datos del navegador o usas el modo incógnito, tendrás que elegirlo otra vez.</div>
+<div class="info"><b>Enlace directo:</b> añadiendo <b>?nadador=</b> y el número de licencia RFEN al final de la dirección, la página se abre con ese nadador ya elegido. Ejemplo: <b>…/club.html?nadador=6200218</b> (Benicio).</div>
+</div>
+
+<div class="sec">
+<h2>3 · 🏠 Inicio</h2>
+<span class="ruta">Cómo llegar: barra → 🏠 Inicio</span>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">Buscador y manual</h3>
+  <p>Arriba está el <b>buscador</b>: escribe dos letras de cualquier nadador del club y pulsa su nombre para abrir su ficha. Al lado, el botón <b>📘 Manual de uso</b> abre este documento.</p>
+  <h3>Los datos del club</h3>
+  <p>Nadadores en el ranking, pruebas en el <b>top-10 de España</b>, en el <b>top-3 de Andalucía</b>, <b>nº 1 de Málaga</b> (siempre entre los nacidos en su mismo año) y <b>podios en Campeonatos</b>. Debajo de cada número, el <b>puesto del club</b> frente a los demás clubes. Pulsa <b>«Ver detalle ›»</b> para ver la lista completa.</p>
+</div><div class="cap"><img src="z/i_top.png"></div></div>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">🗞️ Esta semana</h3>
+  <p>Las <b>novedades de los últimos 8 días</b>: resultados en campeonatos, nuevas mejores marcas del club (con cuánto han mejorado) y quién ha subido en el ranking de España.</p>
+  <p>Si has elegido a tu nadador, arriba aparece <b>«⭐ … esta semana»</b> con lo suyo. Pulsa cualquier línea para ir directamente a esa prueba o a ese ranking.</p>
+  <p class="small"><i>En la captura, la semana del 18 al 26 de julio (Campeonatos de Andalucía y de España). Al principio de temporada esta tarjeta está más tranquila.</i></p>
+</div><div class="cap"><img src="z/i_sem.png"></div></div>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">Tu nadador, campeonatos y el club frente a los demás</h3>
+  <ul>
+    <li><b>Tarjeta de tu nadador</b>: sus 3 mejores puestos en España y un mini gráfico. <b>«Ver su ficha →»</b>.</li>
+    <li><b>🏆 Últimos top-10 en campeonatos</b>: pulsa una fila para ver la evolución de esa prueba.</li>
+    <li><b>📍 El club frente a los demás clubes</b>: el puesto del club en Málaga, Andalucía o España (botones de arriba), con presencias en el top-8, pruebas nº 1, número de nadadores y nivel medio.</li>
+    <li><b>👥 Nadadores por categoría</b>: pulsa una categoría para ir a su lista.</li>
+  </ul>
+</div><div class="cap"><img src="z/i_ben.png"><img src="z/i_cat.png"></div></div>
+</div>
+
+<div class="sec">
+<h2>4 · 👥 Club</h2>
+<span class="ruta">Cómo llegar: barra → 👥 Club · arriba, las pestañas Nadadores · Relevos · Récords</span>
+<h3>👥 Nadadores</h3>
+<div class="fila"><div class="tx">
+  <p>Todos los nadadores del club, chicos y chicas juntos. Los puestos son siempre <b>entre los nacidos en su mismo año y del mismo sexo</b>.</p>
+  <ul>
+    <li><b>Filtros</b>: categoría (desliza la fila), sexo y año. El número de cada botón cambia según los otros filtros.</li>
+    <li><b>Resumen de la categoría</b> con <b>«Ver detalle ›»</b>.</li>
+    <li><b>Ordenar por</b>: Importancia, Puntos, Puesto en España, Nº de pruebas, Año o Nombre. Y un buscador por nombre.</li>
+    <li>Se muestran 20 nadadores; el botón <b>«Ver los … nadadores»</b> muestra el resto.</li>
+  </ul>
+  <p>Cada tarjeta muestra su mejor puesto en España, sus puestos en Málaga, Andalucía y España y sus logros. Tu nadador lleva <b>borde amarillo y ⭐</b>. <b>Pulsa la tarjeta</b> para abrir su ficha.</p>
+</div><div class="cap"><img src="z/cl_top.png"><img src="z/cl_ben.png"></div></div>
+</div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">🏅 Récords del club</h3>
+<span class="ruta">Cómo llegar: Club → pestaña 🏅 Récords</span>
+
+  <p>Las <b>tres mejores marcas hechas con el club</b> en cada prueba, por <b>categoría de edad en el momento de la marca</b> (prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15 y junior 16-17), sexo y piscina.</p>
+  <p>Así ves quién tiene el récord alevín del club en 50 Libre, o lo que hacía un compañero mayor cuando tenía la edad de tu hijo. Pulsa un nombre para ir a su ficha; si tu nadador tiene alguno, su fila aparece resaltada.</p>
+  <div class="nota">Se calculan con los datos de la página: nadadores actuales desde la temporada 21-22. No incluye a nadadores que ya no están en el club.</div>
+</div><div class="cap"><img src="z/rec.png"></div></div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">🤝 Relevos</h3>
+<span class="ruta">Cómo llegar: Club → pestaña 🤝 Relevos · o desde la ficha → Objetivos</span>
+
+  <p>Los <b>mejores relevos que podría formar el club</b> en cada categoría y en qué puesto quedarían frente a <b>todos los clubes</b> de Málaga, Andalucía y España.</p>
+  <div class="info"><b>¿Cómo se calcula?</b> Con la regla oficial de <b>«suma de tiempos»</b> de la RFEN y la Federación Andaluza: el tiempo del relevo es la suma de las mejores marcas individuales de los 4 relevistas en los <b>últimos 14 meses</b>. La RFEN no publica un ranking de relevos de clubes, así que el puesto se obtiene haciendo el mismo cálculo con todos los clubes. 25 m y 50 m van por separado.</div>
+  <p><b>Pruebas de relevos</b> (programas oficiales 26-27):</p>
+  <table class="g">
+    <tr><th>Categoría</th><th>Relevos</th></tr>
+    <tr><td>Benjamín</td><td>4x50 Libre, 4x50 Estilos, 4x100 Libre y 4x100 Estilos (chicos y chicas)</td></tr>
+    <tr><td>Alevín e Infantil</td><td>4x100 Libre, 4x200 Libre, 4x100 Estilos (chicos y chicas) y 4x100 Estilos <b>mixto</b></td></tr>
+    <tr><td>Junior</td><td>4x100 Libre, 4x200 Libre, 4x100 Estilos y mixtos 4x50 Libre, 4x50 Estilos y 4x100 Estilos</td></tr>
+  </table>
+  <p>Los <b>mixtos</b> son de 2 chicos y 2 chicas. En los de <b>estilos</b> el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido entre los nadadores del club.</p>
+  <p>Arriba eliges la <b>categoría</b>, la <b>piscina</b> (50 m o 25 m) y el <b>nivel</b> con el que comparar (Málaga, Andalucía o España).</p>
+</div><div class="cap"><img src="z/r_top.png"></div></div>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">Cada relevo</h3>
+  <ul>
+    <li><b>Tiempo del equipo</b> (en amarillo) y su <b>puesto</b> en Málaga, Andalucía y España.</li>
+    <li>La <b>mínima del Campeonato de España</b> («suma de tiempos», alevín e infantil) y cuánto le falta.</li>
+    <li>Los <b>4 relevistas</b>, con su posta, su marca y la fecha. Pulsa un nombre para abrir su ficha.</li>
+    <li><b>🏁 Mejores clubes</b>: la tabla de los 10 mejores con el club resaltado.</li>
+    <li><b>🔜 Quién puede entrar</b>: cada compañero que no está en el equipo, su marca y el tiempo que <b>necesita</b> para entrar («le faltan … s»). Si el equipo está incompleto, con cualquier marca entraría.</li>
+  </ul>
+  <p>Ejemplo: el 4x100 Libre alevín masculino del club (Thomas, José, Benicio y Martín) sería <b>4º de Andalucía</b> en piscina de 50 m.</p>
+</div><div class="cap alto"><img src="z/r_card.png"></div></div>
+</div>
+
+</div><div class="sec"><h2>5 · 🏆 Campeonatos</h2>
+<span class="ruta">Cómo llegar: barra → 🏆 Cptos.</span>
+<div class="fila"><div class="tx">
+  <p>Todos los resultados del club <b>entre los 10 primeros</b> de su año en <b>Campeonatos de España y de Andalucía</b> (incluidas las fases de zona).</p>
+  <ul>
+    <li><b>Filtros</b>: campeonato, categoría y sexo, con el número de resultados en cada botón.</li>
+    <li><b>Resumen</b>: top-10, primeros 🥇, segundos 🥈 y terceros 🥉.</li>
+    <li><b>🏅 Medallero</b>: oros, platas, bronces y top-10 de cada nadador (pulsa para ir a su ficha).</li>
+    <li><b>Todos los top-10</b>: se ven 20 y el botón <b>«Ver los … resultados»</b> muestra el resto. Pulsa uno para ver la evolución de esa prueba.</li>
+  </ul>
+</div><div class="cap"><img src="z/cto.png"></div></div>
+</div>
+
+<div class="sec">
+<h2>6 · ⭐ La ficha del nadador</h2>
+<span class="ruta">Cómo llegar: barra → ⭐ (tu nadador) · Club → pulsar un nadador · buscador del Inicio</span>
+<div class="fila"><div class="tx">
+  <p>La parte más completa. Sirve para <b>cualquier nadador del club</b>; el ejemplo es Benicio.</p>
+  <h3>La cabecera</h3>
+  <ul>
+    <li><b>Nombre</b>, año, categoría, número de pruebas y última competición.</li>
+    <li><b>«⚖️ Comparar con otros»</b> y <b>«⭐ Es mi nadador / ☆ Marcar como mi nadador»</b>.</li>
+    <li><b>Logros</b> (podios y top-10 en campeonatos, top-10 de España…) en una fila que se desliza con el dedo.</li>
+    <li><b>«‹ Volver a …»</b>: te devuelve a la pantalla de la que venías.</li>
+  </ul>
+  <h3>Cinco pestañas</h3>
+  <table class="g">
+    <tr><td><b>Resumen</b></td><td>Datos clave, próximos objetivos, insignias y el análisis.</td></tr>
+    <tr><td><b>Pruebas</b></td><td>Sus pruebas; pulsa una para ver todas sus marcas.</td></tr>
+    <tr><td><b>Evolución</b></td><td>Su historia temporada a temporada desde la 21-22.</td></tr>
+    <tr><td><b>Ranking</b></td><td>Dónde está hoy, sus rivales y su puesto semana a semana.</td></tr>
+    <tr><td><b>Objetivos</b></td><td>Cto. de Andalucía, mínimas de España y relevos.</td></tr>
+  </table>
+</div><div class="cap"><img src="z/f_hero.png"></div></div>
+</div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">Resumen</h3>
+
+  <p>Arriba, los <b>datos clave</b>: pruebas, mejores puntos, top-10 de España, top-8 de Andalucía, nº 1 de Málaga, podios, victorias y mínimas.</p>
+  <h3>🎯 Próximos objetivos</h3>
+  <p>Lo más cercano que puede conseguir, con una barra de progreso. Pulsa una línea para ir a la pestaña que lo explica:</p>
+  <ul>
+    <li><b>Mínima del Cto. de España</b> más cercana (alevines);</li>
+    <li><b>rival a superar</b>: el que va justo delante en Málaga (o en Andalucía) y por cuánto;</li>
+    <li><b>top-10 de España</b> más cercano;</li>
+    <li><b>relevos</b>: en cuáles es titular y cuánto le falta para entrar en otro.</li>
+  </ul>
+</div><div class="cap"><img src="z/f_obj.png"></div></div>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">🏅 Insignias</h3>
+  <p>Logros que se van desbloqueando: podio en campeonato, top-10 de España, nº 1 de Málaga, mínima de España, relevista, bajar de 30 s en un 50, del minuto en un 100, de 2:30 en un 200, los 4 estilos, 10 mejoras en un año, piscina olímpica y «en racha».</p>
+  <p>En color, las conseguidas; en gris, las que le quedan. <b>Pulsa una insignia</b> para ver cómo se consigue.</p>
+  <h3>🧠 Análisis</h3>
+  <p>Un único análisis escrito automáticamente: <b>💪 Puntos fuertes</b>, <b>🎯 A mejorar</b> (pruebas clave sin nadar, rivales que vienen por detrás, pruebas estancadas…), <b>📈 Su evolución</b> desde la 21-22 y <b>⚖️ Comparado con los demás</b> (frente a todos los nadadores de España de su año y a sus compañeros del club).</p>
+  <p>Debajo, su <b>perfil</b> por estilo y distancia, su <b>actividad</b> por mes y sus <b>competiciones</b>: <b>pulsa una competición</b> para ver las pruebas que nadó en ella, con su tiempo, su puesto, sus puntos y la ★ si fue mejor marca personal. Pulsa una prueba para ir a su evolución.</p>
+</div><div class="cap"><img src="z/f_ins.png"><img src="z/f_comp.png"></div></div>
+</div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">Pruebas</h3>
+
+  <p>Todas sus pruebas, <b>de mejor a peor</b> según su puesto en España. Cada fila muestra la marca, los puntos y los puestos en <b>Málaga</b>, <b>Andalucía</b> y <b>España</b>.</p>
+  <p><b>Pulsa una prueba</b> y se despliega ahí mismo:</p>
+  <ul>
+    <li>fecha y competición de su mejor marca, puesto en esa competición, mejora en la temporada y puestos en el ranking;</li>
+    <li>botones <b>«⚖️ Comparar esta prueba»</b>, <b>«📊 Rivales y ranking»</b> y <b>«📈 Por temporadas»</b>;</li>
+    <li>el <b>gráfico y la tabla de todas sus marcas</b> en esa prueba, por piscina (la ★ marca cada mejor marca personal).</li>
+  </ul>
+  <p>Pulsa otra vez para cerrarla. Arriba puedes cambiar entre <span class="chip">Nacidos en 2015</span> y <span class="chip b">Alevín completa</span>, y el selector de piscina (apartado 9).</p>
+</div><div class="cap"><img src="z/p_lista.png"></div></div>
+<div class="duo"><div class="cap"><img src="z/p_abierta.png"><small>100 Mariposa desplegada</small></div></div>
+</div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">Evolución</h3>
+
+  <p>Su historia <b>desde la temporada 21-22</b>.</p>
+  <ul>
+    <li><b>📊 Nivel por temporada</b>: la media de puntos de sus 3 mejores pruebas cada año. De un vistazo se ve cuánto sube.</li>
+    <li><span class="chip">Por prueba</span>: elige estilo y distancia y verás el <b>gráfico de su mejor marca de cada temporada</b> (abajo = más rápido) y la tabla <b>temporada a temporada</b> con la mejor marca en 25 m y 50 m, la mejora, los puntos y los puestos en Málaga, Andalucía y España.</li>
+    <li><span class="chip b">Por temporada</span>: todas sus pruebas de una temporada concreta.</li>
+    <li><b>🗺️ Todas sus pruebas, temporada a temporada</b>: un cuadro de colores (más amarillo = más nivel). Pulsa una prueba para ver su gráfico.</li>
+  </ul>
+</div><div class="cap"><img src="z/e_nivel.png"><img src="z/e_graf.png"></div></div>
+<div class="duo"><div class="cap"><img src="z/e_tabla.png"><small>100 Mariposa, temporada a temporada</small></div><div class="cap"><img src="z/e_mapa.png"><small>Cuadro de todas sus pruebas</small></div></div>
+</div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">Ranking</h3>
+
+  <p>Elige la <b>prueba</b> (estilo y distancia; el número es su puesto en España).</p>
+  <h3>📍 Dónde está hoy</h3>
+  <p>En Málaga, Andalucía y España: su puesto, a cuánto está del primero y <b>quién va justo delante o detrás</b>. Ejemplo: Benicio es 1º de 10 en Málaga en 100 Mariposa y le sigue Leo Muñoz a 3,01 s.</p>
+  <p>Pulsa <b>«🏁 Ver los 10 primeros…»</b> para ver las tres tablas con club, marca, fecha y diferencia con tu nadador.</p>
+  <h3>📈 Su puesto semana a semana</h3>
+  <ul>
+    <li><span class="chip">Temporada (oficial)</span>: como el ranking de la RFEN; en octubre empieza de cero.</li>
+    <li><span class="chip b">Últimos 12 meses</span>: su mejor marca del último año. Es el que se abre <b>al principio de temporada</b>, mientras aún no ha nadado.</li>
+    <li>Nivel: Málaga, Andalucía o España.</li>
+  </ul>
+  <p>En el gráfico <b>el 1º está arriba</b>. El puesto se escribe donde cambia (si se repite varias semanas, solo en la primera y la última). <b>Pulsa cualquier punto</b> para ver su puesto y por qué subió o bajó esa semana (mejoró su marca, alguien le adelantó…). Debajo, la tabla semana a semana.</p>
+</div><div class="cap"><img src="z/k_hoy.png"><img src="z/k_graf.png"></div></div>
+</div>
+
+<div class="sub">
+<div class="fila"><div class="tx"><h3 style="font-size:15pt;margin-top:0">Objetivos</h3>
+<p>Reúne a qué campeonatos y relevos puede ir y qué le falta.</p>
+
+  <h3 style="margin-top:0">🏊 ¿Entra en el Campeonato de Andalucía? <span style="font-size:9pt;color:#5b6b7c">(alevines)</span></h3>
+  <ul>
+    <li><b>Invierno</b>: entran los <b>120 mejores de Andalucía</b> de cada año según la <b>suma de puntos</b> de 100 Mariposa + 100 Espalda + 100 Braza + 100 Libre (marcas desde el 1 de enero).</li>
+    <li><b>Verano</b>: los de 1er año, con 100 Mariposa + 100 Espalda + 100 Braza + 200 Libre (marcas desde el 1 de septiembre).</li>
+  </ul>
+  <p>Se ve su <b>puesto</b>, su <b>suma de puntos</b>, si está <b>dentro o fuera</b>, el corte y los puntos de cada prueba. Una prueba sin marca suma 0: nadarla le daría puntos.</p>
+  <h3>🇪🇸 Mínimas del Campeonato de España <span style="font-size:9pt;color:#5b6b7c">(alevines)</span></h3>
+  <p>Las de 2027 aún no se han publicado: se usan las de 2026 (columna de <b>12 años</b> para los de 1er año). Para cada prueba, la mínima en 50 m y 25 m, su mejor marca y una barra con lo que le falta.</p>
+</div><div class="cap"><img src="z/o_and.png"></div></div>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">🤝 Relevos del club</h3>
+  <p>En qué relevos de su categoría es <b>titular</b> (con su posta y su marca) y, en los demás, <b>qué marca necesitaría para entrar</b> y cuánto le falta. Al lado, el tiempo del equipo del club y su puesto en Andalucía.</p>
+  <p><b>Pulsa un relevo</b> y se abre ese equipo en Club → Relevos, resaltado: sus 4 integrantes con sus marcas, los mejores clubes y quién más puede entrar. «‹ Volver» te devuelve a la ficha.</p>
+</div><div class="cap"><img src="z/o_min.png"><img src="z/o_rel.png"></div></div>
+</div>
+
+<div class="sec">
+<h2>7 · ⚖️ Comparar nadadores</h2>
+<span class="ruta">Cómo llegar: en la ficha → «⚖️ Comparar con otros» · o Pruebas → «⚖️ Comparar esta prueba»</span>
+<div class="fila"><div class="tx">
+  <p>Compara de <b>2 a 4 nadadores</b>: del club, de cualquier club de Málaga y los mejores de Andalucía y España de cada año y prueba.</p>
+  <div class="paso"><div class="n">1</div><div>Desde la ficha, tu nadador ya está puesto y aparecen <b>«Referentes sugeridos»</b>: los mejores de su año en su mejor prueba. Púlsalos para añadirlos (＋).</div></div>
+  <div class="paso"><div class="n">2</div><div>O escribe un nombre en <b>«Añadir nadador»</b>. Para quitar a alguien, pulsa su <b>✕</b>.</div></div>
+  <div class="paso"><div class="n">3</div><div>Elige la prueba. <span class="chip">Por temporada</span> compara temporada a temporada; <span class="chip b">A la misma edad</span> compara lo que hacía cada uno <b>con la misma edad</b>.</div></div>
+  <p>Cada nadador tiene un <b>color y una forma</b> (●, ■, ▲, ◆). Verás el gráfico, el <b>cara a cara</b> (cuántos segundos van por delante o por detrás) y la tabla de todas sus pruebas. <b>«‹ Volver a la ficha»</b> te devuelve.</p>
+  <div class="info">El enlace de la página guarda la comparación: <b>cópialo y envíalo</b> por WhatsApp y quien lo abra verá lo mismo.</div>
+</div><div class="cap"><img src="z/cmp_top.png"><img src="z/cmp_graf.png"></div></div>
+
+<h2 style="margin-top:10px">8 · 📊 Rankings</h2>
+<span class="ruta">Cómo llegar: barra → 📊 Rankings</span>
+<div class="fila"><div class="tx">
+  <p>El ranking completo, más fácil de consultar que el de la RFEN. Elige <b>sexo</b>, <b>año o categoría</b>, <b>prueba</b> y <b>nivel</b> (Málaga, Andalucía o España).</p>
+  <p>Se muestran los <b>20 primeros</b> y además <b>todos los nadadores del club</b>, resaltados en amarillo. <b>Pulsa un nadador del club</b> para abrir su ficha.</p>
+</div><div class="cap"><img src="z/rk.png"></div></div>
+</div>
+
+<div class="sec">
+<h2>9 · Trucos y funciones comunes</h2>
+<div class="fila"><div class="tx">
+  <h3 style="margin-top:0">«Ver detalle ›»: cada número se puede pulsar</h3>
+  <p>En Inicio y Club, <b>«Ver detalle ›»</b> abre una ventana con la lista exacta que hay detrás del número, con filtros de sexo, categoría y año. Pulsa una fila para ver la evolución de esa prueba. Para cerrar, <b>«Cerrar ✕»</b>.</p>
+  <h3>Selector de piscina: 25 m y 50 m</h3>
+  <p>En piscina de 25 m se nada más rápido (más virajes), así que las marcas de cada piscina van <b>por separado</b>. En Pruebas y Evolución puedes elegir:</p>
+  <ul><li><span class="chip">25 m y 50 m separadas</span> (por defecto);</li>
+    <li><span class="chip b">Todo a 50 m</span> o <span class="chip b">Todo a 25 m</span>: convierte las marcas con la equivalencia de puntos World Aquatics para verlas juntas (orientativo; para mínimas y rankings cuenta la marca real).</li></ul>
+  <h3>Otros detalles</h3>
+  <ul>
+    <li><b>Filas que se deslizan</b>: si unos botones o una tabla se cortan por la derecha, desliza con el dedo.</li>
+    <li><b>Pasar el dedo o el ratón por un punto</b> de un gráfico muestra su fecha, marca y competición.</li>
+    <li>Si un día nadó eliminatoria y final, se muestra la mejor marca y la otra como nota. Los tiempos parciales no cuentan.</li>
+    <li><b>Compartir</b>: la dirección cambia en cada pantalla; copia el enlace de una ficha, una comparación o un relevo y envíalo.</li>
+  </ul>
+</div><div class="cap"><img src="z/v_stat.png"><small>Ventana de «Ver detalle»</small></div></div>
+</div>
+
+<div class="sec">
+<h2>10 · Glosario</h2>
+<table class="g">
+  <tr><th style="width:32%">Término</th><th>Qué significa</th></tr>
+  <tr><td><b>Puntos World Aquatics (pts)</b></td><td>Puntuación internacional que permite comparar pruebas y piscinas distintas. El récord del mundo vale 1000 puntos. Fórmula: 1000 × (récord / marca)³.</td></tr>
+  <tr><td><b>Puntos AQUA</b></td><td>Los mismos puntos World Aquatics, como los llama la Federación Andaluza.</td></tr>
+  <tr><td><b>Puesto «6º /794»</b></td><td>Sexto de 794 nadadores con marca en esa prueba, entre los nacidos en su mismo año y de su mismo sexo.</td></tr>
+  <tr><td><b>Málaga / Andalucía / España</b></td><td>Málaga = clubes de la provincia. Andalucía = clubes de las 8 provincias. España = todos.</td></tr>
+  <tr><td><b>Temporada</b></td><td>De octubre a septiembre. En octubre el ranking de temporada vuelve a empezar.</td></tr>
+  <tr><td><b>Categorías 26-27</b></td><td>Prebenjamín 2018-2019 · Benjamín 2016-2017 · Alevín 2014-2015 · Infantil 2012-2013 · Junior 2010-2011.</td></tr>
+  <tr><td><b>1er / 2º año</b></td><td>Año dentro de la categoría. Benicio (2015) es alevín de 1er año en la 26-27.</td></tr>
+  <tr><td><b>25 m / 50 m</b></td><td>Piscina corta o larga (olímpica). No se mezclan salvo con la conversión.</td></tr>
+  <tr><td><b>Top-10 / top-8 / top-3</b></td><td>Estar entre los 10, 8 o 3 primeros. «Top-8» equivale a entrar en una final.</td></tr>
+  <tr><td><b>Mínima</b></td><td>Tiempo necesario para poder participar en un campeonato.</td></tr>
+  <tr><td><b>Relevo teórico / suma de tiempos</b></td><td>Tiempo de un relevo calculado sumando las mejores marcas individuales de los 4 relevistas. Es la regla oficial para inscribir relevos.</td></tr>
+  <tr><td><b>Posta</b></td><td>Cada uno de los 4 tramos de un relevo.</td></tr>
+  <tr><td><b>Relevo mixto</b></td><td>Relevo de 2 chicos y 2 chicas.</td></tr>
+  <tr><td><b>★ / puntos amarillos</b></td><td>Mejor marca personal en ese momento.</td></tr>
+  <tr><td><b>⭐ Mi nadador</b></td><td>El nadador elegido en ese dispositivo; aparece destacado en toda la página.</td></tr>
+</table>
+
+<h2 style="margin-top:14px">11 · Preguntas frecuentes</h2>
+<h3>No encuentro a mi hijo o hija</h3>
+<p>Solo aparecen los nadadores del club con <b>al menos una marca en el ranking de la RFEN</b> (competiciones homologadas). Prueba a buscar solo por un apellido.</p>
+<h3>Lo elegí, pero en otro móvil no aparece</h3>
+<p>La elección se guarda en cada dispositivo. Elígelo también en el otro o usa el enlace <b>…/club.html?nadador=</b><i>número</i>.</p>
+<h3>Nadó el fin de semana y su marca no aparece</h3>
+<p>La página se actualiza una vez por semana y depende de que la federación haya subido los resultados. Mira la fecha de actualización en el Inicio.</p>
+<h3>¿Por qué el puesto no coincide con la web de la RFEN?</h3>
+<p>Aquí los puestos son siempre <b>entre los nacidos en el mismo año</b> y del mismo sexo, y puedes elegir Málaga, Andalucía o España.</p>
+<h3>¿Los relevos son oficiales?</h3>
+<p>No: son el <b>mejor relevo posible</b> según las marcas individuales (regla «suma de tiempos»). El entrenador decide quién nada cada relevo, y en la competición el tiempo real puede ser distinto.</p>
+<h3>¿Puedo compartir la página?</h3>
+<p>Sí. Es pública y solo muestra las marcas oficiales que publica la RFEN. Comparte <b>andresvazquez11.github.io/Club-Natacion-Axarquia/club.html</b> y este manual. ¿Encuentras algún error o se te ocurre una mejora? Coméntalo y lo revisamos. ¡Que lo disfrutéis! 🏊</p>
+
+</div>
+</body></html>
