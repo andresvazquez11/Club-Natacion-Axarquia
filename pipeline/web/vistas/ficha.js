@@ -170,7 +170,7 @@ function tabResumen(s) {
     <h2 class="st">🗓️ Actividad</h2>
     <div class="grid g2"><div class="card"><h3>Pruebas nadadas por mes</h3>${barsHTML(mBars)}</div>
       <div class="card"><h3>Competiciones <span class="muted small">(${cl.length}) · pulsa una para ver sus pruebas</span></h3><div style="max-height:520px;overflow-y:auto">
-        ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}</span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
+        ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}<div>${edadTag(c.d, s.y)}</div></span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
             <span class="tiny">${c.n} prueba${c.n > 1 ? 's' : ''}${c.pb ? ` · <span class="good">${c.pb} mejora${c.pb > 1 ? 's' : ''}</span>` : ''}${c.pod ? ` · 🏅 ${c.pod} podio${c.pod > 1 ? 's' : ''}` : ''}</span></span></summary>
           <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">
             <td><b>${ev}</b> <span class="of">${x[2]}</span>${x[9] && x[9].length ? `<div class="tiny muted">también ${x[9].map(o => fmt(o[0])).join(', ')}</div>` : ''}</td>
@@ -402,11 +402,11 @@ function vistaFicha(app, s, tab, p) {
 /* Ventana con el detalle de cada dato del Resumen: qué pruebas, cuándo, dónde y con qué marca */
 function abrirKpiFicha(s, k) {
   const ir = ev => `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}`;
-  const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
+  const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} ${edadTag(e.date, s.y)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
       <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
   const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
   const nadadas = []; s.ev.forEach(e => e.h.forEach(x => nadadas.push([e, x])));
-  const filaNado = ([e, x]) => `<tr class="click" ${cmpAttr(s, x[0], x[3], e.e)}><td>${dtag(x[0])} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
+  const filaNado = ([e, x]) => `<tr class="click" ${cmpAttr(s, x[0], x[3], e.e)}><td>${dtag(x[0])} ${edadTag(x[0], s.y)} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
       <td class="num"><b>${fmt(x[1])}</b></td><td class="num">${posB(x[6])}<span class="of">de ${x[7]}</span></td></tr>`;
   let tit = '', cuerpo = '';
   if (k === 'np' || k === 'pts') {

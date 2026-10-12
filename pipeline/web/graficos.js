@@ -30,7 +30,7 @@ function evoChart(rows, s) {
   const libre = (x, y) => !puestas.some(([a, b]) => Math.abs(a - x) < 40 && Math.abs(b - y) < 13);
   rows.forEach(x => { const isPb = x[1] < best; if (isPb) best = x[1];
     const cx = X(Date.parse(x[0])), cy = Y(x[1]);
-    const tip = `${dfmt(x[0])} · ${fmt(x[1])}${x[6] ? ' · ' + x[6] + 'º' : ''} · ${x[3] || ''}`;
+    const tip = `${dfmt(x[0])}${s ? ` (${edadFecha(x[0], s.y)} años)` : ''} · ${fmt(x[1])}${x[6] ? ' · ' + x[6] + 'º' : ''} · ${x[3] || ''}`;
     g += `<g ${s ? cmpAttr(s, x[0], x[3], '') + ' style="cursor:pointer"' : ''}><title>${esc(tip)}${s ? ' · pulsa para ver la competición' : ''}</title><circle cx="${cx}" cy="${cy}" r="16" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${isPb ? 6 : 4.5}" fill="${isPb ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="2"/></g>`;
     const anc = cx > W - 60 ? 'end' : cx < P.l + 30 ? 'start' : 'middle';
     if (isPb) {
@@ -60,7 +60,7 @@ function tablaMarcas(rows, e, pl, s) {
   rows.forEach((x, k) => { const prev = k ? rows[k - 1][1] : null, isPb = x[1] < best, prevBest = best; if (isPb) best = x[1];
     const otros = x[9] && x[9].length ? `<div class="tiny muted">También nadó ${x[9].map(o => fmt(o[0])).join(', ')} ese día (eliminatoria/final)</div>` : '';
     h += `<tr class="${x[1] === e.cs && pl === e.pool ? 'me' : ''} ${s ? 'click' : ''}" ${s ? cmpAttr(s, x[0], x[3], e.e) : ''}>
-      <td class="t" data-l="Fecha">${dtag(x[0])}</td>
+      <td class="t" data-l="Fecha">${dtag(x[0])} ${s ? edadTag(x[0], s.y) : ''}</td>
       <td data-l="Competición" style="white-space:normal">${esc(x[3] || '—')}<div class="tiny muted">${esc(x[4] || '')}</div>${otros}</td>
       <td class="num" data-l="Marca"><b>${isPb ? '<span class="sun">★ </span>' : ''}${fmt(x[1])}</b></td>
       <td data-l="Puesto">${x[6] ? posB(x[6]) + `<span class="of">de ${x[7]}</span>` : '<span class="muted">—</span>'}</td>
@@ -132,7 +132,7 @@ function abrirCompeticion(s, fecha, comp, foco) {
     // mejor marca personal en ese momento (misma prueba y piscina, con todas las marcas anteriores)
     const esPb = x => !todas.some(y => y[1] === x[1] && y[3] === x[3] && (y[0] < x[0]) && y[2] <= x[2]);
     const porDia = {}; sel.forEach(x => (porDia[x[0]] = porDia[x[0]] || []).push(x));
-    const filas = Object.keys(porDia).sort().map(d => `<tr class="sep"><td colspan="4" style="text-align:left">${dtag(d)}</td></tr>` +
+    const filas = Object.keys(porDia).sort().map(d => `<tr class="sep"><td colspan="4" style="text-align:left">${dtag(d)} ${edadTag(d, s.y)}</td></tr>` +
       porDia[d].sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[2] - b[2]).map(x => `<tr class="${x[1] === foco ? 'me' : ''} ${s.ev.find(e => e.e === x[1]) ? 'click' : ''}" data-ir="${x[1]}">
         <td><b>${x[1]}</b> <span class="of">${x[3] || ''}</span></td>
         <td class="num"><b>${esPb(x) ? '<span class="sun">★ </span>' : ''}${fmt(x[2])}</b></td>
