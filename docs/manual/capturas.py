@@ -152,6 +152,10 @@ with sync_playwright() as pw:
     p.locator('.kpi[data-stat]').nth(1).click(); p.wait_for_timeout(900); vista(p, 'v_stat')
     ctx.close()
 
+    ctx, p = nueva(br, 'temporada.html#benicio/historial?hev=100%20Espalda', 5000, ocultar=False)
+    p.evaluate("[...document.querySelectorAll('#hist-host [data-cmp]')].find(x => x.closest('td') && x.dataset.cmp.includes('2025-10')).dispatchEvent(new MouseEvent('click', {bubbles: true}))"); p.wait_for_timeout(1500)
+    vista(p, 'v_comp'); ctx.close()
+
     # ── Ordenador ──
     ctx = br.new_context(**ESC); p = ctx.new_page()
     p.goto(BASE + 'temporada.html#inicio'); p.wait_for_timeout(2500)
