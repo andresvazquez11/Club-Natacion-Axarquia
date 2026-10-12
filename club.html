@@ -323,6 +323,7 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 .cmp-l{cursor:pointer}.cmp-l:hover{color:var(--sun)}
 td.click{cursor:pointer}
 .tag.click{cursor:pointer}
+.edad{display:inline-block;font-size:.66rem;font-weight:800;color:var(--sun-ink);background:rgba(255,214,10,.85);border-radius:8px;padding:0 6px;margin-left:2px;vertical-align:middle;white-space:nowrap}
 
 </style>
 </head>
@@ -591,6 +592,11 @@ function convNota() {
   const ej = w['25m'] && w['50m'] ? ` Ejemplo (100 libre masculino, récords del mundo ${fmt(w['50m'])} en 50 m y ${fmt(w['25m'])} en 25 m): 1:00.00 en 25 m ≈ ${fmt(Math.round(6000 * w['50m'] / w['25m']))} en 50 m.` : '';
   return `<p class="tiny muted conv-nota">🔄 <b>Conversión entre piscinas</b>: equivalencia por puntos World Aquatics. Marca en la otra piscina = marca × récord del mundo de esa prueba y sexo en la piscina de destino ÷ récord del mundo en la piscina de origen; así las dos marcas valen los mismos puntos (1000 × (récord ÷ marca)³).${ej} Es orientativa: los rankings, los récords oficiales y las mínimas cuentan la marca real en su piscina.</p>`;
 }
+/* Edad del nadador: en una marca, año de la marca − año de nacimiento (como cuenta la federación);
+   en una temporada (de octubre a septiembre abarca dos años naturales), el rango «8-9 años» */
+const edadFecha = (d, y) => d && y ? +String(d).slice(0, 4) - y : null;
+const edadTemp = (t, y) => { const a = 2000 + +t.slice(0, 2) - y, b = 2000 + +t.slice(2) - y; return `${a}-${b} años`; };
+const edadTag = (d, y) => { const e = edadFecha(d, y); return e ? `<span class="edad">${e} años</span>` : ''; };
 
 /* ── graficos.js ── */
 /* Gráficos SVG y ventana de evolución */
@@ -625,7 +631,7 @@ function evoChart(rows, s) {
   const libre = (x, y) => !puestas.some(([a, b]) => Math.abs(a - x) < 40 && Math.abs(b - y) < 13);
   rows.forEach(x => { const isPb = x[1] < best; if (isPb) best = x[1];
     const cx = X(Date.parse(x[0])), cy = Y(x[1]);
-    const tip = `${dfmt(x[0])} · ${fmt(x[1])}${x[6] ? ' · ' + x[6] + 'º' : ''} · ${x[3] || ''}`;
+    const tip = `${dfmt(x[0])}${s ? ` (${edadFecha(x[0], s.y)} años)` : ''} · ${fmt(x[1])}${x[6] ? ' · ' + x[6] + 'º' : ''} · ${x[3] || ''}`;
     g += `<g ${s ? cmpAttr(s, x[0], x[3], '') + ' style="cursor:pointer"' : ''}><title>${esc(tip)}${s ? ' · pulsa para ver la competición' : ''}</title><circle cx="${cx}" cy="${cy}" r="16" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${isPb ? 6 : 4.5}" fill="${isPb ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="2"/></g>`;
     const anc = cx > W - 60 ? 'end' : cx < P.l + 30 ? 'start' : 'middle';
     if (isPb) {
@@ -655,7 +661,7 @@ function tablaMarcas(rows, e, pl, s) {
   rows.forEach((x, k) => { const prev = k ? rows[k - 1][1] : null, isPb = x[1] < best, prevBest = best; if (isPb) best = x[1];
     const otros = x[9] && x[9].length ? `<div class="tiny muted">También nadó ${x[9].map(o => fmt(o[0])).join(', ')} ese día (eliminatoria/final)</div>` : '';
     h += `<tr class="${x[1] === e.cs && pl === e.pool ? 'me' : ''} ${s ? 'click' : ''}" ${s ? cmpAttr(s, x[0], x[3], e.e) : ''}>
-      <td class="t" data-l="Fecha">${dtag(x[0])}</td>
+      <td class="t" data-l="Fecha">${dtag(x[0])} ${s ? edadTag(x[0], s.y) : ''}</td>
       <td data-l="Competición" style="white-space:normal">${esc(x[3] || '—')}<div class="tiny muted">${esc(x[4] || '')}</div>${otros}</td>
       <td class="num" data-l="Marca"><b>${isPb ? '<span class="sun">★ </span>' : ''}${fmt(x[1])}</b></td>
       <td data-l="Puesto">${x[6] ? posB(x[6]) + `<span class="of">de ${x[7]}</span>` : '<span class="muted">—</span>'}</td>
@@ -727,7 +733,7 @@ function abrirCompeticion(s, fecha, comp, foco) {
     // mejor marca personal en ese momento (misma prueba y piscina, con todas las marcas anteriores)
     const esPb = x => !todas.some(y => y[1] === x[1] && y[3] === x[3] && (y[0] < x[0]) && y[2] <= x[2]);
     const porDia = {}; sel.forEach(x => (porDia[x[0]] = porDia[x[0]] || []).push(x));
-    const filas = Object.keys(porDia).sort().map(d => `<tr class="sep"><td colspan="4" style="text-align:left">${dtag(d)}</td></tr>` +
+    const filas = Object.keys(porDia).sort().map(d => `<tr class="sep"><td colspan="4" style="text-align:left">${dtag(d)} ${edadTag(d, s.y)}</td></tr>` +
       porDia[d].sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[2] - b[2]).map(x => `<tr class="${x[1] === foco ? 'me' : ''} ${s.ev.find(e => e.e === x[1]) ? 'click' : ''}" data-ir="${x[1]}">
         <td><b>${x[1]}</b> <span class="of">${x[3] || ''}</span></td>
         <td class="num"><b>${esPb(x) ? '<span class="sun">★ </span>' : ''}${fmt(x[2])}</b></td>
@@ -1440,7 +1446,7 @@ function tabResumen(s) {
     <h2 class="st">🗓️ Actividad</h2>
     <div class="grid g2"><div class="card"><h3>Pruebas nadadas por mes</h3>${barsHTML(mBars)}</div>
       <div class="card"><h3>Competiciones <span class="muted small">(${cl.length}) · pulsa una para ver sus pruebas</span></h3><div style="max-height:520px;overflow-y:auto">
-        ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}</span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
+        ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}<div>${edadTag(c.d, s.y)}</div></span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
             <span class="tiny">${c.n} prueba${c.n > 1 ? 's' : ''}${c.pb ? ` · <span class="good">${c.pb} mejora${c.pb > 1 ? 's' : ''}</span>` : ''}${c.pod ? ` · 🏅 ${c.pod} podio${c.pod > 1 ? 's' : ''}` : ''}</span></span></summary>
           <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">
             <td><b>${ev}</b> <span class="of">${x[2]}</span>${x[9] && x[9].length ? `<div class="tiny muted">también ${x[9].map(o => fmt(o[0])).join(', ')}</div>` : ''}</td>
@@ -1672,11 +1678,11 @@ function vistaFicha(app, s, tab, p) {
 /* Ventana con el detalle de cada dato del Resumen: qué pruebas, cuándo, dónde y con qué marca */
 function abrirKpiFicha(s, k) {
   const ir = ev => `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}`;
-  const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
+  const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} ${edadTag(e.date, s.y)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
       <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
   const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
   const nadadas = []; s.ev.forEach(e => e.h.forEach(x => nadadas.push([e, x])));
-  const filaNado = ([e, x]) => `<tr class="click" ${cmpAttr(s, x[0], x[3], e.e)}><td>${dtag(x[0])} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
+  const filaNado = ([e, x]) => `<tr class="click" ${cmpAttr(s, x[0], x[3], e.e)}><td>${dtag(x[0])} ${edadTag(x[0], s.y)} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
       <td class="num"><b>${fmt(x[1])}</b></td><td class="num">${posB(x[6])}<span class="of">de ${x[7]}</span></td></tr>`;
   let tit = '', cuerpo = '';
   if (k === 'np' || k === 'pts') {
@@ -1770,7 +1776,7 @@ function tabHistorial(s, p, H) {
     return e ? `${pruebaSel('hev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.h.length + ' marcas'])))}<div class="bar-row">${piscSeg()}</div>${evolucionHTML(s, e)}${convNota()}` : '<p class="empty">Sin marcas.</p>';
   }
   const vista = p.hv || 'total';
-  const niv = ts.map(t => [tLbl(t) + (t === '2627' ? ' <span class="of">(en curso)</span>' : ''), nivelTemp(T[t]), `${nivelTemp(T[t])} pts`, `data-hvt="${t}"`]);
+  const niv = ts.map(t => [tLbl(t) + ` <span class="of">${edadTemp(t, s.y)}${t === '2627' ? ' · en curso' : ''}</span>`, nivelTemp(T[t]), `${nivelTemp(T[t])} pts`, `data-hvt="${t}"`]);
   let h = `<p class="small muted" style="margin-bottom:10px">Su historia temporada a temporada (la RFEN tiene marcas desde la 13-14). El análisis escrito está en <a class="sun" href="${fichaHref(s, 'resumen')}">Resumen</a> y todas sus marcas, en <a class="sun" href="${fichaHref(s, 'pruebas')}">Pruebas</a>.</p>
     <div class="card" style="margin-top:12px"><h3>📊 Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas · pulsa una temporada para ver sus marcas</span></h3>${barsHTML(niv)}
       <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div>
@@ -1781,18 +1787,18 @@ function tabHistorial(s, p, H) {
 function histTemporada(s, T, ts, p) {
   const t = ts.includes(p.ht) ? p.ht : ts[ts.length - 1], D = T[t];
   const evs = Object.entries(D.ev).sort((a, b) => (a[1].rk.es ? a[1].rk.es[0] / a[1].rk.es[1] : 9) - (b[1].rk.es ? b[1].rk.es[0] / b[1].rk.es[1] : 9));
-  return `<div class="flt"><span class="flt-l">Temporada</span>${chipsHTML('ht', ts.map(x => [x, tLbl(x), Object.keys(T[x].ev).length]), t)}</div>
+  return `<div class="flt"><span class="flt-l">Temporada</span>${chipsHTML('ht', ts.map(x => [x, `${tLbl(x)} <span class="n">${edadTemp(x, s.y)}</span>`]), t)}</div>
     <div class="kpis" style="margin-bottom:12px">
       <div class="kpi hl"><b>${nivelTemp(D)}</b><span>nivel medio (pts)</span></div>
       <div class="kpi"><b>${Object.keys(D.ev).length}</b><span>pruebas distintas</span></div>
       <div class="kpi"><b>${D.nc}</b><span>competiciones</span></div>
       <div class="kpi"><b style="font-size:1rem">${club(D.club)}</b><span>club esa temporada</span></div></div>
-    <div class="card"><h3>Sus mejores marcas en la ${tLbl(t)} <span class="muted small">· puestos entre los nacidos en ${s.y} · pulsa una para ver la competición</span></h3>
+    <div class="card"><h3>Sus mejores marcas en la ${tLbl(t)} <span class="edad">${edadTemp(t, s.y)}</span> <span class="muted small">· puestos entre los nacidos en ${s.y} · pulsa una para ver la competición</span></h3>
     <table class="rt cards"><tr><th>Prueba</th><th class="num">Marca</th><th>Fecha</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>
     ${evs.map(([ev, e]) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, ev)}><td class="t" data-l=""><b>${ev}</b>&nbsp;<span class="of">${e.pool}</span></td>
-      <td class="num" data-l="Marca"><b class="sun">${fmt(e.cs)}</b></td><td data-l="Fecha">${dtag(e.date)}</td><td class="num" data-l="Pts">${e.pts}</td>
+      <td class="num" data-l="Marca"><b class="sun">${fmt(e.cs)}</b></td><td data-l="Fecha">${dtag(e.date)} ${edadTag(e.date, s.y)}</td><td class="num" data-l="Pts">${e.pts}</td>
       ${LV.map(([lv, l]) => `<td data-l="${l}">${e.rk[lv] ? posB(e.rk[lv][0], e.rk[lv][1]) : '—'}</td>`).join('')}</tr>`).join('')}</table></div>
-    <div class="card" style="margin-top:12px"><h3>Competiciones de la ${tLbl(t)} <span class="muted small">(${D.nc})</span></h3>
+    <div class="card" style="margin-top:12px"><h3>Competiciones de la ${tLbl(t)} <span class="edad">${edadTemp(t, s.y)}</span> <span class="muted small">(${D.nc})</span></h3>
       <div style="max-height:320px;overflow-y:auto"><table class="rt">${D.comps.map(c => `<tr class="click" ${cmpAttr(s, c[0], c[1], '')}><td style="width:80px">${dtag(c[0])}</td><td style="white-space:normal">${esc(c[1])}</td><td class="num">${c[2]} pr.</td></tr>`).join('')}</table></div></div>`;
 }
 
@@ -1831,15 +1837,15 @@ function histTotal(s, T, ts, p) {
   const tabla = `<table class="rt cards"><tr><th>Temporada</th><th class="num">Mejor 25 m</th><th class="num">Mejor 50 m</th><th class="num">Pts</th><th class="lv-ma">Málaga</th><th class="lv-an">Andalucía</th><th class="lv-es">España</th></tr>
     ${filas.map(([t, e]) => { const pe = prev; prev = e;
       const mc = pl => (T[t].m || []).find(x => x[1] === ev && x[3] === pl && x[2] === e.pl[pl]);
-      const celda = pl => e.pl[pl] ? `<span class="cmp-l" ${(m => m ? cmpAttr(s, m[0], m[4], ev) : '')(mc(pl))}><b>${fmt(e.pl[pl])}</b>${(m => m ? `<div class="tiny muted">${dfmt(m[0])}</div>` : '')(mc(pl))}</span>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) || '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
+      const celda = pl => e.pl[pl] ? `<span class="cmp-l" ${(m => m ? cmpAttr(s, m[0], m[4], ev) : '')(mc(pl))}><b>${fmt(e.pl[pl])}</b>${(m => m ? `<div class="tiny muted">${dfmt(m[0])} · ${edadFecha(m[0], s.y)} años</div>` : '')(mc(pl))}</span>${pe ? `<div class="tiny">${mejoraTxt(pe, e, pl) || '<span class="muted">sin marca previa en ' + pl + '</span>'}</div>` : ''}` : '<span class="muted">—</span>';
       const dp = pe ? e.pts - pe.pts : null;
-      return `<tr><td class="t" data-l=""><b>${tLbl(t)}</b>${t === '2627' ? ' <span class="of">en curso</span>' : ''}</td>
+      return `<tr><td class="t" data-l=""><b>${tLbl(t)}</b> <span class="edad">${edadTemp(t, s.y)}</span>${t === '2627' ? ' <span class="of">en curso</span>' : ''}</td>
         <td class="num" data-l="Mejor 25 m">${celda('25m')}</td><td class="num" data-l="Mejor 50 m">${celda('50m')}</td>
         <td class="num" data-l="Puntos"><b>${e.pts}</b>${dp === null ? '' : `<div class="tiny ${dp > 0 ? 'good' : dp < 0 ? 'bad' : 'muted'}">${dp > 0 ? '+' : ''}${dp} pts</div>`}</td>
         ${LV.map(([lv, l]) => `<td data-l="${l}" class="click" ${cmpAttr(s, e.date, e.comp, ev)} title="Puesto con su mejor marca de la temporada (${dfmt(e.date)}): pulsa para ver la competición">${e.rk[lv] ? posB(e.rk[lv][0], e.rk[lv][1]) : '—'}</td>`).join('')}</tr>`; }).join('')}</table>`;
   // mapa de todas las pruebas por temporada (puntos)
   const mx = Math.max(...ts.flatMap(t => Object.values(T[t].ev).map(e => e.pts)), 1);
-  const mapa = `<div class="tw"><table class="rt hmap"><tr><th>Prueba</th>${ts.map(t => `<th class="num">${tLbl(t)}</th>`).join('')}</tr>
+  const mapa = `<div class="tw"><table class="rt hmap"><tr><th>Prueba</th>${ts.map(t => `<th class="num">${tLbl(t)}<div class="tiny" style="font-weight:600;text-transform:none">${edadTemp(t, s.y)}</div></th>`).join('')}</tr>
     ${evs.map(x => `<tr class="click" data-hev="${x}"><td><b>${x}</b></td>${ts.map((t, i) => { const e = T[t].ev[x];
       if (!e) return '<td class="num muted">·</td>';
       const pt = i ? ts.slice(0, i).reverse().find(u => T[u].ev[x]) : null, pe = pt ? T[pt].ev[x] : null;
