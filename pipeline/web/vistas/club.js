@@ -180,8 +180,8 @@ function clubRecords(app, p, c, head) {
   const filas = ORD_PRUEBAS.map(ev => [ev, lista(ev)]).filter(x => x[1].length);
   const nom = pid => SW[String(pid)];
   const fecha = d => d && d.length === 10 ? dtag(d) : `<span class="dt">temp. ${esc(d)}</span>`;
-  // edad con la que hizo la marca: año de la marca − año de nacimiento (como cuenta la federación)
-  const edad = (d, y) => !y ? '' : `<span class="of">${(d && d.length === 10 ? +d.slice(0, 4) : 2000 + +String(d).slice(3, 5)) - y} años</span>`;
+  // edad federativa con la que hizo la marca: año en que termina la temporada − año de nacimiento
+  const edad = (d, y) => !y ? '' : `<span class="of">${(d && d.length === 10 ? finTemp(d) : 2000 + +String(d).slice(3, 5)) - y} años</span>`;
   // marca real + su piscina y, entre paréntesis, su equivalente en la otra piscina
   const marca = (x, ev, k) => { const eq = conv(x[1], x[5], otra(x[5]), g, ev);
     return `${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} <span class="of">${x[5].replace('m', ' m')}</span>${eq ? ` <span class="tiny muted">(≈ ${fmt(eq)} en ${otra(x[5]).replace('m', ' m')})</span>` : ''}`; };
@@ -195,7 +195,7 @@ function clubRecords(app, p, c, head) {
         ${[0, 1, 2].map(k => { const x = L[k]; if (!x) return `<td data-l="${['Récord', '2ª', '3ª'][k]}" class="muted">—</td>`; const s = nom(x[0]);
           return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${marca(x, ev, k)}<div>${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${s ? `<span class="cmp-l" ${cmpAttr(s, x[2], '', ev)} title="Pulsa para ver la competición">${fecha(x[2])} <span class="tiny sun">›</span></span>` : fecha(x[2])}</div></td>`; }).join('')}</tr>`).join('')}</table>`
       : '<p class="empty">No hay marcas del club en esta categoría y piscina.</p>'}
-    <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 13-14, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad en el año de la marca: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad que tenía (año de la marca − año de nacimiento, como cuenta la federación). La conversión entre piscinas es orientativa: los récords oficiales son por piscina.</p>${convNota()}`;
+    <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 13-14, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad federativa en esa temporada: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad federativa que tenía (año en que termina la temporada − año de nacimiento, como cuenta la federación). La conversión entre piscinas es orientativa: los récords oficiales son por piscina.</p>${convNota()}`;
   onChips(app, 'cat', v => go({cat: v}));
   app.querySelectorAll('[data-rg] button').forEach(b => b.onclick = () => go({g: b.dataset.v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));

@@ -246,8 +246,9 @@ function convNota() {
   const ej = w['25m'] && w['50m'] ? ` Ejemplo (100 libre masculino, récords del mundo ${fmt(w['50m'])} en 50 m y ${fmt(w['25m'])} en 25 m): 1:00.00 en 25 m ≈ ${fmt(Math.round(6000 * w['50m'] / w['25m']))} en 50 m.` : '';
   return `<p class="tiny muted conv-nota">🔄 <b>Conversión entre piscinas</b>: equivalencia por puntos World Aquatics. Marca en la otra piscina = marca × récord del mundo de esa prueba y sexo en la piscina de destino ÷ récord del mundo en la piscina de origen; así las dos marcas valen los mismos puntos (1000 × (récord ÷ marca)³).${ej} Es orientativa: los rankings, los récords oficiales y las mínimas cuentan la marca real en su piscina.</p>`;
 }
-/* Edad del nadador: en una marca, año de la marca − año de nacimiento (como cuenta la federación);
-   en una temporada (de octubre a septiembre abarca dos años naturales), el rango «8-9 años» */
-const edadFecha = (d, y) => d && y ? +String(d).slice(0, 4) - y : null;
-const edadTemp = (t, y) => { const a = 2000 + +t.slice(0, 2) - y, b = 2000 + +t.slice(2) - y; return `${a}-${b} años`; };
+/* Edad federativa: año en que TERMINA la temporada − año de nacimiento. La temporada va de octubre a septiembre,
+   así que una marca de octubre de 2026 es de la 26-27 y cuenta con la edad de 2027 (Benicio, 2015 → 12 años). */
+const finTemp = d => +String(d).slice(0, 4) + (+String(d).slice(5, 7) >= 10 ? 1 : 0);
+const edadFecha = (d, y) => d && y ? finTemp(d) - y : null;
+const edadTemp = (t, y) => `${2000 + +t.slice(2) - y} años`;
 const edadTag = (d, y) => { const e = edadFecha(d, y); return e ? `<span class="edad">${e} años</span>` : ''; };

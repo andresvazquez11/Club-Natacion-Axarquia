@@ -653,7 +653,7 @@ EDAD_CAT = {**{e: 'PRE' for e in (7, 8, 9)}, 10: 'BEN', 11: 'BEN', 12: 'ALE', 13
 
 def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
     """{'g|cat|prueba|piscina': [[pid, cs, fecha ISO, nombre, año]]}: las `top` mejores marcas (de nadadores distintos)
-    hechas con el club, por categoría según la edad en el año de la marca (año de la marca − año de nacimiento)."""
+    hechas con el club, por categoría según la edad federativa (año en que termina la temporada − año de nacimiento)."""
     mejor = defaultdict(dict)
     for t, filas in filas_por_temporada.items():
         for r, d in limpiar(filas):
@@ -662,7 +662,7 @@ def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
             pl = r.get('id_tipo_piscina')
             if pl not in ('25m', '50m'):
                 continue
-            y = int(r['fecha_nacimiento']); cat = EDAD_CAT.get(d.year - y)
+            y = int(r['fecha_nacimiento']); cat = EDAD_CAT.get(d.year + (1 if d.month >= 10 else 0) - y)   # edad federativa
             if not cat:
                 continue
             k = f"{r['genero']}|{cat}|{r['estilo']}|{pl}"

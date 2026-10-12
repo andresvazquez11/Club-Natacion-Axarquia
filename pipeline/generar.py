@@ -485,7 +485,7 @@ def montar_html():
 
 def records_club(swimmers, hist):
     """Récords del club: las 3 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
-    (año de la marca − año de nacimiento), prueba y piscina → [[pid, cs, fecha, nombre, año]].
+    (edad federativa: año en que termina la temporada − año de nacimiento), prueba y piscina → [[pid, cs, fecha, nombre, año]].
     Temporadas cerradas desde la 13-14 en records_base.json.gz (también nadadores que ya no están) + marcas actuales."""
     import historial as H
     ruta = os.path.join(BASE_DIR, 'records_base.json.gz')
@@ -503,7 +503,7 @@ def records_club(swimmers, hist):
             d, cs, pool = x[0], x[1], x[2]
             if x[8] or pool not in ('25m', '50m'):
                 continue
-            cat = H.EDAD_CAT.get(int(d[:4]) - s['y'])
+            cat = H.EDAD_CAT.get(int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0) - s['y'])   # edad federativa
             if not cat:
                 continue
             k = f"{s['g']}|{cat}|{ev}|{pool}"
