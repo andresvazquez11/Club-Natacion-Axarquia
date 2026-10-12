@@ -229,3 +229,4 @@ function relevosDe(s) {
   return out;
 }
 const relNom = r => `${r.n}${r.g === 'X' ? '' : r.g === 'M' ? ' masculino' : ' femenino'}`;
+const relId = r => (r.g + '-' + r.n).replace(/[^A-Za-z0-9]+/g, '-');

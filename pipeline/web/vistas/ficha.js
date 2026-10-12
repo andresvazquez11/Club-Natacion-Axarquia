@@ -137,10 +137,11 @@ function insigniasCard(s) {
 function tabResumen(s) {
   const evY = s.ev.map(e => e.rk.y || {});
   const swims = []; s.ev.forEach(e => e.h.forEach(x => swims.push([x, e.e])));
-  const comps = {}; swims.forEach(([x]) => { const k = x[0] + '|' + x[3];
-    (comps[k] = comps[k] || {d: x[0], c: x[3], l: x[4], n: 0, pb: 0, pod: 0}); comps[k].n++; if (x[6] && x[6] <= 3) comps[k].pod++; });
+  const comps = {}; swims.forEach(([x, ev]) => { const k = x[0] + '|' + x[3];
+    (comps[k] = comps[k] || {d: x[0], c: x[3], l: x[4], n: 0, pb: 0, pod: 0, sw: []}); comps[k].n++; comps[k].sw.push([ev, x]); if (x[6] && x[6] <= 3) comps[k].pod++; });
+  const esPb = new Set();     // marcas que fueron mejor marca personal (en su piscina) el día que se nadaron
   s.ev.forEach(e => { const bp = {}; [...e.h].sort((a, b) => a[0] < b[0] ? -1 : 1).forEach(x => {
-    if (bp[x[2]] === undefined || x[1] < bp[x[2]]) { if (bp[x[2]] !== undefined) comps[x[0] + '|' + x[3]].pb++; bp[x[2]] = x[1]; } }); });
+    if (bp[x[2]] === undefined || x[1] < bp[x[2]]) { if (bp[x[2]] !== undefined) { comps[x[0] + '|' + x[3]].pb++; esPb.add(x); } bp[x[2]] = x[1]; } }); });
   const cl = Object.values(comps).sort((a, b) => a.d < b.d ? 1 : -1);
   const wins = swims.filter(([x]) => x[6] === 1).length, pods = swims.filter(([x]) => x[6] && x[6] <= 3).length;
   const mn = s.cat === 'ALE' ? minimasDe(s) : null;
@@ -168,10 +169,15 @@ function tabResumen(s) {
     <div class="grid g2"><div class="card"><h3>Por estilo</h3>${toBars(pSt)}</div><div class="card"><h3>Por distancia</h3>${toBars(pDi)}</div></div>
     <h2 class="st">🗓️ Actividad</h2>
     <div class="grid g2"><div class="card"><h3>Pruebas nadadas por mes</h3>${barsHTML(mBars)}</div>
-      <div class="card"><h3>Competiciones <span class="muted small">(${cl.length})</span></h3><div style="max-height:360px;overflow-y:auto">
-        <table class="rt cards"><tr><th>Fecha</th><th>Competición</th><th class="num">Pruebas</th><th class="num">Mejoras</th><th class="num">Podios</th></tr>
-        ${cl.map(c => `<tr><td class="t" data-l="">${dtag(c.d)}&nbsp; <span class="small m-only">${esc(c.c)}</span></td><td data-l="Competición" class="hide-m" style="white-space:normal">${esc(c.c)}<div class="tiny muted">${esc(c.l)}</div></td>
-          <td class="num" data-l="Pruebas">${c.n}</td><td class="num" data-l="Mejoras">${c.pb ? `<span class="good">${c.pb}</span>` : '—'}</td><td class="num" data-l="Podios">${c.pod || '—'}</td></tr>`).join('')}</table></div></div></div>`;
+      <div class="card"><h3>Competiciones <span class="muted small">(${cl.length}) · pulsa una para ver sus pruebas</span></h3><div style="max-height:520px;overflow-y:auto">
+        ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}</span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
+            <span class="tiny">${c.n} prueba${c.n > 1 ? 's' : ''}${c.pb ? ` · <span class="good">${c.pb} mejora${c.pb > 1 ? 's' : ''}</span>` : ''}${c.pod ? ` · 🏅 ${c.pod} podio${c.pod > 1 ? 's' : ''}` : ''}</span></span></summary>
+          <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">
+            <td><b>${ev}</b> <span class="of">${x[2]}</span>${x[9] && x[9].length ? `<div class="tiny muted">también ${x[9].map(o => fmt(o[0])).join(', ')}</div>` : ''}</td>
+            <td class="num"><b>${esPb.has(x) ? '<span class="sun">★ </span>' : ''}${fmt(x[1])}</b></td>
+            <td>${x[6] ? posB(x[6]) + `<span class="of">de ${x[7]}</span>` : '<span class="muted">—</span>'}</td>
+            <td class="num">${x[5] || '—'} <span class="of">pts</span></td></tr>`).join('')}</table>
+          <p class="tiny muted" style="margin-top:4px">★ = mejor marca personal ese día · puesto entre los nacidos en ${s.y} · pulsa una prueba para ver su evolución.</p></details>`).join('')}</div></div></div>`;
 }
 
 /* El análisis de varias temporadas (historial.json) se suma al del Resumen: un único análisis, sin frases repetidas */
@@ -237,7 +243,7 @@ function relevosFicha(s) {
   const rd = relevosDe(s);
   const c = REL.cats.find(x => x.key === s.cat);
   if (!c) return '';
-  const fila = x => `<tr><td class="t" data-l=""><b>${x.r.n}</b> <span class="of">${x.pl.replace('m', ' m')}</span></td>
+  const fila = x => `<tr class="click" data-goto="#club/${s.cat}/relevos?pl=${x.pl}&lv=an&r=${relId(x.r)}"><td class="t" data-l=""><b>${x.r.n}</b> <span class="of">${x.pl.replace('m', ' m')}</span> <span class="sun">›</span></td>
     <td data-l="Situación">${x.rol === 'T' ? `<span class="good"><b>✓ Titular</b></span> · ${x.r.tipo === 'E' ? 'posta de ' + strokeOf(x.leg).toLowerCase() : x.leg} · <b>${fmt(x.cs)}</b>`
       : x.rol === 'I' ? `En el equipo (${x.leg} · <b>${fmt(x.cs)}</b>), pero <span class="bad">faltan relevistas</span>`
       : x.need === null ? `Sin marca en ${x.leg} en piscina de ${x.pl.replace('m', ' m')}: <span class="good">con cualquier marca entraría</span> (al equipo le faltan relevistas)`
@@ -246,7 +252,7 @@ function relevosFicha(s) {
     <td data-l="Equipo">${x.P.tot ? `<b>${fmt(x.P.tot)}</b> <span class="of">${x.P.lv.an.pos ? x.P.lv.an.pos + 'º Andalucía' : ''}</span>` : '<span class="muted">incompleto</span>'}</td></tr>`;
   return `<h2 class="st">🤝 Relevos del club</h2>
     <p class="small muted" style="margin-bottom:10px">Relevo teórico con las mejores marcas de los últimos 14 meses (regla «suma de tiempos»). <a class="sun" href="#club/${s.cat}/relevos">Ver todos los relevos de ${esc(s.catl)} →</a></p>
-    ${rd.length ? `<table class="rt cards"><tr><th>Relevo</th><th>Situación</th><th>Equipo del club</th></tr>${rd.map(fila).join('')}</table>`
+    ${rd.length ? `<table class="rt cards"><tr><th>Relevo</th><th>Situación</th><th>Equipo del club</th></tr>${rd.map(fila).join('')}</table><p class="tiny muted" style="margin-top:6px">Pulsa un relevo para ver el equipo completo, sus marcas y quién más puede entrar.</p>`
       : `<p class="empty">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`}`;
 }
 function tabObjetivos(s) {
@@ -381,6 +387,7 @@ function vistaFicha(app, s, tab, p) {
   if (tab === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);
   if (tab === 'objetivos') pintarClasif(s);
   if (tab === 'resumen') pintarAnalisis(s);
+  app.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { location.hash = el.dataset.goto; });
   app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
     if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">✓ conseguida</span>' : ''}`; });
   bindPisc(app);

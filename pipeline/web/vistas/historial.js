@@ -145,7 +145,7 @@ function rankChart(pts, modo) {
   const totUlt = pts[pts.length - 1][2];
   [[10, 'top-10', 'rgba(255,214,10,.16)'], [25, 'top-25', 'rgba(124,245,180,.10)'], [Math.round(totUlt / 2), 'mitad', 'rgba(255,255,255,.05)']]
     .reduce((ant, [lim, lbl, col]) => { if (lim > ant && ant < bot) { const y0 = Y(Math.max(ant, top) + (ant ? 0.5 : 0)), y1 = Y(Math.min(lim, bot) + 0.5);
-      g += `<rect x="${P.l}" y="${ant ? y0 : P.t}" width="${W - P.l - P.r}" height="${Math.max(0, y1 - (ant ? y0 : P.t))}" fill="${col}"/><text x="${W - P.r - 4}" y="${(ant ? y0 : P.t) + 12}" fill="rgba(202,240,248,.7)" font-size="10" text-anchor="end">${lbl}</text>`; } return Math.max(ant, lim); }, 0);
+      g += `<rect x="${P.l}" y="${ant ? y0 : P.t}" width="${W - P.l - P.r}" height="${Math.max(0, y1 - (ant ? y0 : P.t))}" fill="${col}"/><text x="${P.l + 4}" y="${(ant ? y0 : P.t) + 12}" fill="rgba(202,240,248,.7)" font-size="10" text-anchor="start">${lbl}</text>`; } return Math.max(ant, lim); }, 0);
   for (let k = 0; k <= 4; k++) { const v = Math.round(top + (bot - top) * k / 4), y = Y(v);
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.1)"/><text x="${P.l - 6}" y="${y + 4}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="end">${v}º</text>`; }
   const paso = Math.ceil(n / (movil ? 4 : 8));
@@ -161,7 +161,11 @@ function rankChart(pts, modo) {
     const prevP = pts.slice(0, i).reverse().find(y => y[1]);
     // número de puesto junto al punto: cuando cambia, en su mejor puesto y en la última semana (sin amontonar)
     // puesto escrito en todos los puntos que quepan sin pisarse (siempre en la última semana y en su mejor puesto)
-    const etiq = cx - ultEtiq > (movil ? 20 : 17) || i === n - 1 || b;
+    // puesto escrito solo donde cambia: primer y último punto de cada tramo con el mismo puesto (y su mejor puesto);
+    // el resto se ve al pulsar el punto
+    const ant = pts[i - 1], sig = pts[i + 1];
+    const cambia = !ant || ant[1] !== x[1] || !sig || sig[1] !== x[1];
+    const etiq = (cambia || (b && !pts.slice(0, i).some(y => y[1] === mejor))) && (cx - ultEtiq > (movil ? 20 : 17) || i === n - 1);
     if (etiq) ultEtiq = cx;
     g += `<g class="rk-pt" data-rk="${i}" style="cursor:pointer"><title>${dfmt(x[0])} · ${x[1]}º de ${x[2]} · pulsa para ver el detalle</title>
       <circle cx="${cx}" cy="${cy}" r="14" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${b ? 5.5 : 3.5}" fill="${b ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="1.5"/>

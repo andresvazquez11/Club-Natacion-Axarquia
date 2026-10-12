@@ -105,7 +105,7 @@ function relCard(r, pl, lv) {
   const clubes = L.rows.length ? `<details class="rel-det"><summary>🏁 Mejores clubes · ${LV.find(x => x[0] === lv)[1]}</summary>
       <table class="rt" style="margin-top:6px">${L.rows.map((x, k) => (k && x[0] - L.rows[k - 1][0] > 1 ? '<tr class="sep"><td colspan="3">· · ·</td></tr>' : '') +
         `<tr class="${x[3] ? 'me' : ''}"><td style="width:44px">${posB(x[0])}</td><td>${club(x[1])}</td><td class="num"><b>${fmt(x[2])}</b></td></tr>`).join('')}</table></details>` : '';
-  return `<div class="card rel ${eq && P.eq.some(x => SW[String(x[0])] && SW[String(x[0])].benicio) ? 'ben' : ''}">
+  return `<div class="card rel ${eq && P.eq.some(x => SW[String(x[0])] && SW[String(x[0])].benicio) ? 'ben' : ''}" id="rel-${relId(r)}">
     <div class="bar-row" style="margin:0 0 6px"><h3 style="margin:0">${r.n}</h3>
       ${completo ? `<b class="sun rel-tot">${fmt(P.tot)}</b>` : `<span class="small bad">Faltan ${4 - P.eq.length} relevista${4 - P.eq.length > 1 ? 's' : ''}</span>`}</div>
     ${completo ? `<div class="rel-poss">${posTxt}</div>` : `<p class="small muted">El club no tiene ${r.g === 'X' ? '2 chicos y 2 chicas' : '4 nadadores'} con marca en estas pruebas en piscina de ${pl.replace('m', ' m')} en los últimos 14 meses.</p>`}
@@ -117,10 +117,10 @@ function relCard(r, pl, lv) {
 function clubRelevos(app, p, c, cats, head) {
   const R = REL.cats.find(x => x.key === c.key);
   const pl = p.pl === '25m' ? '25m' : '50m', lv = ['ma', 'an', 'es'].includes(p.lv) ? p.lv : 'an';
-  const go = o => { const q = Object.assign({pl, lv}, o); location.hash = `#club/${o.cat || c.key}/relevos?pl=${q.pl}&lv=${q.lv}`; };
+  const go = o => { const q = Object.assign({pl, lv}, o); location.hash = `#club/${o.cat || c.key}/relevos?pl=${q.pl}&lv=${q.lv}${p.r && !o.cat ? '&r=' + p.r : ''}`; };
   const grupo = (g, t) => { const rs = R.rel.filter(r => r.g === g); if (!rs.length) return '';
     return `<h2 class="st">${t}</h2><div class="grid g2">${rs.map(r => relCard(r, pl, lv)).join('')}</div>`; };
-  app.innerHTML = `${head}
+  app.innerHTML = `${p.r ? '<a class="back" href="#" id="rel-back">‹ Volver</a>' : ''}${head}
     <div class="note">🤝 <b>Relevo teórico</b>: suma de las mejores marcas de 4 nadadores del club en los <b>últimos 14 meses</b> (desde el ${dfmt(REL.desde)}), como en la regla «suma de tiempos» de la RFEN y la FAN. El puesto se calcula haciendo lo mismo con todos los clubes.
       <details style="margin-top:4px"><summary class="sun" style="cursor:pointer">Más información</summary>La RFEN no publica un ranking de relevos de clubes. Para inscribir un relevo en los Campeonatos de Andalucía de invierno se usa la suma de las marcas individuales de los 4 relevistas (circular FAN NAT.01/26). ${R && R.fuente ? `Mínimas: ${R.fuente}; las de 2027 aún no se han publicado.` : ''}</details></div>
     <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', cats.map(x => [x.key, `${x.label} <span class="n">${x.yrs.join('-')}</span>`]), c.key)}</div>
@@ -128,6 +128,11 @@ function clubRelevos(app, p, c, cats, head) {
       <div class="seg" data-rlv2>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     ${R ? grupo('M', '♂ Masculino') + grupo('F', '♀ Femenino') + grupo('X', '⚥ Mixtos <span class="muted small">· 2 chicos y 2 chicas</span>') : '<p class="empty">Esta categoría no tiene relevos.</p>'}
     <p class="tiny muted" style="margin-top:12px">Pruebas de relevos de los programas oficiales 26-27 (Campeonatos de Andalucía de la FAN y de España de la RFEN). En los relevos de estilos el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido. 25 m y 50 m no se mezclan. ${c.key === 'JUN' ? 'En junior no se incluyen los nacidos en 2009.' : ''}</p>`;
+  const vb = document.getElementById('rel-back'); if (vb) vb.onclick = ev => { ev.preventDefault(); history.back(); };
+  // llegada desde la ficha (Objetivos): se abre y resalta ese relevo
+  const foco = p.r && document.getElementById('rel-' + p.r);
+  if (foco) { foco.classList.add('foco'); foco.querySelectorAll('details').forEach(d => d.open = true);
+    setTimeout(() => window.scrollTo(0, scrollY + foco.getBoundingClientRect().top - 70), 0); }
   onChips(app, 'cat', v => go({cat: v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
   app.querySelectorAll('[data-rlv2] button').forEach(b => b.onclick = () => go({lv: b.dataset.v}));
