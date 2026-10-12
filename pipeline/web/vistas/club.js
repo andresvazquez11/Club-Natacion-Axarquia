@@ -33,10 +33,10 @@ function vistaClub(app, p) {
 
   app.innerHTML = `
     <div class="hd"><div><h1>👥 Club por categorías</h1><p>Chicos y chicas juntos; filtra por sexo o por año. Los puestos son siempre <b>entre los de su mismo sexo y año</b>.</p></div></div>
-    <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', DATA.cats.map(x => [x.key, `${x.label} <span class="n">${x.yrs.join('-')}</span>`, x.ids.length]), c.key)}</div>
+    <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', DATA.cats.map(x => [x.key, `${x.label} <span class="n">${x.yrs.join('-')}</span>`, x.ids.filter(id => g === 'all' || SW[String(id)].g === g).length]), c.key)}</div>
     <div class="grid g2" style="gap:6px 12px">
-      <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.length], ['M', '♂ Chicos', base.filter(s => s.g === 'M').length], ['F', '♀ Chicas', base.filter(s => s.g === 'F').length]], g)}</div>
-      <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos'], ...c.yrs.map(yr => [yr, `${yr} <span class="n">${c.yrs.indexOf(yr) === c.yrs.length - 1 ? '1er' : '2º'} año</span>`, base.filter(s => s.y === yr).length])], y)}</div>
+      <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.filter(s => y === 'all' || String(s.y) === String(y)).length], ...['M', 'F'].map(x => [x, x === 'M' ? '♂ Chicos' : '♀ Chicas', base.filter(s => s.g === x && (y === 'all' || String(s.y) === String(y))).length])], g)}</div>
+      <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos', base.filter(s => g === 'all' || s.g === g).length], ...c.yrs.map(yr => [yr, `${yr} <span class="n">${c.yrs.indexOf(yr) === c.yrs.length - 1 ? '1er' : '2º'} año</span>`, base.filter(s => s.y === yr && (g === 'all' || s.g === g)).length])], y)}</div>
     </div>
     <div class="kpis k5" style="margin:4px 0 14px">
       <button class="kpi hl" ${ds('sw|')}><b>${list.length}</b><span>nadadores</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>

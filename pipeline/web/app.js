@@ -9,11 +9,15 @@ let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
 let volverA = null;         // pantalla a la que lleva el botón «Volver» de la ficha
 const scrollPos = {};       // altura de scroll de cada pantalla visitada
+let RESTORE_Y = null;       // al cambiar un filtro dentro de la misma pantalla, altura a recuperar tras dibujar
 function route() {
   closeEvo();
   const app = document.getElementById('app');
   const {parts, params} = parseHash();
   let sec = parts[0] || 'inicio';
+  const yAntes = window.scrollY;
+  const keyAntes = sec + '/' + (parts[1] || '') + '/' + (sec === 'nadador' || sec === 'benicio' ? (parts[sec === 'nadador' ? 2 : 1] || '') : '');
+  RESTORE_Y = keyAntes === lastSec ? yAntes : null;
   // Al entrar en una ficha desde otra pantalla, se guarda esa pantalla para «Volver».
   // Cambiar de pestaña o filtro dentro de la misma ficha no la sustituye.
   const fichaDe = h => { const m = (h || '').match(/^#(benicio|nadador\/\d+)/); return m ? m[1] : null; };
@@ -39,6 +43,7 @@ function route() {
   const key = sec + '/' + (parts[1] || '') + '/' + (sec === 'nadador' || sec === 'benicio' ? (parts[sec === 'nadador' ? 2 : 1] || '') : '');
   // al volver a una pantalla ya vista se recupera su altura; si es nueva, se empieza arriba
   if (key !== lastSec) window.scrollTo(0, scrollPos[location.hash || '#inicio'] || 0);
+  else window.scrollTo(0, yAntes);      // mismo apartado (p. ej. otra prueba): no saltar arriba
   lastSec = key;
 }
 

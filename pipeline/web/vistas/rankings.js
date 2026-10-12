@@ -29,7 +29,7 @@ function vistaRankings(app, p) {
     <div class="hd"><div><h1>📊 Rankings</h1><p>Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo.</p></div></div>
     <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', '♂ Masculino'], ['F', '♀ Femenino']], g)}</div>
     <div class="flt"><span class="flt-l">Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
-    <div class="flt"><span class="flt-l">Prueba</span>${chipsHTML('ev', pruebas.map(x => [x, x]), ev)}</div>
+    ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])))}
     <div class="flt"><span class="flt-l">Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, l]), lv)}</div>
     <div class="card">${tabla}</div>`;
 

@@ -27,8 +27,9 @@ HTML_OUT = os.environ.get('CNA_OUT', os.path.expanduser('~/Desktop/CNA_Temporada
 HIST_BASE = os.path.join(BASE_DIR, 'historial_base.json.gz')
 MARCAS_2526 = os.path.join(BASE_DIR, 'marcas_2526.json.gz')
 CLUB_OUT = os.environ.get('CNA_CLUB_OUT', os.path.join(os.path.dirname(os.path.abspath(HTML_OUT)), 'club.html'))   # 25-26 cerrada: no hace falta volver a descargarla
-HIST_RANK = os.environ.get('CNA_HIST_RANK', os.path.join(os.path.dirname(BASE_DIR), 'historico_ranking.json'))
+HIST_RANK = os.environ.get('CNA_HIST_RANK', os.path.join(os.path.dirname(BASE_DIR), 'historico_ranking.json.gz'))
 HIST_OUT = os.environ.get('CNA_HIST_OUT', os.path.join(os.path.dirname(os.path.abspath(HTML_OUT)), 'historial.json'))
+RANK_OUT = os.path.join(os.path.dirname(os.path.abspath(HIST_OUT)), 'ranking.json')   # se carga solo en la pestaña Ranking
 WEB_DIR  = os.path.join(BASE_DIR, 'web')   # plantilla, estilos y JS de la página
 
 CLUB_MATCH = 'AXARQ'
@@ -495,19 +496,24 @@ def escribir_historial(swimmers, rows_new):
     clasif = H.clasificacion_andalucia(marcas, info, club)
 
     # fotos del ranking: se añaden las semanas que falten y se rehace la semana en curso
-    guardadas = json.load(open(HIST_RANK, encoding='utf-8')) if os.path.exists(HIST_RANK) else {}
+    guardadas = H.cargar(HIST_RANK) if os.path.exists(HIST_RANK) else {}
     hoy = date.today()
     actual = hoy - timedelta(days=(hoy.weekday() + 1) % 7)          # último domingo
     desde = (datetime.strptime(max(guardadas), '%Y-%m-%d').date() + timedelta(days=7)) if guardadas else date(2025, 10, 5)
-    semanas = sorted(set(H.domingos(min(desde, actual), actual)))
+    semanas = set(H.domingos(min(desde, actual), actual))
+    if guardadas:          # la última semana guardada se recalcula solo como referencia para saber quién le adelantó
+        semanas.add(datetime.strptime(max(guardadas), '%Y-%m-%d').date())
+    semanas = sorted(semanas)
     fotos = H.fusionar_fotos(guardadas, H.fotos(marcas, info, club, semanas), sobrescribir={actual.isoformat()})
-    with open(HIST_RANK, 'w', encoding='utf-8') as f:
+    import gzip
+    with gzip.open(HIST_RANK, 'wt', 9, encoding='utf-8') as f:
         json.dump(fotos, f, ensure_ascii=False, separators=(',', ':'))
 
-    out = {'fecha': hoy.strftime('%d/%m/%Y'), 'temps': por_nad, 'an': analisis, 'rank': H.para_pagina(fotos, club),
-           'clasif': clasif}
+    out = {'fecha': hoy.strftime('%d/%m/%Y'), 'temps': por_nad, 'an': analisis, 'clasif': clasif}
     with open(HIST_OUT, 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
+    with open(RANK_OUT, 'w', encoding='utf-8') as f:
+        json.dump(H.para_pagina(fotos, club), f, ensure_ascii=False, separators=(',', ':'))
     print(f'Historial: {sum(len(v) for v in por_nad.values())} temporadas-nadador · {len(fotos)} semanas de ranking · '
           f'{os.path.getsize(HIST_OUT) / 1e6:.1f} MB → {HIST_OUT}')
 

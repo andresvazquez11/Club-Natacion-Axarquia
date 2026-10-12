@@ -251,8 +251,8 @@ def analisis(temps, pid=None, ambito=None, coh=None, club_niv=None):
                       ' → '.join(f'{etiqueta(t)} <b>{r[0]}º</b>/{r[1]}' for t, r in serie) + '.'])
             p0, p1 = serie[0][1][0] / serie[0][1][1], serie[-1][1][0] / serie[-1][1][1]
             (B if p1 < p0 else M).append(['🏅' if p1 < p0 else '⬇️',
-                f'En {ev} ha {"subido" if p1 < p0 else "bajado"} en el ranking de España: del top {max(1, round(p0 * 100))}% '
-                f'al <b>top {max(1, round(p1 * 100))}%</b>.'])
+                f'En {ev} ha {"subido" if p1 < p0 else "bajado"} en el ranking de España: del {serie[0][1][0]}º de {serie[0][1][1]} '
+                f'({etiqueta(serie[0][0])}) al <b>{serie[-1][1][0]}º de {serie[-1][1][1]}</b> ({etiqueta(serie[-1][0])}).'])
 
     # última temporada cerrada frente a la anterior
     if len(cerradas) >= 2:
@@ -434,23 +434,33 @@ COLS = [('T', 'es'), ('T', 'an'), ('T', 'ma'), ('A', 'es'), ('A', 'an'), ('A', '
 
 def fotos(marcas, prov, club, semanas):
     """Foto de cada semana W (formato compacto, para guardar muchas semanas):
-         {W: {'p': {pid: {prueba: [6 puestos]}}, 't': {'M|2015|50 Mariposa': [6 totales]}}}
+         {W: {'p': {pid: {prueba: [6 puestos]}},
+              't': {'M|2015|50 Mariposa': [6 totales]},
+              'c': {pid: {prueba: [marcaT, fechaT, marcaA, fechaA]}},          ← su marca y la fecha en que la hizo
+              'x': {pid: {prueba: {col: [[pid_rival, marca, fecha], …, [0, cuántos más, 0]]}}},  ← quién le adelantó
+              'n': {pid_rival: [nombre, club]}}}
        Orden de las 6 cifras: COLS (temporada España/Andalucía/Málaga, 12 meses España/Andalucía/Málaga).
-       0 = sin marca en ese modo o nivel."""
+       0 = sin marca en ese modo o nivel. Las fechas son ordinales (date.toordinal()).
+       «Le adelantaron» solo se calcula cuando baja de puesto respecto a la semana anterior de la lista."""
     res = {}
     club_por_ambito = defaultdict(set)
     for pid, (g, y) in club.items():
         club_por_ambito[(g, y)].add(pid)
+    semanas = sorted(semanas)
     for (g, y, ev), M in marcas.items():
         nuestros = club_por_ambito[(g, y)]
         if not any(m[2] in nuestros for m in M):
             continue
         fechas = [m[0] for m in M]
         clave = f'{g}|{y}|{ev}'
+        ant = {'T': None, 'A': None}           # (semana, mejores, puestos) de la semana anterior, por modo
         for W in semanas:
             fin = bisect.bisect_right(fechas, W)
             tw = temporada_de(W)
             pos, tot = defaultdict(lambda: [0] * 6), [0] * 6
+            marca = defaultdict(lambda: [0, 0, 0, 0])
+            adel = defaultdict(dict)
+            nombres = {}
             for k, modo in enumerate(('T', 'A')):
                 best = {}
                 if modo == 'T':      # todas las marcas de la temporada RFEN de esa semana, hasta W
@@ -458,12 +468,14 @@ def fotos(marcas, prov, club, semanas):
                 else:                # mejor marca de los últimos 365 días
                     sel = M[bisect.bisect_right(fechas, W - timedelta(days=365)):fin]
                 for d, cs, pid, *_ in sel:
-                    if pid not in best or cs < best[pid]:
-                        best[pid] = cs
+                    if pid not in best or cs < best[pid][0]:
+                        best[pid] = (cs, d)
+                prev = ant[modo]
+                ant[modo] = None
                 if not any(p in best for p in nuestros):
                     continue
                 vals = {lv: [] for lv in NIVELES}
-                for pid, cs in best.items():
+                for pid, (cs, _) in best.items():
                     a, m = prov.get(pid, (False, False))[:2]
                     vals['es'].append(cs)
                     if a:
@@ -473,18 +485,49 @@ def fotos(marcas, prov, club, semanas):
                 for j, lv in enumerate(NIVELES):
                     vals[lv].sort()
                     tot[k * 3 + j] = len(vals[lv])
+                comparable = prev and (W - prev[0]).days == 7 and (modo == 'A' or temporada_de(prev[0]) == tw)
                 for pid in nuestros:
                     if pid not in best:
                         continue
+                    mi, md = best[pid]
+                    marca[pid][k * 2], marca[pid][k * 2 + 1] = mi, md.toordinal()
                     a, m = prov.get(pid, (False, False))[:2]
                     for j, (lv, dentro) in enumerate((('es', True), ('an', a), ('ma', m))):
-                        if dentro:
-                            pos[pid][k * 3 + j] = bisect.bisect_left(vals[lv], best[pid]) + 1
+                        if not dentro:
+                            continue
+                        col = k * 3 + j
+                        pos[pid][col] = bisect.bisect_left(vals[lv], mi) + 1
+                        # ¿bajó de puesto? → quién le adelantó (nadadores que esta semana pasan a estar por delante)
+                        if comparable and pid in prev[2] and prev[2][pid][col] and pos[pid][col] > prev[2][pid][col]:
+                            mi0 = prev[1].get(pid, (mi,))[0]
+                            nuevos = []
+                            for q, (cs, d) in best.items():
+                                if q == pid or cs >= mi:
+                                    continue
+                                if lv != 'es':
+                                    aq, mq = prov.get(q, (False, False))[:2]
+                                    if (lv == 'an' and not aq) or (lv == 'ma' and not mq):
+                                        continue
+                                antes = prev[1].get(q)
+                                if antes is None or antes[0] >= mi0:
+                                    nuevos.append((cs, q, d))
+                            nuevos.sort()
+                            # los 3 que más le superan + cuántos más (los nombres se guardan aparte, una vez por semana)
+                            adel[pid][str(col)] = [[q, cs, d.toordinal()] for cs, q, d in nuevos[:3]] + \
+                                                  ([[0, len(nuevos) - 3, 0]] if len(nuevos) > 3 else [])
+                            for cs, q, d in nuevos[:3]:
+                                nombres[q] = list(prov.get(q, (0, 0, '?', ''))[2:4])
+                ant[modo] = (W, best, {p: list(pos[p]) for p in nuestros if p in pos})
             if pos:
-                wk = res.setdefault(W.isoformat(), {'p': {}, 't': {}})
+                wk = res.setdefault(W.isoformat(), {'p': {}, 't': {}, 'c': {}, 'x': {}, 'n': {}})
+                wk['n'].update({str(q): v for q, v in nombres.items()})
                 wk['t'][clave] = tot
                 for pid, v in pos.items():
                     wk['p'].setdefault(str(pid), {})[ev] = v
+                    wk['c'].setdefault(str(pid), {})[ev] = marca[pid]
+                for pid, v in adel.items():
+                    if v:
+                        wk['x'].setdefault(str(pid), {})[ev] = v
     return res
 
 
@@ -498,10 +541,12 @@ def fusionar_fotos(guardadas, nuevas, sobrescribir=()):
 
 
 def para_pagina(fotos_guardadas, club):
-    """Para la página: {'s': [semanas], 'p': {pid: {prueba: [[6 puestos]|0 por semana]}}, 't': {ámbito|prueba: [[6 totales] por semana]}}."""
+    """Para la página: {'s': [semanas], 'p': {pid: {prueba: [[6 puestos]|0 por semana]}},
+    'c': {pid: {prueba: [[marcaT, fechaT, marcaA, fechaA]|0 por semana]}}, 'x': {pid: {prueba: {i_semana: {col: […]}}}},
+    't': {ámbito|prueba: [[6 totales] por semana]}}."""
     semanas = sorted(fotos_guardadas)
     ids = {str(k) for k in club}
-    P, T = {}, {}
+    P, C, X, T, N = {}, {}, {}, {}, {}
     for i, wk in enumerate(semanas):
         F = fotos_guardadas[wk]
         for pid, evs in F['p'].items():
@@ -509,6 +554,15 @@ def para_pagina(fotos_guardadas, club):
                 continue
             for ev, v in evs.items():
                 P.setdefault(pid, {}).setdefault(ev, [0] * len(semanas))[i] = v
+        for pid, evs in F.get('c', {}).items():
+            if pid in ids:
+                for ev, v in evs.items():
+                    C.setdefault(pid, {}).setdefault(ev, [0] * len(semanas))[i] = v
+        for pid, evs in F.get('x', {}).items():
+            if pid in ids:
+                for ev, v in evs.items():
+                    X.setdefault(pid, {}).setdefault(ev, {})[str(i)] = v
         for k, v in F['t'].items():
             T.setdefault(k, [0] * len(semanas))[i] = v
-    return {'s': semanas, 'cols': [f'{m}{lv}' for m, lv in COLS], 'p': P, 't': T}
+        N.update(F.get('n', {}))
+    return {'s': semanas, 'cols': [f'{m}{lv}' for m, lv in COLS], 'p': P, 'c': C, 'x': X, 't': T, 'n': N}

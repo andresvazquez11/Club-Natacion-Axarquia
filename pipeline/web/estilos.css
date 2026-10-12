@@ -212,5 +212,10 @@ ul.ins li .ins-i{position:absolute;left:0;top:0;font-style:normal}
 .flag{display:inline-block;vertical-align:-1px;border-radius:2px;flex-shrink:0}
 
 /* mapa de pruebas × temporadas del historial */
-.hmap th,.hmap td{padding:6px 5px;font-size:.78rem}
+.hmap th,.hmap td{padding:6px 6px;font-size:.78rem;white-space:nowrap;vertical-align:top}
 .hmap td:first-child{white-space:normal;min-width:76px}
+
+/* selector de prueba: estilo arriba, distancia debajo */
+.psel .chips + .chips.sub{margin-top:2px}
+.chips.sub .chip{min-height:32px;font-size:.78rem;padding:0 12px;background:rgba(3,4,94,.35)}
+.chips.sub .chip.on{background:#fff;color:var(--navy);border-color:#fff}

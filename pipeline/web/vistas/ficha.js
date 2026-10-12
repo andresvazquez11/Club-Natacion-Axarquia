@@ -1,8 +1,8 @@
 /* ⭐ Ficha de atleta con pestañas (la de Benicio y la de cualquier nadador) */
 
 function fichaTabs(s) {
-  const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['evolucion', 'Evolución'], ['rivales', 'Rivales'],
-             ['historial', 'Historial'], ['ranking', 'Ranking']];
+  // «Evolución» reúne el historial de 6 temporadas y todas las marcas de cada prueba (antes eran dos pestañas)
+  const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['historial', 'Evolución'], ['rivales', 'Rivales'], ['ranking', 'Ranking']];
   if (s.cat === 'ALE') t.push(['minimas', 'Mínimas España']);
   if ((DATA.claves_by || {})[String(s.id)]) t.push(['andalucia', 'Cto. Andalucía']);
   return t;
@@ -16,10 +16,14 @@ function minimasDe(s) {
     const e = evMap[ev], bp = e ? bestPoolMarks(e) : {}, r = {ev, e, pools: {}};
     ['50m', '25m'].forEach(pl => { const m = MINIMAS[pl][s.g][ev][age], x = bp[pl];
       r.pools[pl] = {min: m, min13: MINIMAS[pl][s.g][ev][13], x, d: x ? x[1] - m : null, p: x ? (x[1] - m) / m * 100 : null}; });
-    const ps = ['50m', '25m'].map(pl => r.pools[pl].p).filter(v => v !== null);
-    r.bestp = ps.length ? Math.min(...ps) : null; return r; });
+    const ps = ['50m', '25m'].filter(pl => r.pools[pl].p !== null).map(pl => [r.pools[pl].p, pl]);
+    const b = ps.length ? ps.reduce((a, c) => c[0] < a[0] ? c : a) : null;
+    r.bestp = b ? b[0] : null; r.bestpl = b ? b[1] : null; r.bestd = b ? r.pools[b[1]].d : null; return r; });
   return {age, rows, ok: rows.filter(r => r.bestp !== null && r.bestp <= 0).length};
 }
+
+/* «a 2.31 s (7.2%) en 25 m» o «✓ conseguida (−0.40 s)» */
+const faltaTxt = r => r.bestd <= 0 ? `✓ conseguida (−${secs(r.bestd)} s)` : `a <b>${secs(r.bestd)} s</b> (${r.bestp.toFixed(1)}%, ${r.bestpl})`;
 
 function analisis(s) {
   const F = [], M = [];
@@ -33,16 +37,16 @@ function analisis(s) {
   const cto = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3);
   if (cto.length) F.push(['🏆', `Podios en campeonatos: ${cto.map(x => `<b>${x.pos}º ${x.ev}</b> (${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'})`).join(', ')}.`]);
   const prog = s.ev.map(e => { const h = e.h.filter(x => x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1);
-    return {e, n: h.length, imp: h.length > 1 ? (h[0][1] - e.cs) / h[0][1] * 100 : 0}; });
+    return {e, n: h.length, imp: h.length > 1 ? (h[0][1] - e.cs) / h[0][1] * 100 : 0, seg: h.length > 1 ? h[0][1] - e.cs : 0}; });
   const bestProg = prog.filter(p => p.n > 2 && p.imp > 0).sort((a, b) => b.imp - a.imp).slice(0, 3);
-  if (bestProg.length) F.push(['📈', `Mayor progresión: ${bestProg.map(p => `<b>${p.e.e}</b> (−${p.imp.toFixed(1)}%)`).join(', ')}.`]);
+  if (bestProg.length) F.push(['📈', `Mayor progresión: ${bestProg.map(p => `<b>${p.e.e}</b> (−${secs(p.seg)} s, ${p.imp.toFixed(1)}%)`).join(', ')}.`]);
   if (s.cat === 'ALE') {
     const mn = minimasDe(s), close = mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp);
-    if (close.length) F.push(['🎯', `Más cerca de la mínima de España (${mn.age} años): ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${r.bestp <= 0 ? '✓ conseguida' : 'a ' + pctTxt(r.bestp)})`).join(', ')}.`]);
+    if (close.length) F.push(['🎯', `Más cerca de la mínima de España (${mn.age} años): ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
     const pend = mn.rows.filter(r => !r.e).map(r => r.ev);
     if (pend.length) M.push(['🆕', `Pruebas del Campeonato de España que aún no ha nadado: ${pend.join(', ')}.`]);
     const far = mn.rows.filter(r => r.bestp !== null && r.bestp > 10).sort((a, b) => b.bestp - a.bestp).slice(0, 3);
-    if (far.length) M.push(['📏', `Más lejos de la mínima: ${far.map(r => `<b>${r.ev}</b> (a ${pctTxt(r.bestp)})`).join(', ')}.`]);
+    if (far.length) M.push(['📏', `Más lejos de la mínima: ${far.map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
   }
   if ((DATA.claves_by || {})[String(s.id)]) {
     const sin = DATA.claves_ev.filter(ev => !s.ev.find(e => e.e === ev));
@@ -118,15 +122,6 @@ function tabPruebas(s, sk) {
     </table>`;
 }
 
-function tabEvolucion(s, ev) {
-  const e = s.ev.find(x => x.e === ev) || s.ev[0];
-  if (!e) return '<p class="empty">Sin marcas.</p>';
-  return `<div class="flt"><span class="flt-l">Prueba</span>${chipsHTML('ev', s.ev.map(x => [x.e, x.e]), e.e)}</div>
-    <div class="bar-row">${piscSeg()}</div>
-    <p class="small muted" style="margin-bottom:10px">Mejor marca <b class="sun">${fmt(e.cs)}</b> (${e.pool}, ${dfmt(e.date)}) · ${e.pts} pts${e.cpos ? ` · ${e.cpos[0]}º de ${e.cpos[1]} en ${esc(e.comp)}` : ''}</p>
-    ${evolucionHTML(s, e)}`;
-}
-
 function rivalLista(s, e, sk, lv, lbl) {
   const L = DATA.lists[scopeKey(s, sk) + '|' + e.e], r = e.rk[sk] && e.rk[sk][lv];
   if (!L || !r) return `<div class="card"><h3 class="lv-${lv}">${lbl}</h3><p class="muted small">No aplica.</p></div>`;
@@ -151,7 +146,7 @@ function tabRivales(s, sk, ev) {
       ? (b ? ` · le sigue ${esc(b[0])} (${club(b[1])}) a ${secs(b[3] - e.cs)} s` : '')
       : ` · a ${secs(r[2])} s del líder · delante: ${esc(a[0])} (${club(a[1])}) a ${secs(e.cs - a[3])} s`}</li>`; }).join('');
   return `<div class="bar-row"><p class="small muted">Comparando con: <b>${scopeLbl(s, sk)}</b></p>${segScope(s, sk)}</div>
-    <div class="flt"><span class="flt-l">Prueba</span>${chipsHTML('ev', s.ev.map(x => [x.e, x.e]), e.e)}</div>
+    ${pruebaSel('ev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.rk[sk] && x.rk[sk].es ? x.rk[sk].es[0] + 'º' : ''])))}
     <div class="card" style="margin-bottom:12px"><ul class="ins">${txt}</ul></div>
     <div class="grid g3">${LV.map(([lv, l]) => rivalLista(s, e, sk, lv, l)).join('')}</div>`;
 }
@@ -162,14 +157,14 @@ function tabMinimas(s) {
     `<td class="num" data-l="Su mejor ${cls}"><b>${fmt(P.x[1])}</b> ${dtag(P.x[0])}<div class="tiny ${P.d <= 0 ? 'good' : 'bad'}">${P.d <= 0 ? '✓ −' + secs(P.d) : '+' + secs(P.d) + ' s'} (${pctTxt(P.p)})</div></td>`;
   return `<p class="small muted" style="margin-bottom:12px">Las mínimas de 2027 aún no se han publicado; se usan las del <a class="sun" href="${MIN_FUENTE}" target="_blank" rel="noopener">XIII Campeonato de España Alevín 2026</a>. Al ser alevín de ${s.cy}º año le corresponde la columna de <b>${mn.age} años</b>. Tabla A = piscina de 50 m · Tabla B = piscina de 25 m.</p>
     <div class="kpis" style="margin-bottom:12px"><div class="kpi hl"><b>${mn.ok}/${mn.rows.length}</b><span>mínimas conseguidas</span></div>
-      ${mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp).slice(0, 3).map(r => `<div class="kpi"><b>${r.bestp <= 0 ? '✓' : pctTxt(r.bestp)}</b><span>${r.ev}</span></div>`).join('')}</div>
-    <table class="rt cards"><tr><th>Prueba</th><th class="num">Mínima 50 m</th><th class="num">Su mejor 50 m</th><th class="num">Mínima 25 m</th><th class="num">Su mejor 25 m</th><th>Estado</th></tr>
+      ${mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp).slice(0, 3).map(r => `<div class="kpi"><b>${r.bestd <= 0 ? '✓' : secs(r.bestd) + ' s'}</b><span>${r.ev} · ${r.bestd <= 0 ? 'conseguida' : `le faltan (${r.bestp.toFixed(1)}%, ${r.bestpl})`}</span></div>`).join('')}</div>
+    <table class="rt cards"><tr><th>Prueba</th><th class="num">Mínima 50 m (${mn.age} años)</th><th class="num">Su mejor 50 m</th><th class="num">Mínima 25 m (${mn.age} años)</th><th class="num">Su mejor 25 m</th><th>Estado</th></tr>
     ${[...mn.rows].sort((a, b) => (a.bestp === null) - (b.bestp === null) || (a.bestp - b.bestp)).map(r => `<tr>
       <td class="t" data-l=""><b>${r.ev}</b></td>
-      <td class="num" data-l="Mínima 50 m">${fmt(r.pools['50m'].min)}<div class="tiny muted">13 años: ${fmt(r.pools['50m'].min13)}</div></td>${celda(r.pools['50m'], '50 m')}
-      <td class="num" data-l="Mínima 25 m">${fmt(r.pools['25m'].min)}<div class="tiny muted">13 años: ${fmt(r.pools['25m'].min13)}</div></td>${celda(r.pools['25m'], '25 m')}
+      <td class="num" data-l="Mínima 50 m (${mn.age} años)"><b>${fmt(r.pools['50m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['50m'].min13)}</div>` : ''}</td>${celda(r.pools['50m'], '50 m')}
+      <td class="num" data-l="Mínima 25 m (${mn.age} años)"><b>${fmt(r.pools['25m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['25m'].min13)}</div>` : ''}</td>${celda(r.pools['25m'], '25 m')}
       <td data-l="Estado">${r.bestp === null ? '<span class="muted">Sin marca</span>' : r.bestp <= 0 ? '<span class="good"><b>✓ Conseguida</b></span>'
-        : `a ${pctTxt(r.bestp)}<div class="meter"><i style="width:${Math.max(4, 100 - r.bestp * 5)}%"></i></div>`}</td></tr>`).join('')}</table>`;
+        : `faltan <b>${secs(r.bestd)} s</b> <span class="of">(${r.bestp.toFixed(1)}%, ${r.bestpl})</span><div class="meter"><i style="width:${Math.max(4, 100 - r.bestp * 5)}%"></i></div>`}</td></tr>`).join('')}</table>`;
 }
 
 function tabAndalucia(s, p) {
@@ -220,6 +215,7 @@ function pintarClasif(s) {
         <details style="margin-top:10px"><summary class="small sun" style="cursor:pointer">Ver los 10 primeros de Andalucía</summary>
         <table class="rt" style="margin-top:8px">${A.top.map(r => `<tr><td>${posB(r[0])}</td><td><b>${esc(r[1])}</b><div class="tiny muted">${club(r[2])}</div></td><td class="num"><b>${r[3]}</b> pts</td></tr>`).join('')}</table></details></div>`;
     }).join('');
+    if (RESTORE_Y !== null) window.scrollTo(0, RESTORE_Y);
   }).catch(() => { host.innerHTML = '<p class="empty">No se ha podido cargar la clasificación (ábrelo desde la web).</p>'; });
 }
 
@@ -237,6 +233,7 @@ function volverHTML(s, cat) {
 /* ── vista ── */
 function vistaFicha(app, s, tab, p) {
   const tabs = fichaTabs(s);
+  if (tab === 'evolucion') { tab = 'historial'; if (p.ev && !p.hev) p.hev = p.ev; }   // enlaces antiguos a la pestaña Evolución
   if (!tabs.find(t => t[0] === tab)) tab = 'resumen';
   const sk = s.cat ? (p.sk || 'y') : 'y';
   const href = (t, q) => fichaHref(s, t) + (q ? '?' + q : '');
@@ -251,7 +248,6 @@ function vistaFicha(app, s, tab, p) {
   let body = '';
   if (tab === 'resumen') body = tabResumen(s);
   else if (tab === 'pruebas') body = tabPruebas(s, sk);
-  else if (tab === 'evolucion') body = tabEvolucion(s, p.ev);
   else if (tab === 'rivales') body = tabRivales(s, sk, p.ev);
   else if (tab === 'minimas') body = tabMinimas(s);
   else if (tab === 'andalucia') body = tabAndalucia(s, p);

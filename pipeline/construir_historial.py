@@ -62,8 +62,8 @@ def main():
     marcas, info = H.preparar_marcas(filas, club)
     semanas = H.domingos(date(2025, 10, 1), date.today())
     fotos = H.fotos(marcas, info, club, semanas)
-    ruta = os.path.join(REPO, 'historico_ranking.json')
-    with open(ruta, 'w', encoding='utf-8') as f:
+    ruta = os.path.join(REPO, 'historico_ranking.json.gz')
+    with gzip.open(ruta, 'wt', 9, encoding='utf-8') as f:
         json.dump(H.fusionar_fotos({}, fotos), f, ensure_ascii=False, separators=(',', ':'))
     print(f'  {len(fotos)} semanas de ranking reconstruidas → {ruta} ({os.path.getsize(ruta) / 1e6:.1f} MB)')
 

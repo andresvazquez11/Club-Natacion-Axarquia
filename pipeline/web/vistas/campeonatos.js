@@ -2,6 +2,9 @@
 function vistaCampeonatos(app, p) {
   const lv = p.lv || 'all', cat = p.cat || 'all', g = p.g || 'all';
   const D = (DATA.destacados || []).filter(x => (lv === 'all' || x.lv === lv) && (cat === 'all' || x.cat === cat) && (g === 'all' || x.g === g));
+  // número de top-10 de cada botón, con los otros dos filtros aplicados
+  const cuentaC = o => { const f = Object.assign({lv, cat, g}, o);
+    return (DATA.destacados || []).filter(x => (f.lv === 'all' || x.lv === f.lv) && (f.cat === 'all' || x.cat === f.cat) && (f.g === 'all' || x.g === f.g)).length; };
   const go = o => { const q = Object.assign({lv, cat, g}, o); location.hash = `#campeonatos?lv=${q.lv}&cat=${q.cat}&g=${q.g}`; };
 
   // medallero
@@ -21,10 +24,10 @@ function vistaCampeonatos(app, p) {
 
   app.innerHTML = `
     <div class="hd"><div><h1>🏆 Campeonatos</h1><p>Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una fila para ver la evolución.</p></div></div>
-    <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos'], ['es', FLAG_ES + ' España', (DATA.destacados || []).filter(x => x.lv === 'es').length], ['an', FLAG_AN + ' Andalucía', (DATA.destacados || []).filter(x => x.lv === 'an').length]], lv)}</div>
+    <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos', cuentaC({lv: 'all'})], ['es', FLAG_ES + ' España', cuentaC({lv: 'es'})], ['an', FLAG_AN + ' Andalucía', cuentaC({lv: 'an'})]], lv)}</div>
     <div class="grid g2" style="gap:6px 12px">
-      <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas'], ...DATA.cats.map(c => [c.key, c.label])], cat)}</div>
-      <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos'], ['M', '♂ Chicos'], ['F', '♀ Chicas']], g)}</div>
+      <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas', cuentaC({cat: 'all'})], ...DATA.cats.map(c => [c.key, c.label, cuentaC({cat: c.key})])], cat)}</div>
+      <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', cuentaC({g: 'all'})], ['M', '♂ Chicos', cuentaC({g: 'M'})], ['F', '♀ Chicas', cuentaC({g: 'F'})]], g)}</div>
     </div>
     <div class="kpis" style="margin:4px 0 14px">
       <div class="kpi hl"><b>${D.length}</b><span>top-10 en campeonatos</span></div>
