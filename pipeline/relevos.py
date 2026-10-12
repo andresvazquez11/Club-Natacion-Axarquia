@@ -21,6 +21,7 @@ RELEVOS = {
     'ALE': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
     'INF': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
     'JUN': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
+    'ABS': [('4x100 Libre', 'L', 100), ('4x200 Libre', 'L', 200), ('4x100 Estilos', 'E', 100)] + MIXTOS,
 }
 # Relevos mixtos que están en el programa de los Campeonatos de Andalucía (FAN) o de España (RFEN) 26-27;
 # el resto se nada en trofeos, ligas y el Campeonato de Andalucía de Clubes.
@@ -28,10 +29,14 @@ MIXTOS_OFICIALES = {('ALE', '4x100 Estilos mixto'): 'Cto. de Andalucía de veran
                     ('INF', '4x100 Estilos mixto'): 'Cto. de Andalucía de verano y Cto. de España',
                     ('JUN', '4x50 Libre mixto'): 'Cto. de Andalucía absoluto-júnior de verano',
                     ('JUN', '4x50 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior de verano',
-                    ('JUN', '4x100 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior de verano'}
+                    ('JUN', '4x100 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior de verano',
+                    ('ABS', '4x50 Libre mixto'): 'Cto. de Andalucía absoluto-júnior y Cto. de España absoluto',
+                    ('ABS', '4x50 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior y Cto. de España absoluto',
+                    ('ABS', '4x100 Estilos mixto'): 'Cto. de Andalucía absoluto-júnior y Cto. de España absoluto'}
 # Campeonatos en los que se nadan los relevos por sexo de cada categoría
 CTO_SEXO = {'BEN': 'Cto. de Andalucía benjamín', 'ALE': 'Cto. de Andalucía y Cto. de España',
-            'INF': 'Cto. de Andalucía y Cto. de España', 'JUN': 'Cto. de Andalucía y Cto. de España'}
+            'INF': 'Cto. de Andalucía y Cto. de España', 'JUN': 'Cto. de Andalucía y Cto. de España',
+            'ABS': 'Cto. de Andalucía y Cto. de España absolutos'}
 # Mínimas «suma de tiempos» del Campeonato de España 2026 (centésimas): {(cat, relevo, sexo): {piscina: cs}}
 def _t(s):
     m, r = s.split(':'); sg, c = r.split(',')

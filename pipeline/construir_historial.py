@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 Precalcula, en local, lo que no cambia:
-  · las temporadas cerradas 21-22 a 25-26 de los nadadores del club y el nivel de todos los nadadores de
+  · las temporadas cerradas 10-11 a 25-26 de los nadadores del club y el nivel de todos los nadadores de
     sus mismos ámbitos (para comparar) → pipeline/historial_base.json.gz
   · las marcas de la 25-26 de esos ámbitos → pipeline/marcas_2526.json.gz
   · las fotos semanales del ranking desde octubre de 2025 → historico_ranking.json.gz (raíz del repo)
   · los nadadores comparables (club + Málaga + 30 mejores de Andalucía y España) → pipeline/comparables_base.json.gz
 
 Uso:
-  python3 pipeline/construir_historial.py <carpeta con RAW_2122…RAW_2425, RAW_2526(_v2), RAW_2627> [temporada.html]
+  python3 pipeline/construir_historial.py <carpeta con RAW_1011…RAW_2425, RAW_2526(_v2), RAW_2627> [temporada.html]
 
 Vuelve a ejecutarlo si entran nadadores nuevos en el club (el historial solo se guarda de los del club).
 """
@@ -44,7 +44,7 @@ def main():
     bolsa = H.bolsa_comparables(H.cargar(raw(carpeta, '2526')), club)
     print(f'  {len(bolsa)} nadadores comparables')
     temps, coh, comp_t, comp_d = {}, {}, {}, {}
-    for t in ('2122', '2223', '2324', '2425', '2526'):
+    for t in H.TEMPORADAS[:-1]:            # todas las cerradas (10-11 … 25-26)
         p = raw(carpeta, t)
         if not p:
             print(f'  ⚠ falta RAW_{t}'); continue
@@ -59,6 +59,11 @@ def main():
     with gzip.open(os.path.join(BASE, 'comparables_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump({'bolsa': sorted(bolsa), 't': comp_t, 'd': comp_d}, f, ensure_ascii=False, separators=(',', ':'))
     print(f'  comparables guardados ({os.path.getsize(os.path.join(BASE, "comparables_base.json.gz")) / 1e6:.1f} MB)')
+    # récords del club: todas las marcas hechas con el club en las temporadas cerradas, también de quien ya no está
+    recs = H.marcas_club_records({t: H.cargar(raw(carpeta, t)) for t in H.TEMPORADAS[:-1] if raw(carpeta, t)})
+    with gzip.open(os.path.join(BASE, 'records_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
+        json.dump(recs, f, ensure_ascii=False, separators=(',', ':'))
+    print(f'  récords del club: {len(recs)} pruebas/categorías guardadas')
     with gzip.open(os.path.join(BASE, 'historial_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump({'club': list(club), 'temps': temps, 'coh': coh}, f, ensure_ascii=False, separators=(',', ':'))
 

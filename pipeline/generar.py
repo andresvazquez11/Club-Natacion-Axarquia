@@ -39,10 +39,12 @@ ANDALUCIA  = {'ALMERIA', 'CADIZ', 'CORDOBA', 'GRANADA', 'HUELVA', 'JAEN', 'MALAG
 TOP_N      = 20     # tamaño de las listas de cada nivel
 NB         = 2      # rivales por delante / por detrás
 
-# Categorías 26-27: iguales para chicos y chicas (referencia: Alevín = 2014-2015)
+# Categorías 26-27: iguales para chicos y chicas (normativa general FAN NAT.01/26 y RFEN):
+# Junior = 2009-2010-2011 (16, 17 y 18 años) y Absoluto = 2008 y anteriores (desde 1990, licencia de nadador)
 _CATS = [('PRE', 'Prebenjamín', [2018, 2019]), ('BEN', 'Benjamín', [2016, 2017]),
          ('ALE', 'Alevín', [2014, 2015]), ('INF', 'Infantil', [2012, 2013]),
-         ('JUN', 'Junior', [2010, 2011])]
+         ('JUN', 'Junior', [2009, 2010, 2011]), ('ABS', 'Absoluto', list(range(1990, 2009)))]
+CAT_YT = {'ABS': '2008 y ant.'}
 CATEGORIAS = {'M': _CATS, 'F': _CATS}
 # Pruebas que deciden la clasificación a la Campeonato de Andalucía de Benicio
 CLAVES_BENICIO = ['100 Libre', '100 Braza', '100 Mariposa', '100 Espalda']
@@ -68,7 +70,7 @@ def strip_acc(s):
 def cat_of(g, year):
     for k, lbl, yrs in CATEGORIAS[g]:
         if year in yrs:
-            return k, lbl, max(yrs) - year + 1, yrs   # 1er año = el más joven
+            return k, lbl, (None if k == 'ABS' else max(yrs) - year + 1), yrs   # 1er año = el más joven
     return None, None, None, None
 
 
@@ -435,7 +437,9 @@ def main():
     for ck, lbl, yrs in _CATS:
         ids = [s['id'] for s in swimmers if s['cat'] == ck]
         if ids:
-            cats_out.append({'key': ck, 'label': lbl, 'yrs': yrs, 'ids': ids})
+            if ck == 'ABS':      # solo los años con nadadores del club, del más joven al mayor
+                yrs = sorted({s['y'] for s in swimmers if s['cat'] == ck}, reverse=True)
+            cats_out.append({'key': ck, 'label': lbl, 'yrs': yrs, 'ids': ids, 'yt': CAT_YT.get(ck, '-'.join(map(str, yrs)))})
 
     # ── Marcas de todos los nadadores (25-26 guardada + 26-27): relevos, historial y ranking semanal ──
     import historial as H
@@ -479,15 +483,17 @@ def montar_html():
     return leer('plantilla.html').replace('/*__CSS__*/', leer('estilos.css')).replace('/*__JS__*/', js)
 
 
-EDAD_CAT = {8: 'PRE', 9: 'PRE', 10: 'BEN', 11: 'BEN', 12: 'ALE', 13: 'ALE', 14: 'INF', 15: 'INF', 16: 'JUN', 17: 'JUN'}
-
-
 def records_club(swimmers, hist):
-    """Récords del club: las 3 mejores marcas (de nadadores distintos) HECHAS CON EL CLUB por sexo, categoría
-    de edad en el momento de la marca, prueba y piscina. Fuentes: todas las marcas 25-26 y 26-27 y la mejor
-    marca de cada temporada 21-22 a 24-25 (historial_base) de los nadadores actuales."""
+    """Récords del club: las 3 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
+    (año de la marca − año de nacimiento), prueba y piscina → [[pid, cs, fecha, nombre, año]].
+    Temporadas cerradas desde la 10-11 en records_base.json.gz (también nadadores que ya no están) + marcas actuales."""
     import historial as H
-    marcas = []                                    # (g, cat, ev, pool, cs, pid, fecha o temporada)
+    ruta = os.path.join(BASE_DIR, 'records_base.json.gz')
+    top = defaultdict(dict)
+    if os.path.exists(ruta):
+        for k, L in H.cargar(ruta).items():
+            for x in L:
+                top[k][x[0]] = x
     by = {s['id']: s for s in swimmers}
     for (pid, ev), xs in hist.items():
         s = by.get(pid)
@@ -497,32 +503,13 @@ def records_club(swimmers, hist):
             d, cs, pool = x[0], x[1], x[2]
             if x[8] or pool not in ('25m', '50m'):
                 continue
-            fin = int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0)   # la temporada termina en septiembre
-            cat = EDAD_CAT.get(fin - s['y'])
-            if cat:
-                marcas.append((s['g'], cat, ev, pool, cs, pid, d))
-    if os.path.exists(HIST_BASE):
-        base = H.cargar(HIST_BASE)['temps']
-        for t, d_ in base.items():
-            if t in ('2526', '2627'):
+            cat = H.EDAD_CAT.get(int(d[:4]) - s['y'])
+            if not cat:
                 continue
-            fin = 2000 + int(t[2:])
-            for pid, v in d_.items():
-                s = by.get(int(pid))
-                if not s or CLUB_MATCH not in str(v.get('club', '')).upper():
-                    continue
-                cat = EDAD_CAT.get(fin - s['y'])
-                if not cat:
-                    continue
-                for ev, e in v.get('ev', {}).items():
-                    for pool, cs in (e.get('pl') or {e['pool']: e['cs']}).items():
-                        marcas.append((s['g'], cat, ev, pool, cs, s['id'], e['date'] if pool == e['pool'] else f'{t[:2]}-{t[2:]}'))
-    top = defaultdict(dict)
-    for g, cat, ev, pool, cs, pid, d in marcas:
-        k = f'{g}|{cat}|{ev}|{pool}'
-        if pid not in top[k] or cs < top[k][pid][0]:
-            top[k][pid] = (cs, d)
-    return {k: [[pid, cs, d] for pid, (cs, d) in sorted(v.items(), key=lambda x: x[1][0])[:3]] for k, v in top.items()}
+            k = f"{s['g']}|{cat}|{ev}|{pool}"
+            if pid not in top[k] or cs < top[k][pid][1]:
+                top[k][pid] = [pid, cs, d, s['n'], s['y']]
+    return {k: sorted(v.values(), key=lambda x: x[1])[:3] for k, v in top.items()}
 
 
 def escribir_historial(swimmers, rows_new, marcas, info):

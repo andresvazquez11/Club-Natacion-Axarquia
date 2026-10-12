@@ -16,7 +16,9 @@ TEMPORADA = sys.argv[sys.argv.index('--temporada') + 1] if '--temporada' in sys.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR  = os.environ.get('CNA_RAW_OUT', os.path.join(BASE_DIR, f'RAW_{TEMPORADA}'))
 ESTILOS  = {'libre': '4', 'espalda': '5', 'braza': '3', 'mariposa': '7', 'estilos': '6'}
-AÑOS     = range(2010, 2019)
+# años de nacimiento: de los absolutos (1990) a los prebenjamines; CNA_ANOS="2009-2018" para limitarlo
+_a = os.environ.get('CNA_ANOS', '1990-2018').split('-')
+AÑOS     = range(int(_a[0]), int(_a[1]) + 1)
 CAMPOS   = ['profile_id', 'nombre', 'fecha_nacimiento', 'genero', 'club', 'provincia',
             'id_federacion', 'estilo', 'value', 'valor_original', 'record_mundo',
             'id_tipo_piscina', 'id_tipo_crono', 'competition_name', 'location', 'date', 'parcial',

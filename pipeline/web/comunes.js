@@ -87,7 +87,10 @@ const strokeOf = ev => ev.split(' ').slice(1).join(' ');
 const distOf = ev => +ev.split(' ')[0];
 const catOf = key => DATA.cats.find(c => c.key === key);
 const scopeKey = (s, sk) => sk === 'y' ? `${s.g}|${s.y}` : `${s.g}|${s.cat}`;
-const scopeLbl = (s, sk) => sk === 'y' ? `nacidos en ${s.y}` : `${s.catl} ${SEXO_TXT[s.g].toLowerCase()} (${s.y - s.cy + 1}-${s.y - s.cy + 2})`;
+const scopeLbl = (s, sk) => sk === 'y' ? `nacidos en ${s.y}` : `${s.catl} ${SEXO_TXT[s.g].toLowerCase()} (${(catOf(s.cat) || {}).yt || ''})`;
+/* «Alevín 1º año» (los absolutos no tienen año dentro de la categoría) y años de una categoría («2014-2015», «2008 y ant.») */
+const catAnyo = s => s.catl ? (s.cy ? `${s.catl} ${s.cy}º año` : s.catl) : 'fuera de categoría';
+const catYrs = c => c.yt || c.yrs.join('-');
 const fichaHref = (s, tab) => (s.benicio ? '#benicio' : `#nadador/${s.id}`) + (tab ? '/' + tab : '');
 
 /* ── Piscinas de 25 y 50 m ──

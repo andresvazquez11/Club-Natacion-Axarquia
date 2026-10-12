@@ -188,7 +188,7 @@ function pintarAnalisis(s) {
     const li = arr => arr.map(([i, t]) => `<li><i class="ins-i">${i}</i>${t}</li>`).join('');
     const malo = nuevos(A.malo); if (malo.length) document.getElementById('an-malo').insertAdjacentHTML('beforeend', li(malo));
     const evo = nuevos([...(A.evo || []), ...(A.bueno || [])]), comp = nuevos(A.comp);
-    host.insertAdjacentHTML('beforeend', (evo.length ? `<div class="card"><h3>📈 Su evolución <span class="muted small">· desde la 21-22</span></h3><ul class="ins">${li(evo)}</ul></div>` : '') +
+    host.insertAdjacentHTML('beforeend', (evo.length ? `<div class="card"><h3>📈 Su evolución <span class="muted small">· desde su primera temporada</span></h3><ul class="ins">${li(evo)}</ul></div>` : '') +
       (comp.length ? `<div class="card"><h3>⚖️ Comparado con los demás</h3><ul class="ins">${li(comp)}</ul>
         <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p></div>` : ''));
   }).catch(() => {});
@@ -370,7 +370,7 @@ function vistaFicha(app, s, tab, p) {
     <div class="hero">
       ${volverHTML(s, cat)}
       <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
-      <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${s.catl} ${s.cy}º año en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
+      <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${catAnyo(s)} en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
       <div class="hero-acc"><a class="chip" href="#comparar?ids=${s.id}">⚖️ Comparar con otros</a>
         ${ESTRELLA_ELEGIBLE ? `<button class="chip" data-mi-estrella>${s.benicio ? '⭐ Es mi nadador · quitar' : '☆ Marcar como mi nadador'}</button>` : ''}</div>
       ${logros.length ? `<div class="tags scroll">${logros.join('')}</div>` : ''}

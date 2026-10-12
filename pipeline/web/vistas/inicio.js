@@ -16,7 +16,7 @@ function vistaInicio(app) {
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
         <div><div class="tiny sun" style="font-weight:800;letter-spacing:.5px">⭐ ${ESTRELLA_ELEGIBLE ? 'MI NADADOR' : nombreCorto(BEN).toUpperCase()}</div>
           <div style="font-size:1.2rem;font-weight:900;margin-top:2px">${esc(BEN.n)}</div>
-          <div class="small muted">${BEN.y} · ${BEN.catl} ${BEN.cy}º año</div></div>
+          <div class="small muted">${BEN.y} · ${catAnyo(BEN)}</div></div>
         <div style="text-align:right"><div title="Evolución ${e0.e}">${spark(h0, 110, 40)}</div><div class="tiny muted">${e0.e}</div></div></div>
       <div class="tags" style="margin-top:12px">${top.map(e => `<span class="tag ${e.rk.y.es[0] <= 10 ? 'gold' : ''}">${FLAG_ES} ${e.rk.y.es[0]}º ${e.e}</span>`).join('')}</div>
       <div style="margin-top:12px"><span class="btn">Ver su ficha →</span></div></a>`;
@@ -30,7 +30,7 @@ function vistaInicio(app) {
 
   const catBars = DATA.cats.map(c => {
     const m = c.ids.filter(id => SW[String(id)].g === 'M').length;
-    return [`${c.label} <span class="of">${c.yrs.join('-')}</span>`, c.ids.length, `${c.ids.length} <span class="of">${m}♂ ${c.ids.length - m}♀</span>`, `data-go="#club/${c.key}"`];
+    return [`${c.label} <span class="of">${catYrs(c)}</span>`, c.ids.length, `${c.ids.length} <span class="of">${m}♂ ${c.ids.length - m}♀</span>`, `data-go="#club/${c.key}"`];
   });
 
   app.innerHTML = `
@@ -55,7 +55,7 @@ function vistaInicio(app) {
           : '<p class="empty">Todavía no hay top-10 en campeonatos.</p>'}</div>
     </div>
 
-    <div style="margin-top:12px">${cmpCard('', '', '📍 El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a junior en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
+    <div style="margin-top:12px">${cmpCard('', '', '📍 El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a absoluto en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
 
     <div class="grid g2" style="margin-top:12px">
       <div class="card"><h3>👥 Nadadores por categoría <span class="muted tiny">· pulsa para entrar</span></h3>${barsHTML(catBars)}</div>

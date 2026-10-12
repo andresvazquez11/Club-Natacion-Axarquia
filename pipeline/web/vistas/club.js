@@ -14,7 +14,7 @@ function swCard(s, k) {
   if (ma1) logros.push(`<span class="tag" title="Pruebas en las que tiene la mejor marca de Málaga de su año">🥇 Nº1 ranking Málaga: ${ma1} ${ma1 === 1 ? 'prueba' : 'pruebas'}</span>`);
   return `<a class="card link sw ${s.benicio ? 'ben' : ''}" href="${fichaHref(s)}" style="text-decoration:none">
     <div class="sw-top"><div><div class="sw-n"><span class="of">${k + 1}.</span> ${esc(s.n)}${s.benicio ? ' ⭐' : ''}${ctoTag(s)}</div>
-      <div class="sw-m">${s.y} · ${s.cy}º año · ${s.np} pruebas · ${s.best} pts</div></div><span class="sw-g" title="${SEXO_TXT[s.g]}">${SEXO[s.g]}</span></div>
+      <div class="sw-m">${s.y}${s.cy ? ` · ${s.cy}º año` : ''} · ${s.np} pruebas · ${s.best} pts</div></div><span class="sw-g" title="${SEXO_TXT[s.g]}">${SEXO[s.g]}</span></div>
     ${e ? `<div class="sw-best">Mejor puesto en España: <b>${e.e}</b> · <b class="sun">${fmt(e.cs)}</b> ${dtag(e.date)}</div>
     <div class="sw-lv">${LV.map(([lv, l]) => `<div><small class="lv-${lv}">${l}</small>${r[lv] ? posB(r[lv][0], r[lv][1]) : '—'}</div>`).join('')}</div>` : ''}
     ${logros.length ? `<div class="tags">${logros.join('')}</div>` : ''}</a>`;
@@ -48,10 +48,10 @@ function clubNadadores(app, p, c, head) {
   const VER = 20;
 
   app.innerHTML = `${head}
-    <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', DATA.cats.map(x => [x.key, `${x.label} <span class="n">${x.yrs.join('-')}</span>`, x.ids.filter(id => g === 'all' || SW[String(id)].g === g).length]), c.key)}</div>
+    <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', DATA.cats.map(x => [x.key, `${x.label} <span class="n">${catYrs(x)}</span>`, x.ids.filter(id => g === 'all' || SW[String(id)].g === g).length]), c.key)}</div>
     <div class="grid g2" style="gap:6px 12px">
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', base.filter(s => y === 'all' || String(s.y) === String(y)).length], ...['M', 'F'].map(x => [x, x === 'M' ? '♂ Chicos' : '♀ Chicas', base.filter(s => s.g === x && (y === 'all' || String(s.y) === String(y))).length])], g)}</div>
-      <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos', base.filter(s => g === 'all' || s.g === g).length], ...c.yrs.map(yr => [yr, `${yr} <span class="n">${c.yrs.indexOf(yr) === c.yrs.length - 1 ? '1er' : '2º'} año</span>`, base.filter(s => s.y === yr && (g === 'all' || s.g === g)).length])], y)}</div>
+      <div class="flt"><span class="flt-l">Año</span>${chipsHTML('y', [['all', 'Todos', base.filter(s => g === 'all' || s.g === g).length], ...c.yrs.map(yr => [yr, c.key === 'ABS' ? String(yr) : `${yr} <span class="n">${Math.max(...c.yrs) - yr + 1}º año</span>`, base.filter(s => s.y === yr && (g === 'all' || s.g === g)).length])], y)}</div>
     </div>
     <div class="kpis k5" style="margin:4px 0 14px">
       <button class="kpi hl" ${ds('sw|')}><b>${list.length}</b><span>nadadores</span>${y === 'all' ? '<span class="vd">Ver detalle ›</span>' : ''}</button>
@@ -67,7 +67,7 @@ function clubNadadores(app, p, c, head) {
     <div id="swl-mas"></div>
 
     <h2 class="st">📍 Cómo está el club en ${c.label}${g === 'all' ? '' : ' ' + SEXO_TXT[g].toLowerCase()}</h2>
-    ${cmpCard(sc, ` en ${c.label}${g === 'all' ? '' : ' ' + SEXO_TXT[g].toLowerCase()}`, 'Puesto frente al resto de clubes', `Nacidos en ${c.yrs.join(' y ')}${g === 'all' ? ', chicos y chicas' : ''}: cuántas veces mete cada club a un nadador entre los 8 mejores de su año en cada prueba.`)}`;
+    ${cmpCard(sc, ` en ${c.label}${g === 'all' ? '' : ' ' + SEXO_TXT[g].toLowerCase()}`, 'Puesto frente al resto de clubes', `Nacidos en ${c.key === 'ABS' ? '2008 y antes' : c.yrs.join(', ')}${g === 'all' ? ', chicos y chicas' : ''}: cuántas veces mete cada club a un nadador entre los 8 mejores de su año en cada prueba.`)}`;
 
   let todos = false;
   const pinta = (q) => {
@@ -140,13 +140,13 @@ function clubRelevos(app, p, c, cats, head) {
       <details style="margin-top:4px"><summary class="sun" style="cursor:pointer">Más información</summary>La RFEN no publica un ranking de relevos de clubes. Para inscribir un relevo en los Campeonatos de Andalucía de invierno se usa la suma de las marcas individuales de los 4 relevistas (circular FAN NAT.01/26).
         Con <b>«25 y 50 m juntas»</b> cada marca se convierte a la otra piscina con la equivalencia de puntos World Aquatics (marca × récord del mundo de una piscina / récord de la otra), así se elige a los mejores aunque hayan nadado en piscinas distintas; es orientativo, para inscribir cuenta la marca real.
         ${R && R.fuente ? `Mínimas: ${R.fuente}; las de 2027 aún no se han publicado.` : ''}</details></div>
-    <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', cats.map(x => [x.key, `${x.label} <span class="n">${x.yrs.join('-')}</span>`]), c.key)}</div>
+    <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', cats.map(x => [x.key, `${x.label} <span class="n">${catYrs(x)}</span>`]), c.key)}</div>
     <div class="flt"><span class="flt-l">Relevos</span>${chipsHTML('gs', [['all', 'Todos', n('all')], ['M', '♂ Masculino', n('M')], ['F', '♀ Femenino', n('F')], ['X', '⚥ Mixtos', n('X')]], gs)}</div>
     <div class="flt"><span class="flt-l">Piscina</span><div class="seg" data-rpl><button data-v="mix" class="${pl === 'mix' ? 'on' : ''}">25 y 50 m juntas</button><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Solo 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Solo 25 m</button></div></div>
     <div class="flt"><span class="flt-l">Comparar con los clubes de</span><div class="seg" data-rlv2>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     ${pl === 'mix' ? '<p class="tiny muted" style="margin:-2px 0 8px">Cada relevista con su marca real y su piscina; el tiempo del equipo, en su equivalente en 50 m y en 25 m.</p>' : ''}
     ${R ? grupo('M', '♂ Masculino') + grupo('F', '♀ Femenino') + grupo('X', '⚥ Mixtos <span class="muted small">· 2 chicos y 2 chicas</span>') : '<p class="empty">Esta categoría no tiene relevos.</p>'}
-    <p class="tiny muted" style="margin-top:12px">Relevos de los programas 26-27 de los Campeonatos de Andalucía (FAN) y de España (RFEN). Debajo de cada relevo se indica en qué campeonato se nada; los demás mixtos están en «Otros mixtos · trofeos y ligas». En los relevos de estilos el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido. ${c.key === 'JUN' ? 'En junior no se incluyen los nacidos en 2009.' : ''}</p>`;
+    <p class="tiny muted" style="margin-top:12px">Relevos de los programas 26-27 de los Campeonatos de Andalucía (FAN) y de España (RFEN). Debajo de cada relevo se indica en qué campeonato se nada; los demás mixtos están en «Otros mixtos · trofeos y ligas». En los relevos de estilos el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido. </p>`;
   const vb = document.getElementById('rel-back'); if (vb) vb.onclick = ev => { ev.preventDefault(); history.back(); };
   // llegada desde la ficha (Objetivos): se abre y resalta ese relevo
   const foco = p.r && document.getElementById('rel-' + p.r);
@@ -170,6 +170,9 @@ function clubRecords(app, p, c, head) {
   const filas = ORD_PRUEBAS.map(ev => [ev, recs[`${g}|${ck}|${ev}|${pl}`]]).filter(x => x[1]);
   const nom = pid => SW[String(pid)];
   const fecha = d => d && d.length === 10 ? dtag(d) : `<span class="dt">temp. ${esc(d)}</span>`;
+  // edad con la que hizo la marca: año de la marca − año de nacimiento (como cuenta la federación);
+  // si solo se conoce la temporada («23-24»), el año en que acaba
+  const edad = (d, y) => !y ? '' : `<span class="of">${(d && d.length === 10 ? +d.slice(0, 4) : 2000 + +String(d).slice(3, 5)) - y} años</span>`;
   app.innerHTML = `${head}
     <div class="flt"><span class="flt-l">Categoría (edad en el momento de la marca)</span>${chipsHTML('cat', catsR.map(([k, l, e]) => [k, `${l} <span class="n">${e}</span>`]), ck)}</div>
     <div class="bar-row"><div class="seg" data-rg>${[['M', '♂ Chicos'], ['F', '♀ Chicas']].map(([k, l]) => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -177,11 +180,11 @@ function clubRecords(app, p, c, head) {
     ${filas.length ? `<table class="rt cards recs"><tr><th>Prueba</th><th>🥇 Récord</th><th>🥈 2ª mejor</th><th>🥉 3ª mejor</th></tr>
       ${filas.map(([ev, L]) => `<tr class="${L.some(x => nom(x[0]) && nom(x[0]).benicio) ? 'me' : ''}"><td class="t" data-l=""><b>${ev}</b></td>
         ${[0, 1, 2].map(k => { const x = L[k]; if (!x) return `<td data-l="${['Récord', '2ª', '3ª'][k]}" class="muted">—</td>`; const s = nom(x[0]);
-          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} ${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : ''} ${fecha(x[2])}</td>`; }).join('')}</tr>`).join('')}</table>`
+          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} ${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${fecha(x[2])}</td>`; }).join('')}</tr>`).join('')}</table>`
       : '<p class="empty">No hay marcas del club en esta categoría y piscina.</p>'}
-    <p class="tiny muted" style="margin-top:10px">Récords con los datos de la página: marcas hechas con el club por los nadadores actuales desde la temporada 21-22 (de las temporadas 21-22 a 24-25 solo se conoce su mejor marca de cada temporada). Categoría según su edad en esa temporada: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15 y junior 16-17.</p>`;
+    <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 10-11, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad en el año de la marca: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad que tenía (año de la marca − año de nacimiento, como cuenta la federación).</p>`;
   onChips(app, 'cat', v => go({cat: v}));
   app.querySelectorAll('[data-rg] button').forEach(b => b.onclick = () => go({g: b.dataset.v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
 }
-const _CATS_REC = [['PRE', 'Prebenjamín', '8-9 años'], ['BEN', 'Benjamín', '10-11'], ['ALE', 'Alevín', '12-13'], ['INF', 'Infantil', '14-15'], ['JUN', 'Junior', '16-17']];
+const _CATS_REC = [['PRE', 'Prebenjamín', '8-9 años'], ['BEN', 'Benjamín', '10-11'], ['ALE', 'Alevín', '12-13'], ['INF', 'Infantil', '14-15'], ['JUN', 'Junior', '16-18'], ['ABS', 'Absoluto', '19 o más']];

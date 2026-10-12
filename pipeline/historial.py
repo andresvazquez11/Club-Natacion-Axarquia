@@ -3,7 +3,7 @@
 historial.py — historial de 6 temporadas y fotos semanales del ranking.
 
 Lo usan:
-  · construir_historial.py (local, una vez): precalcula las temporadas cerradas 21-22…24-25
+  · construir_historial.py (local, una vez): precalcula las temporadas cerradas 10-11…25-26
     y reconstruye las fotos semanales del ranking de la 25-26.
   · generar.py (cada semana): añade 25-26 y 26-27, la foto de la semana actual y escribe
     historial.json, que la página carga al abrir las pestañas «Historial» y «Ranking».
@@ -14,7 +14,7 @@ import bisect, glob, gzip, html, json, os
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-TEMPORADAS = ['2122', '2223', '2324', '2425', '2526', '2627']
+TEMPORADAS = ['1011', '1112', '1213', '1314', '1415', '1516', '1617', '1718', '1819', '1920', '2021', '2122', '2223', '2324', '2425', '2526', '2627']   # la RFEN tiene marcas desde la 10-11
 ANDALUCIA = {'ALMERIA', 'CADIZ', 'CORDOBA', 'GRANADA', 'HUELVA', 'JAEN', 'MALAGA', 'SEVILLA'}
 PRUEBAS = ['50 Libre', '100 Libre', '200 Libre', '400 Libre', '800 Libre', '1500 Libre',
            '50 Espalda', '100 Espalda', '200 Espalda', '50 Braza', '100 Braza', '200 Braza',
@@ -571,7 +571,7 @@ def para_pagina(fotos_guardadas, club):
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. Nadadores comparables (sección «Comparar»)
 # ═══════════════════════════════════════════════════════════════════════════
-def bolsa_comparables(filas, club, años=range(2010, 2019), top_es=30, top_an=30):
+def bolsa_comparables(filas, club, años=range(1990, 2019), top_es=30, top_an=30):
     """Nadadores que se pueden comparar: los del club, todos los de la provincia de Málaga y los
     `top_es` de España y `top_an` de Andalucía de cada sexo, año y prueba (con las marcas de `filas`)."""
     mejor, info = {}, {}
@@ -627,3 +627,29 @@ def resumen_comparables(filas, bolsa):
                                        bisect.bisect_left(L, cs) + 1, len(L)]
         datos[pid] = [nom, clubn, g, y, 1 if an else 0, 1 if ma else 0]
     return out, datos
+
+
+# ── Récords del club (todas las temporadas, también de nadadores que ya no están) ──
+EDAD_CAT = {**{e: 'PRE' for e in (7, 8, 9)}, 10: 'BEN', 11: 'BEN', 12: 'ALE', 13: 'ALE', 14: 'INF', 15: 'INF',
+            16: 'JUN', 17: 'JUN', 18: 'JUN', **{e: 'ABS' for e in range(19, 41)}}
+
+
+def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
+    """{'g|cat|prueba|piscina': [[pid, cs, fecha ISO, nombre, año]]}: las `top` mejores marcas (de nadadores distintos)
+    hechas con el club, por categoría según la edad en el año de la marca (año de la marca − año de nacimiento)."""
+    mejor = defaultdict(dict)
+    for t, filas in filas_por_temporada.items():
+        for r, d in limpiar(filas):
+            if club_match not in str(r.get('club') or '').upper():
+                continue
+            pl = r.get('id_tipo_piscina')
+            if pl not in ('25m', '50m'):
+                continue
+            y = int(r['fecha_nacimiento']); cat = EDAD_CAT.get(d.year - y)
+            if not cat:
+                continue
+            k = f"{r['genero']}|{cat}|{r['estilo']}|{pl}"
+            pid, cs = r['profile_id'], int(r['valor_original'])
+            if pid not in mejor[k] or cs < mejor[k][pid][1]:
+                mejor[k][pid] = [pid, cs, d.isoformat(), ' '.join(str(r.get('nombre') or '').split()).title(), y]
+    return {k: sorted(v.values(), key=lambda x: x[1])[:top] for k, v in mejor.items()}

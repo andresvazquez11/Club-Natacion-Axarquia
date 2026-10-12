@@ -11,7 +11,7 @@ function cargarComparar() {
 }
 const CMP_COL = ['#ffd60a', '#ffffff', '#ff9fd0', '#52ffb8'];
 const CMP_DASH = ['', '6 4', '2 4', '10 4 2 4'];
-const CMP_TEMPS = ['2122', '2223', '2324', '2425', '2526', '2627'];
+const CMP_TEMPS = ['1011', '1112', '1213', '1314', '1415', '1516', '1617', '1718', '1819', '1920', '2021', '2122', '2223', '2324', '2425', '2526', '2627'];
 const sinAcentos = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const edadEn = (t, y) => 2000 + +t.slice(2) - y;          // edad en la temporada (año en que acaba − año de nacimiento)
 

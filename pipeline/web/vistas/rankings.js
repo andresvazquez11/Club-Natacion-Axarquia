@@ -12,7 +12,7 @@ function vistaRankings(app, p) {
   const lv = p.lv || 'an';
   const L = DATA.lists[`${g}|${sc}|${ev}`];
   const go = o => { const q = new URLSearchParams(Object.assign({g, sc, ev, lv}, o)); location.hash = '#rankings?' + q; };
-  const scLbl = a => isNaN(a) ? (catOf(a) ? `${catOf(a).label} (${catOf(a).yrs.join('-')})` : a) : `Nacidos en ${a}`;
+  const scLbl = a => isNaN(a) ? (catOf(a) ? `${catOf(a).label} (${catYrs(catOf(a))})` : a) : `Nacidos en ${a}`;
 
   let tabla = '<p class="empty">Sin datos para esta combinación.</p>';
   if (L) {
