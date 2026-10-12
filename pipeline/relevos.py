@@ -179,7 +179,7 @@ def calcular(marcas, info, club_ids, cats, hoy, es_club):
                                     equipo.append([pid, info[pid][2], pat[k][0], cs, mejor[(pid, pat[k][0], pl)][1].isoformat()])
                                     break
                     # qué le falta a cada nadador del club de esa categoría y sexo
-                    en_equipo = {x[0] for x in equipo} if mio else set()
+                    en_equipo = {x[0] for x in equipo}
                     for pid, (g, y) in club_ids.items():
                         if y not in yrs or (sx != 'X' and g != sx) or pid in en_equipo:
                             continue
