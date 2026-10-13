@@ -31,13 +31,25 @@ function pintarHistorial(s, tab, p, keep) {
     host.querySelectorAll('[data-rmo] button').forEach(b => b.onclick = () => keep({rmo: b.dataset.v}));
     host.querySelectorAll('[data-rlv] button').forEach(b => b.onclick = () => keep({rlv: b.dataset.v}));
     // pulsar un punto del gráfico o una fila de la tabla → detalle de esa semana
-    host.querySelectorAll('[data-rk]').forEach(el => el.onclick = () => {
+    const bindRk = () => host.querySelectorAll('[data-rk]').forEach(el => el.onclick = () => {
       const det = document.getElementById('rk-det'); if (!det) return;
       const modo = (host.querySelector('[data-rmo] .on') || {dataset: {v: 'T'}}).dataset.v, lv = ['es', 'an', 'ma'].includes(p.rlv) ? p.rlv : 'es';
       const ev = p.rev;
       det.innerHTML = rankDetalle(s, H, ev, modo, lv, +el.dataset.rk);
       det.scrollIntoView({behavior: 'smooth', block: 'nearest'});
     });
+    bindRk();
+    // 🔍 ampliar el gráfico del ranking: se redibuja más ancho (los puntos se separan) y se desliza con el dedo
+    host.querySelectorAll('[data-rkz] button').forEach(b => b.onclick = () => {
+      const caja = host.querySelector('.rk-zoom'); if (!caja || !RK_PTS) return;
+      const centro = (caja.scrollLeft + caja.clientWidth / 2) / caja.scrollWidth;
+      RK_ZOOM = +b.dataset.v;
+      caja.innerHTML = rankChart(RK_PTS, RK_MODO, RK_ZOOM);
+      host.querySelectorAll('[data-rkz] button').forEach(x => x.classList.toggle('on', x === b));
+      caja.scrollLeft = centro * caja.scrollWidth - caja.clientWidth / 2;
+      bindRk();
+    });
+    const caja = host.querySelector('.rk-zoom'); if (caja && RK_ZOOM > 1) caja.scrollLeft = caja.scrollWidth;   // empieza en lo más reciente
   }).catch(() => {
     host.innerHTML = `<p class="empty">No se ha podido cargar el historial. Ábrelo desde la web:<br><a class="sun" href="https://andresvazquez11.github.io/Club-Natacion-Axarquia/temporada.html">andresvazquez11.github.io/Club-Natacion-Axarquia/temporada.html</a></p>`;
   });
@@ -144,9 +156,11 @@ function histTotal(s, T, ts, p) {
 }
 
 /* ── Ranking semana a semana ── */
-function rankChart(pts, modo) {
+let RK_ZOOM = 1, RK_PTS = null, RK_MODO = 'T';
+function rankChart(pts, modo, zoom = 1) {
+  RK_PTS = pts; RK_MODO = modo;
   const movil = window.innerWidth < 600;
-  const W = movil ? 400 : 860, Hh = movil ? 250 : 270, P = {l: 44, r: 20, t: 16, b: 36};
+  const W = (movil ? 400 : 860) * zoom, Hh = movil ? 250 : 270, P = {l: 44, r: 20, t: 16, b: 36};
   const n = pts.length, maxPos = Math.max(...pts.map(x => x[1]), 10);
   const top = 1, bot = Math.ceil(maxPos * 1.15);
   const X = i => P.l + (n === 1 ? 0.5 : i / (n - 1)) * (W - P.l - P.r);
@@ -158,7 +172,7 @@ function rankChart(pts, modo) {
       g += `<rect x="${P.l}" y="${ant ? y0 : P.t}" width="${W - P.l - P.r}" height="${Math.max(0, y1 - (ant ? y0 : P.t))}" fill="${col}"/><text x="${P.l + 4}" y="${(ant ? y0 : P.t) + 12}" fill="rgba(202,240,248,.7)" font-size="10" text-anchor="start">${lbl}</text>`; } return Math.max(ant, lim); }, 0);
   for (let k = 0; k <= 4; k++) { const v = Math.round(top + (bot - top) * k / 4), y = Y(v);
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.1)"/><text x="${P.l - 6}" y="${y + 4}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="end">${v}º</text>`; }
-  const paso = Math.ceil(n / (movil ? 4 : 8));
+  const paso = Math.ceil(n / ((movil ? 4 : 8) * zoom));
   pts.forEach((x, i) => { if (i % paso === 0 || i === n - 1) g += `<text x="${X(i)}" y="${Hh - P.b + 18}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="middle">${dfmt(x[0]).slice(0, 5)}</text>`; });
   // la línea se corta donde no hay marca (inicio de temporada en modo T)
   let seg = [], lines = '';
@@ -175,12 +189,13 @@ function rankChart(pts, modo) {
     // el resto se ve al pulsar el punto
     const ant = pts[i - 1], sig = pts[i + 1];
     const cambia = !ant || ant[1] !== x[1] || !sig || sig[1] !== x[1];
-    const etiq = (cambia || (b && !pts.slice(0, i).some(y => y[1] === mejor))) && (cx - ultEtiq > (movil ? 20 : 17) || i === n - 1);
+    // ampliado (4× u 8×) se escribe el puesto en todos los puntos que caben
+    const etiq = (zoom >= 4 || cambia || (b && !pts.slice(0, i).some(y => y[1] === mejor))) && (cx - ultEtiq > (movil ? 20 : 17) || i === n - 1);
     if (etiq) ultEtiq = cx;
     g += `<g class="rk-pt" data-rk="${i}" style="cursor:pointer"><title>${dfmt(x[0])} · ${x[1]}º de ${x[2]} · pulsa para ver el detalle</title>
       <circle cx="${cx}" cy="${cy}" r="14" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${b ? 5.5 : 3.5}" fill="${b ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="1.5"/>
       ${etiq ? `<text x="${cx}" y="${cy - 9}" fill="${b ? '#ffd60a' : '#fff'}" font-size="${movil ? 11 : 11}" font-weight="800" text-anchor="middle">${x[1]}º</text>` : ''}</g>`; });
-  return `<svg class="chart" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Puesto en el ranking cada semana">${g}</svg>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${Hh}" style="width:${zoom * 100}%;max-width:none" role="img" aria-label="Puesto en el ranking cada semana">${g}</svg>`;
 }
 
 /* Detalle de la semana i: su marca y por qué cambió de puesto */
@@ -251,7 +266,10 @@ function tabRanking(s, p, H) {
     <div class="bar-row"><div class="seg" data-rmo><button data-v="T" class="${modo === 'T' ? 'on' : ''}">Temporada (oficial)</button><button data-v="A" class="${modo === 'A' ? 'on' : ''}">Últimos 12 meses</button></div>
       <div class="seg" data-rlv>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     ${resumen}
-    ${con.length ? `<div class="card"><h3>${ev} · ${modo === 'T' ? 'ranking de la temporada' : 'ranking de los últimos 12 meses'} · ${LV.find(x => x[0] === lv)[1]}</h3>${rankChart(pts, modo)}
+    ${con.length ? `<div class="card"><h3>${ev} · ${modo === 'T' ? 'ranking de la temporada' : 'ranking de los últimos 12 meses'} · ${LV.find(x => x[0] === lv)[1]}</h3>
+      <div class="bar-row" style="margin:4px 0 6px"><span class="tiny muted">🔍 Ampliar para separar los puntos (desliza a los lados)</span>
+        <div class="seg" data-rkz>${[1, 2, 4, 8].map(z => `<button data-v="${z}" class="${z === RK_ZOOM ? 'on' : ''}">${z}×</button>`).join('')}</div></div>
+      <div class="rk-zoom">${rankChart(pts, modo, RK_ZOOM)}</div>
       <p class="tiny muted" style="margin-top:6px">1º arriba · el número junto al punto es su puesto · <b>pulsa un punto</b> para ver su marca y por qué subió o bajó. Zonas: top-10 (amarillo), top-25 (verde) y primera mitad. ${modo === 'T' ? 'En octubre el ranking de temporada vuelve a empezar: la línea se corta hasta que nada su primera marca de la nueva temporada.' : 'Cuenta su mejor marca de los últimos 365 días: no se reinicia con la temporada.'}</p>
       <div class="card" id="rk-det" style="margin-top:10px;background:rgba(3,4,94,.35)">${rankDetalle(s, H, ev, modo, lv, pts.length - 1 - pts.slice().reverse().findIndex(x => x[1]))}</div></div>` : ''}
     ${tabla}`;
