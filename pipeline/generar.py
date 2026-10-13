@@ -129,7 +129,7 @@ def main():
         return 1 + sum(1 for p, v in g.items() if v < r['valor_original'] and p != r['profile_id']), len(g)
 
     # ── Mejor marca por nadador+prueba e historial ─────────────────────────────
-    best, hist, info = {}, defaultdict(list), {}
+    best, hist, info, crono = {}, defaultdict(list), {}, {}
     best_pool = {}   # (pid, prueba, piscina) -> (cs, fecha)
     records = {}     # récord del mundo por sexo, prueba y piscina (para convertir marcas entre 25 y 50 m)
     for r in rows:
@@ -149,6 +149,8 @@ def main():
                          'and': prov in ANDALUCIA, 'mal': prov == 'MALAGA',
                          'ax': CLUB_MATCH in norm(r['club']).upper()}
         if CLUB_MATCH in norm(r['club']).upper():   # historial completo de las marcas con el club
+            # tipo de cronometraje (las mínimas del Cto. de España exigen electrónico/semiautomático)
+            crono[(pid, ev, iso(r['date']), r['id_tipo_piscina'], cs)] = 'E' if str(r.get('id_tipo_crono') or '').startswith('Electr') else 'M'
             cpos, cn = puesto(r)
             hist[(pid, ev)].append((iso(r['date']), cs, r['id_tipo_piscina'],
                                     norm(r.get('competition_name')).title(), norm(r.get('location')).title(),
@@ -247,7 +249,8 @@ def main():
             h = []
             for k, xs in por_dia.items():
                 xs.sort(key=lambda x: x[1])
-                h.append(xs[0] + ([[x[1], x[3]] for x in xs[1:]],))
+                # [..., otros, crono]: crono 'E' electrónico / 'M' manual
+                h.append(xs[0] + ([[x[1], x[3]] for x in xs[1:]], crono.get((pid, ev, xs[0][0], xs[0][2], xs[0][1]), 'M')))
             h.sort()
             hp = [x for x in h if x[2] == b['pool']]
             first = hp[0][1] if hp else b['cs']
@@ -416,7 +419,7 @@ def main():
     for s_ in swimmers:
         for e in s_['ev']:
             for x in e['h']:
-                d, cs, pool, comp, loc, pts, cpos, cn, parc, otros = x
+                d, cs, pool, comp, loc, pts, cpos, cn, parc, otros = x[:10]
                 if parc or not cpos or cpos > 10:
                     continue
                 cu = strip_acc(comp)

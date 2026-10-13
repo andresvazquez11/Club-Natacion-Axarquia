@@ -12,9 +12,11 @@ function minimasDe(s) {
   const age = s.cy === 1 ? 12 : 13;   // 1er año alevín ↔ columna «12 años»
   const evMap = Object.fromEntries(s.ev.map(e => [e.e, e]));
   const rows = Object.keys(MINIMAS['50m'][s.g]).map(ev => {
-    const e = evMap[ev], bp = e ? bestPoolMarks(e) : {}, r = {ev, e, pools: {}};
-    ['50m', '25m'].forEach(pl => { const m = MINIMAS[pl][s.g][ev][age], x = bp[pl];
-      r.pools[pl] = {min: m, min13: MINIMAS[pl][s.g][ev][13], x, d: x ? x[1] - m : null, p: x ? (x[1] - m) / m * 100 : null}; });
+    // solo marcas válidas para la RFEN: del 08/05/2026 en adelante y con crono electrónico/semiautomático
+    const e = evMap[ev], bm = e ? bestMinimas(e) : {o: {}, man: {}}, bp = bm.o, r = {ev, e, pools: {}};
+    ['50m', '25m'].forEach(pl => { const m = MINIMAS[pl][s.g][ev][age], x = bp[pl], mx = bm.man[pl];
+      r.pools[pl] = {min: m, min13: MINIMAS[pl][s.g][ev][13], x, d: x ? x[1] - m : null, p: x ? (x[1] - m) / m * 100 : null,
+        man: mx && (!x || mx[1] < x[1]) ? mx : null}; });
     const ps = ['50m', '25m'].filter(pl => r.pools[pl].p !== null).map(pl => [r.pools[pl].p, pl]);
     const b = ps.length ? ps.reduce((a, c) => c[0] < a[0] ? c : a) : null;
     r.bestp = b ? b[0] : null; r.bestpl = b ? b[1] : null; r.bestd = b ? r.pools[b[1]].d : null; return r; });
@@ -284,9 +286,12 @@ function rivalLista(s, e, sk, lv, lbl) {
 
 function tabMinimas(s) {
   const mn = minimasDe(s);
-  const celda = (P, cls, ev) => !P.x ? `<td class="num muted" data-l="Su mejor ${cls}">—</td>` :
-    `<td class="num click" data-l="Su mejor ${cls}" ${cmpAttr(s, P.x[0], P.x[3], ev)} title="Pulsa para ver la competición"><b>${fmt(P.x[1])}</b> ${dtag(P.x[0])}<div class="tiny ${P.d <= 0 ? 'good' : 'bad'}">${P.d <= 0 ? '✓ −' + secs(P.d) : '+' + secs(P.d) + ' s'} (${pctTxt(P.p)})</div></td>`;
-  return `<p class="small muted" style="margin-bottom:12px">Las mínimas de 2027 aún no se han publicado; se usan las del <a class="sun" href="${MIN_FUENTE}" target="_blank" rel="noopener">XIII Campeonato de España Alevín 2026</a>. Al ser alevín de ${s.cy}º año le corresponde la columna de <b>${mn.age} años</b>. Tabla A = piscina de 50 m · Tabla B = piscina de 25 m.</p>
+  const celda = (P, cls, ev) => !P.x ? `<td class="num muted" data-l="Su mejor ${cls}">—${P.man ? `<div class="tiny">${fmt(P.man[1])} con crono manual (${dfmt(P.man[0])}): no acredita</div>` : ''}</td>` :
+    `<td class="num click" data-l="Su mejor ${cls}" ${cmpAttr(s, P.x[0], P.x[3], ev)} title="Pulsa para ver la competición">${P.man ? `<div class="tiny muted">mejor con crono manual: ${fmt(P.man[1])} (${dfmt(P.man[0])}), no acredita</div>` : ''}<b>${fmt(P.x[1])}</b> ${dtag(P.x[0])}<div class="tiny ${P.d <= 0 ? 'good' : 'bad'}">${P.d <= 0 ? '✓ −' + secs(P.d) : '+' + secs(P.d) + ' s'} (${pctTxt(P.p)})</div></td>`;
+  return `<div class="note" style="margin-bottom:12px"><b>XIV Campeonato de España Alevín</b> (8-11 de julio de 2027) · normativa RFEN 27-406 del 12/10/2026. Al ser ${esc(s.catl).toLowerCase()} de ${s.cy}º año le corresponde la columna de <b>${mn.age} años</b>. Tabla A = piscina de 50 m · Tabla B = piscina de 25 m.
+      <ul style="margin:6px 0 0 18px"><li>Solo valen marcas <b>desde el 08/05/2026</b> hasta el 20/06/2027 y con <b>cronometraje electrónico o semiautomático</b> (las de crono manual se muestran aparte y no acreditan).</li>
+        <li>Máximo <b>4 pruebas individuales</b>.</li>
+        <li>Sin mínima se puede entrar por <b>acceso por ranking</b> (cupo total de 650 nadadores), según el porcentaje respecto a la mínima de 25 m en las distancias no oficiales de la Liga Alevín (75, 150, 300 y 600 m, desde el 01/10/2026). La RFEN no publica esas distancias en su ranking, así que aquí no se puede calcular.</li></ul></div>
     <div class="kpis" style="margin-bottom:12px"><div class="kpi hl"><b>${mn.ok}/${mn.rows.length}</b><span>mínimas conseguidas</span></div>
       ${mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp).slice(0, 3).map(r => `<div class="kpi"><b>${r.bestd <= 0 ? '✓' : secs(r.bestd) + ' s'}</b><span>${r.ev} · ${r.bestd <= 0 ? 'conseguida' : `le faltan (${r.bestp.toFixed(1)}%, ${r.bestpl})`}</span></div>`).join('')}</div>
     <table class="rt cards"><tr><th>Prueba</th><th class="num">Mínima 50 m (${mn.age} años)</th><th class="num">Su mejor 50 m</th><th class="num">Mínima 25 m (${mn.age} años)</th><th class="num">Su mejor 25 m</th><th>Estado</th></tr>

@@ -42,13 +42,13 @@ def _t(s):
     m, r = s.split(':'); sg, c = r.split(',')
     return int(m) * 6000 + int(sg) * 100 + int(c)
 MINIMAS = {
-    ('ALE', '4x100 Libre', 'M'): {'50m': _t('04:18,40'), '25m': _t('04:09,90')},
-    ('ALE', '4x100 Libre', 'F'): {'50m': _t('04:24,50'), '25m': _t('04:17,20')},
-    ('ALE', '4x200 Libre', 'M'): {'50m': _t('09:24,90'), '25m': _t('09:06,30')},
-    ('ALE', '4x200 Libre', 'F'): {'50m': _t('09:35,50'), '25m': _t('09:25,80')},
-    ('ALE', '4x100 Estilos', 'M'): {'50m': _t('04:55,30'), '25m': _t('04:43,70')},
-    ('ALE', '4x100 Estilos', 'F'): {'50m': _t('05:01,25'), '25m': _t('04:57,95')},
-    ('ALE', '4x100 Estilos mixto', 'X'): {'50m': _t('04:58,30'), '25m': _t('04:50,85')},
+    ('ALE', '4x100 Libre', 'M'): {'50m': _t('04:27,30'), '25m': _t('04:18,30')},
+    ('ALE', '4x100 Libre', 'F'): {'50m': _t('04:31,90'), '25m': _t('04:22,50')},
+    ('ALE', '4x200 Libre', 'M'): {'50m': _t('09:44,30'), '25m': _t('09:24,90')},
+    ('ALE', '4x200 Libre', 'F'): {'50m': _t('09:49,50'), '25m': _t('09:34,50')},
+    ('ALE', '4x100 Estilos', 'M'): {'50m': _t('05:06,85'), '25m': _t('04:54,35')},
+    ('ALE', '4x100 Estilos', 'F'): {'50m': _t('05:10,80'), '25m': _t('04:59,15')},
+    ('ALE', '4x100 Estilos mixto', 'X'): {'50m': _t('05:08,85'), '25m': _t('04:56,75')},
     ('INF', '4x100 Libre', 'M'): {'50m': _t('03:54,20'), '25m': _t('03:46,50')},
     ('INF', '4x100 Libre', 'F'): {'50m': _t('04:08,20'), '25m': _t('04:01,30')},
     ('INF', '4x200 Libre', 'M'): {'50m': _t('08:33,50'), '25m': _t('08:16,60')},
@@ -57,7 +57,7 @@ MINIMAS = {
     ('INF', '4x100 Estilos', 'F'): {'50m': _t('04:41,35'), '25m': _t('04:30,50')},
     ('INF', '4x100 Estilos mixto', 'X'): {'50m': _t('04:33,00'), '25m': _t('04:22,35')},
 }
-MIN_FUENTE = {'ALE': 'Cto. de España Alevín 2026 (normativa RFEN 26-406)',
+MIN_FUENTE = {'ALE': 'Cto. de España Alevín 2027 (normativa RFEN 27-406)',
               'INF': 'Cto. de España Infantil 2026 (normativa RFEN 26-407)'}
 TOPK = 4                    # con los 4 mejores de cada posta basta para encontrar el equipo óptimo
 
