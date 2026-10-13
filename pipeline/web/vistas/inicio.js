@@ -34,7 +34,7 @@ function vistaInicio(app) {
   });
 
   app.innerHTML = `
-    <div class="hd"><div><h1>Club Natación Axarquía</h1><p>Temporada 26-27 · datos RFEN · actualizado ${DATA.fecha}</p></div></div>
+    <div class="hd hd-logo"><img class="logo-cna" src="logo_cna.png" alt="CNA"><div><h1>Club Natación Axarquía</h1><p>Temporada 26-27 · datos RFEN · actualizado ${DATA.fecha}</p></div></div>
     <div class="ini-top">${buscadorHTML('q-ini')}<a class="btn ghost manual-b" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a></div>
     <div class="kpis k5">
       ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],

@@ -324,3 +324,80 @@ tr.hueco td{opacity:.75;font-style:italic}
 .hist-t.foco{box-shadow:0 0 0 4px rgba(255,214,10,.35)}
 .hist-k{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
 .hist-k .kpi b{font-size:1.4rem}
+
+/* ═══ Tema «Piscina» (13/10/2026): agua con azulejos y corcheras, reflejos de luz y cristal empañado ═══ */
+body{background:#0284c7}
+.agua{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.agua .base{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 0%,#5eead4 0%,#22b8cf 32%,#0284c7 70%,#075985 100%)}
+.agua canvas{position:absolute;left:-25%;top:-25%;width:150%;height:150%}
+.agua .az{opacity:.55;animation:az-deriva 40s ease-in-out infinite alternate}
+.agua .caus{mix-blend-mode:screen}
+.agua .c1{opacity:.42;animation:deriva1 26s linear infinite alternate}
+.agua .c2{opacity:.22;animation:deriva2 34s linear infinite alternate}
+.agua .brillo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),transparent 30%,transparent 70%,rgba(3,40,90,.35))}
+.agua .calle{position:absolute;top:-40px;bottom:-40px;width:22px;opacity:.85;border-radius:11px;
+  background:repeating-linear-gradient(180deg,#e63946 0 16px,#fff 16px 32px,#1d4ed8 32px 48px,#fff 48px 64px);
+  box-shadow:0 0 0 1px rgba(255,255,255,.25),0 6px 10px rgba(0,30,60,.25);animation:corchera 7s ease-in-out infinite alternate}
+.agua .calle.izq{left:3%}.agua .calle.der{right:3%;animation-delay:-3s}
+@media (min-width:900px){.agua .calle.izq{left:calc(var(--nav-w) + 1.5%)}.agua .calle.der{right:1.5%}}
+@keyframes deriva1{from{transform:translate(0,0) rotate(0)}to{transform:translate(-8%,-6%) rotate(2deg)}}
+@keyframes deriva2{from{transform:translate(-6%,0) scale(1.3)}to{transform:translate(2%,-8%) scale(1.3)}}
+@keyframes az-deriva{from{transform:translate(0,0)}to{transform:translate(-3%,-2%)}}
+@keyframes corchera{from{transform:translateY(0)}to{transform:translateY(16px)}}
+@media (prefers-reduced-motion:reduce){.agua *{animation:none!important}}
+.shell{position:relative;z-index:1}
+
+/* cristal empañado con gotas */
+.card,.kpi,.hero,.pr,.note,#modal .box{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(8,80,140,.24) 55%,rgba(255,255,255,.14));
+  border:1px solid rgba(255,255,255,.55);
+  box-shadow:0 10px 26px rgba(0,40,80,.22),inset 0 1px 0 rgba(255,255,255,.65);
+  backdrop-filter:blur(10px) saturate(150%) brightness(.92);-webkit-backdrop-filter:blur(10px) saturate(150%) brightness(.92);
+  text-shadow:0 1px 3px rgba(0,40,80,.45)}
+.card::before,.kpi::before,.hero::before,.pr::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:var(--gotas);background-size:260px 260px;opacity:.6;z-index:0}
+.card > *,.kpi > *,.hero > *,.pr > *{position:relative;z-index:1}
+.card.link:hover,button.kpi:hover{background:linear-gradient(135deg,rgba(255,255,255,.34),rgba(8,80,140,.2) 55%,rgba(255,255,255,.2))}
+.kpi.cto,.card.ben,.card.rel.ben,.hist-t.mejor{border-color:rgba(255,214,10,.85)}
+.hero{background:linear-gradient(135deg,rgba(3,40,110,.45),rgba(255,255,255,.18) 60%,rgba(8,80,140,.25))}
+.hero::after{z-index:0}
+.note{background:linear-gradient(135deg,rgba(3,40,110,.42),rgba(8,80,140,.3));border-color:rgba(255,255,255,.4)}
+#modal{background:rgba(2,40,80,.45)}
+#modal .box{background:linear-gradient(170deg,rgba(3,40,110,.82),rgba(2,90,150,.78))}
+.rt td{border-bottom-color:rgba(255,255,255,.14)}
+.chip,.seg{background:rgba(3,40,110,.35);border-color:rgba(255,255,255,.4)}
+.tag{text-shadow:none}
+.tag.gold,.chip.on,.seg button.on,.btn,.pos,.kpi .vd{text-shadow:none}
+.tabs{background:linear-gradient(180deg,rgba(2,80,140,.55),rgba(2,80,140,.35));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+@media (min-width:900px){.tabs{background:none;backdrop-filter:none;-webkit-backdrop-filter:none}}
+/* barra de navegación de cristal */
+.nav{background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(2,70,130,.45))!important;border-color:rgba(255,255,255,.5)!important;
+  backdrop-filter:blur(16px) saturate(150%)!important;-webkit-backdrop-filter:blur(16px) saturate(150%)!important;text-shadow:0 1px 2px rgba(0,40,80,.5)}
+.nav a.on{text-shadow:none}
+.brand-logo{width:44px;height:44px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.6),0 4px 12px rgba(0,0,0,.3)}
+.hd-logo{display:flex;align-items:center;gap:12px;justify-content:flex-start!important}
+.logo-cna{width:58px;height:58px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,.6),0 6px 18px rgba(0,0,0,.3)}
+.hd h1,.hd p{text-shadow:0 2px 8px rgba(0,40,80,.45)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .card,.kpi,.hero,.pr,.note{background:linear-gradient(135deg,rgba(3,60,120,.78),rgba(2,90,150,.7))}}
+
+/* salpicadura al pulsar */
+.salpica{position:fixed;z-index:100;pointer-events:none;width:0;height:0}
+.salpica .onda{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.85);
+  box-shadow:0 0 8px rgba(186,230,253,.8);animation:onda .55s ease-out forwards}
+.salpica .o2{animation-delay:.08s;border-width:1px}
+.salpica b{position:absolute;left:0;top:0;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+  background:radial-gradient(circle at 35% 30%,#fff,rgba(186,230,253,.8) 50%,rgba(56,189,248,.5));animation:gota .5s cubic-bezier(.2,.7,.4,1) forwards}
+@keyframes onda{from{transform:scale(.3);opacity:1}to{transform:scale(5);opacity:0}}
+@keyframes gota{0%{transform:translate(0,0) scale(.6);opacity:1}70%{opacity:1}100%{transform:translate(var(--x),calc(var(--y) + 14px)) scale(.4);opacity:0}}
+.hd-logo{flex-wrap:nowrap!important;align-items:center!important}
+.hd-logo > div{min-width:0}
+@media (max-width:899px){.agua .calle{width:18px;opacity:.7}.agua .calle.izq{left:-7px}.agua .calle.der{right:-7px}.logo-cna{width:50px;height:50px}.hd-logo h1{font-size:1.35rem}}
+/* contraste: agua un poco más oscura arriba y cristal más oscuro en las tarjetas que van dentro de otras */
+.agua .base{background:radial-gradient(120% 80% at 50% 0%,#3cc7c0 0%,#169fc4 32%,#0274b0 70%,#064f7c 100%)}
+.agua .brillo{background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 30%,transparent 70%,rgba(3,40,90,.35))}
+.card .card,.pr .card,.card .kpi,.pr .kpi,#modal .card,#modal .kpi{background:linear-gradient(135deg,rgba(3,40,110,.34),rgba(2,70,130,.26));border-color:rgba(255,255,255,.35);
+  backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.card .card::before,.pr .card::before,.card .kpi::before,.pr .kpi::before,#modal .card::before,#modal .kpi::before{opacity:.25}
+.pr.open{border-color:rgba(255,214,10,.85)}
+.rt tr.me td{background:rgba(255,214,10,.22)}
+.hd p,.muted{text-shadow:0 1px 3px rgba(0,40,80,.55)}

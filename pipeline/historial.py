@@ -308,8 +308,11 @@ def analisis(temps, pid=None, ambito=None, coh=None, club_niv=None):
             med = sorted(lista)[len(lista) // 2]
             C.append(['🇪🇸', f'En la {etiqueta(ref)} su nivel ({mio} pts) supera al <b>{pc}%</b> de los nadadores de España '
                             f'de su año ({len(lista)}); la mediana es {med} pts.'])
+            g_, y_ = (ambito or '|').split('|')
+            quien = (f'las nadadoras de España nacidas en {y_}' if g_ == 'F' else f'los nadadores de España nacidos en {y_}') if y_ else 'los nadadores de España de su año'
             (B if pc >= 75 else M if pc < 40 else C).append(
-                ['⭐' if pc >= 75 else '📌', f'Está en el <b>{"top " + str(100 - pc) + "%" if pc >= 50 else str(pc) + "% inferior"}</b> de España de su año por nivel.'])
+                ['⭐' if pc >= 75 else '📌', f'Su nivel ({mio} pts, media de sus 3 mejores pruebas) es <b>mejor que el del {pc}%</b> de {quien} en la {etiqueta(ref)}'
+                                              + (f' (está en el {100 - pc}% de arriba).' if pc >= 50 else '.')])
         prev = [t for t in TEMPORADAS if t in coh and TEMPORADAS.index(t) == TEMPORADAS.index(ref) - 1]
         if prev and mio is not None and pid in coh[prev[0]]:
             t0 = prev[0]
