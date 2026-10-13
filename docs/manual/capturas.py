@@ -7,7 +7,7 @@ OUT = sys.argv[1]
 BEN = '6200218'
 MOV = dict(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
 ESC = dict(viewport={'width': 1366, 'height': 860}, device_scale_factor=1.5)
-OCULTAR = ('.nav{display:none!important} html,body{background:#0353a4!important;background-attachment:scroll!important}'
+OCULTAR = ('.nav{display:none!important} .agua{position:absolute!important;bottom:auto!important;height:var(--alto,100vh)!important}'
            ' .tabs{position:static!important}')
 
 JS_RECT = """([txt, sel]) => {
@@ -25,7 +25,12 @@ def nueva(br, url, espera=1800, ocultar=True, antes=None):
     ctx = br.new_context(**MOV); p = ctx.new_page()
     if antes: p.add_init_script(antes)
     p.goto(BASE + url); p.wait_for_timeout(espera)
-    if ocultar: p.add_style_tag(content=OCULTAR); p.wait_for_timeout(300)
+    if ocultar:
+        p.add_style_tag(content=OCULTAR)
+        # el fondo de agua cubre toda la página (para las capturas de página completa) y se vuelve a pintar a ese tamaño
+        p.evaluate("""() => { const h = document.documentElement.scrollHeight; document.documentElement.style.setProperty('--alto', h + 'px');
+          document.querySelectorAll('.agua canvas').forEach(cv => { cv.style.height = (h * 1.5) + 'px'; }); }""")
+        p.wait_for_timeout(300)
     return ctx, p
 
 
