@@ -13,6 +13,12 @@ on:
     - cron: '7 18 * * *'
   workflow_dispatch:          # botón "Run workflow" → actualiza al momento
 
+
+# una actualización detrás de otra (nunca dos a la vez)
+concurrency:
+  group: actualizar-temporada
+  cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -80,7 +86,12 @@ jobs:
           git commit -m "Actualizar informe temporada 26-27 — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
           for i in 1 2 3; do
             git push origin main && exit 0
-            git pull --rebase origin main || { git rebase --abort; exit 1; }
+            # si otra actualización (o un cambio de código) llegó antes: rehacer sobre la versión más reciente
+            git fetch origin main
+            git reset --hard origin/main
+            CNA_BASE=pipeline/base_2526.json.gz CNA_NEW=raw_2627 CNA_OUT=temporada.html CNA_SUMMARY=resumen.txt python pipeline/generar.py
+            git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json
+            git commit -m "Actualizar informe temporada 26-27 — $(date '+%d/%m/%Y %H:%M')" || exit 0
           done
           exit 1
 
