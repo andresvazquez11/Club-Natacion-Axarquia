@@ -10,7 +10,7 @@ Lo usan:
 
 Formato de las marcas de entrada: las filas de la API de la RFEN (las mismas que usa generar.py).
 """
-import bisect, glob, gzip, html, json, os
+import bisect, glob, gzip, html, json, os, re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
@@ -73,6 +73,11 @@ def cargar(ruta):
     return filas
 
 
+def _comp(r):
+    """Clave de la competición: su id o, si la RFEN no lo da (temporadas anteriores a la 24-25), su nombre."""
+    return r.get('id_competicion') or ' '.join(str(r.get('competition_name') or '').split()).upper() or None
+
+
 def limpiar(filas):
     """Marcas válidas: con nadador y tiempo, prueba conocida y sin tiempos parciales."""
     for r in filas:
@@ -97,8 +102,8 @@ def resumen_temporada(filas, club, cohorte=False):
     comp_best = defaultdict(dict)
     marcas_club = defaultdict(list)
     for r, d in limpiar(filas):
-        if r.get('id_competicion'):
-            g_ = comp_best[(r['id_competicion'], r['estilo'], r.get('id_tipo_piscina'), r['genero'], r['fecha_nacimiento'])]
+        if _comp(r):
+            g_ = comp_best[(_comp(r), r['estilo'], r.get('id_tipo_piscina'), r['genero'], r['fecha_nacimiento'])]
             v = int(r['valor_original'])
             if r['profile_id'] not in g_ or v < g_[r['profile_id']]:
                 g_[r['profile_id']] = v
@@ -118,7 +123,7 @@ def resumen_temporada(filas, club, cohorte=False):
         if pid in club:
             c = comps[pid].setdefault((d.isoformat(), r.get('competition_name')), [0])
             c[0] += 1
-            g_ = comp_best.get((r.get('id_competicion'), ev, pl, r['genero'], r['fecha_nacimiento'])) if r.get('id_competicion') else None
+            g_ = comp_best.get((_comp(r), ev, pl, r['genero'], r['fecha_nacimiento'])) if _comp(r) else None
             cpos = (1 + sum(1 for p_, v in g_.items() if v < cs and p_ != pid), len(g_)) if g_ and g_.get(pid) == cs else (None, None)
             marcas_club[pid].append([d.isoformat(), ev, cs, pl, ' '.join(str(r.get('competition_name') or '').split()).title(),
                                      ' '.join(str(r.get('location') or '').split()).title(), _fina(r.get('record_mundo'), cs), cpos[0], cpos[1]])
@@ -672,3 +677,131 @@ def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
                 if pid not in mejor[k] or cs < mejor[k][pid][1]:
                     mejor[k][pid] = [pid, cs, d.isoformat(), ' '.join(str(r.get('nombre') or '').split()).title(), y]
     return {k: sorted(v.values(), key=lambda x: x[1])[:top] for k, v in mejor.items()}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Historia del club: cómo le fue al club en cada temporada (para la línea de tiempo de Club → Historia)
+# ═══════════════════════════════════════════════════════════════════════════
+_CTO_ES = ('ESPANA', 'ESPAÑA')
+
+
+def _nivel_cto(nombre):
+    """'es' / 'an' si la competición es un Campeonato de España o de Andalucía (sin ligas de clubes)."""
+    n = _acc(nombre)
+    if not any(k in n for k in ('CAMPEONATO', 'CTO')) or 'CLUBES' in n:
+        return None
+    # jornadas de liga / fases territoriales («3ªJDA.F.T.CTO.ANDALUCIA…»): no son el campeonato
+    if re.search(r'\bJDA\b|JORNADA|F\.\s?T\.|\dª\s?J|\dª\s?JDA', n):
+        return None
+    if any(k in n for k in _CTO_ES):
+        return 'es'
+    if 'ANDALUC' in n or ' FAN ' in f' {n} ':
+        return 'an'
+    return None
+
+
+def historia_temporada(filas, t, club_match='AXARQ'):
+    """Resumen del club en la temporada t a partir de TODAS las marcas de España de esa temporada."""
+    fin = 2000 + int(t[2:])                      # edad federativa = año en que acaba la temporada − año de nacimiento
+    info, best, comp_best, club_pids, n_marcas, comps = {}, {}, defaultdict(dict), set(), 0, set()
+    marcas_club = []
+    for r, d in limpiar(filas):
+        pid, ev, cs, pl = r['profile_id'], r['estilo'], int(r['valor_original']), r.get('id_tipo_piscina')
+        g, y = r['genero'], int(r['fecha_nacimiento'])
+        club = ' '.join(str(r.get('club') or '').split())
+        prov = _acc(r.get('provincia'))
+        if pid not in info or info[pid][0] <= d:
+            info[pid] = (d, club, prov in ANDALUCIA, prov == 'MALAGA', g, y, ' '.join(str(r.get('nombre') or '').split()).title())
+        k = (pid, ev)
+        if k not in best or cs < best[k][0]:
+            best[k] = (cs, _fina(r.get('record_mundo'), cs), d.isoformat())
+        if _comp(r):
+            cb = comp_best[(_comp(r), ev, pl, g, y)]
+            if pid not in cb or cs < cb[pid]:
+                cb[pid] = cs
+        if club_match in club.upper():
+            club_pids.add(pid); n_marcas += 1; comps.add(r.get('competition_name'))
+            marcas_club.append((r, d))
+    if not club_pids:
+        return None
+    # clave de club de cada nadador (su club más reciente de la temporada) y nivel del club por mayoría
+    ckey = {pid: ('AXARQ' if club_match in v[1].upper() else v[1]) for pid, v in info.items()}
+    ckey.update({pid: 'AXARQ' for pid in club_pids})
+    votos = defaultdict(lambda: [0, 0, 0])
+    for pid, v in info.items():
+        c = votos[ckey[pid]]; c[0] += 1; c[1] += v[2]; c[2] += v[3]
+    nivel_club = {c: {'an': v[1] * 2 > v[0], 'ma': v[2] * 2 > v[0]} for c, v in votos.items()}
+    # rankings por sexo, año y prueba
+    listas = defaultdict(list)
+    for (pid, ev), b in best.items():
+        _, _, an, ma, g, y, _ = info[pid]
+        listas[(g, y, ev)].append((b[0], pid, an, ma))
+    for L in listas.values():
+        L.sort()
+    pos = {}                                   # (pid, ev) → {'es': n, 'an': n, 'ma': n, 'tes': total}
+    t8 = defaultdict(lambda: {'ma': 0, 'an': 0})
+    for (g, y, ev), L in listas.items():
+        k_an = k_ma = 0
+        for k, (cs, pid, an, ma) in enumerate(L):
+            p = {'es': k + 1, 'tes': len(L)}
+            if an:
+                k_an += 1; p['an'] = k_an
+                if k_an <= 8: t8[ckey[pid]]['an'] += 1
+            if ma:
+                k_ma += 1; p['ma'] = k_ma
+                if k_ma <= 8: t8[ckey[pid]]['ma'] += 1
+            if pid in club_pids:
+                pos[(pid, ev)] = p
+    puesto_club = {}
+    for lv in ('ma', 'an'):
+        cs = sorted((c for c in t8 if nivel_club.get(c, {}).get(lv)), key=lambda c: -t8[c][lv])
+        if 'AXARQ' in cs:
+            puesto_club[lv] = [1 + sum(1 for c in cs if t8[c][lv] > t8['AXARQ'][lv]), len(cs), t8['AXARQ'][lv]]
+    # campeonatos: puesto real en la competición entre los nacidos en su año
+    cto = {'es': {'t10': 0, 'pod': 0, 'oro': 0}, 'an': {'t10': 0, 'pod': 0, 'oro': 0}}
+    cto_top, cto_pid = [], defaultdict(int)
+    for r, d in marcas_club:
+        lv = _nivel_cto(r.get('competition_name'))
+        if not lv or not _comp(r):
+            continue
+        pid, cs = r['profile_id'], int(r['valor_original'])
+        cb = comp_best.get((_comp(r), r['estilo'], r.get('id_tipo_piscina'), r['genero'], int(r['fecha_nacimiento'])))
+        if not cb or cb.get(pid) != cs:
+            continue
+        p = 1 + sum(1 for q, v in cb.items() if v < cs and q != pid)
+        if p <= 10:
+            cto[lv]['t10'] += 1
+            if p <= 3: cto[lv]['pod'] += 1; cto_pid[pid] += 1
+            if p == 1: cto[lv]['oro'] += 1
+            cto_top.append([d.isoformat(), info[pid][6], r['estilo'], p, len(cb), lv, ' '.join(str(r.get('competition_name') or '').split()).title(), pid])
+    cto_top = sorted({tuple(x) for x in cto_top}, key=lambda x: (x[5] != 'es', x[3], x[0]))
+    # nadadores, categorías y nadadores destacados
+    cats = defaultdict(lambda: {'n': 0, 'M': 0, 'F': 0, 't10': 0, 'an3': 0, 'ma1': 0, 'pod': 0})
+    t10 = an3 = ma1 = 0
+    dest, pts = [], []
+    for pid in club_pids:
+        _, _, an, ma, g, y, nombre = info[pid]
+        cat = EDAD_CAT.get(fin - y, 'ABS' if fin - y > 18 else 'PRE')
+        c = cats[cat]; c['n'] += 1; c[g] += 1; c['pod'] += cto_pid.get(pid, 0)
+        mejor = None
+        p_max = 0
+        for ev in PRUEBAS:
+            p = pos.get((pid, ev))
+            if not p:
+                continue
+            p_max = max(p_max, best[(pid, ev)][1])
+            if p['es'] <= 10: t10 += 1; c['t10'] += 1
+            if p.get('an', 99) <= 3: an3 += 1; c['an3'] += 1
+            if p.get('ma') == 1: ma1 += 1; c['ma1'] += 1
+            sc = p['es'] / p['tes']
+            if mejor is None or sc < mejor[0]:
+                mejor = (sc, ev, p['es'], p['tes'], best[(pid, ev)][0])
+        pts.append(p_max)
+        if mejor:
+            dest.append([pid, nombre, y, g, cat, mejor[1], mejor[2], mejor[3], mejor[4], p_max, cto_pid.get(pid, 0)])
+    dest.sort(key=lambda x: (-x[10], x[6] / x[7]))
+    return {'t': t, 'n': len(club_pids), 'M': sum(1 for p in club_pids if info[p][4] == 'M'),
+            'F': sum(1 for p in club_pids if info[p][4] == 'F'),
+            'cats': dict(cats), 't10': t10, 'an3': an3, 'ma1': ma1, 'cto': cto, 'ctoTop': [list(x) for x in cto_top[:12]],
+            'pos': puesto_club, 'niv': round(sum(pts) / len(pts)) if pts else 0, 'marcas': n_marcas, 'comps': len(comps),
+            'dest': dest[:8], 'pids': sorted(club_pids)}

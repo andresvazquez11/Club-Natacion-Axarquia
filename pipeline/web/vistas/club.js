@@ -21,7 +21,7 @@ function swCard(s, k) {
 }
 
 /* Club → tres pestañas: Nadadores · Relevos · Récords (#club/ALE, #club/ALE/relevos, #club/ALE/records) */
-const CLUB_TABS = [['nadadores', '👥 Nadadores'], ['relevos', '🤝 Relevos'], ['records', '🏅 Récords']];
+const CLUB_TABS = [['nadadores', '👥 Nadadores'], ['relevos', '🤝 Relevos'], ['records', '🏅 Récords'], ['historia', '📜 Historia']];
 function vistaClub(app, p) {
   const tab = CLUB_TABS.find(t => t[0] === p.tab) ? p.tab : 'nadadores';
   const cats = tab === 'relevos' ? DATA.cats.filter(c => REL.cats.find(r => r.key === c.key)) : DATA.cats;
@@ -29,10 +29,12 @@ function vistaClub(app, p) {
   const tabsHTML = `<nav class="tabs ctabs">${CLUB_TABS.map(([k, l]) => `<a href="#club/${c.key}${k === 'nadadores' ? '' : '/' + k}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav>`;
   const cabe = {nadadores: ['👥 Club', 'Todos los nadadores del club por categoría. Los puestos son siempre <b>entre los de su mismo sexo y año</b>.'],
     relevos: ['🤝 Relevos', 'Los mejores relevos que podría formar el club en cada categoría y en qué puesto quedarían frente a los demás clubes.'],
-    records: ['🏅 Récords del club', 'Las mejores marcas hechas con el club en cada categoría de edad, prueba y piscina.']}[tab];
+    records: ['🏅 Récords del club', 'Las mejores marcas hechas con el club en cada categoría de edad, prueba y piscina.'],
+    historia: ['📜 Historia del club', 'Cómo le ha ido al club temporada a temporada desde la 13-14: nadadores, resultados, categorías y nadadores destacados.']}[tab];
   const head = `<div class="hd"><div><h1>${cabe[0]}</h1><p>${cabe[1]}</p></div></div>${tabsHTML}`;
   if (tab === 'relevos') return clubRelevos(app, p, c, cats, head);
   if (tab === 'records') return clubRecords(app, p, c, head);
+  if (tab === 'historia') return clubHistoria(app, p, head);
   clubNadadores(app, p, c, head);
 }
 
@@ -208,3 +210,86 @@ function clubRecords(app, p, c, head) {
   onChips(app, 'ed', v => go({e: v}));
 }
 const _CATS_REC = [['PRE', 'Prebenjamín', '8-9 años'], ['BEN', 'Benjamín', '10-11'], ['ALE', 'Alevín', '12-13'], ['INF', 'Infantil', '14-15'], ['JUN', 'Junior', '16-18'], ['ABS', 'Absoluto', '19 o más']];
+
+/* ── 📜 Historia del club: evolución temporada a temporada y línea de tiempo ── */
+const CAT_TXT = {PRE: 'Prebenjamín', BEN: 'Benjamín', ALE: 'Alevín', INF: 'Infantil', JUN: 'Junior', ABS: 'Absoluto'};
+/* gráfico de una serie por temporada: valores, etiqueta de cada punto, mejor temporada resaltada; invertir = 1º arriba */
+function serieHist(H, val, {invertir = false, sufijo = ''} = {}) {
+  const movil = window.innerWidth < 600, W = movil ? 400 : 560, Hh = 190, P = {l: 10, r: 10, t: 24, b: 30};
+  const v = H.map(val), ok = v.filter(x => x !== null && x !== undefined);
+  if (!ok.length) return '';
+  const mn = Math.min(...ok), mx = Math.max(...ok), rg = (mx - mn) || 1;
+  const X = i => P.l + 16 + i * (W - P.l - P.r - 32) / Math.max(1, H.length - 1);
+  const Y = x => invertir ? P.t + (x - mn) / rg * (Hh - P.t - P.b) : Hh - P.b - (x - mn) / rg * (Hh - P.t - P.b);
+  let g = '', pts = [];
+  H.forEach((h, i) => { const x = v[i]; g += `<text x="${X(i)}" y="${Hh - 10}" fill="rgba(202,240,248,.8)" font-size="${movil ? 9 : 10}" text-anchor="middle">${h.t.slice(0, 2)}-${h.t.slice(2)}</text>`;
+    if (x === null || x === undefined) return; pts.push(`${X(i)},${Y(x)}`); });
+  g += `<polyline fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" points="${pts.join(' ')}"/>`;
+  H.forEach((h, i) => { const x = v[i]; if (x === null || x === undefined) return;
+    const top = invertir ? x === mn : x === mx;
+    g += `<g data-ht="${h.t}" style="cursor:pointer"><title>${h.t.slice(0, 2)}-${h.t.slice(2)}: ${x}${sufijo}</title><circle cx="${X(i)}" cy="${Y(x)}" r="12" class="tip-hit"/>
+      <circle cx="${X(i)}" cy="${Y(x)}" r="${top ? 5.5 : 3.8}" fill="${top ? '#ffd60a' : h.curso ? 'rgba(255,255,255,.5)' : '#fff'}" stroke="#023e8a" stroke-width="1.5"/>
+      <text x="${X(i)}" y="${Y(x) - 9}" fill="${top ? '#ffd60a' : '#fff'}" font-size="${movil ? 10 : 11}" font-weight="800" text-anchor="middle">${x}${sufijo}</text></g>`; });
+  return `<svg class="chart" viewBox="0 0 ${W} ${Hh}" role="img">${g}</svg>`;
+}
+function clubHistoria(app, p, head) {
+  const H = DATA.historia || [];
+  if (!H.length) { app.innerHTML = head + '<p class="empty">Sin datos de historia.</p>'; return; }
+  const cerr = H.filter(h => !h.curso), mejor = H.find(h => h.mejor);
+  const maxN = cerr.reduce((a, h) => h.n > a.n ? h : a, cerr[0]);
+  const pod = h => h.cto.es.pod + h.cto.an.pod;
+  const tl = x => `${x.slice(0, 2)}-${x.slice(2)}`;
+  const nadLink = (pid, n) => SW[String(pid)] ? `<a class="sw-l ${SW[String(pid)].benicio ? 'sun' : ''}" href="${fichaHref(SW[String(pid)])}">${SW[String(pid)].benicio ? '⭐ ' : ''}${esc(n)}</a>` : `<b>${esc(n)}</b>`;
+  const li = (arr, i) => arr.map(t => `<li><i class="ins-i">${i}</i>${esc(t)}</li>`).join('');
+  const tarjeta = h => {
+    const cats = Object.entries(h.cats).sort((a, b) => ['PRE', 'BEN', 'ALE', 'INF', 'JUN', 'ABS'].indexOf(a[0]) - ['PRE', 'BEN', 'ALE', 'INF', 'JUN', 'ABS'].indexOf(b[0]));
+    return `<div class="card hist-t ${h.mejor ? 'mejor' : ''}" id="ht-${h.t}">
+      <div class="bar-row" style="margin:0 0 8px"><h3 style="margin:0;font-size:1.2rem">${tl(h.t)} ${h.curso ? '<span class="tag">en curso</span>' : ''}${h.mejor ? '<span class="tag gold">⭐ Mejor temporada</span>' : ''}</h3>
+        <span class="small muted">${h.comps} competiciones · ${h.marcas.toLocaleString('es')} marcas</span></div>
+      <div class="kpis hist-k">
+        <div class="kpi hl"><b>${h.n}</b><span>nadadores · ${h.M}♂ ${h.F}♀${h.altas !== null ? `<br><span class="good">+${h.altas} nuevos</span> · <span class="bad">−${h.bajas} se van</span>` : ''}</span></div>
+        <div class="kpi"><b>${h.t10}</b><span>pruebas top-10 España</span></div>
+        <div class="kpi"><b>${h.an3}</b><span>pruebas top-3 Andalucía</span></div>
+        <div class="kpi"><b>${h.ma1}</b><span>pruebas nº1 Málaga</span></div>
+        <div class="kpi"><b>${pod(h)}</b><span>podios en campeonatos (${FLAG_ES} ${h.cto.es.pod} · ${FLAG_AN} ${h.cto.an.pod})</span></div>
+        <div class="kpi"><b>${h.pos.ma ? h.pos.ma[0] + 'º' : '—'}<small style="font-size:.7rem"> / ${h.pos.an ? h.pos.an[0] + 'º' : '—'}</small></b><span>club en Málaga${h.pos.ma ? ` (de ${h.pos.ma[1]})` : ''} / Andalucía${h.pos.an ? ` (de ${h.pos.an[1]})` : ''}</span></div>
+      </div>
+      <div class="grid g2" style="margin-top:10px">
+        <div><h4 class="good" style="margin:0 0 4px">💪 Lo bueno</h4><ul class="ins">${li(h.bueno, '✓') || '<li>—</li>'}</ul></div>
+        <div><h4 class="sun" style="margin:0 0 4px">🎯 A mejorar</h4><ul class="ins">${li(h.malo, '•') || `<li>${h.curso ? 'Temporada en curso: se valorará al terminar.' : '—'}</li>`}</ul></div>
+      </div>
+      <details class="rel-det" style="margin-top:8px"><summary>Ver categorías, nadadores destacados y mejores resultados</summary>
+        <h4 style="margin:10px 0 4px">Por categoría <span class="muted small">(edad federativa en esa temporada)</span></h4>
+        <div class="tw"><table class="rt"><tr><th>Categoría</th><th class="num">Nadadores</th><th class="num">Top-10 ESP</th><th class="num">Top-3 AND</th><th class="num">Nº1 MÁL</th><th class="num">Podios cto.</th></tr>
+          ${cats.map(([k, v]) => `<tr class="${k === h.catDest ? 'me' : ''}"><td><b>${CAT_TXT[k] || k}</b>${k === h.catDest ? ' ⭐' : ''}</td><td class="num">${v.n} <span class="of">${v.M}♂ ${v.F}♀</span></td><td class="num">${v.t10}</td><td class="num">${v.an3}</td><td class="num">${v.ma1}</td><td class="num">${v.pod}</td></tr>`).join('')}</table></div>
+        <h4 style="margin:12px 0 4px">Nadadores destacados</h4>
+        <table class="rt">${h.dest.map(x => `<tr><td>${nadLink(x[0], x[1])}<div class="tiny muted">${x[2]} ${SEXO[x[3]]} · ${CAT_TXT[x[4]] || x[4]} · ${2000 + +h.t.slice(2) - x[2]} años</div></td>
+          <td>${x[5]} <b>${fmt(x[8])}</b><div class="tiny muted">${x[6]}º de ${x[7]} en España</div></td><td class="num">${x[9]} pts${x[10] ? `<div class="tiny sun">${x[10]} podios</div>` : ''}</td></tr>`).join('')}</table>
+        ${h.ctoTop.length ? `<h4 style="margin:12px 0 4px">Mejores resultados en campeonatos</h4>
+        <table class="rt">${h.ctoTop.map(x => { const s = SW[String(x[7])];
+          return `<tr class="${s ? 'click' : ''}" ${s ? cmpAttr(s, x[0], x[6], x[2]) : ''}><td>${posB(x[3])}<span class="of">de ${x[4]}</span></td><td>${s ? `<b>${esc(x[1])}</b>` : esc(x[1])} · ${x[2]}<div class="tiny muted">${x[5] === 'es' ? FLAG_ES : FLAG_AN} ${esc(x[6])} · ${dfmt(x[0])}</div></td></tr>`; }).join('')}</table>` : ''}
+      </details></div>`;
+  };
+  app.innerHTML = `${head}
+    <div class="note">📜 Datos de la RFEN desde la temporada <b>13-14</b> (antes su sistema da error), con todos los nadadores que pasaron por el club. En las primeras temporadas la RFEN tiene registradas menos competiciones, así que algunos números (sobre todo de campeonatos) pueden salir más bajos por falta de datos. La 19-20 tuvo muchas menos competiciones (pandemia).
+      <details style="margin-top:4px"><summary class="sun" style="cursor:pointer">Cómo se calcula</summary>Rankings: puesto de la mejor marca de cada nadador en cada prueba entre los nacidos en su año (España, Andalucía y Málaga). Campeonatos: Campeonatos de Andalucía y de España (sin jornadas de liga), puesto entre los nacidos en su año. Puesto del club: veces que mete a un nadador entre los 8 mejores de su año en cada prueba, frente a los clubes de Málaga y de Andalucía. Mejor temporada: la de más top-10 de España + top-3 de Andalucía + nº1 de Málaga + 3 × podios en campeonatos. Lo bueno y lo malo se calculan comparando con la temporada anterior.</details></div>
+    <div class="kpis" style="margin-bottom:12px">
+      <div class="kpi hl"><b>${H.length}</b><span>temporadas (${tl(H[0].t)} a ${tl(H[H.length - 1].t)})</span></div>
+      <div class="kpi"><b>${mejor ? tl(mejor.t) : '—'}</b><span>mejor temporada</span></div>
+      <div class="kpi"><b>${maxN.n}</b><span>máximo de nadadores (${tl(maxN.t)})</span></div>
+      <div class="kpi"><b>${Math.min(...cerr.filter(h => h.pos.an).map(h => h.pos.an[0]))}º</b><span>mejor puesto entre los clubes de Andalucía</span></div>
+    </div>
+    <h2 class="st">📈 Evolución <span class="muted small">· pulsa un punto para ir a esa temporada</span></h2>
+    <div class="grid g2">
+      <div class="card"><h3>👥 Nadadores</h3>${serieHist(H, h => h.n)}</div>
+      <div class="card"><h3>${FLAG_ES} Pruebas en el top-10 de España</h3>${serieHist(H, h => h.t10)}</div>
+      <div class="card"><h3>🏆 Podios en campeonatos <span class="muted small">(Andalucía + España)</span></h3>${serieHist(H, pod)}</div>
+      <div class="card"><h3>📍 Puesto del club en Andalucía <span class="muted small">(1º arriba)</span></h3>${serieHist(H, h => h.pos.an ? h.pos.an[0] : null, {invertir: true, sufijo: 'º'})}</div>
+      <div class="card"><h3>🥇 Pruebas nº 1 de Málaga</h3>${serieHist(H, h => h.ma1)}</div>
+      <div class="card"><h3>📊 Nivel medio <span class="muted small">(puntos de la mejor marca de cada nadador)</span></h3>${serieHist(H, h => h.niv)}</div>
+    </div>
+    <h2 class="st">🗓️ Temporada a temporada</h2>
+    <div class="hist-tl">${[...H].reverse().map(tarjeta).join('')}</div>`;
+  app.querySelectorAll('[data-ht]').forEach(el => el.onclick = () => { const c = document.getElementById('ht-' + el.dataset.ht);
+    if (c) { c.scrollIntoView({behavior: 'smooth', block: 'start'}); c.classList.add('foco'); setTimeout(() => c.classList.remove('foco'), 1800); } });
+}

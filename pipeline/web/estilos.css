@@ -317,3 +317,10 @@ td.click{cursor:pointer}
 .tag.click{cursor:pointer}
 .edad{display:inline-block;font-size:.66rem;font-weight:800;color:var(--sun-ink);background:rgba(255,214,10,.85);border-radius:8px;padding:0 6px;margin-left:2px;vertical-align:middle;white-space:nowrap}
 tr.hueco td{opacity:.75;font-style:italic}
+
+/* historia del club */
+.hist-tl{display:flex;flex-direction:column;gap:12px}
+.hist-t.mejor{border-color:var(--sun)}
+.hist-t.foco{box-shadow:0 0 0 4px rgba(255,214,10,.35)}
+.hist-k{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+.hist-k .kpi b{font-size:1.4rem}

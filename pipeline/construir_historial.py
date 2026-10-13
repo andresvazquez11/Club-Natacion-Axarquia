@@ -59,6 +59,15 @@ def main():
     with gzip.open(os.path.join(BASE, 'comparables_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump({'bolsa': sorted(bolsa), 't': comp_t, 'd': comp_d}, f, ensure_ascii=False, separators=(',', ':'))
     print(f'  comparables guardados ({os.path.getsize(os.path.join(BASE, "comparables_base.json.gz")) / 1e6:.1f} MB)')
+    # historia del club temporada a temporada (Club → Historia)
+    historia = {}
+    for t in H.TEMPORADAS[:-1]:
+        if raw(carpeta, t):
+            h = H.historia_temporada(H.cargar(raw(carpeta, t)), t)
+            if h: historia[t] = h
+    with gzip.open(os.path.join(BASE, 'historia_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
+        json.dump(historia, f, ensure_ascii=False, separators=(',', ':'))
+    print(f'  historia del club: {len(historia)} temporadas')
     # récords del club: todas las marcas hechas con el club en las temporadas cerradas, también de quien ya no está
     recs = H.marcas_club_records({t: H.cargar(raw(carpeta, t)) for t in H.TEMPORADAS[:-1] if raw(carpeta, t)})
     with gzip.open(os.path.join(BASE, 'records_base.json.gz'), 'wt', 9, encoding='utf-8') as f:

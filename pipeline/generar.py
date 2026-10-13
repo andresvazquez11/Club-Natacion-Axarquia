@@ -453,7 +453,7 @@ def main():
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
             'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves_ref': claves_ref, 'claves_by': claves_by, 'claves_ev': CLAVES_BENICIO,
             'destacados': destacados, 'wr': records, 'estrella_fija': None,
-            'relevos': relevos, 'recs': records_club(swimmers, hist), 'mov': movimientos}
+            'relevos': relevos, 'recs': records_club(swimmers, hist), 'mov': movimientos, 'historia': historia_club(rows_new)}
 
     # Dos páginas con los mismos datos: la tuya (Benicio fijo como estrella) y la del club para compartir
     # (cada familia elige a su nadador y queda guardado en su dispositivo).
@@ -481,6 +481,67 @@ def montar_html():
         if re.search(r'^(<<<<<<<|>>>>>>>) ', leer(n), re.M):
             raise SystemExit(f'ERROR: {n} tiene marcas de conflicto de git sin resolver; no se genera la página.')
     return leer('plantilla.html').replace('/*__CSS__*/', leer('estilos.css')).replace('/*__JS__*/', js)
+
+
+HISTORIA_BASE = os.path.join(BASE_DIR, 'historia_base.json.gz')
+CAT_NOM = {'PRE': 'prebenjamines', 'BEN': 'benjamines', 'ALE': 'alevines', 'INF': 'infantiles', 'JUN': 'júniors', 'ABS': 'absolutos'}
+
+
+def historia_club(rows_new):
+    """Línea de tiempo del club: temporadas cerradas (historia_base.json.gz) + la 26-27 en curso, con altas y bajas,
+    categoría destacada, mejor temporada y un resumen de lo bueno y lo malo frente a la temporada anterior."""
+    import historial as H
+    hist = H.cargar(HISTORIA_BASE) if os.path.exists(HISTORIA_BASE) else {}
+    if rows_new:
+        h = H.historia_temporada(rows_new, '2627')
+        if h:
+            hist['2627'] = h
+    ts = sorted(hist)
+    nota = lambda h: h['t10'] + h['an3'] + h['ma1'] + 3 * (h['cto']['es']['pod'] + h['cto']['an']['pod'])
+    cerradas = [t for t in ts if t != '2627']
+    mejor = max(cerradas, key=lambda t: nota(hist[t])) if cerradas else None
+    out = []
+    for k, t in enumerate(ts):
+        h = dict(hist[t]); prev = hist[ts[k - 1]] if k else None
+        pids = set(h.pop('pids', []))
+        h['altas'] = len(pids - set(prev['pids'])) if prev else None
+        h['bajas'] = len(set(prev['pids']) - pids) if prev else None
+        h['nota'] = nota(h); h['mejor'] = t == mejor; h['curso'] = t == '2627'
+        sc = {c: v['t10'] * 3 + v['an3'] * 2 + v['ma1'] + v['pod'] * 2 for c, v in h['cats'].items()}
+        h['catDest'] = max(sc, key=sc.get) if sc and max(sc.values()) > 0 else None
+        B, M = [], []
+        if prev and not h['curso']:
+            d = h['n'] - prev['n']
+            (B if d > 0 else M).append(f"{'Crece' if d > 0 else 'Baja'} el número de nadadores: {prev['n']} → {h['n']} ({'+' if d > 0 else ''}{d}).") if d else None
+            for clave, txt in (('t10', 'pruebas en el top-10 de España'), ('an3', 'pruebas en el top-3 de Andalucía'), ('ma1', 'pruebas nº 1 de Málaga')):
+                d = h[clave] - prev[clave]
+                if d:
+                    (B if d > 0 else M).append(f"{'Más' if d > 0 else 'Menos'} {txt}: {prev[clave]} → {h[clave]}.")
+            pod, pod0 = h['cto']['es']['pod'] + h['cto']['an']['pod'], prev['cto']['es']['pod'] + prev['cto']['an']['pod']
+            if pod != pod0:
+                (B if pod > pod0 else M).append(f"{'Más' if pod > pod0 else 'Menos'} podios en Campeonatos de Andalucía y España: {pod0} → {pod}.")
+            for lv, nom in (('ma', 'Málaga'), ('an', 'Andalucía')):
+                if lv in h['pos'] and lv in prev['pos'] and h['pos'][lv][0] != prev['pos'][lv][0]:
+                    sube = h['pos'][lv][0] < prev['pos'][lv][0]
+                    (B if sube else M).append(f"{'Sube' if sube else 'Baja'} entre los clubes de {nom}: {prev['pos'][lv][0]}º → {h['pos'][lv][0]}º.")
+            d = h['niv'] - prev['niv']
+            if abs(d) >= 5:
+                (B if d > 0 else M).append(f"Nivel medio {'más alto' if d > 0 else 'más bajo'}: {prev['niv']} → {h['niv']} pts.")
+            for c, v in h['cats'].items():
+                v0 = prev['cats'].get(c, {})
+                if v0.get('t10', 0) >= 3 and v['t10'] <= v0['t10'] / 2:
+                    M.append(f"Los {CAT_NOM.get(c, c)} bajan en el top-10 de España: {v0['t10']} → {v['t10']}.")
+        if h['catDest']:
+            v = h['cats'][h['catDest']]
+            B.insert(0, f"Categoría destacada: {CAT_NOM.get(h['catDest'], h['catDest'])} ({v['t10']} en el top-10 de España, {v['an3']} en el top-3 de Andalucía, {v['pod']} podios en campeonatos).")
+        if h['dest']:
+            x = h['dest'][0]
+            B.insert(1, f"Nadador destacado: {x[1]} ({x[6]}º de España en {x[5]}{f', {x[10]} podios en campeonatos' if x[10] else ''}).")
+        if h['mejor']:
+            B.insert(0, 'La mejor temporada del club con estos datos.')
+        h['bueno'], h['malo'] = B, M
+        out.append(h)
+    return out
 
 
 def records_club(swimmers, hist):
