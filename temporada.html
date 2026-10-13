@@ -440,7 +440,7 @@ html.normal .salpica{display:none}
 </style>
 </head>
 <body>
-<script>try{if(localStorage.getItem('cna_modo')==='normal')document.documentElement.classList.add('normal')}catch(e){}</script>
+<script>/* modo normal por defecto; acuático solo si el usuario lo eligió */document.documentElement.classList.add('normal');try{if(localStorage.getItem('cna_modo')==='agua')document.documentElement.classList.remove('normal')}catch(e){}</script>
 <div class="agua" aria-hidden="true"><div class="base"></div><canvas class="az"></canvas><div class="calle izq"></div><div class="calle der"></div><canvas class="caus c1"></canvas><canvas class="caus c2"></canvas><div class="brillo"></div></div>
 <div class="shell">
   <nav class="nav" id="nav" aria-label="Secciones">
