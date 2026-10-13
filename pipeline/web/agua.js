@@ -1,6 +1,13 @@
 /* 🌊 Tema «Piscina»: fondo de agua (azulejos ondulados, corcheras y reflejos de luz en movimiento),
    gotas de condensación en las tarjetas de cristal y una pequeña salpicadura al pulsar.
    Las texturas se dibujan una sola vez en un canvas y se repiten: no hay imágenes ni vídeos que cargar. */
+/* botón de modo: 🌊 acuático (predeterminado) o normal (sin agua, como antes); se recuerda en el dispositivo */
+function cambiarModo() {
+  const n = document.documentElement.classList.toggle('normal');
+  try { localStorage.setItem('cna_modo', n ? 'normal' : 'agua'); } catch (e) {}
+  document.querySelectorAll('.modo-b').forEach(b => b.innerHTML = modoTxt());
+}
+const modoTxt = () => document.documentElement.classList.contains('normal') ? '🌊 Modo acuático' : '◐ Modo normal';
 (function () {
   const quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const T = 2 * Math.PI;
@@ -57,7 +64,7 @@
   // salpicadura al pulsar: una onda que se abre y unas gotitas que saltan (menos de medio segundo)
   if (quieto) return;
   addEventListener('pointerdown', ev => {
-    if (ev.button > 0) return;
+    if (ev.button > 0 || document.documentElement.classList.contains('normal')) return;
     const sp = document.createElement('div'); sp.className = 'salpica';
     sp.style.left = ev.clientX + 'px'; sp.style.top = ev.clientY + 'px';
     let h = '<i class="onda"></i><i class="onda o2"></i>';

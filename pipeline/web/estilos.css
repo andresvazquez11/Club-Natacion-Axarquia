@@ -404,3 +404,27 @@ body{background:#0284c7}
 
 .rk-zoom{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;border-radius:10px}
 .rk-zoom svg{display:block}
+/* tablas convertidas en tarjetas (móvil): cristal oscuro legible sobre el agua */
+@media (max-width:899px){
+  table.rt.cards tr{background:linear-gradient(135deg,rgba(3,40,110,.62),rgba(2,80,140,.5));border-color:rgba(255,255,255,.4);
+    backdrop-filter:blur(10px) saturate(140%);-webkit-backdrop-filter:blur(10px) saturate(140%);box-shadow:0 6px 16px rgba(0,30,70,.25);text-shadow:0 1px 3px rgba(0,30,60,.5)}
+  .card table.rt.cards tr,.pr table.rt.cards tr{background:rgba(3,40,110,.38);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+  table.rt.cards tr.sep{background:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+table.rt.cards td::before,.muted{color:rgba(214,240,252,.9)}
+
+/* ═══ Modo normal (sin agua): como era antes ═══ */
+html.normal body{background:var(--navy) linear-gradient(170deg,var(--deep) 0%,var(--navy) 28%,var(--blue) 62%,var(--sky) 100%) fixed}
+html.normal .agua{display:none}
+html.normal .card,html.normal .kpi,html.normal .hero,html.normal .pr,html.normal .note{background:var(--glass);border-color:var(--line);box-shadow:none;text-shadow:none;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+html.normal .hero{background:linear-gradient(135deg,rgba(3,4,94,.6),rgba(0,119,182,.35))}
+html.normal .note{background:rgba(3,4,94,.35)}
+html.normal .card::before,html.normal .kpi::before,html.normal .hero::before,html.normal .pr::before{display:none}
+html.normal .card .card,html.normal .card .kpi,html.normal .pr .card,html.normal #modal .kpi{background:var(--glass)}
+html.normal #modal .box{background:linear-gradient(170deg,var(--deep),var(--navy) 60%,var(--blue))}
+html.normal .nav{background:rgba(3,4,94,.82)!important;border-color:var(--line)!important;text-shadow:none}
+html.normal table.rt.cards tr{background:var(--glass);border-color:var(--line);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;text-shadow:none}
+html.normal .salpica{display:none}
+.modo-b{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.45);
+  background:rgba(3,40,110,.35);color:#fff;font-weight:800;font-size:.78rem;text-shadow:none}

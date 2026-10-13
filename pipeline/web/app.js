@@ -50,7 +50,7 @@ function route() {
   lastSec = key;
 }
 
-document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
+document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a><button class="modo-b" style="margin-bottom:10px" onclick="cambiarModo()">${modoTxt()}</button><br>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
 // pestaña ⭐: nombre del nadador estrella (o «Mi nadador» en la página compartida)
 const navBen = document.getElementById('nav-ben');
 if (!BEN && !ESTRELLA_ELEGIBLE) navBen.hidden = true;

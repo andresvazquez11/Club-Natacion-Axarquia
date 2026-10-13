@@ -35,7 +35,7 @@ function vistaInicio(app) {
 
   app.innerHTML = `
     <div class="hd hd-logo"><img class="logo-cna" src="logo_cna.png" alt="CNA"><div><h1>Club Natación Axarquía</h1><p>Temporada 26-27 · datos RFEN · actualizado ${DATA.fecha}</p></div></div>
-    <div class="ini-top">${buscadorHTML('q-ini')}<a class="btn ghost manual-b" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a></div>
+    <div class="ini-top">${buscadorHTML('q-ini')}<a class="btn ghost manual-b" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a><button class="modo-b" onclick="cambiarModo()">${modoTxt()}</button></div>
     <div class="kpis k5">
       ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
          [k.podAn, 'pruebas en el top-3 del ranking de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 del ranking de Málaga (su año)', K.oro, 'pos|ma1|'],
