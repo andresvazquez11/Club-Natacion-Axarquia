@@ -98,6 +98,12 @@ with sync_playwright() as pw:
     zona(p, 'rec', 0, 1000)
     ctx.close()
 
+    ctx, p = nueva(br, 'temporada.html#club/ALE/historia', 2500)
+    zona(p, 'h_graf', ['Nadadores', '.card'], ['Pruebas en el top-10 de España', '.card'])
+    p.evaluate("document.querySelector('#ht-2324')?.scrollIntoView()")
+    zona(p, 'h_card', ['Mejor temporada', '.hist-t'], alto=1000)
+    ctx.close()
+
     # ── Campeonatos ──
     ctx, p = nueva(br, 'temporada.html#campeonatos')
     zona(p, 'cto', 0, ['Medallero del club', '.card'], maxh=1150)
