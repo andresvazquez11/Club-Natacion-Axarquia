@@ -83,7 +83,7 @@ function openStat(st, mantenerScroll) {
     title = `${R.length} pruebas ${nom} del ranking de ${LVN[lv]}${donde}`;
     let n0 = 0; S0.forEach(s => s.ev.forEach(e => { const r = (e.rk.y || {})[lv]; if (r && r[0] <= mx) n0++; }));
     if (filtrado) title = `${R.length} de ${n0} pruebas ${nom} del ranking de ${LVN[lv]}${donde}`;
-    intro = `Pruebas en las que un nadador del club está ${nom} del <b>ranking de ${LVN[lv]} de la temporada</b> (mejor marca de cada nadador, entre los nacidos en su mismo año). No es el puesto en un campeonato: eso está en «podios en campeonatos». Pulsa una para ver su evolución.`;
+    intro = `Pruebas en las que un nadador del club está ${nom} del <b>ranking de ${LVN[lv]} de la temporada</b> (mejor marca de cada nadador, entre los nacidos en su mismo año). No es el puesto en un campeonato: eso está en «podios en campeonatos». Pulsa una línea para desplegarla y ver su evolución.`;
     rank = (scope || !['es10', 'an3', 'ma1'].includes(lvx)) ? rk(mx === 1 ? 'n1' : 't8') : top({es10: 't10', an3: 'pod', ma1: 'oro'}[lvx]);
     body = R.length ? rkLista(R.map(([s, e, r]) => rkFila({
         pos: posB(r[0], r[1]), nom: esc(s.n), sub: `${franja(e.e)}${e.e} <span class="of">${e.pool}</span>`, marca: fmt(e.cs),
@@ -95,11 +95,11 @@ function openStat(st, mantenerScroll) {
     const R = (DATA.destacados || []).filter(x => x.pos <= mx && (!lv || x.lv === lv) && S.some(s => s.id === x.id))
       .sort((a, b) => a.pos - b.pos || (a.date < b.date ? 1 : -1));
     title = `${R.length} podios en Campeonatos${lv ? ' de ' + LVN[lv] : ' de Andalucía y España'}${donde}`;
-    intro = 'Puesto real en el campeonato, entre los nacidos en su mismo año (incluidas las fases de zona). Pulsa uno para ver la evolución de esa prueba.';
+    intro = 'Puesto real en el campeonato, entre los nacidos en su mismo año (incluidas las fases de zona). Pulsa una línea para desplegarla y ver la evolución de esa prueba.';
     body = R.length ? rkLista(R.map(x => { const s = SW[String(x.id)]; return rkFila({
-        pos: `${posB(x.pos)}<span class="of">de ${x.of}</span>`, nom: esc(x.n), sub: `${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`, marca: fmt(x.cs),
+        pos: posB(x.pos), nom: esc(x.n), sub: `${nivelHTML(x.lv === 'es' ? 'es' : 'an')} ${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`, marca: fmt(x.cs),
         cls: s.benicio ? 'me yo mio' : '',
-        det: [['Año', `${x.y} ${SEXO[x.g]}`], ['Campeonato', `${nivelHTML(x.lv === 'es' ? 'es' : 'an')} ${esc(x.comp)}`], ['Fecha', dtag(x.date)]],
+        det: [['Puesto', `${x.pos}º de ${x.of}`], ['Año', `${x.y} ${SEXO[x.g]}`], ['Campeonato', `${nivelHTML(x.lv === 'es' ? 'es' : 'an')} ${esc(x.comp)}`], ['Fecha', dtag(x.date)]],
         acc: [['Ver evolución', `data-evo="${x.id}|${x.ev}"`], ['Ver ficha', `href="${fichaHref(s)}" onclick="closeEvo()"`]] }); }))
       : '<p class="empty">Ninguno todavía.</p>';
   } else if (kind === 'sw' || kind === 'avg') {

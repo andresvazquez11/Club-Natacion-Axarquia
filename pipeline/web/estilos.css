@@ -368,8 +368,8 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 .rk-r.me{background:var(--me)}
 .rk-r.yo{background:rgba(255,212,0,.42);box-shadow:inset 5px 0 0 var(--sun)}
 html.acuatico .rk-r.yo{background:rgba(255,212,0,.28)}
-.rk-r.yo .rk-n b{font-weight:900}
-.rk-r.mio .rk-n b::after{content:"Mi nadador";margin-left:7px;padding:1px 7px;border-radius:99px;background:var(--sun);color:var(--sun-ink);font-size:10px;font-weight:800;vertical-align:1px}
+.rk-r.yo .rk-n b{font-weight:900;font-size:14px}
+.rk-r.yo .rk-m b{font-size:15px}
 @media (hover:hover){.rk-l:hover{background:var(--inset)}}
 /* escritorio ancho: la lista grande muestra los detalles en la misma línea */
 @media (min-width:900px){

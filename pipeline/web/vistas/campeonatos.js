@@ -16,9 +16,9 @@ function vistaCampeonatos(app, p) {
 
   const fila = x => { const s = SW[String(x.id)];
     return rkFila({
-      pos: `${badgeCto(x.lv, x.pos, x.ev)}<span class="of">de ${x.of}</span>`, nom: esc(x.n), sub: `${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`,
+      pos: posB(x.pos), nom: esc(x.n), sub: `${nivelHTML(x.lv)} ${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`,
       marca: fmt(x.cs), cls: s.benicio ? 'me yo mio' : '',
-      det: [['Año', `${x.y} ${SEXO[x.g]}${s.catl ? ' · ' + s.catl : ''}`], ['Campeonato', `${nivelHTML(x.lv)} ${esc(x.comp)}`], ['Fecha', dtag(x.date)]],
+      det: [['Puesto', `${x.pos}º de ${x.of}`], ['Año', `${x.y} ${SEXO[x.g]}${s.catl ? ' · ' + s.catl : ''}`], ['Campeonato', `${nivelHTML(x.lv)} ${esc(x.comp)}`], ['Fecha', dtag(x.date)]],
       acc: [['Ver competición', cmpAttr(s, x.date, x.comp, x.ev)], ['Ver ficha', `href="${fichaHref(s)}"`]].filter(a => a[1]),
     }); };
 
