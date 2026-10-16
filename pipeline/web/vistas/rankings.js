@@ -26,7 +26,10 @@ function vistaRankings(app, p) {
   }
 
   app.innerHTML = `
-    <div class="hd"><div><h1>${ico('barras')} Rankings</h1><p>Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo: púlsalos para ver su ficha.</p></div></div>
+    <div class="portada" style="--foto:url(img/rankings.jpg)">
+      <div class="portada-tit"><div class="portada-txt"><small>Club Natación Axarquía</small><h1>Rankings</h1><p>Cualquier prueba, por año o categoría, sexo y nivel</p></div></div>
+    </div>
+    <div class="note">Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo: púlsalos para ver su ficha.</div>
     <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
     <div class="flt"><span class="flt-l">Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
     ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])))}
