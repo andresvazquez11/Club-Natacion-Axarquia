@@ -255,7 +255,7 @@ function relOrig(x) {
 function convNota() {
   const w = ((DATA.wr || {}).M || {})['100 Libre'] || {};
   const ej = w['25m'] && w['50m'] ? ` Ejemplo (100 libre masculino, récords del mundo ${fmt(w['50m'])} en 50 m y ${fmt(w['25m'])} en 25 m): 1:00.00 en 25 m ≈ ${fmt(Math.round(6000 * w['50m'] / w['25m']))} en 50 m.` : '';
-  return `<p class="tiny muted conv-nota">🔄 <b>Conversión entre piscinas</b>: equivalencia por puntos World Aquatics. Marca en la otra piscina = marca × récord del mundo de esa prueba y sexo en la piscina de destino ÷ récord del mundo en la piscina de origen; así las dos marcas valen los mismos puntos (1000 × (récord ÷ marca)³).${ej} Es orientativa: los rankings, los récords oficiales y las mínimas cuentan la marca real en su piscina.</p>`;
+  return `<p class="tiny muted conv-nota">${ico('historia')} <b>Conversión entre piscinas</b>: equivalencia por puntos World Aquatics. Marca en la otra piscina = marca × récord del mundo de esa prueba y sexo en la piscina de destino ÷ récord del mundo en la piscina de origen; así las dos marcas valen los mismos puntos (1000 × (récord ÷ marca)³).${ej} Es orientativa: los rankings, los récords oficiales y las mínimas cuentan la marca real en su piscina.</p>`;
 }
 /* Edad federativa: año en que TERMINA la temporada − año de nacimiento. La temporada va de octubre a septiembre,
    así que una marca de octubre de 2026 es de la 26-27 y cuenta con la edad de 2027 (Benicio, 2015 → 12 años). */

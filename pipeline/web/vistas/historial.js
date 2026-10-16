@@ -1,4 +1,4 @@
-/* 📚 Pestañas «Historial» (6 temporadas + análisis) y «Ranking» (puesto semana a semana) de la ficha.
+/* Pestañas «Historial» (6 temporadas + análisis) y «Ranking» (puesto semana a semana) de la ficha.
    Los datos están en historial.json, junto a la página, y se cargan solo al abrir estas pestañas. */
 let HIST = null, HIST_ERR = false, RANK = null;
 function cargarRanking() {
@@ -39,7 +39,7 @@ function pintarHistorial(s, tab, p, keep) {
       det.scrollIntoView({behavior: 'smooth', block: 'nearest'});
     });
     bindRk();
-    // 🔍 ampliar el gráfico del ranking: se redibuja más ancho (los puntos se separan) y se desliza con el dedo
+    // ampliar el gráfico del ranking: se redibuja más ancho (los puntos se separan) y se desliza con el dedo
     host.querySelectorAll('[data-rkz] button').forEach(b => b.onclick = () => {
       const caja = host.querySelector('.rk-zoom'); if (!caja || !RK_PTS) return;
       const centro = (caja.scrollLeft + caja.clientWidth / 2) / caja.scrollWidth;
@@ -66,8 +66,8 @@ function tabHistorial(s, p, H) {
   }
   const vista = p.hv || 'total';
   const niv = ts.map(t => [tLbl(t) + ` <span class="of">${edadTemp(t, s.y)}${t === '2627' ? ' · en curso' : ''}</span>`, nivelTemp(T[t]), `${nivelTemp(T[t])} pts`, `data-hvt="${t}"`]);
-  let h = `<p class="small muted" style="margin-bottom:10px">Su historia temporada a temporada (la RFEN tiene marcas desde la 13-14). El análisis escrito está en <a class="sun" href="${fichaHref(s, 'resumen')}">Resumen</a> y todas sus marcas, en <a class="sun" href="${fichaHref(s, 'pruebas')}">Pruebas</a>.</p>
-    <div class="card" style="margin-top:12px"><h3>📊 Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas · pulsa una temporada para ver sus marcas</span></h3>${barsHTML(niv)}
+  let h = `<p class="small muted" style="margin-bottom:10px">Su historia temporada a temporada (la RFEN tiene marcas desde la 13-14). Todas sus marcas están en <a class="sun" href="${fichaHref(s, 'marcas')}">Marcas</a>.</p>
+    <div class="card" style="margin-top:12px"><h3>${ico('barras')}Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas · pulsa una temporada para ver sus marcas</span></h3>${barsHTML(niv)}
       <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div>
     <div class="bar-row" style="margin-top:16px"><div class="seg" data-hv><button data-v="total" class="${vista === 'total' ? 'on' : ''}">Por prueba</button><button data-v="temp" class="${vista === 'temp' ? 'on' : ''}">Por temporada</button></div></div>`;
   return h + (vista === 'temp' ? histTemporada(s, T, ts, p) : histTotal(s, T, ts, p));
@@ -151,8 +151,8 @@ function histTotal(s, T, ts, p) {
   return `${pruebaSel('hev', evs, ev, Object.fromEntries(evs.map(x => [x, ts.filter(t => T[t].ev[x]).length + ' temp.'])))}
     <div class="bar-row">${piscSeg()}</div>
     ${graf}<div class="card"><h3>${ev}, temporada a temporada <span class="muted small">· pulsa una marca o un puesto para ver la competición</span></h3>${tabla}</div>
-    ${s.ev.find(x => x.e === ev) ? `<p class="small" style="margin:10px 0"><a class="sun" href="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">⏱️ Ver todas sus marcas de ${ev} →</a></p>` : ''}
-    <div class="card" style="margin-top:12px"><h3>🗺️ Todas sus pruebas, temporada a temporada</h3>${mapa}</div>${convNota()}`;
+    ${s.ev.find(x => x.e === ev) ? `<p class="small" style="margin:10px 0"><a class="sun" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(ev)}">${ico('crono')}Ver todas sus marcas de ${ev} ›</a></p>` : ''}
+    <div class="card" style="margin-top:12px"><h3>${ico('carriles')}Todas sus pruebas, temporada a temporada</h3>${mapa}</div>${convNota()}`;
 }
 
 /* ── Ranking semana a semana ── */
@@ -213,18 +213,18 @@ function rankDetalle(s, H, ev, modo, lv, i) {
   if (j < 0) return h + '<p class="small muted">Es su primera semana en este ranking.</p>';
   const d = pos(j) - pos(i), dt = tot(i) - tot(j);
   const motivos = [];
-  if (yo && antes && yo[0] < antes[0]) motivos.push(`💪 <b>Mejoró su marca</b>: de ${fmt(antes[0])} a <b>${fmt(yo[0])}</b> (−${secs(antes[0] - yo[0])} s).`);
-  if (yo && antes && yo[0] > antes[0]) motivos.push(`⏳ Su marca de ${fmt(antes[0])} ya no cuenta (tiene más de 12 meses); ahora cuenta ${fmt(yo[0])}.`);
+  if (yo && antes && yo[0] < antes[0]) motivos.push(`${ico('tendencia')} <b>Mejoró su marca</b>: de ${fmt(antes[0])} a <b>${fmt(yo[0])}</b> (−${secs(antes[0] - yo[0])} s).`);
+  if (yo && antes && yo[0] > antes[0]) motivos.push(`${ico('historia')} Su marca de ${fmt(antes[0])} ya no cuenta (tiene más de 12 meses); ahora cuenta ${fmt(yo[0])}.`);
   const ad = X[String(i)] && X[String(i)][String(col)];
   if (ad && ad.length) {
     const extra = ad.find(r => r[0] === 0), lista = ad.filter(r => r[0] !== 0);
     const nAd = lista.length + (extra ? extra[1] : 0);
-    motivos.push(`🏊 <b>${nAd > 1 ? `Le adelantaron ${nAd} nadadores` : 'Le adelantó 1 nadador'}</b> que ${nAd > 1 ? 'mejoraron sus marcas' : 'mejoró su marca'} esa semana:` +
+    motivos.push(`${ico('nadador')} <b>${nAd > 1 ? `Le adelantaron ${nAd} nadadores` : 'Le adelantó 1 nadador'}</b> que ${nAd > 1 ? 'mejoraron sus marcas' : 'mejoró su marca'} esa semana:` +
       `<ul class="ins" style="margin:6px 0 0">${lista.map(r => { const nm = H.n[String(r[0])] || ['?', ''];
         return `<li data-i="·"><b>${esc(nm[0])}</b> (${club(nm[1])}) · <b>${fmt(r[1])}</b> el ${dfmt(ord(r[2]))} · ${secs(yo[0] - r[1])} s más rápido</li>`; }).join('')}
        ${extra ? `<li data-i="·">y ${extra[1]} más</li>` : ''}</ul>`);
-  } else if (d < 0) motivos.push('🏊 Otros nadadores mejoraron sus marcas y pasaron por delante.');
-  if (dt > 0 && !(ad && ad.length)) motivos.push(`📋 Entraron ${dt} nadadores nuevos en el ranking${d < 0 ? ', alguno con mejor marca' : ''}.`);
+  } else if (d < 0) motivos.push(`${ico('nadador')} Otros nadadores mejoraron sus marcas y pasaron por delante.`);
+  if (dt > 0 && !(ad && ad.length)) motivos.push(`${ico('grupo')} Entraron ${dt} nadadores nuevos en el ranking${d < 0 ? ', alguno con mejor marca' : ''}.`);
   const resumen = d > 0 ? `<span class="good">▲ subió ${d} puesto${d > 1 ? 's' : ''}</span>` : d < 0 ? `<span class="bad">▼ bajó ${-d} puesto${d < -1 ? 's' : ''}</span>` : 'mantuvo el puesto';
   h += `<p class="small" style="margin:6px 0">Respecto a la semana del ${dfmt(H.s[j])} (${pos(j)}º de ${tot(j)}): <b>${resumen}</b>.</p>`;
   if (motivos.length) h += `<ul class="ins">${motivos.map(m => `<li data-i="›">${m}</li>`).join('')}</ul>`;
@@ -250,7 +250,7 @@ function tabRanking(s, p, H) {
     const cambio = (a) => { if (!a) return '—'; const d = a[1] - ult[1]; return d > 0 ? `<span class="good">▲ ${d}</span>` : d < 0 ? `<span class="bad">▼ ${-d}</span>` : '='; };
     const sector = ult[1] <= 10 ? 'top-10' : ult[1] <= 25 ? 'top-25' : ult[1] <= ult[2] / 4 ? 'primer cuarto' : ult[1] <= ult[2] / 2 ? 'primera mitad' : 'segunda mitad';
     const sinAhora = modo === 'T' && !pts[pts.length - 1][1];
-    resumen = (sinAhora ? `<div class="note">ℹ️ En la temporada ${tLbl(tempDe(pts[pts.length - 1][0]))} todavía no tiene marca en ${ev}: abajo se ve su último puesto, del ${dfmt(ult[0])}. Cambia a «Últimos 12 meses» para ver su puesto actual.</div>` : '') +
+    resumen = (sinAhora ? `<div class="note">En la temporada ${tLbl(tempDe(pts[pts.length - 1][0]))} todavía no tiene marca en ${ev}: abajo se ve su último puesto, del ${dfmt(ult[0])}. Cambia a «Últimos 12 meses» para ver su puesto actual.</div>` : '') +
       `<div class="kpis" style="margin-bottom:12px">
       <div class="kpi hl"><b>${ult[1]}º</b><span>de ${ult[2]} · semana del ${dfmt(ult[0])} · ${sector}</span></div>
       <div class="kpi"><b>${cambio(ant)}</b><span>respecto a la semana anterior</span></div>
@@ -267,7 +267,7 @@ function tabRanking(s, p, H) {
       <div class="seg" data-rlv>${LV.map(([k, l]) => `<button data-v="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     ${resumen}
     ${con.length ? `<div class="card"><h3>${ev} · ${modo === 'T' ? 'ranking de la temporada' : 'ranking de los últimos 12 meses'} · ${LV.find(x => x[0] === lv)[1]}</h3>
-      <div class="bar-row" style="margin:4px 0 6px"><span class="tiny muted">🔍 Ampliar para separar los puntos (desliza a los lados)</span>
+      <div class="bar-row" style="margin:4px 0 6px"><span class="tiny muted">Ampliar para separar los puntos (desliza a los lados)</span>
         <div class="seg" data-rkz>${[1, 2, 4, 8].map(z => `<button data-v="${z}" class="${z === RK_ZOOM ? 'on' : ''}">${z}×</button>`).join('')}</div></div>
       <div class="rk-zoom">${rankChart(pts, modo, RK_ZOOM)}</div>
       <p class="tiny muted" style="margin-top:6px">1º arriba · el número junto al punto es su puesto · <b>pulsa un punto</b> para ver su marca y por qué subió o bajó. Zonas: top-10 (amarillo), top-25 (verde) y primera mitad. ${modo === 'T' ? 'En octubre el ranking de temporada vuelve a empezar: la línea se corta hasta que nada su primera marca de la nueva temporada.' : 'Cuenta su mejor marca de los últimos 365 días: no se reinicia con la temporada.'}</p>

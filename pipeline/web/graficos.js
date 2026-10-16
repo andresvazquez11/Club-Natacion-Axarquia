@@ -113,7 +113,7 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeEvo(); });
 
-/* ── 🏟️ Detalle de una competición: todas las pruebas que nadó ese día (o esos días), con tiempo, puesto y puntos ──
+/* ── Detalle de una competición: todas las pruebas que nadó ese día (o esos días), con tiempo, puesto y puntos ──
    Se abre desde cualquier marca de la página (data-cmp="fecha|competición|prueba" y data-sid="id del nadador").
    Fuente: historial.json (todas sus marcas de todas las temporadas); si no se puede cargar, sus marcas de 25-26 y 26-27. */
 function marcasActuales(s) {     // [fecha, prueba, marca, piscina, competición, lugar, pts, puesto, de]

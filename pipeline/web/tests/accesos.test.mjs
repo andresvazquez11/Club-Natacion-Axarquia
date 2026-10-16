@@ -53,3 +53,19 @@ test('frasesCortas: 3 primeras, sin emojis, bandera intacta', () => {
   assert.deepEqual(r5.slice(1).map(x => x[0]), ['diana', 'diana', 'diana', 'diana', 'medalla']);
   assert.ok(r5.every(x => !/\p{Extended_Pictographic}/u.test(x[0])));
 });
+
+test('textoClub: hoy e histórico, en femenino', () => {
+  const t = ev('textoClub', { cl: { hoy: [2, 6], hi: [4, 31, 12] } }, { g: 'F', y: 2014 });
+  assert.deepEqual(t, { hoy: '2º de 6 del CNA nacidas en 2014', hi: '4ª mejor marca del CNA a los 12 años' });
+});
+
+test('textoClub: masculino y datos parciales', () => {
+  assert.deepEqual(ev('textoClub', { cl: { hoy: [1, 3] } }, { g: 'M', y: 2015 }),
+    { hoy: '1º de 3 del CNA nacidos en 2015', hi: null });
+  assert.deepEqual(ev('textoClub', { cl: { hi: [1, 9, 11] } }, { g: 'M', y: 2015 }),
+    { hoy: null, hi: '1ª mejor marca del CNA a los 11 años' });
+});
+
+test('textoClub: sin e.cl no hay nada que decir', () => {
+  assert.deepEqual(ev('textoClub', {}, { g: 'F', y: 2014 }), { hoy: null, hi: null });
+});

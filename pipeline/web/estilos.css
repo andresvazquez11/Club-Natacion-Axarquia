@@ -205,6 +205,16 @@ html.acuatico .logros .bdg.rk{background:var(--solid)}
 .h-sub{margin:12px 0 0}
 .h .h-n{text-transform:none;letter-spacing:0;font-weight:700;color:var(--ink2)}
 .mas{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:4px;border-top:1px solid var(--ln);font-size:12px;font-weight:800;color:var(--link);text-decoration:none}
+/* sub-pantallas del nadador: todo sobre tarjetas */
+.card .chips{margin:0;padding:2px 0 6px}
+#an-host{display:flex;flex-direction:column;gap:10px;margin-top:10px}#an-host:empty{display:none}
+.rel-e{display:block;margin-top:2px;font-size:11.5px;font-weight:500;color:var(--ink2)}
+.lista > .fila .dcha small{display:block;font-size:10.5px;font-weight:600}
+.lista > .fila.tit{background:var(--inset);border-radius:10px;padding-left:10px;padding-right:10px;box-shadow:inset 3px 0 0 var(--link)}
+.lista > .fila.tit + .fila{border-top-color:transparent}
+.lista > .fila.club-e{align-items:flex-start}
+.club-e .franja{align-self:stretch;height:auto;min-height:36px;margin-top:2px}
+.club-t{margin-left:8px;color:var(--big)}
 .sub-cab{margin-top:10px}
 .sub-cab h1{font-size:22px;font-weight:800;line-height:1.1;color:var(--ink);margin-top:2px}
 .badge span .ico{width:22px;height:22px}
@@ -472,7 +482,7 @@ html.clara .chart text[fill="#ffd60a"]{fill:var(--hl)}
 .card.rel.ben{border-color:var(--sun)}
 .card.rel.foco{border:2px solid var(--sun);box-shadow:0 0 0 4px rgba(255,212,0,.25)}
 .rel-det{margin-top:8px}
-.rel-det summary{cursor:pointer;font-size:.8rem;font-weight:800;color:var(--link);padding:8px 0;min-height:36px}
+.rel-det summary{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.8rem;font-weight:800;color:var(--link);padding:8px 0;min-height:36px}
 .rel-tot2{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
 .rel-tot2 small{font-size:.66rem;color:var(--ink2)}
 .rel h3 .tag{font-size:.6rem;vertical-align:middle;margin-left:4px}

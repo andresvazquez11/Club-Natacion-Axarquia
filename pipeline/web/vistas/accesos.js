@@ -32,3 +32,13 @@ function frasesCortas(lista, max = 3) {
   return lista.slice(0, max).map(([ic, html]) =>
     [ICONO_FRASE[ic] || (/\p{Extended_Pictographic}/u.test(ic) ? 'diana' : ic), html]);
 }
+
+/* «En el club» de una prueba: su puesto hoy entre los del CNA de su sexo y año, y dónde quedaría su mejor marca
+   entre las del CNA a la misma edad. e.cl = {hoy: [puesto, de cuántos], hi: [puesto, de cuántas, edad]} (puede faltar). */
+function textoClub(e, s) {
+  const cl = e.cl || {};
+  return {
+    hoy: cl.hoy ? `${cl.hoy[0]}º de ${cl.hoy[1]} del CNA ${s.g === 'F' ? 'nacidas' : 'nacidos'} en ${s.y}` : null,
+    hi: cl.hi ? `${cl.hi[0]}ª mejor marca del CNA a los ${cl.hi[2]} años` : null,
+  };
+}
