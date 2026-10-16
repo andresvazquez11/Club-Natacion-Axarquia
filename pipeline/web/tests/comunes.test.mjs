@@ -58,3 +58,15 @@ test('guardarModo guarda y no revienta sin localStorage', () => {
   assert.equal(ls.get('cna_modo'), 'acuatico');
   assert.doesNotThrow(() => evalIn(nuevo({ ls: null }), "guardarModo('clara')"));
 });
+
+test('fichaHref: #mi/<sub> para el elegido y #nadador/<id>/<sub> para el resto; resumen sin barra', () => {
+  const c = nuevo();
+  c.__a = { id: 5, benicio: true }; c.__b = { id: 7, benicio: false };
+  assert.equal(evalIn(c, 'fichaHref(__a)'), '#mi');
+  assert.equal(evalIn(c, "fichaHref(__a, 'resumen')"), '#mi');
+  assert.equal(evalIn(c, "fichaHref(__a, 'marcas')"), '#mi/marcas');
+  assert.equal(evalIn(c, 'fichaHref(__b)'), '#nadador/7');
+  assert.equal(evalIn(c, "fichaHref(__b, '')"), '#nadador/7');
+  assert.equal(evalIn(c, "fichaHref(__b, 'resumen')"), '#nadador/7');
+  assert.equal(evalIn(c, "fichaHref(__b, 'ranking')"), '#nadador/7/ranking');
+});

@@ -42,7 +42,7 @@ const ESTRELLA_ELEGIBLE = !DATA.estrella_fija;
 const nombreCorto = s => esc(String(s.n).split(' ')[0]);
 function elegirEstrella(id) {
   try { if (id) localStorage.setItem(ESTRELLA_LS, String(id)); else localStorage.removeItem(ESTRELLA_LS); } catch (e) {}
-  location.hash = id ? '#benicio' : '#inicio';
+  location.hash = '#mi';   // con nadador, su pantalla; sin él (Cambiar), el selector
   location.reload();
 }
 const SEXO = {M: '♂', F: '♀'};
@@ -93,7 +93,8 @@ const scopeLbl = (s, sk) => sk === 'y' ? `nacidos en ${s.y}` : `${s.catl} ${SEXO
 /* «Alevín 1º año» (los absolutos no tienen año dentro de la categoría) y años de una categoría («2014-2015», «2008 y ant.») */
 const catAnyo = s => s.catl ? (s.cy ? `${s.catl} ${s.cy}º año` : s.catl) : 'fuera de categoría';
 const catYrs = c => c.yt || c.yrs.join('-');
-const fichaHref = (s, tab) => (s.benicio ? '#benicio' : `#nadador/${s.id}`) + (tab ? '/' + tab : '');
+/* Dirección de la pantalla de un nadador: #mi/<sub> si es «mi nadador», #nadador/<id>/<sub> si no (el resumen va sin sub) */
+const fichaHref = (s, sub) => (s.benicio ? '#mi' : `#nadador/${s.id}`) + (sub && sub !== 'resumen' ? '/' + sub : '');
 
 /* ── Piscinas de 25 y 50 m ──
    Separadas (como la RFEN) o convertidas a una sola piscina. La conversión mantiene los puntos World Aquatics:

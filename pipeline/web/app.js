@@ -30,15 +30,6 @@ function resolverRuta(hash, ben, sw) {
   if (['club', 'campeonatos', 'rankings', 'comparar'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
   return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
 }
-/* Transición hasta que la ficha se reconstruya (Task 7): la ficha actual aún usa los nombres antiguos de pestaña */
-const TAB_FICHA = {resumen: 'resumen', marcas: 'pruebas', evolucion: 'historial', ranking: 'ranking', espana: 'objetivos', andalucia: 'objetivos', relevos: 'objetivos', club: 'resumen'};
-function paramsFichaAntigua(sub, p) {
-  const q = Object.assign({}, p);
-  if (sub === 'evolucion' && q.ev && !q.hev) q.hev = q.ev;
-  if (sub === 'ranking' && q.ev && !q.rev) q.rev = q.ev;
-  return q;
-}
-
 let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
 let lastFicha = null;       // nadador de la última ficha mostrada
@@ -73,7 +64,7 @@ function route() {
   else if (sec === 'rankings') vistaRankings(app, params);
   else if (sec === 'comparar') vistaComparar(app, params);
   else if (sec === 'elegir') vistaElegir(app, params);
-  else vistaFicha(app, SW[r.id], TAB_FICHA[r.sub], paramsFichaAntigua(r.sub, params));
+  else vistaFicha(app, SW[r.id], r.sub, params);
 
   // Sección iluminada: la ficha de «mi nadador» ilumina Mi nadador; la de otro nadador, la sección de la que se llegó (Club por defecto)
   const cmpId = sec === 'comparar' ? (params.ids || '').split(',')[0] : null;

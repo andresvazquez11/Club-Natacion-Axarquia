@@ -1,11 +1,4 @@
-/* ⭐ Ficha de atleta con pestañas (la de Benicio y la de cualquier nadador) */
-
-function fichaTabs(s) {
-    // 5 pestañas: «Ranking» reúne rivales y ranking semanal; «Objetivos» reúne mínimas, Cto. Andalucía y relevos
-  const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['historial', 'Evolución'], ['ranking', 'Ranking']];
-  if (s.cat === 'ALE' || (DATA.claves_by || {})[String(s.id)] || relevosDe(s).length) t.push(['objetivos', 'Objetivos']);
-  return t;
-}
+/* Pantalla del nadador («Mi nadador» y la de cualquier otro): resumen y, de momento, el contenido de las pestañas antiguas */
 
 /* ── cálculos de la ficha ── */
 function minimasDe(s) {
@@ -63,13 +56,14 @@ function analisis(s) {
   return {F, M};
 }
 
-/* ── 🎯 Próximos objetivos: lo más cercano que puede conseguir (con enlace a donde se explica) ── */
+/* ── Próximos objetivos: lo más cercano que puede conseguir (con enlace a donde se explica).
+   Cada uno: [icono o bandera, frase, % de la barra, pantalla del nadador (con ?parámetros)] ── */
 function objetivos(s) {
   const O = [];
   if (s.cat === 'ALE') {
     const mn = minimasDe(s), pend = mn.rows.filter(r => r.bestp !== null && r.bestp > 0).sort((a, b) => a.bestp - b.bestp);
-    if (pend[0]) O.push(['🇪🇸', `Mínima del Cto. de España en <b>${pend[0].ev}</b>: le faltan <b>${secs(pend[0].bestd)} s</b> (${pend[0].bestpl})`, Math.max(4, 100 - pend[0].bestp * 5), 'objetivos']);
-    if (mn.ok) O.push(['✅', `Ya tiene <b>${mn.ok}</b> mínima${mn.ok > 1 ? 's' : ''} del Cto. de España`, 100, 'objetivos']);
+    if (pend[0]) O.push([FLAG_ES, `Mínima del Cto. de España en <b>${pend[0].ev}</b>: le faltan <b>${secs(pend[0].bestd)} s</b> (${pend[0].bestpl})`, Math.max(4, 100 - pend[0].bestp * 5), 'espana']);
+    if (mn.ok) O.push(['meta', `Ya tiene <b>${mn.ok}</b> mínima${mn.ok > 1 ? 's' : ''} del Cto. de España`, 100, 'espana']);
   }
   // rival a superar: el que va justo delante en Málaga (o en Andalucía si ya es el primero de Málaga) con menor diferencia
   let riv = null;
@@ -79,7 +73,7 @@ function objetivos(s) {
       const d = e.cs - a[3]; if (!riv || d < riv.d) riv = {e, a, d, lv, pos: r[0]}; });
     return riv;
   });
-  if (riv) O.push(['👀', `Superar a <b>${esc(riv.a[0])}</b> (${club(riv.a[1])}) en <b>${riv.e.e}</b> y ser ${riv.pos - 1}º de ${riv.lv === 'ma' ? 'Málaga' : 'Andalucía'}: <b>${secs(riv.d)} s</b>`, Math.max(4, 100 - riv.d / 10), 'ranking?rev=' + encodeURIComponent(riv.e.e)]);
+  if (riv) O.push(['barras', `Superar a <b>${esc(riv.a[0])}</b> (${club(riv.a[1])}) en <b>${riv.e.e}</b> y ser ${riv.pos - 1}º de ${riv.lv === 'ma' ? 'Málaga' : 'Andalucía'}: <b>${secs(riv.d)} s</b>`, Math.max(4, 100 - riv.d / 10), 'ranking?rev=' + encodeURIComponent(riv.e.e)]);
   // top-10 de España más cercano
   let t10 = null;
   s.ev.forEach(e => { const r = (e.rk.y || {}).es; if (!r || r[0] <= 10) return;
@@ -88,18 +82,21 @@ function objetivos(s) {
   if (t10) O.push([FLAG_ES, `Entrar en el top-10 de España en <b>${t10.e.e}</b> (ahora ${t10.pos}º): <b>${secs(t10.d)} s</b>`, Math.max(4, 100 - t10.d / t10.e.cs * 1000), 'ranking?rev=' + encodeURIComponent(t10.e.e)]);
   // relevos
   const rd = relevosDe(s), tit = rd.filter(x => x.rol === 'T'), cerca = rd.filter(x => x.rol === 'F' && x.gap !== null && x.gap > 0).sort((a, b) => a.gap - b.gap);
-  if (tit.length) O.push(['🤝', `Titular en ${[...new Set(tit.map(x => x.r.n))].map(n => `<b>${n}</b>`).join(', ')}`, 100, 'objetivos']);
-  if (cerca[0]) O.push(['🤝', `Entrar en el <b>${cerca[0].r.n}</b>: le faltan <b>${secs(cerca[0].gap)} s</b> en ${cerca[0].leg} (≈ 50 m)`, Math.max(4, 100 - cerca[0].gap / 10), 'objetivos']);
+  if (tit.length) O.push(['relevo', `Titular en ${[...new Set(tit.map(x => x.r.n))].map(n => `<b>${n}</b>`).join(', ')}`, 100, 'relevos']);
+  if (cerca[0]) O.push(['relevo', `Entrar en el <b>${cerca[0].r.n}</b>: le faltan <b>${secs(cerca[0].gap)} s</b> en ${cerca[0].leg} (≈ 50 m)`, Math.max(4, 100 - cerca[0].gap / 10), 'relevos']);
   return O;
 }
+/* icono de línea por nombre, o la bandera tal cual (las banderas ya son <svg>) */
+const icoDe = i => String(i).startsWith('<svg') ? i : ico(i);
+const objHref = (s, dest) => { const [sub, q] = dest.split('?'); return fichaHref(s, sub) + (q ? '?' + q : ''); };
 function objetivosCard(s) {
   const O = objetivos(s);
   if (!O.length) return '';
-  return `<div class="card obj"><h3>🎯 Próximos objetivos</h3>${O.map(([i, t, pc, tab]) => `<a class="obj-i" href="${fichaHref(s, tab.split('?')[0])}${tab.includes('?') ? '?' + tab.split('?')[1] : ''}">
-      <span class="obj-ic">${i}</span><span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="obj-go">›</span></a>`).join('')}</div>`;
+  return `<div class="card obj"><div class="h">${ico('diana')}Próximos objetivos</div>${O.map(([i, t, pc, dest]) => `<a class="obj-i" href="${objHref(s, dest)}">
+      <span class="obj-ic">${icoDe(i)}</span><span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="obj-go">›</span></a>`).join('')}</div>`;
 }
 
-/* ── 🏅 Insignias: logros conseguidos (en color) y los que le quedan (en gris) ── */
+/* ── Insignias: logros conseguidos (en color) y los que le quedan (en gris). Cada una: [icono o bandera, nombre, cómo se consigue, conseguida] ── */
 function insignias(s) {
   const pbs = s.ev.flatMap(e => { let b = {}; const n = []; [...e.h].filter(x => !x[8]).sort((a, c) => a[0] < c[0] ? -1 : 1)
     .forEach(x => { if (b[x[2]] !== undefined && x[1] < b[x[2]]) n.push(x[0]); if (b[x[2]] === undefined || x[1] < b[x[2]]) b[x[2]] = x[1]; }); return n; });
@@ -111,26 +108,26 @@ function insignias(s) {
   const rd = relevosDe(s);
   const ult = s.ev.flatMap(e => e.h).map(x => x[0]).sort().pop();
   const B = [
-    ['🏆', 'Podio en campeonato', 'Quedar entre los 3 primeros de su año en un Campeonato de Andalucía o de España', cto.some(x => x.pos <= 3)],
-    ['🔟', 'Top-10 en campeonato', 'Quedar entre los 10 primeros de su año en un Campeonato de Andalucía o de España', cto.length > 0],
-    ['🇪🇸', 'Top-10 de España', 'Estar entre los 10 mejores de España de su año en el ranking de una prueba', s.ev.some(e => e.rk.y && e.rk.y.es && e.rk.y.es[0] <= 10)],
-    ['🥇', 'Nº 1 de Málaga', 'Tener la mejor marca de Málaga de su año en una prueba', s.ev.some(e => e.rk.y && e.rk.y.ma && e.rk.y.ma[0] == 1)],
-    ['🎯', 'Mínima de España', 'Conseguir una mínima del Campeonato de España Alevín', mn > 0],
-    ['🤝', 'Relevista', 'Ser titular en un relevo del club', rd.some(x => x.rol === 'T')],
-    ['⚡', 'Bajo 30 segundos', 'Nadar un 50 en menos de 30 segundos', bajo(50, 3000)],
-    ['🚀', 'Bajo el minuto', 'Nadar un 100 en menos de 1:00', bajo(100, 6000)],
-    ['🌊', 'Bajo 2:30', 'Nadar un 200 en menos de 2:30', bajo(200, 15000)],
-    ['🎨', 'Los 4 estilos', 'Tener marca en libre, espalda, braza y mariposa', ['Libre', 'Espalda', 'Braza', 'Mariposa'].every(x => est.has(x))],
-    ['📈', '10 mejoras en un año', 'Mejorar su marca personal 10 veces en los últimos 12 meses', pbs.filter(d => d >= hace1).length >= 10],
-    ['🏟️', 'Piscina olímpica', 'Nadar en piscina de 50 m', s.ev.some(e => e.h.some(x => x[2] === '50m'))],
-    ['🔥', 'En racha', 'Mejorar una marca personal en su última competición', !!ult && pbs.includes(ult)],
+    ['copa', 'Podio en campeonato', 'Quedar entre los 3 primeros de su año en un Campeonato de Andalucía o de España', cto.some(x => x.pos <= 3)],
+    ['meta', 'Top-10 en campeonato', 'Quedar entre los 10 primeros de su año en un Campeonato de Andalucía o de España', cto.length > 0],
+    [FLAG_ES, 'Top-10 de España', 'Estar entre los 10 mejores de España de su año en el ranking de una prueba', s.ev.some(e => e.rk.y && e.rk.y.es && e.rk.y.es[0] <= 10)],
+    ['medalla', 'Nº 1 de Málaga', 'Tener la mejor marca de Málaga de su año en una prueba', s.ev.some(e => e.rk.y && e.rk.y.ma && e.rk.y.ma[0] == 1)],
+    ['diana', 'Mínima de España', 'Conseguir una mínima del Campeonato de España Alevín', mn > 0],
+    ['relevo', 'Relevista', 'Ser titular en un relevo del club', rd.some(x => x.rol === 'T')],
+    ['crono', 'Bajo 30 segundos', 'Nadar un 50 en menos de 30 segundos', bajo(50, 3000)],
+    ['crono', 'Bajo el minuto', 'Nadar un 100 en menos de 1:00', bajo(100, 6000)],
+    ['crono', 'Bajo 2:30', 'Nadar un 200 en menos de 2:30', bajo(200, 15000)],
+    ['nadador', 'Los 4 estilos', 'Tener marca en libre, espalda, braza y mariposa', ['Libre', 'Espalda', 'Braza', 'Mariposa'].every(x => est.has(x))],
+    ['tendencia', '10 mejoras en un año', 'Mejorar su marca personal 10 veces en los últimos 12 meses', pbs.filter(d => d >= hace1).length >= 10],
+    ['carriles', 'Piscina olímpica', 'Nadar en piscina de 50 m', s.ev.some(e => e.h.some(x => x[2] === '50m'))],
+    ['historia', 'En racha', 'Mejorar una marca personal en su última competición', !!ult && pbs.includes(ult)],
   ];
   return B;
 }
 function insigniasCard(s) {
   const B = insignias(s), ok = B.filter(b => b[3]);
-  return `<div class="card"><h3>🏅 Insignias <span class="muted small">· ${ok.length} de ${B.length}</span></h3>
-    <div class="badges">${[...ok, ...B.filter(b => !b[3])].map(([i, t, d, on]) => `<div class="badge ${on ? 'on' : ''}" title="${esc(d)}"><span>${i}</span><small>${t}</small></div>`).join('')}</div>
+  return `<div class="card"><div class="h">${ico('medalla')}Insignias <span class="h-n">· ${ok.length} de ${B.length}</span></div>
+    <div class="badges">${[...ok, ...B.filter(b => !b[3])].map(([i, t, d, on]) => `<button class="badge ${on ? 'on' : ''}" title="${esc(d)}"><span>${icoDe(i)}</span><small>${t}</small></button>`).join('')}</div>
     <p class="tiny muted" id="badge-info" style="margin-top:8px">En gris, las que le quedan por conseguir. Pulsa una insignia para ver cómo se consigue.</p></div>`;
 }
 
@@ -174,7 +171,7 @@ function tabResumen(s) {
       <div class="card"><h3>Competiciones <span class="muted small">(${cl.length}) · pulsa una para ver sus pruebas</span></h3><div style="max-height:520px;overflow-y:auto">
         ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}<div>${edadTag(c.d, s.y)}</div></span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
             <span class="tiny">${c.n} prueba${c.n > 1 ? 's' : ''}${c.pb ? ` · <span class="good">${c.pb} mejora${c.pb > 1 ? 's' : ''}</span>` : ''}${c.pod ? ` · 🏅 ${c.pod} podio${c.pod > 1 ? 's' : ''}` : ''}</span></span></summary>
-          <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">
+          <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(ev)}">
             <td><b>${ev}</b> <span class="of">${x[2]}</span>${x[9] && x[9].length ? `<div class="tiny muted">también ${x[9].map(o => fmt(o[0])).join(', ')}</div>` : ''}</td>
             <td class="num"><b>${esPb.has(x) ? '<span class="sun">★ </span>' : ''}${fmt(x[1])}</b></td>
             <td>${x[6] ? posB(x[6]) + `<span class="of">de ${x[7]}</span>` : '<span class="muted">—</span>'}</td>
@@ -217,7 +214,7 @@ function tabPruebas(s, sk, p) {
           ${m ? `<div class="kv"><span>Marca real</span><b>${fmt(e.cs)} en ${e.pool}${m[2] !== e.pool ? ` · equivalente de ${fmt(m[1])} en ${m[2]}` : ''}</b></div>` : ''}
           <div class="pr-acc"><a class="chip" href="#comparar?ids=${s.id}&ev=${encodeURIComponent(e.e)}">⚖️ Comparar esta prueba</a>
             <a class="chip" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">📊 Rivales y ranking</a>
-            <a class="chip" href="${fichaHref(s, 'historial')}?hev=${encodeURIComponent(e.e)}">📈 Por temporadas</a></div>
+            <a class="chip" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}">📈 Por temporadas</a></div>
           ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>${p.ev && piscDestino() ? '' : convNota()}`;
 }
 
@@ -336,34 +333,129 @@ function pintarClasif(s) {
 
 /* botón «Volver»: a la pantalla de la que se vino; si se entró directo, a la categoría del nadador */
 function volverHTML(s, cat) {
-  const NOM = {inicio: 'Inicio', club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', benicio: 'Benicio', nadador: 'ficha anterior'};
+  const NOM = {inicio: 'Inicio', mi: 'Mi nadador', club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', benicio: 'Mi nadador', nadador: 'la ficha anterior'};
   if (volverA) {
     const sec = volverA.slice(1).split(/[/?]/)[0] || 'inicio';
-    return `<a class="back" href="${esc(volverA)}">‹ Volver a ${NOM[sec] || 'la pantalla anterior'}</a>`;
+    return `<a class="volver" href="${esc(volverA)}">${ico('flecha-atras')}Volver a ${NOM[sec] || 'la pantalla anterior'}</a>`;
   }
-  if (!s.benicio && cat) return `<a class="back" href="#club/${cat.key}">‹ Volver a ${cat.label}</a>`;
+  if (!s.benicio && cat) return `<a class="volver" href="#club/${cat.key}">${ico('flecha-atras')}Volver a ${cat.label}</a>`;
   return '';
 }
 
+/* ── Pantalla del nadador: resumen («Mi nadador» y la de cualquier otro nadador) ── */
+const iniciales = n => String(n).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const piscinaTxt = pl => String(pl || '').replace(/m$/, ' m');
+
+/* Nivel de una competición: el de su campeonato si dio un logro; si no, por el nombre (España, Andalucía o Málaga) */
+function nivelComp(s, d, c) {
+  const x = (DATA.destacados || []).find(x => x.id === s.id && x.date === d && x.comp === c);
+  if (x) return x.lv;
+  return /espa[ñn]a/i.test(c) ? 'es' : /andaluc/i.test(c) ? 'an' : /m[aá]laga/i.test(c) ? 'ma' : null;
+}
+
+/* Sus últimas competiciones: fecha, nombre, nivel y su mejor puesto (o cuántas pruebas nadó) */
+function ultimasComps(s, n = 3) {
+  const C = {};
+  s.ev.forEach(e => e.h.forEach(x => { const k = x[0] + '|' + x[3];
+    const c = C[k] = C[k] || {d: x[0], c: x[3], n: 0, mejor: null};
+    c.n++; if (x[6] && (!c.mejor || x[6] < c.mejor[0])) c.mejor = [x[6], e.e]; }));
+  return Object.values(C).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, n);
+}
+
+/* Logros: podios y top-10 de campeonatos (relleno) y top-10 de España / nº 1 de Málaga en el ranking (borde fino).
+   Al tocarlos se abre su ventana de detalle; un top-10 de campeonato sin podio abre esa competición. */
+function logrosHTML(s) {
+  const L = (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).map(x =>
+    `<button class="bdg-b" ${x.pos <= 3 ? 'data-kd="cto"' : cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">${badgeCto(x.lv, x.pos, x.ev)}</button>`);
+  s.ev.forEach(e => { const r = e.rk.y || {};
+    if (r.es && r.es[0] <= 10) L.push(`<button class="bdg-b" data-kd="es10">${badgeRanking('es', r.es[0], e.e)}</button>`);
+    else if (r.ma && r.ma[0] == 1) L.push(`<button class="bdg-b" data-kd="ma1">${badgeRanking('ma', 1, e.e)}</button>`); });
+  return L.length ? `<div class="logros">${L.join('')}</div>` : '';
+}
+
+/* Su mejor momento: la marca, cuánto mejoró, la prueba (franja de estilo), piscina, fecha y sus puestos */
+function mejorMomentoHTML(s) {
+  const m = mejorMomento(s);
+  if (!m) return '';
+  const rk = m.rk || {}, TOP = {es: 10, an: 8, ma: 1};
+  const niv = ['es', 'an', 'ma'].filter(lv => rk[lv]).map(lv =>
+    `<span class="${rk[lv][0] <= TOP[lv] ? 'top' : ''}">${nivelHTML(lv)}${rk[lv][0]}º ${NIVEL_NOM[lv]}</span>`).join('');
+  return `<button class="card mm" data-kd="pts">
+    <span class="h">${ico('crono')}Su mejor momento<span class="mm-ver">Sus pruebas ›</span></span>
+    <span class="mm-t"><span class="num-xl">${fmt(m.cs)}</span>${m.mejora > 0 ? `<span class="mejora" title="mejor que su marca anterior">${ico('tendencia')}${secs(m.mejora)} s</span>` : ''}</span>
+    <span class="mm-sub">${franja(m.e)}<b>${esc(m.e)}</b> · piscina ${piscinaTxt(m.pool)}${m.fecha ? ' · ' + dfmt(m.fecha) : ''}</span>
+    ${niv ? `<span class="niveles">${niv}</span>` : ''}</button>`;
+}
+
+const filasFrase = L => L.map(([i, t]) => `<div class="fila">${icoDe(i)}<span>${t}</span></div>`).join('');
+
+function resumenHTML(s, cat) {
+  const elegido = s.benicio, F_ = s.g === 'F';
+  const ante = elegido ? (F_ ? 'Mi nadadora' : 'Mi nadador') : (F_ ? 'Nadadora del club' : 'Nadador del club');
+  const boton = !ESTRELLA_ELEGIBLE ? '' : elegido ? '<button class="chg" data-cambiar>Cambiar</button>'
+    : `<button class="chg" data-mi-estrella>Marcar como mi ${F_ ? 'nadadora' : 'nadador'}</button>`;
+  const portada = `<div class="portada" style="--foto:url(img/mi-nadador.jpg)">
+      <div class="portada-vol">${volverHTML(s, cat)}</div>
+      <div class="portada-tit"><div class="av" aria-hidden="true">${esc(iniciales(s.n))}</div>
+        <div class="portada-txt"><small>${ante}</small><h1>${esc(s.n)}</h1><p>${catAnyo(s)} · ${s.np} prueba${s.np === 1 ? '' : 's'}</p></div>${boton}</div>
+    </div>`;
+  if (!s.ev.length) return portada + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
+
+  const {F, M} = analisis(s), O = objetivos(s);
+  const destaca = frasesCortas(F), mejorar = frasesCortas(M);
+  const objetivosL = O.map(([i, t, pc, dest]) => `<a class="fila" href="${objHref(s, dest)}">${icoDe(i)}<span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="dcha">›</span></a>`).join('');
+  const acc = accesosDe(s).map(([sub, l, i]) => `<a class="acc" href="${sub === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, sub)}">${
+    sub === 'espana' ? FLAG_ES : sub === 'andalucia' ? FLAG_AN : ico(i)}<span>${l}</span></a>`).join('');
+  const comps = ultimasComps(s).map(c => { const lv = nivelComp(s, c.d, c.c);
+    return `<button class="fila" ${cmpAttr(s, c.d, c.c, c.mejor ? c.mejor[1] : '')}>${lv ? nivelHTML(lv) : ico('meta')}<span><b>${esc(c.c)}</b> · ${dfmt(c.d)}</span>
+      <span class="dcha">${c.mejor ? `${c.mejor[0]}º · ${esc(c.mejor[1])}` : `${c.n} prueba${c.n > 1 ? 's' : ''}`}</span></button>`; }).join('');
+
+  return `${portada}
+    ${logrosHTML(s)}
+    <div class="resumen">
+    ${mejorMomentoHTML(s)}
+    ${destaca.length ? `<div class="card"><div class="h">${ico('medalla')}Dónde destaca</div><div class="lista">${filasFrase(destaca)}</div></div>` : ''}
+    ${mejorar.length || O.length ? `<div class="card"><div class="h">${ico('diana')}Para seguir mejorando</div>
+      ${mejorar.length ? `<div class="lista">${filasFrase(mejorar)}</div>` : ''}
+      ${O.length ? `<div class="h h-sub">Próximos objetivos</div><div class="lista">${objetivosL}</div>` : ''}</div>` : ''}
+    <div class="accesos">${acc}</div>
+    <div class="card"><div class="h">${ico('carriles')}Últimas competiciones</div><div class="lista">${comps}</div>
+      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
+    ${insigniasCard(s)}
+    </div>`;
+}
+
+/* ── Pantallas del nadador que aún usan el contenido de las pestañas antiguas (se rehacen en la Task 8) ── */
+const SUB_ANTIGUA = {marcas: 'pruebas', evolucion: 'historial', ranking: 'ranking', espana: 'objetivos', andalucia: 'objetivos', relevos: 'objetivos', club: 'resumen'};
+function paramsFichaAntigua(sub, p) {
+  const q = Object.assign({}, p);
+  if (sub === 'evolucion' && q.ev && !q.hev) q.hev = q.ev;
+  if (sub === 'ranking' && q.ev && !q.rev) q.rev = q.ev;
+  return q;
+}
 
 /* ── vista ── */
-function vistaFicha(app, s, tab, p) {
-  const tabs = fichaTabs(s);
-  // enlaces antiguos: Evolución/Historial, Rivales → Ranking, Mínimas y Cto. Andalucía → Objetivos
-  if (tab === 'evolucion') { tab = 'historial'; if (p.ev && !p.hev) p.hev = p.ev; }
-  if (tab === 'rivales') { tab = 'ranking'; if (p.ev && !p.rev) p.rev = p.ev; }
-  if (tab === 'minimas' || tab === 'andalucia') tab = 'objetivos';
-  if (!tabs.find(t => t[0] === tab)) tab = 'resumen';
-  const sk = s.cat ? (p.sk || 'y') : 'y';
-  const href = (t, q) => fichaHref(s, t) + (q ? '?' + q : '');
-  const logros = [];
-  (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).forEach(x =>
-    logros.push(`<span class="tag click ${x.pos <= 3 ? 'gold' : ''}" ${cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">🏆 ${x.pos}º ${x.lv === 'es' ? 'Cto. España' : 'Cto. AND'} · ${x.ev}</span>`));
-  s.ev.forEach(e => { const r = e.rk.y || {};
-    if (r.es && r.es[0] <= 10) logros.push(`<a class="tag gold" style="text-decoration:none" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">${FLAG_ES} ${r.es[0]}º España · ${e.e}</a>`);
-    else if (r.ma && r.ma[0] == 1) logros.push(`<a class="tag" style="text-decoration:none;color:inherit" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">🥇 1º Málaga · ${e.e}</a>`); });
+function vistaFicha(app, s, sub, params) {
   const cat = s.cat ? catOf(s.cat) : null;
+  const tab = SUB_ANTIGUA[sub];
+  if (!tab) sub = 'resumen';
+  if (sub === 'resumen') {
+    app.innerHTML = resumenHTML(s, cat);
+    app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
+    const camb = app.querySelector('[data-cambiar]');
+    if (camb) camb.onclick = () => elegirEstrella(null);
+  } else vistaSubAntigua(app, s, sub, tab, paramsFichaAntigua(sub, params));
+  app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
+    if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">conseguida</span>' : ''}`; });
+  const est = app.querySelector('[data-mi-estrella]');
+  if (est) est.onclick = () => elegirEstrella(s.id);
+}
+
+function vistaSubAntigua(app, s, sub, tab, p) {
+  const sk = s.cat ? (p.sk || 'y') : 'y';
+  const href = q => fichaHref(s, sub) + (q ? '?' + q : '');
   const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
+  const tit = (accesosDe(s).find(a => a[0] === sub) || [])[1] || '';
 
   let body = '';
   if (tab === 'resumen') body = tabResumen(s);
@@ -373,18 +465,11 @@ function vistaFicha(app, s, tab, p) {
   else if (tab === 'historial') body = '<div id="hist-host"><p class="empty">Cargando el historial…</p></div>';
 
   app.innerHTML = `
-    <div class="hero">
-      ${volverHTML(s, cat)}
-      <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
-      <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${catAnyo(s)} en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
-      <div class="hero-acc"><a class="chip" href="#comparar?ids=${s.id}">⚖️ Comparar con otros</a>
-        ${ESTRELLA_ELEGIBLE ? `<button class="chip" data-mi-estrella>${s.benicio ? '⭐ Es mi nadador · quitar' : '☆ Marcar como mi nadador'}</button>` : ''}</div>
-      ${logros.length ? `<div class="tags scroll">${logros.join('')}</div>` : ''}
-    </div>
-    <nav class="tabs">${tabs.map(([k, l]) => `<a href="${href(k, k === 'pruebas' || k === 'ranking' ? 'sk=' + sk : '')}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav>
-    <section>${body}</section>`;
+    <a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>
+    <div class="card sub-cab"><span class="ante">${esc(s.n)}</span><h1>${tit}</h1></div>
+    <section style="margin-top:12px">${body}</section>`;
 
-  const keep = o => { const q = new URLSearchParams(Object.assign({}, p, o)); location.hash = href(tab, q.toString()); };
+  const keep = o => { const q = new URLSearchParams(Object.assign({}, p, o)); location.hash = href(q.toString()); };
   app.querySelectorAll('[data-sk] button').forEach(b => b.onclick = () => keep({sk: b.dataset.v}));
   onChips(app, 'rev', v => keep({rev: v}));
   app.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => keep({ev: p.ev === b.dataset.pr ? '' : b.dataset.pr}));
@@ -393,12 +478,7 @@ function vistaFicha(app, s, tab, p) {
   if (tab === 'objetivos') pintarClasif(s);
   if (tab === 'resumen') { pintarAnalisis(s); app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd)); }
   app.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { location.hash = el.dataset.goto; });
-  app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
-    if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">✓ conseguida</span>' : ''}`; });
   bindPisc(app);
-  const est = app.querySelector('[data-mi-estrella]');
-  if (est) est.onclick = () => elegirEstrella(s.benicio ? null : s.id);
-  const on = app.querySelector('.tabs a.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   // al abrir una prueba, que se vea su cabecera
   if (tab === 'pruebas' && p.ev) setTimeout(() => { const el = document.getElementById('pr-' + p.ev.replace(/ /g, '-'));
     if (el) { const t = el.getBoundingClientRect().top; if (t < 50 || t > innerHeight * 0.55) window.scrollTo(0, scrollY + t - 60); } }, 0);
@@ -406,7 +486,7 @@ function vistaFicha(app, s, tab, p) {
 
 /* Ventana con el detalle de cada dato del Resumen: qué pruebas, cuándo, dónde y con qué marca */
 function abrirKpiFicha(s, k) {
-  const ir = ev => `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}`;
+  const ir = ev => `${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(ev)}`;
   const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} ${edadTag(e.date, s.y)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
       <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
   const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
@@ -437,7 +517,7 @@ function abrirKpiFicha(s, k) {
     tit = `Mínimas del Campeonato de España (${mn.age} años)`;
     cuerpo = `<table class="rt">${[...mn.rows].sort((a, b) => (a.bestp === null) - (b.bestp === null) || a.bestp - b.bestp).map(r => `<tr><td><b>${r.ev}</b></td>
         <td class="num">${r.bestp === null ? '<span class="muted">sin marca</span>' : r.bestp <= 0 ? '<span class="good">✓ conseguida</span>' : `faltan <b>${secs(r.bestd)} s</b> <span class="of">${r.bestpl}</span>`}</td></tr>`).join('')}</table>
-      <p style="margin-top:10px"><a class="btn ghost" href="${fichaHref(s, 'objetivos')}">Ver en Objetivos →</a></p>`;
+      <p style="margin-top:10px"><a class="btn ghost" href="${fichaHref(s, 'espana')}">Ver en Cto. España →</a></p>`;
   } else {
     const L = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 3);
     tit = 'Sus 3 mejores pruebas (puntos)'; cuerpo = `<table class="rt">${L.map(e => filaEv(e)).join('')}</table>`;
