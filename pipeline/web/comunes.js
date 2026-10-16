@@ -52,6 +52,22 @@ const bandera = (cols, t) => `<svg class="flag" viewBox="0 0 18 12" width="18" h
   cols.map(([y, h, f]) => `<rect y="${y}" width="18" height="${h}" fill="${f}"/>`).join('') + '<rect width="18" height="12" fill="none" stroke="rgba(0,0,0,.25)" stroke-width=".8"/></svg>';
 const FLAG_ES = bandera([[0, 3, '#AA151B'], [3, 6, '#F1BF00'], [9, 3, '#AA151B']], 'España');
 const FLAG_AN = bandera([[0, 4, '#007A3D'], [4, 4, '#FFFFFF'], [8, 4, '#007A3D']], 'Andalucía');
+/* Niveles de una marca: España y Andalucía con su bandera, Málaga con punto azul */
+const NIVEL_NOM = {es: 'España', an: 'Andalucía', ma: 'Málaga'};
+const MA_DOT = '<span class="ma-dot" role="img" aria-label="Málaga" title="Málaga"></span>';
+const nivelHTML = lv => lv === 'es' ? FLAG_ES : lv === 'an' ? FLAG_AN : MA_DOT;
+/* Ranking (borde fino + barras) ≠ Campeonato (relleno + copa; oro/plata/bronce si es podio) */
+const badgeRanking = (lv, pos, ev) => `<span class="bdg rk">${ico('barras')}${pos}º ranking ${NIVEL_NOM[lv]} · ${esc(ev)}</span>`;
+const badgeCto = (lv, pos, ev) => `<span class="bdg ch ${pos >= 1 && pos <= 3 ? 'p' + pos : 'px'}">${ico('copa')}${pos}º Cto. ${NIVEL_NOM[lv]} · ${esc(ev)}</span>`;
+/* Modo de la página: 'clara' (predeterminado) o 'acuatico'; migra los valores antiguos 'normal' y 'agua' */
+const MODO_LS = 'cna_modo';
+function leerModo() {
+  try {
+    const v = localStorage.getItem(MODO_LS);
+    return v === 'acuatico' || v === 'agua' ? 'acuatico' : 'clara';
+  } catch (e) { return 'clara'; }
+}
+function guardarModo(m) { try { localStorage.setItem(MODO_LS, m); } catch (e) {} }
 const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const SEASON_NEW = '2026-09-01';
 const STROKES = ['Libre', 'Espalda', 'Braza', 'Mariposa', 'Estilos'];
