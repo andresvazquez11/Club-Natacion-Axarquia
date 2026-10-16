@@ -70,3 +70,18 @@ test('fichaHref: #mi/<sub> para el elegido y #nadador/<id>/<sub> para el resto; 
   assert.equal(evalIn(c, "fichaHref(__b, 'resumen')"), '#nadador/7');
   assert.equal(evalIn(c, "fichaHref(__b, 'ranking')"), '#nadador/7/ranking');
 });
+
+test('SW no tiene prototipo y idEstrella ignora ids que no son nadadores', () => {
+  const D = { swimmers: [{ id: 5, n: 'Ana', cat: 'ALE', ev: [] }], cats: [], lists: {} };
+  const ls = new Map([['cna_estrella', 'constructor']]);
+  const c = cargar(['comunes.js', 'iconos.js'], structuredClone(D), { ls });
+  assert.equal(evalIn(c, 'Object.getPrototypeOf(SW)'), null);
+  assert.equal(evalIn(c, "'constructor' in SW"), false);
+  assert.equal(evalIn(c, 'BEN_ID'), null);
+  assert.equal(ls.has('cna_estrella'), false);              // el valor guardado malo se descarta
+  const ls2 = new Map([['cna_estrella', '5']]);
+  assert.equal(evalIn(cargar(['comunes.js', 'iconos.js'], structuredClone(D), { ls: ls2 }), 'BEN_ID'), '5');
+  const c3 = cargar(['comunes.js', 'iconos.js'], structuredClone(D));
+  c3.location.search = '?nadador=__proto__';
+  assert.equal(evalIn(c3, 'idEstrella()'), null);
+});

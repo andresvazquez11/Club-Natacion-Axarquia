@@ -49,3 +49,27 @@ test('rutas canónicas no se redirigen y las demás secciones pasan tal cual', (
   assert.equal(r('#rankings').sec, 'rankings');
   assert.equal(r('#comparar?ids=7,8').sec, 'comparar');
 });
+
+test('claves heredadas de Object.prototype no cuentan como nadador', () => {
+  for (const k of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    assert.equal(r('#nadador/' + k).sec, 'club', k);
+    assert.equal(r('#nadador/' + k + '/marcas', BEN).sec, 'club', k);
+  }
+});
+
+test('primer tramo desconocido se trata como #inicio', () => {
+  assert.equal(r('#foo').sec, 'club');
+  assert.equal(r('#foo').redirigir, '#club');
+  assert.equal(r('#foo', BEN).redirigir, '#mi');
+  assert.equal(r('#constructor').sec, 'club');
+});
+
+test('objetivos sin claves pero con relevos en su categoría va a relevos', () => {
+  const c2 = cargar(['comunes.js', 'iconos.js', 'app.js'],
+    { swimmers: [], cats: [], lists: {}, relevos: { cats: [{ key: 'BEN', rel: [] }] }, claves_by: { '7': {} } });
+  const x = h => { c2.__h = h; c2.__s = SW; return evalIn(c2, 'resolverRuta(__h, null, __s)'); };
+  assert.equal(x('#nadador/9/objetivos').sub, 'relevos');       // BEN sin claves, con relevos
+  assert.equal(x('#nadador/9/objetivos').redirigir, '#nadador/9/relevos');
+  assert.equal(x('#nadador/7/objetivos').sub, 'andalucia');     // con claves: Andalucía
+  assert.equal(x('#nadador/8/objetivos').sub, 'espana');        // Alevín: España
+});

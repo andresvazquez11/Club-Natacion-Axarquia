@@ -15,11 +15,14 @@ function resolverRuta(hash, ben, sw) {
   if (sec0 === 'inicio') return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
   if (sec0 === 'mi' || sec0 === 'benicio' || sec0 === 'nadador') {
     const enNadador = sec0 === 'nadador';
-    if (enNadador && !sw[parts[1]]) return aClub();
+    if (enNadador && !Object.hasOwn(sw, parts[1])) return aClub();
     const s = enNadador ? sw[parts[1]] : ben;
     const sub0 = (enNadador ? parts[2] : parts[1]) || 'resumen';
     const base = enNadador ? '#nadador/' + parts[1] : '#mi';
-    let sub = sub0 === 'objetivos' ? (s && s.cat === 'ALE' ? 'espana' : 'andalucia') : SUB_EQUIV[sub0] || sub0;
+    // «objetivos» (enlace antiguo): España si es Alevín; si no, Andalucía si tiene claves, y si no, sus relevos (si su categoría tiene)
+    const objetivo = () => !s ? 'andalucia' : s.cat === 'ALE' ? 'espana'
+      : (DATA.claves_by || {})[String(s.id)] ? 'andalucia' : REL.cats.some(c => c.key === s.cat) ? 'relevos' : 'andalucia';
+    let sub = sub0 === 'objetivos' ? objetivo() : SUB_EQUIV[sub0] || sub0;
     if (!SUB_NADADOR.includes(sub)) sub = 'resumen';
     const canon = base + (sub === 'resumen' ? '' : '/' + sub) + query;
     const x = {sec: s ? 'nadador' : 'elegir', sub, params, parts};
@@ -32,6 +35,7 @@ function resolverRuta(hash, ben, sw) {
 }
 let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
+let hashAnterior = null;    // pantalla desde la que se llegó a la actual (no cambia al tocar filtros dentro de ella)
 let lastFicha = null;       // nadador de la última ficha mostrada
 let volverA = null;         // pantalla a la que lleva el botón «Volver» de la ficha
 const scrollPos = {};       // altura de scroll de cada pantalla visitada
@@ -47,6 +51,7 @@ function route() {
   const yAntes = window.scrollY;
   const key = sec + '/' + (r.id || r.parts[1] || '') + '/' + (sec === 'nadador' ? r.sub : r.parts[2] || '');
   RESTORE_Y = key === lastSec ? yAntes : null;
+  if (key !== lastSec) hashAnterior = lastHash;
   // Al entrar en una ficha desde otra pantalla, se guarda esa pantalla para «Volver».
   // Cambiar de pestaña o filtro dentro de la misma ficha no la sustituye.
   const esFicha = sec === 'nadador';

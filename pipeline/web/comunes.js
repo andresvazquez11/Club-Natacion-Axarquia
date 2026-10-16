@@ -21,7 +21,7 @@ const MINIMAS = (() => {
 })();
 
 const LV = [['ma', 'Málaga'], ['an', 'Andalucía'], ['es', 'España']];
-const SW = Object.fromEntries(DATA.swimmers.map(s => [String(s.id), s]));
+const SW = Object.assign(Object.create(null), Object.fromEntries(DATA.swimmers.map(s => [String(s.id), s])));   // sin prototipo: 'constructor' o '__proto__' no cuentan como nadador
 /* ★ Nadador estrella.
    · temporada.html (la tuya): fijo, DATA.estrella_fija = Benicio.
    · club.html (la que se comparte): cada familia elige al suyo y queda guardado en su dispositivo;
@@ -30,8 +30,12 @@ const ESTRELLA_LS = 'cna_estrella';
 function idEstrella() {
   if (DATA.estrella_fija) return String(DATA.estrella_fija);
   const q = new URLSearchParams(location.search).get('nadador');
-  if (q && SW[q]) { try { localStorage.setItem(ESTRELLA_LS, q); } catch (e) {} return q; }
-  try { const v = localStorage.getItem(ESTRELLA_LS); if (v && SW[v]) return v; } catch (e) {}
+  if (q && Object.hasOwn(SW, q)) { try { localStorage.setItem(ESTRELLA_LS, q); } catch (e) {} return q; }
+  try {
+    const v = localStorage.getItem(ESTRELLA_LS);
+    if (v && Object.hasOwn(SW, v)) return v;
+    if (v) localStorage.removeItem(ESTRELLA_LS);   // guardado que ya no existe: se descarta
+  } catch (e) {}
   return null;
 }
 DATA.swimmers.forEach(s => { s.benicio = false; });
