@@ -14,19 +14,19 @@ function vistaCampeonatos(app, p) {
   const medL = Object.values(med).sort((a, b) => b.o - a.o || b.p - a.p || b.b - a.b || b.t - a.t);
   const tot = medL.reduce((a, m) => ({o: a.o + m.o, p: a.p + m.p, b: a.b + m.b}), {o: 0, p: 0, b: 0});
 
-  const fila = x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>
-      <td class="t" data-l="">${badgeCto(x.lv, x.pos, x.ev)}<span class="of">de ${x.of}</span><span class="m-only">&nbsp; ${esc(x.n)}</span></td>
-      <td data-l="Nadador" class="hide-m"><b>${esc(x.n)}</b><div class="tiny muted">${x.y} ${SEXO[x.g]} · ${SW[String(x.id)].catl || ''}</div></td>
-      <td data-l="Prueba">${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span></td>
-      <td class="num" data-l="Marca"><b>${fmt(x.cs)}</b></td>
-      <td data-l="Campeonato" style="white-space:normal">${nivelHTML(x.lv)} ${esc(x.comp)}</td>
-      <td data-l="Fecha">${dtag(x.date)}</td></tr>`;
+  const fila = x => { const s = SW[String(x.id)];
+    return rkFila({
+      pos: `${badgeCto(x.lv, x.pos, x.ev)}<span class="of">de ${x.of}</span>`, nom: esc(x.n), sub: `${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`,
+      marca: fmt(x.cs), cls: s.benicio ? 'me yo mio' : '',
+      det: [['Año', `${x.y} ${SEXO[x.g]}${s.catl ? ' · ' + s.catl : ''}`], ['Campeonato', `${nivelHTML(x.lv)} ${esc(x.comp)}`], ['Fecha', dtag(x.date)]],
+      acc: [['Ver competición', cmpAttr(s, x.date, x.comp, x.ev)], ['Ver ficha', `href="${fichaHref(s)}"`]].filter(a => a[1]),
+    }); };
 
   app.innerHTML = `
     <div class="portada" style="--foto:url(img/campeonatos.jpg)">
       <div class="portada-tit"><div class="portada-txt"><small>Club Natación Axarquía</small><h1>Campeonatos</h1><p>Top-10 en Andalucía y España</p></div></div>
     </div>
-    <div class="note">Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una fila para ver toda esa competición del nadador.</div>
+    <div class="note">Top-10 del club en Campeonatos de España y de Andalucía (incluidas las fases de zona). El puesto es entre los nacidos en su mismo año. Pulsa una línea para desplegarla y ver toda esa competición del nadador.</div>
     <div class="flt"><span class="flt-l">Campeonato</span>${chipsHTML('lv', [['all', 'Todos', cuentaC({lv: 'all'})], ['es', nivelHTML('es') + ' España', cuentaC({lv: 'es'})], ['an', nivelHTML('an') + ' Andalucía', cuentaC({lv: 'an'})]], lv)}</div>
     <div class="grid g2" style="gap:6px 12px">
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas', cuentaC({cat: 'all'})], ...DATA.cats.map(c => [c.key, c.label, cuentaC({cat: c.key})])], cat)}</div>
@@ -46,14 +46,15 @@ function vistaCampeonatos(app, p) {
           ${medL.length > 10 ? `<p style="margin-top:10px"><button class="btn ghost" id="med-mas">Ver los ${medL.length} nadadores</button></p>` : ''}`
         : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
       <div class="card"><div class="h">${ico('copa')}Todos los top-10 <span class="h-n">(${D.length})</span></div>
-        ${D.length ? `<table class="rt cards camp" id="camp-l"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th>Campeonato</th><th>Fecha</th></tr>${D.map((x, i) => fila(x).replace('<tr ', `<tr ${i >= 20 ? 'hidden ' : ''}`)).join('')}</table>
+        ${D.length ? `<div id="camp-l">${rkLista(D.map((x, i) => fila(x).replace('<div class="rk-r ', `<div ${i >= 20 ? 'hidden ' : ''}class="rk-r `)), 'ancha')}</div>
           ${D.length > 20 ? `<p style="margin-top:10px;text-align:center"><button class="btn ghost" id="camp-mas">Ver los ${D.length} resultados</button></p>` : ''}` : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
     </div>`;
 
   const cm = document.getElementById('camp-mas');
-  if (cm) cm.onclick = () => { app.querySelectorAll('#camp-l tr[hidden]').forEach(tr => tr.hidden = false); cm.remove(); };
+  if (cm) cm.onclick = () => { app.querySelectorAll('#camp-l .rk-r[hidden]').forEach(tr => tr.hidden = false); cm.remove(); };
   const mas = document.getElementById('med-mas');
   if (mas) mas.onclick = () => { app.querySelectorAll('#med tr[hidden]').forEach(tr => tr.hidden = false); mas.remove(); };
+  rkBind(app);
   app.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
   onChips(app, 'lv', v => go({lv: v}));
   onChips(app, 'cat', v => go({cat: v}));

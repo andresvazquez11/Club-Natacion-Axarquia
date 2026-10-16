@@ -345,6 +345,41 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
   table.rt.cards tr.sep{background:none;border:0;padding:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
   table.rt.cards td.hide-m{display:none}
 }
+
+/* ═══ Listas de ranking compactas: una línea por nadador, se despliega al pulsar ═══ */
+.rk{display:flex;flex-direction:column}
+.rk-r{border-top:1px solid var(--ln)}
+.rk-r[hidden]{display:none!important}
+.rk > .rk-r:first-child{border-top:0}
+.rk-l{display:flex;align-items:center;gap:9px;width:100%;min-height:44px;padding:5px 6px;text-align:left;color:var(--ink)}
+.rk-p{flex:none;min-width:36px;text-align:center}
+.rk-n{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.rk-n b{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rk-n small,.rk-m small{font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rk-m{flex:none;display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;font-variant-numeric:tabular-nums}
+.rk-m b{font-size:14px;font-weight:800;color:var(--big)}
+.rk-l::after{content:"";flex:none;width:7px;height:7px;margin-left:2px;border-right:2px solid var(--ink2);border-bottom:2px solid var(--ink2);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.rk-l[aria-expanded="true"]::after{transform:rotate(225deg) translate(-2px,-2px)}
+.rk-d{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:2px 8px 10px 51px;font-size:12px}
+.rk-d[hidden]{display:none}
+.rk-k i{font-style:normal;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--lab);margin-right:5px}
+.rk-ver{display:inline-flex;align-items:center;min-height:44px;margin-left:auto;padding:0 6px;font-size:12.5px;font-weight:800;color:var(--link);text-decoration:none}
+.rk-sep{text-align:center;color:var(--ink2);font-size:12px;line-height:1;padding:2px 0;border-top:1px solid var(--ln)}
+.rk-r.me{background:var(--me)}
+.rk-r.yo{background:rgba(255,212,0,.42);box-shadow:inset 5px 0 0 var(--sun)}
+html.acuatico .rk-r.yo{background:rgba(255,212,0,.28)}
+.rk-r.yo .rk-n b{font-weight:900}
+.rk-r.mio .rk-n b::after{content:"Mi nadador";margin-left:7px;padding:1px 7px;border-radius:99px;background:var(--sun);color:var(--sun-ink);font-size:10px;font-weight:800;vertical-align:1px}
+@media (hover:hover){.rk-l:hover{background:var(--inset)}}
+/* escritorio ancho: la lista grande muestra los detalles en la misma línea */
+@media (min-width:900px){
+  .rk.ancha .rk-r{display:flex;align-items:center}
+  .rk.ancha .rk-l{flex:1 1 auto;pointer-events:none;min-height:40px}
+  .rk.ancha .rk-l::after{display:none}
+  .rk.ancha .rk-d,.rk.ancha .rk-d[hidden]{display:flex;flex:0 0 auto;flex-wrap:nowrap;gap:22px;padding:0 8px 0 0}
+  .rk.ancha .rk-ver{margin-left:0;min-height:40px}
+  .rk.ancha .rk-n{flex-direction:row;align-items:baseline;gap:12px}
+}
 .hmap th,.hmap td{padding:6px;font-size:.78rem;white-space:nowrap;vertical-align:top}
 .hmap td:first-child{white-space:normal;min-width:76px}
 .recs td{white-space:normal}

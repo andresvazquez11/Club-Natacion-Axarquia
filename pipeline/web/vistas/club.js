@@ -319,6 +319,7 @@ function clubInicio(app) {
     <div class="portada" style="--foto:url(img/club.jpg)">
       <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · actualizado ${DATA.fecha}</p></div></div>
     </div>
+    <div class="accesos dos">${accesos}</div>
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
       <div class="kpis k5">
         ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
@@ -329,7 +330,6 @@ function clubInicio(app) {
         ? `La RFEN ya tiene <b>${DATA.new_marks.toLocaleString('es')}</b> marcas de la temporada 26-27 (de todos los clubes). Para cada nadador se usa su mejor marca entre la 25-26 y la 26-27.`
         : 'Todavía no hay marcas de la 26-27: se usa lo mejor de la 25-26 como punto de partida.'}</div></div>
     ${estaSemanaCard()}
-    <div class="accesos dos">${accesos}</div>
 
     <div class="card" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
       ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>

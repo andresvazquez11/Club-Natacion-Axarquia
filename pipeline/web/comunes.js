@@ -267,3 +267,24 @@ const finTemp = d => +String(d).slice(0, 4) + (+String(d).slice(5, 7) >= 10 ? 1 
 const edadFecha = (d, y) => d && y ? finTemp(d) - y : null;
 const edadTemp = (t, y) => `${2000 + +t.slice(2) - y} años`;
 const edadTag = (d, y) => { const e = edadFecha(d, y); return e ? `<span class="edad">${e} años</span>` : ''; };
+
+/* ── Lista compacta de ranking (móvil y escritorio): una línea por nadador que se despliega al pulsarla ──
+   o = {pos, nom, sub, marca, pool, det: [[etiqueta, html]], acc: [[etiqueta, 'href="…"' | 'data-…="…"']], cls}
+   cls: 'me' = nadador del club · 'yo' = el nadador elegido ("mi hijo", se ve más). Los textos ya van escapados. */
+const rkFila = o => {
+  const acc = (o.acc || []).map(([l, a]) => /^href=/.test(a) ? `<a class="rk-ver" ${a}>${l} ›</a>` : `<button type="button" class="rk-ver" ${a}>${l} ›</button>`).join('');
+  const det = (o.det || []).map(([l, h]) => `<span class="rk-k"><i>${l}</i>${h}</span>`).join('');
+  return `<div class="rk-r ${o.cls || ''}"><button type="button" class="rk-l" aria-expanded="false">
+      <span class="rk-p">${o.pos}</span>
+      <span class="rk-n"><b>${o.nom}</b>${o.sub ? `<small>${o.sub}</small>` : ''}</span>
+      <span class="rk-m"><b>${o.marca}</b>${o.pool ? `<small>${o.pool}</small>` : ''}</span></button>
+    <div class="rk-d" hidden>${det}${acc}</div></div>`;
+};
+const rkSep = () => '<div class="rk-sep" aria-hidden="true">· · ·</div>';
+const rkLista = (filas, cls) => `<div class="rk ${cls || ''}">${filas.join('')}</div>`;
+/* despliega/pliega cada línea (escritorio ancho: los detalles ya van a la vista y el botón no hace nada) */
+function rkBind(root) {
+  root.querySelectorAll('.rk-l').forEach(b => b.onclick = () => {
+    const d = b.nextElementSibling, abre = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', abre ? 'true' : 'false'); d.hidden = !abre; });
+}

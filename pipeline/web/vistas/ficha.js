@@ -269,15 +269,17 @@ function rivalLista(s, e, sk, lv, lbl) {
   const L = DATA.lists[scopeKey(s, sk) + '|' + e.e], r = e.rk[sk] && e.rk[sk][lv];
   if (!L || !r) return `<div class="card"><h3 class="lv-${lv}">${lbl}</h3><p class="muted small">No aplica.</p></div>`;
   const isMe = x => x[0] === s.n && x[6] === s.y;
-  const row = x => { const d = x[3] - e.cs, me = isMe(x);
-    return `<tr class="${me ? 'me' : x[7] ? 'club' : ''}"><td style="width:44px">${posB(x[5])}</td>
-      <td style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x[0])} · ${esc(x[1])}"><b>${esc(x[0])}</b><div class="tiny muted">${club(x[1])} · ${x[6]}</div></td>
-      <td class="num" style="width:70px"><b>${fmt(x[3])}</b><div>${dtag(x[8])}</div></td>
-      <td class="num ${d < 0 ? 'bad' : 'good'}" style="width:58px">${me ? '' : gapS(d)}</td></tr>`; };
-  let h = L[lv].filter(x => x[5] <= 10).map(row).join('');
-  if (r[0] > 10) h += `<tr class="sep"><td colspan="4">· · ·</td></tr>` + e.nb[sk][lv].filter(x => x[5] > 10).map(row).join('');
+  const row = x => { const d = x[3] - e.cs, me = isMe(x), cs = SW[String(x[10])];
+    return rkFila({
+      pos: posB(x[5]), nom: esc(x[0]), sub: `${club(x[1])} · ${x[6]}`, marca: fmt(x[3]),
+      cls: me ? 'me yo' + (s.benicio ? ' mio' : '') : x[7] ? 'me' : '',
+      det: [['Fecha', dtag(x[8])], ...(me ? [] : [['Dif.', `<b class="${d < 0 ? 'bad' : 'good'}">${gapS(d)}</b>`]])],
+      acc: x[7] && cs && !me ? [['Ver ficha', `href="${fichaHref(cs)}"`]] : [],
+    }); };
+  let h = L[lv].filter(x => x[5] <= 10).map(row);
+  if (r[0] > 10) h.push(rkSep(), ...e.nb[sk][lv].filter(x => x[5] > 10).map(row));
   return `<div class="card"><div class="bar-row" style="margin-bottom:6px"><h3 class="lv-${lv}" style="margin:0">${lbl}</h3><span>${posB(r[0], r[1])}</span></div>
-    <table class="rt" style="table-layout:fixed">${h}</table></div>`;
+    ${rkLista(h)}</div>`;
 }
 
 function tabMinimas(s) {
@@ -416,12 +418,12 @@ function resumenHTML(s, cat) {
     ${logrosHTML(s)}
     <div class="resumen">
     ${mejorMomentoHTML(s)}
+    <div class="accesos">${acc}</div>
     <div class="card"><div class="lista"><button class="fila" data-kd="top3">${ico('tendencia')}<span>Suma de sus 3 mejores pruebas: <b>${s.top3} pts</b></span><span class="dcha">›</span></button></div></div>
     ${destaca.length ? `<div class="card"><div class="h">${ico('medalla')}Dónde destaca</div><div class="lista">${filasFrase(destaca)}</div></div>` : ''}
     ${mejorar.length || O.length ? `<div class="card"><div class="h">${ico('diana')}Para seguir mejorando</div>
       ${mejorar.length ? `<div class="lista">${filasFrase(mejorar)}</div>` : ''}
       ${O.length ? `<div class="h h-sub">Próximos objetivos</div><div class="lista">${objetivosL}</div>` : ''}</div>` : ''}
-    <div class="accesos">${acc}</div>
     <div class="card"><div class="h">${ico('carriles')}Últimas competiciones</div><div class="lista">${comps}${filaPod}</div>
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     ${insigniasCard(s)}
@@ -485,6 +487,7 @@ function vistaSub(app, s, sub, p) {
     if (sub === 'andalucia') pintarClasif(s);
   }
   app.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { location.hash = el.dataset.goto; });
+  rkBind(app);
   bindPisc(app);
   // al abrir una prueba, que se vea su cabecera
   if (sub === 'marcas' && p.ev) setTimeout(() => { const el = document.getElementById('pr-' + p.ev.replace(/ /g, '-'));
