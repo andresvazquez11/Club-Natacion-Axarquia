@@ -474,7 +474,7 @@ def main():
 
 
 JS_ORDEN = ['comunes.js', 'iconos.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/inicio.js', 'vistas/club.js', 'vistas/campeonatos.js',
-            'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'agua.js', 'app.js']
+            'vistas/accesos.js', 'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'agua.js', 'app.js']
 
 
 def montar_html():
