@@ -452,13 +452,13 @@ def main():
     relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper(), records)
     movimientos = escribir_historial(swimmers, rows_new, marcas, minfo)
     ruta_edades = os.path.join(BASE_DIR, 'edades_base.json.gz')
-    puestos_club(swimmers, hist, H.cargar(ruta_edades) if os.path.exists(ruta_edades) else {})
+    club_int = puestos_club(swimmers, hist, H.cargar(ruta_edades) if os.path.exists(ruta_edades) else {}, nombres_club())
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
             'lists': lists, 'comparativa': comparativa, 'new_marks': new_marks, 'claves_ref': claves_ref, 'claves_by': claves_by, 'claves_ev': CLAVES_BENICIO,
             'destacados': destacados, 'wr': records, 'estrella_fija': None,
-            'relevos': relevos, 'recs': records_club(swimmers, hist), 'mov': movimientos, 'historia': historia_club(rows_new)}
+            'relevos': relevos, 'recs': records_club(swimmers, hist), 'mov': movimientos, 'historia': historia_club(rows_new), **club_int}
 
     # Dos páginas con los mismos datos: la tuya (Benicio fijo como estrella) y la del club para compartir
     # (cada familia elige a su nadador y queda guardado en su dispositivo).
@@ -580,12 +580,31 @@ def records_club(swimmers, hist):
     return {k: sorted(v.values(), key=lambda x: x[1])[:3] for k, v in top.items()}
 
 
-def puestos_club(swimmers, hist, base):
+def nombres_club():
+    """{pid: nombre} de nadadores que pasaron por el club, sacados de las bases guardadas (récords y comparables).
+    edades_base.json.gz solo guarda tiempos, así que de algunos antiguos nadadores no se sabe el nombre."""
+    import historial as H
+    n = {}
+    ruta = os.path.join(BASE_DIR, 'records_base.json.gz')
+    if os.path.exists(ruta):
+        for v in H.cargar(ruta).values():
+            for m in v:
+                n.setdefault(str(m[0]), m[3])
+    if os.path.exists(COMP_BASE):
+        for pid, d in H.cargar(COMP_BASE).get('d', {}).items():
+            n.setdefault(str(pid), ' '.join(str(d[0]).split()).title())
+    return n
+
+
+def puestos_club(swimmers, hist, base, nombres=None):
     """Puesto de cada prueba de cada nadador actual dentro del club: e['cl'] = {'hoy': [pos, n], 'hi': [pos, n, edad]}.
     Siempre en la piscina de e['pool'] y con la mejor marca de cada nadador distinto (él incluido una sola vez).
     hoy: nadadores actuales con mismo sexo y año. hi: marcas del club a su misma edad federativa (base cerrada +
-    marcas actuales, una por nadador). pos = 1 + nº de otros nadadores con marca estrictamente mejor."""
+    marcas actuales, una por nadador). pos = 1 + nº de otros nadadores con marca estrictamente mejor.
+    Devuelve {'clh': {clave: [[pid, cs], …]}, 'cln': {pid: nombre}}: la lista histórica de cada clave usada (para ver
+    el ranking interno en detalle) y el nombre de los que ya no están en el club, cuando se conoce (`nombres`)."""
     by = {s['id']: s for s in swimmers}
+    clh, cln, actuales = {}, {}, {str(s['id']) for s in swimmers}
     hoy = defaultdict(dict)            # (g, y, ev, pool) → {pid: cs}
     for s in swimmers:
         for e in s['ev']:
@@ -625,8 +644,12 @@ def puestos_club(swimmers, hist, base):
                     if q not in marcas or c < marcas[q]:
                         marcas[q] = c
                 cl['hi'] = puesto(marcas, pid) + [edad]
+                clave = f"{s['g']}|E{edad}|{e['e']}|{e['pool']}"
+                clh[clave] = sorted(([q, c] for q, c in marcas.items()), key=lambda x: x[1])
+                cln.update({q: nombres[q] for q in marcas if q not in actuales and q in (nombres or {})})
             if cl:
                 e['cl'] = cl
+    return {'clh': clh, 'cln': cln}
 
 
 def escribir_historial(swimmers, rows_new, marcas, info):

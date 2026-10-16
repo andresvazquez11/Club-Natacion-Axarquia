@@ -82,6 +82,12 @@ const fmt = cs => { const m = Math.floor(cs / 6000), s = Math.floor(cs % 6000 / 
 const secs = cs => (Math.abs(cs) / 100).toFixed(2);
 const gapS = d => d === 0 ? '—' : (d > 0 ? '+' : '−') + secs(d);
 const pctTxt = p => (p > 0 ? '+' : '') + p.toFixed(1) + '%';
+/* Lleva el elemento justo debajo de lo que queda fijo arriba (cabecera y, en móvil, las pestañas pegajosas) */
+function irAElemento(el, suave = true) {
+  const tapa = [...document.querySelectorAll('.cab, .tabs')].filter(x => /fixed|sticky/.test(getComputedStyle(x).position))
+    .reduce((a, x) => Math.max(a, x.classList.contains('tabs') ? parseFloat(getComputedStyle(x).top) + x.offsetHeight : x.offsetHeight), 0);
+  window.scrollTo({top: scrollY + el.getBoundingClientRect().top - tapa - 12, behavior: suave ? 'smooth' : 'auto'});
+}
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const club = c => esc(String(c).replace(/^C\.?\s?D\.?\s?N\.?\s?|^C\.?\s?N\.?\s?|^CLUB NATACION /i, '').trim()).slice(0, 26);
 const corto = n => esc(String(n).split(' ').slice(0, 2).join(' '));

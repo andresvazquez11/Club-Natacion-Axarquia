@@ -157,7 +157,7 @@ function clubRelevos(app, p, c, cats, head) {
   // llegada desde la ficha (Objetivos): se abre y resalta ese relevo
   const foco = p.r && document.getElementById('rel-' + p.r);
   if (foco) { foco.classList.add('foco'); foco.querySelectorAll('details').forEach(d => d.open = true);
-    setTimeout(() => window.scrollTo(0, scrollY + foco.getBoundingClientRect().top - 70), 0); }
+    setTimeout(() => irAElemento(foco, false), 0); }
   onChips(app, 'cat', v => go({cat: v}));
   onChips(app, 'gs', v => go({gs: v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
@@ -295,7 +295,7 @@ function clubHistoria(app, p, head) {
     <h2 class="st">${ico('historia')}Temporada a temporada</h2>
     <div class="hist-tl">${[...H].reverse().map(tarjeta).join('')}</div>`;
   app.querySelectorAll('[data-ht]').forEach(el => el.onclick = () => { const c = document.getElementById('ht-' + el.dataset.ht);
-    if (c) { c.scrollIntoView({behavior: 'smooth', block: 'start'}); c.classList.add('foco'); setTimeout(() => c.classList.remove('foco'), 1800); } });
+    if (c) { irAElemento(c); c.classList.add('foco'); setTimeout(() => c.classList.remove('foco'), 1800); } });
 }
 
 /* ── Club (inicio): portada, el club en números, esta semana, accesos y el resto de bloques de la antigua pantalla de inicio ── */

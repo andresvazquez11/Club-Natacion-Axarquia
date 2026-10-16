@@ -253,11 +253,43 @@ function subRelevos(s) {
 /* En el club: por prueba, su puesto hoy entre los del CNA de su sexo y año y dónde quedaría su mejor marca a la misma edad */
 function subClub(s) {
   const filas = s.ev.map(e => { const t = textoClub(e, s);
-    return `<div class="fila club-e">${franja(e.e)}<span><b>${e.e}</b> <span class="of">${e.pool}</span><b class="club-t">${fmt(e.cs)}</b>
-      ${t.hoy || t.hi ? `${t.hoy ? `<span class="rel-e">${t.hoy}</span>` : ''}${t.hi ? `<span class="rel-e">${t.hi}</span>` : ''}` : '<span class="rel-e muted">Sin datos del club para esta prueba</span>'}</span></div>`; }).join('');
+    return `<a class="fila club-e" href="${clubHref(s, e)}">${franja(e.e)}<span><b>${e.e}</b> <span class="of">${e.pool}</span><b class="club-t">${fmt(e.cs)}</b>
+      ${t.hoy || t.hi ? `${t.hoy ? `<span class="rel-e">${t.hoy}</span>` : ''}${t.hi ? `<span class="rel-e">${t.hi}</span>` : ''}` : '<span class="rel-e muted">Sin datos del club para esta prueba</span>'}</span><span class="dcha">›</span></a>`; }).join('');
   return bloque('grupo', 'En el club', `<div class="lista">${filas}</div>
-    <p class="tiny muted" style="margin-top:8px">Histórico desde la temporada 13-14 · misma piscina</p>`,
+    <p class="tiny muted" style="margin-top:8px">Pulsa una prueba para ver el ranking del club completo · histórico desde la temporada 13-14 · misma piscina</p>`,
     `Cómo está ${nombreCorto(s)} entre los nadadores del CNA de su mismo sexo.`);
+}
+
+const clubHref = (s, e) => `${fichaHref(s, 'club')}?ev=${encodeURIComponent(e.e)}&pl=${e.pool}`;
+
+/* Detalle de una fila de «En el club»: el ranking interno del CNA en esa prueba y piscina, hoy (su año) e histórico (su edad) */
+function subClubDetalle(s, p) {
+  const e = s.ev.find(x => x.e === p.ev && x.pool === p.pl);
+  if (!e) return subClub(s);
+  const nac = s.g === 'F' ? 'nacidas' : 'nacidos', t = textoClub(e, s);
+  const fila = (x, sub) => rkFila({
+    pos: posB(x.pos), nom: esc(x.n), sub, marca: fmt(x.cs),
+    cls: x.yo ? 'me yo' + (s.benicio ? ' mio' : '') : '',
+    det: x.yo ? [] : [['Dif.', `<b class="${x.cs - e.cs < 0 ? 'bad' : 'good'}">${gapS(x.cs - e.cs)}</b>`]],
+    acc: !x.yo && SW[x.pid] ? [['Ver ficha', `href="${fichaHref(SW[x.pid])}"`]] : [],
+  });
+  const hoy = rankingClubHoy(s, e.e, e.pool), hi = rankingClubHist(s, e);
+  // listas largas: los 10 primeros y los que tiene alrededor; el resto, con «Ver los N»
+  const listaCorta = (filas, f) => {
+    const yo = filas.findIndex(x => x.yo);
+    if (filas.length <= 15) return rkLista(filas.map(f));
+    const corta = filas.slice(0, 10).map(f);
+    if (yo >= 10) corta.push(rkSep(), ...filas.slice(Math.max(10, yo - 2), yo + 3).map(f));
+    return `<div data-rk-corto>${rkLista(corta)}</div><div data-rk-todo hidden>${rkLista(filas.map(f))}</div>
+      <button type="button" class="btn ghost" style="margin-top:8px" data-ver-todo>Ver los ${filas.length}</button>`;
+  };
+  const actual = s.g === 'F' ? 'Nadadora actual' : 'Nadador actual';
+  return `<div class="card"><div class="h">${franja(e.e)}${e.e} <span class="h-n">· piscina de ${e.pool.replace('m', ' m')}</span></div>
+      <p class="small muted" style="margin:0">Su mejor marca: <b class="club-t" style="margin:0">${fmt(e.cs)}</b></p></div>
+    ${bloque('grupo', `Hoy · CNA ${nac} en ${s.y}`, rkLista(hoy.map(x => fila(x, ''))), t.hoy ? `${nombreCorto(s)} es ${t.hoy}.` : '')}
+    ${hi ? bloque('historia', `Histórico · CNA a los ${hi.edad} años`, listaCorta(hi.filas, x => fila(x, x.actual ? actual : '')),
+      `La mejor marca de cada ${s.g === 'F' ? 'nadadora' : 'nadador'} del club a los ${hi.edad} años, desde la temporada 13-14. ${t.hi ? `La de ${nombreCorto(s)} es la ${t.hi}.` : ''}`)
+      : '<div class="card vacio">Todavía no hay histórico del club para esta prueba a su edad.</div>'}`;
 }
 
 function segScope(s, sk) {
@@ -469,11 +501,12 @@ function vistaSub(app, s, sub, p) {
     : sub === 'espana' ? tabMinimas(s)
     : sub === 'andalucia' ? bloque(FLAG_AN, '¿Entra en el Campeonato de Andalucía?', '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>')
     : sub === 'relevos' ? subRelevos(s)
-    : sub === 'club' ? subClub(s)
+    : sub === 'club' ? (p.ev ? subClubDetalle(s, p) : subClub(s))
     : `<div class="card"><div id="hist-host"><p class="empty">Cargando el historial…</p></div></div><div id="an-host">${analisisCompletoHTML(s)}</div>`;   // evolucion
 
   app.innerHTML = `
-    <a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>
+    ${sub === 'club' && p.ev ? `<a class="volver" href="${fichaHref(s, 'club')}">${ico('flecha-atras')}En el club</a>`
+      : `<a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>`}
     <div class="card sub-cab"><span class="ante">${esc(s.n)}</span><h1>${tit}</h1></div>
     <section style="margin-top:12px">${body}</section>`;
 
@@ -487,6 +520,8 @@ function vistaSub(app, s, sub, p) {
     if (sub === 'andalucia') pintarClasif(s);
   }
   app.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { location.hash = el.dataset.goto; });
+  app.querySelectorAll('[data-ver-todo]').forEach(b => b.onclick = () => { const c = b.parentElement;
+    c.querySelector('[data-rk-corto]').remove(); c.querySelector('[data-rk-todo]').hidden = false; b.remove(); });
   rkBind(app);
   bindPisc(app);
   // al abrir una prueba, que se vea su cabecera

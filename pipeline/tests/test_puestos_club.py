@@ -53,6 +53,12 @@ class TestPuestosClub(unittest.TestCase):
         G.puestos_club([a], {}, {})
         self.assertEqual(a['ev'][0]['cl'], {'hoy': [1, 1]})
 
+    def test_devuelve_lista_historica_y_nombres(self):
+        a = nad('A', 2014, 3842)
+        r = G.puestos_club([a], hist_de(a), {'F|E12|50 Braza|25m': [['X', 3700], ['A', 3900]]}, {'X': 'Ana Ruiz', 'A': 'Yo'})
+        self.assertEqual(r['clh'], {'F|E12|50 Braza|25m': [['X', 3700], ['A', 3842]]})
+        self.assertEqual(r['cln'], {'X': 'Ana Ruiz'})          # solo los que no son nadadores actuales
+
 
 if __name__ == '__main__':
     unittest.main()
