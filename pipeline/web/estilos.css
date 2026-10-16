@@ -116,6 +116,8 @@ html.acuatico .agua{background:linear-gradient(180deg,#05365f,#032a4d)}
 .portada-tit h1{font-size:25px;font-weight:800;line-height:1.05;color:var(--ink);margin-top:2px}
 .portada-tit p{font-size:11.5px;color:var(--ink2);margin-top:3px}
 html.acuatico .portada-tit h1{color:#fff}
+/* en acuático la zona fundida no deja ver el agua (azulejos y carril): título y subtítulo quedan sobre color liso */
+html.acuatico .portada{background:linear-gradient(180deg,transparent 30%,var(--bg) 70%)}
 @media (min-width:900px){.portada{height:300px}}
 
 .card{background:var(--surf);border:1px solid var(--surf-bd);border-radius:var(--r);padding:12px;box-shadow:var(--shadow);min-width:0;
