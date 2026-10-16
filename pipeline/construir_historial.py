@@ -9,6 +9,9 @@ Precalcula, en local, lo que no cambia:
 
 Uso:
   python3 pipeline/construir_historial.py <carpeta con RAW_1011…RAW_2425, RAW_2526(_v2), RAW_2627> [temporada.html]
+  python3 pipeline/construir_historial.py <carpeta> --solo-edades     (solo regenera edades_base.json.gz)
+
+  · la mejor marca de cada nadador del club por edad, prueba y piscina → pipeline/edades_base.json.gz
 
 Vuelve a ejecutarlo si entran nadadores nuevos en el club (el historial solo se guarda de los del club).
 """
@@ -34,9 +37,22 @@ def raw(carpeta, t):
     return None
 
 
+def guardar_edades(carpeta):
+    """Mejor marca de cada nadador del club por edad (temporadas cerradas) → edades_base.json.gz."""
+    ed = H.marcas_club_edades({t: H.cargar(raw(carpeta, t)) for t in H.TEMPORADAS[:-1] if raw(carpeta, t)})
+    ruta = os.path.join(BASE, 'edades_base.json.gz')
+    with gzip.open(ruta, 'wt', 9, encoding='utf-8') as f:
+        json.dump(ed, f, ensure_ascii=False, separators=(',', ':'))
+    print(f'  base por edad: {len(ed)} claves ({os.path.getsize(ruta) / 1e6:.2f} MB)')
+
+
 def main():
-    carpeta = sys.argv[1]
-    html = sys.argv[2] if len(sys.argv) > 2 else os.path.join(REPO, 'temporada.html')
+    args = [a for a in sys.argv[1:] if a != '--solo-edades']
+    carpeta = args[0]
+    if '--solo-edades' in sys.argv:
+        guardar_edades(carpeta)
+        return
+    html = args[1] if len(args) > 1 else os.path.join(REPO, 'temporada.html')
     club = club_actual(html)
     print(f'{len(club)} nadadores del club')
 
@@ -73,6 +89,7 @@ def main():
     with gzip.open(os.path.join(BASE, 'records_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump(recs, f, ensure_ascii=False, separators=(',', ':'))
     print(f'  récords del club: {len(recs)} pruebas/categorías guardadas')
+    guardar_edades(carpeta)
     with gzip.open(os.path.join(BASE, 'historial_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump({'club': list(club), 'temps': temps, 'coh': coh}, f, ensure_ascii=False, separators=(',', ':'))
 
