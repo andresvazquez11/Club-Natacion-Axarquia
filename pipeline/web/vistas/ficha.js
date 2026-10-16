@@ -361,14 +361,15 @@ function ultimasComps(s, n = 3) {
   return Object.values(C).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, n);
 }
 
-/* Logros: podios y top-10 de campeonatos (relleno) y top-10 de España / nº 1 de Málaga en el ranking (borde fino).
+/* Logros: podios y top-10 de campeonatos (relleno) y top-10 de España / top-8 de Andalucía / nº 1 de Málaga en el ranking (borde fino).
    Al tocarlos se abre su ventana de detalle; un top-10 de campeonato sin podio abre esa competición. */
 function logrosHTML(s) {
   const L = (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).map(x =>
     `<button class="bdg-b" ${x.pos <= 3 ? 'data-kd="cto"' : cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">${badgeCto(x.lv, x.pos, x.ev)}</button>`);
   s.ev.forEach(e => { const r = e.rk.y || {};
     if (r.es && r.es[0] <= 10) L.push(`<button class="bdg-b" data-kd="es10">${badgeRanking('es', r.es[0], e.e)}</button>`);
-    else if (r.ma && r.ma[0] == 1) L.push(`<button class="bdg-b" data-kd="ma1">${badgeRanking('ma', 1, e.e)}</button>`); });
+    else if (r.ma && r.ma[0] == 1) L.push(`<button class="bdg-b" data-kd="ma1">${badgeRanking('ma', 1, e.e)}</button>`);
+    if (r.an && r.an[0] <= 8) L.push(`<button class="bdg-b" data-kd="an8">${badgeRanking('an', r.an[0], e.e)}</button>`); });
   return L.length ? `<div class="logros">${L.join('')}</div>` : '';
 }
 
@@ -409,16 +410,19 @@ function resumenHTML(s, cat) {
     return `<button class="fila" ${cmpAttr(s, c.d, c.c, c.mejor ? c.mejor[1] : '')}>${lv ? nivelHTML(lv) : ico('meta')}<span><b>${esc(c.c)}</b> · ${dfmt(c.d)}</span>
       <span class="dcha">${c.mejor ? `${c.mejor[0]}º · ${esc(c.mejor[1])}` : `${c.n} prueba${c.n > 1 ? 's' : ''}`}</span></button>`; }).join('');
 
+  const pd = podiosDe(s);
+  const filaPod = pd.comps ? `<button class="fila" data-kd="pod">${ico('medalla')}<span><b>${pd.victorias}</b> victoria${pd.victorias === 1 ? '' : 's'} · <b>${pd.podios}</b> podio${pd.podios === 1 ? '' : 's'} en ${pd.comps} competicion${pd.comps === 1 ? '' : 'es'}</span><span class="dcha">›</span></button>` : '';
   return `${portada}
     ${logrosHTML(s)}
     <div class="resumen">
     ${mejorMomentoHTML(s)}
+    <div class="card"><div class="lista"><button class="fila" data-kd="top3">${ico('tendencia')}<span>Suma de sus 3 mejores pruebas: <b>${s.top3} pts</b></span><span class="dcha">›</span></button></div></div>
     ${destaca.length ? `<div class="card"><div class="h">${ico('medalla')}Dónde destaca</div><div class="lista">${filasFrase(destaca)}</div></div>` : ''}
     ${mejorar.length || O.length ? `<div class="card"><div class="h">${ico('diana')}Para seguir mejorando</div>
       ${mejorar.length ? `<div class="lista">${filasFrase(mejorar)}</div>` : ''}
       ${O.length ? `<div class="h h-sub">Próximos objetivos</div><div class="lista">${objetivosL}</div>` : ''}</div>` : ''}
     <div class="accesos">${acc}</div>
-    <div class="card"><div class="h">${ico('carriles')}Últimas competiciones</div><div class="lista">${comps}</div>
+    <div class="card"><div class="h">${ico('carriles')}Últimas competiciones</div><div class="lista">${comps}${filaPod}</div>
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     ${insigniasCard(s)}
     </div>`;

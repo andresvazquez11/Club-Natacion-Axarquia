@@ -69,3 +69,11 @@ test('textoClub: masculino y datos parciales', () => {
 test('textoClub: sin e.cl no hay nada que decir', () => {
   assert.deepEqual(ev('textoClub', {}, { g: 'F', y: 2014 }), { hoy: null, hi: null });
 });
+
+test('podiosDe cuenta competiciones, victorias y podios', () => {
+  const s = { ev: [
+    { h: [['2026-01-10', 3000, '25m', 'Trofeo A', '', 0, 1, 20], ['2026-02-10', 2990, '25m', 'Trofeo B', '', 0, 3, 20]] },
+    { h: [['2026-01-10', 6500, '25m', 'Trofeo A', '', 0, 5, 20], ['2026-02-10', 6400, '25m', 'Trofeo B', '', 0, null, 0]] }] };
+  assert.deepEqual(ev('podiosDe', s), { comps: 2, victorias: 1, podios: 2 });
+  assert.deepEqual(ev('podiosDe', { ev: [] }), { comps: 0, victorias: 0, podios: 0 });
+});

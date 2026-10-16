@@ -42,3 +42,10 @@ function textoClub(e, s) {
     hi: cl.hi ? `${cl.hi[0]}ª mejor marca del CNA a los ${cl.hi[2]} años` : null,
   };
 }
+
+/* Victorias y podios en sus competiciones (puesto entre los nacidos en su año), para la fila del Resumen que abre la ventana «pod» */
+function podiosDe(s) {
+  const C = new Set(); let victorias = 0, podios = 0;
+  (s.ev || []).forEach(e => (e.h || []).forEach(x => { C.add(x[0] + '|' + x[3]); if (x[6] === 1) victorias++; if (x[6] && x[6] <= 3) podios++; }));
+  return {comps: C.size, victorias, podios};
+}
