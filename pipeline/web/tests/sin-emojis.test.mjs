@@ -16,13 +16,16 @@ function archivos(dir) {
   return out;
 }
 
+// Glifos tipográficos que se ven como texto (sin presentación emoji): ★ marca la mejor marca personal
+const TEXTO = new Set(['★']);
+
 const sinComentarios = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
 
 test('la interfaz no usa emojis (las banderas son SVG)', () => {
   const malos = [];
   for (const f of [...archivos(WEB), path.join(WEB, 'plantilla.html')]) {
-    const m = sinComentarios(fs.readFileSync(f, 'utf8')).match(/\p{Extended_Pictographic}/gu);
-    if (m) malos.push(`${path.relative(WEB, f)}: ${[...new Set(m)].join(' ')}`);
+    const m = sinComentarios(fs.readFileSync(f, 'utf8')).match(/\p{Extended_Pictographic}/gu)?.filter(c => !TEXTO.has(c));
+    if (m?.length) malos.push(`${path.relative(WEB, f)}: ${[...new Set(m)].join(' ')}`);
   }
   assert.deepEqual(malos, [], 'archivos con emojis:\n' + malos.join('\n'));
 });
