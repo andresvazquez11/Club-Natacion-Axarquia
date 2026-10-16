@@ -3,23 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#023e8a">
+<meta name="theme-color" content="#6fd6ec">
 <title>C.N. Axarquía · Natación 26-27</title>
 <style>
 /*__CSS__*/
 </style>
 </head>
 <body>
-<script>/* modo normal por defecto; acuático solo si el usuario lo eligió */document.documentElement.classList.add('normal');try{if(localStorage.getItem('cna_modo')==='agua')document.documentElement.classList.remove('normal')}catch(e){}</script>
-<div class="agua" aria-hidden="true"><div class="base"></div><canvas class="az"></canvas><div class="calle izq"></div><div class="calle der"></div><canvas class="caus c1"></canvas><canvas class="caus c2"></canvas><div class="brillo"></div></div>
+<script>/* modo claro por defecto; acuático solo si el usuario lo eligió (antes de pintar; admite los valores antiguos) */(function(){var m='clara';try{var v=localStorage.getItem('cna_modo');if(v==='acuatico'||v==='agua')m='acuatico'}catch(e){}var c=document.documentElement.classList;c.add(m)})()</script>
+<div class="agua" aria-hidden="true"></div>
+<header class="cab" id="cab">
+  <a class="brand" href="#inicio"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></a>
+  <div class="cab-bus" id="cab-bus"></div>
+  <button class="modo-b" type="button" onclick="cambiarModo()" aria-label="Cambiar entre modo claro y acuático"></button>
+</header>
 <div class="shell">
   <nav class="nav" id="nav" aria-label="Secciones">
-    <div class="brand"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></div>
-    <a href="#inicio" data-sec="inicio"><i>🏠</i><span>Inicio</span></a>
-    <a href="#club" data-sec="club"><i>👥</i><span>Club</span></a>
-    <a href="#campeonatos" data-sec="campeonatos"><i>🏆</i><span class="largo">Campeonatos</span><span class="corto">Cptos.</span></a>
-    <a href="#benicio" data-sec="benicio" id="nav-ben"><i>⭐</i><span>Benicio</span></a>
-    <a href="#rankings" data-sec="rankings"><i>📊</i><span>Rankings</span></a>
+    <a href="#mi" data-sec="nadador" id="nav-ben"><svg class="ico"><use href="#i-nadador"/></svg><span>Mi nadador</span></a>
+    <a href="#club" data-sec="club"><svg class="ico"><use href="#i-grupo"/></svg><span>Club</span></a>
+    <a href="#campeonatos" data-sec="campeonatos"><svg class="ico"><use href="#i-copa"/></svg><span class="largo">Campeonatos</span><span class="corto">Cptos.</span></a>
+    <a href="#rankings" data-sec="rankings"><svg class="ico"><use href="#i-barras"/></svg><span>Rankings</span></a>
     <div class="nav-foot" id="nav-foot"></div>
   </nav>
   <main class="main" id="app" tabindex="-1"></main>

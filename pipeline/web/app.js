@@ -1,59 +1,96 @@
-/* Enrutador: cada sección tiene su enlace (#inicio, #club/ALE?g=M, #benicio/rivales, #nadador/<id>/pruebas…) */
-function parseHash() {
-  const raw = decodeURIComponent(location.hash.slice(1) || 'inicio');
-  const [path, qs] = raw.split('?');
-  return {parts: path.split('/').filter(Boolean), params: Object.fromEntries(new URLSearchParams(qs || ''))};
+/* Enrutador. Cuatro secciones: Mi nadador (#mi, #nadador/<id>), Club, Campeonatos y Rankings (+ Comparar y «elegir nadador»).
+   resolverRuta() es pura: traduce una dirección (también las antiguas #benicio…, #inicio) a la pantalla que toca. */
+const SUB_NADADOR = ['resumen', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club'];
+const SUB_EQUIV = {pruebas: 'marcas', historial: 'evolucion', rivales: 'ranking', minimas: 'espana'};
+function resolverRuta(hash, ben, sw) {
+  const raw = String(hash || '').replace(/^#/, '');
+  const qi = raw.indexOf('?');
+  const qs = qi < 0 ? '' : raw.slice(qi + 1);
+  let parts;
+  try { parts = decodeURIComponent(qi < 0 ? raw : raw.slice(0, qi)).split('/').filter(Boolean); } catch (e) { parts = []; }
+  const params = Object.fromEntries(new URLSearchParams(qs));
+  const query = qs ? '?' + qs : '';
+  const sec0 = parts[0] || 'inicio';
+  const aClub = () => ({sec: 'club', sub: '', params: {}, parts: ['club'], redirigir: '#club'});
+  if (sec0 === 'inicio') return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
+  if (sec0 === 'mi' || sec0 === 'benicio' || sec0 === 'nadador') {
+    const enNadador = sec0 === 'nadador';
+    if (enNadador && !Object.hasOwn(sw, parts[1])) return aClub();
+    const s = enNadador ? sw[parts[1]] : ben;
+    const sub0 = (enNadador ? parts[2] : parts[1]) || 'resumen';
+    const base = enNadador ? '#nadador/' + parts[1] : '#mi';
+    // «objetivos» (enlace antiguo): España si es Alevín; si no, Andalucía si tiene claves, y si no, sus relevos (si su categoría tiene)
+    const objetivo = () => !s ? 'andalucia' : s.cat === 'ALE' ? 'espana'
+      : (DATA.claves_by || {})[String(s.id)] ? 'andalucia' : REL.cats.some(c => c.key === s.cat) ? 'relevos' : 'andalucia';
+    let sub = sub0 === 'objetivos' ? objetivo() : SUB_EQUIV[sub0] || sub0;
+    if (!SUB_NADADOR.includes(sub)) sub = 'resumen';
+    const canon = base + (sub === 'resumen' ? '' : '/' + sub) + query;
+    const x = {sec: s ? 'nadador' : 'elegir', sub, params, parts};
+    if (s) x.id = String(s.id);
+    if (canon !== '#' + raw) x.redirigir = canon;
+    return x;
+  }
+  if (['club', 'campeonatos', 'rankings', 'comparar'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
+  return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
 }
-
 let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
+let hashAnterior = null;    // pantalla desde la que se llegó a la actual (no cambia al tocar filtros dentro de ella)
+let lastFicha = null;       // nadador de la última ficha mostrada
 let volverA = null;         // pantalla a la que lleva el botón «Volver» de la ficha
 const scrollPos = {};       // altura de scroll de cada pantalla visitada
 let RESTORE_Y = null;       // al cambiar un filtro dentro de la misma pantalla, altura a recuperar tras dibujar
 function route() {
   closeEvo();
   const app = document.getElementById('app');
-  const {parts, params} = parseHash();
-  let sec = parts[0] || 'inicio';
+  const r = resolverRuta(location.hash, BEN, SW);
+  if (r.redirigir && r.redirigir !== location.hash) history.replaceState(null, '', r.redirigir);   // enlaces antiguos: misma pantalla, dirección nueva
+  const {params} = r;
+  let sec = r.sec;
+  if (sec === 'elegir' && !ESTRELLA_ELEGIBLE) sec = 'club';
   const yAntes = window.scrollY;
-  const keyAntes = sec + '/' + (parts[1] || '') + '/' + (sec === 'nadador' || sec === 'benicio' ? (parts[sec === 'nadador' ? 2 : 1] || '') : '');
-  RESTORE_Y = keyAntes === lastSec ? yAntes : null;
+  const key = sec + '/' + (r.id || r.parts[1] || '') + '/' + (sec === 'nadador' ? r.sub : r.parts[2] || '');
+  RESTORE_Y = key === lastSec ? yAntes : null;
+  if (key !== lastSec) hashAnterior = lastHash;
   // Al entrar en una ficha desde otra pantalla, se guarda esa pantalla para «Volver».
   // Cambiar de pestaña o filtro dentro de la misma ficha no la sustituye.
-  const fichaDe = h => { const m = (h || '').match(/^#(benicio|nadador\/\d+)/); return m ? m[1] : null; };
-  const esFicha = sec === 'benicio' || sec === 'nadador';
-  if (esFicha && fichaDe(location.hash) !== fichaDe(lastHash)) volverA = lastHash;
+  const esFicha = sec === 'nadador';
+  if (esFicha && r.id !== lastFicha) volverA = lastHash;
   if (!esFicha) volverA = null;
   if (lastHash) scrollPos[lastHash] = window.scrollY;   // recordar por dónde iba en la pantalla que deja
-  lastHash = location.hash || '#inicio';
-  if (sec === 'benicio' && !BEN && !ESTRELLA_ELEGIBLE) sec = 'inicio';
-  if (sec === 'nadador' && !SW[parts[1]]) sec = 'club';
+  lastHash = location.hash || '#club';
+  lastFicha = esFicha ? r.id : null;
 
-  if (sec === 'club') vistaClub(app, Object.assign({cat: parts[1], tab: parts[2]}, params));
+  if (sec === 'club') {
+    vistaClub(app, Object.assign({cat: r.parts[1], tab: r.parts[2]}, params));
+    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a></p>`);
+  }
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
   else if (sec === 'comparar') vistaComparar(app, params);
-  else if (sec === 'benicio' && !BEN) vistaElegir(app, params);
-  else if (sec === 'benicio') vistaFicha(app, BEN, parts[1], params);
-  else if (sec === 'nadador') vistaFicha(app, SW[parts[1]], parts[2], params);
-  else { sec = 'inicio'; vistaInicio(app); }
+  else if (sec === 'elegir') vistaElegir(app, params);
+  else vistaFicha(app, SW[r.id], r.sub, params);
 
-  const cmpId = sec === 'comparar' ? (params.ids || '').split(',')[0] : null;   // Comparar se abre desde una ficha
-  const navSec = sec === 'nadador' ? (SW[parts[1]].benicio ? 'benicio' : 'club')
-    : sec === 'comparar' ? (SW[cmpId] && SW[cmpId].benicio ? 'benicio' : 'club') : sec;
+  // Sección iluminada: la ficha de «mi nadador» ilumina Mi nadador; la de otro nadador, la sección de la que se llegó (Club por defecto)
+  const cmpId = sec === 'comparar' ? (params.ids || '').split(',')[0] : null;
+  const navSec = sec === 'elegir' ? 'nadador'
+    : sec === 'nadador' ? (BEN && r.id === String(BEN.id) ? 'nadador' : (volverA || '').startsWith('#rankings') ? 'rankings' : 'club')
+    : sec === 'comparar' ? (BEN && cmpId === String(BEN.id) ? 'nadador' : 'club') : sec;
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.sec === navSec));
   // al cambiar de sección o de nadador se sube arriba; al cambiar un filtro se mantiene la posición
-  const key = sec + '/' + (parts[1] || '') + '/' + (sec === 'nadador' || sec === 'benicio' ? (parts[sec === 'nadador' ? 2 : 1] || '') : '');
   // al volver a una pantalla ya vista se recupera su altura; si es nueva, se empieza arriba
-  if (key !== lastSec) window.scrollTo(0, scrollPos[location.hash || '#inicio'] || 0);
+  if (key !== lastSec) window.scrollTo(0, scrollPos[location.hash || '#club'] || 0);
   else window.scrollTo(0, yAntes);      // mismo apartado (p. ej. otra prueba): no saltar arriba
   lastSec = key;
 }
 
-document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a><button class="modo-b" style="margin-bottom:10px" onclick="cambiarModo()">${modoTxt()}</button><br>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
-// pestaña ⭐: nombre del nadador estrella (o «Mi nadador» en la página compartida)
-const navBen = document.getElementById('nav-ben');
-if (!BEN && !ESTRELLA_ELEGIBLE) navBen.hidden = true;
-navBen.querySelector('span').textContent = BEN ? String(BEN.n).split(' ')[0] : 'Mi nadador';
-window.addEventListener('hashchange', route);
-route();
+function arrancar() {
+  document.body.insertAdjacentHTML('afterbegin', ICONOS);   // sprite de iconos, una sola vez
+  aplicarModo(leerModo());
+  document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
+  bindBuscador('q-cab');
+  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
+  window.addEventListener('hashchange', route);
+  route();
+}
+if (document.getElementById('app')) arrancar();   // (en las pruebas no hay página: solo se cargan las funciones)

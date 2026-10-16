@@ -661,7 +661,8 @@ EDAD_CAT = {**{e: 'PRE' for e in (7, 8, 9)}, 10: 'BEN', 11: 'BEN', 12: 'ALE', 13
 
 def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
     """{'g|cat|prueba|piscina': [[pid, cs, fecha ISO, nombre, año]]}: las `top` mejores marcas (de nadadores distintos)
-    hechas con el club, por categoría según la edad federativa (año en que termina la temporada − año de nacimiento)."""
+    hechas con el club, por categoría según la edad federativa (año en que termina la temporada − año de nacimiento).
+    top=None no recorta la lista."""
     mejor = defaultdict(dict)
     for t, filas in filas_por_temporada.items():
         for r, d in limpiar(filas):
@@ -680,6 +681,13 @@ def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
                 if pid not in mejor[k] or cs < mejor[k][pid][1]:
                     mejor[k][pid] = [pid, cs, d.isoformat(), ' '.join(str(r.get('nombre') or '').split()).title(), y]
     return {k: sorted(v.values(), key=lambda x: x[1])[:top] for k, v in mejor.items()}
+
+
+def marcas_club_edades(filas_por_temporada, club_match='AXARQ'):
+    """{'g|E{edad}|prueba|piscina': [[pid, cs], …]}: la mejor marca de CADA nadador distinto del club a esa edad
+    federativa, ordenada por tiempo. Base para ver en qué puesto histórico del club quedaría una marca a esa edad."""
+    todo = marcas_club_records(filas_por_temporada, club_match, top=None)
+    return {k: [[m[0], m[1]] for m in v] for k, v in todo.items() if re.fullmatch(r'E\d+', k.split('|')[1])}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

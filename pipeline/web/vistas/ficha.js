@@ -1,11 +1,4 @@
-/* ⭐ Ficha de atleta con pestañas (la de Benicio y la de cualquier nadador) */
-
-function fichaTabs(s) {
-    // 5 pestañas: «Ranking» reúne rivales y ranking semanal; «Objetivos» reúne mínimas, Cto. Andalucía y relevos
-  const t = [['resumen', 'Resumen'], ['pruebas', 'Pruebas'], ['historial', 'Evolución'], ['ranking', 'Ranking']];
-  if (s.cat === 'ALE' || (DATA.claves_by || {})[String(s.id)] || relevosDe(s).length) t.push(['objetivos', 'Objetivos']);
-  return t;
-}
+/* Pantalla del nadador («Mi nadador» y la de cualquier otro): resumen y sub-pantallas de sus accesos */
 
 /* ── cálculos de la ficha ── */
 function minimasDe(s) {
@@ -30,46 +23,47 @@ function analisis(s) {
   const F = [], M = [];
   const evY = s.ev.map(e => ({e, r: e.rk.y || {}}));
   const byPts = [...s.ev].sort((a, b) => b.pts - a.pts);
-  if (byPts.length) F.push(['💎', `Sus pruebas de más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
+  if (byPts.length) F.push(['medalla', `Más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const t10 = evY.filter(x => x.r.es && x.r.es[0] <= 10);
   if (t10.length) F.push([FLAG_ES, `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
   const mo = evY.filter(x => x.r.ma && x.r.ma[0] == 1);
-  if (mo.length) F.push(['🥇', `Número 1 de Málaga en ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
+  if (mo.length) F.push(['medalla', `Nº 1 de Málaga: ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
   const cto = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3);
-  if (cto.length) F.push(['🏆', `Podios en campeonatos: ${cto.map(x => `<b>${x.pos}º ${x.ev}</b> (${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'})`).join(', ')}.`]);
+  if (cto.length) F.push(['copa', `Podios en campeonatos: ${cto.map(x => `<b>${x.pos}º ${x.ev}</b> (${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'})`).join(', ')}.`]);
   const prog = s.ev.map(e => { const h = e.h.filter(x => x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1);
     return {e, n: h.length, imp: h.length > 1 ? (h[0][1] - e.cs) / h[0][1] * 100 : 0, seg: h.length > 1 ? h[0][1] - e.cs : 0}; });
   const bestProg = prog.filter(p => p.n > 2 && p.imp > 0).sort((a, b) => b.imp - a.imp).slice(0, 3);
-  if (bestProg.length) F.push(['📈', `Mayor progresión: ${bestProg.map(p => `<b>${p.e.e}</b> (−${secs(p.seg)} s, ${p.imp.toFixed(1)}%)`).join(', ')}.`]);
+  if (bestProg.length) F.push(['tendencia', `Mayor progresión: ${bestProg.map(p => `<b>${p.e.e}</b> (−${secs(p.seg)} s, ${p.imp.toFixed(1)}%)`).join(', ')}.`]);
   if (s.cat === 'ALE') {
     const mn = minimasDe(s), close = mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp);
-    if (close.length) F.push(['🎯', `Más cerca de la mínima de España (${mn.age} años): ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
+    if (close.length) F.push(['diana', `Cerca de la mínima de España (${mn.age} años): ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
     const pend = mn.rows.filter(r => !r.e).map(r => r.ev);
-    if (pend.length) M.push(['🆕', `Pruebas del Campeonato de España que aún no ha nadado: ${pend.join(', ')}.`]);
+    if (pend.length) M.push(['diana', `Aún sin nadar del Cto. de España: ${pend.join(', ')}.`]);
     const far = mn.rows.filter(r => r.bestp !== null && r.bestp > 10).sort((a, b) => b.bestp - a.bestp).slice(0, 3);
-    if (far.length) M.push(['📏', `Más lejos de la mínima: ${far.map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
+    if (far.length) M.push(['diana', `Más lejos de la mínima: ${far.map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
   }
   if ((DATA.claves_by || {})[String(s.id)]) {
     const sin = DATA.claves_ev.filter(ev => !s.ev.find(e => e.e === ev));
-    if (sin.length) M.unshift(['⚠️', `<b>${sin.join(', ')}</b>: sin marca y es prueba clave para el Campeonato de Andalucía. Conviene nadarla pronto.`]);
+    if (sin.length) M.unshift(['diana', `<b>${sin.join(', ')}</b>: sin marca y es clave para el Cto. de Andalucía.`]);
   }
-  if (byPts.length > 3) M.push(['🔻', `Pruebas con menos puntos: ${byPts.slice(-3).reverse().map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
+  if (byPts.length > 3) M.push(['diana', `Menos puntos: ${byPts.slice(-3).reverse().map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const threat = [];
   s.ev.forEach(e => { const nb = (e.nb.y || {}).ma; if (!nb) return; const i = nb.findIndex(x => x[0] === s.n && x[6] === s.y), b = nb[i + 1];
     if (b && b[3] - e.cs < 100) threat.push(`<b>${e.e}</b>: ${esc(b[0])} a ${secs(b[3] - e.cs)} s`); });
-  if (threat.length) M.push(['👀', `Rivales de Málaga a menos de 1 s por detrás: ${threat.join('; ')}.`]);
+  if (threat.length) M.push(['lupa', `Rivales de Málaga a menos de 1 s: ${threat.join('; ')}.`]);
   const stale = s.ev.filter(e => e.date && s.last && (Date.parse(s.last) - Date.parse(e.date)) / 864e5 > 120 && e.h.length > 1);
-  if (stale.length) M.push(['⏳', `Sin mejorar en más de 4 meses: ${stale.map(e => `<b>${e.e}</b> (desde ${dfmt(e.date)})`).join(', ')}.`]);
+  if (stale.length) M.push(['historia', `Sin mejorar en más de 4 meses: ${stale.map(e => `<b>${e.e}</b> (desde ${dfmt(e.date)})`).join(', ')}.`]);
   return {F, M};
 }
 
-/* ── 🎯 Próximos objetivos: lo más cercano que puede conseguir (con enlace a donde se explica) ── */
+/* ── Próximos objetivos: lo más cercano que puede conseguir (con enlace a donde se explica).
+   Cada uno: [icono o bandera, frase, % de la barra, pantalla del nadador (con ?parámetros)] ── */
 function objetivos(s) {
   const O = [];
   if (s.cat === 'ALE') {
     const mn = minimasDe(s), pend = mn.rows.filter(r => r.bestp !== null && r.bestp > 0).sort((a, b) => a.bestp - b.bestp);
-    if (pend[0]) O.push(['🇪🇸', `Mínima del Cto. de España en <b>${pend[0].ev}</b>: le faltan <b>${secs(pend[0].bestd)} s</b> (${pend[0].bestpl})`, Math.max(4, 100 - pend[0].bestp * 5), 'objetivos']);
-    if (mn.ok) O.push(['✅', `Ya tiene <b>${mn.ok}</b> mínima${mn.ok > 1 ? 's' : ''} del Cto. de España`, 100, 'objetivos']);
+    if (pend[0]) O.push([FLAG_ES, `Mínima del Cto. de España en <b>${pend[0].ev}</b>: le faltan <b>${secs(pend[0].bestd)} s</b> (${pend[0].bestpl})`, Math.max(4, 100 - pend[0].bestp * 5), 'espana']);
+    if (mn.ok) O.push(['meta', `Ya tiene <b>${mn.ok}</b> mínima${mn.ok > 1 ? 's' : ''} del Cto. de España`, 100, 'espana']);
   }
   // rival a superar: el que va justo delante en Málaga (o en Andalucía si ya es el primero de Málaga) con menor diferencia
   let riv = null;
@@ -79,7 +73,7 @@ function objetivos(s) {
       const d = e.cs - a[3]; if (!riv || d < riv.d) riv = {e, a, d, lv, pos: r[0]}; });
     return riv;
   });
-  if (riv) O.push(['👀', `Superar a <b>${esc(riv.a[0])}</b> (${club(riv.a[1])}) en <b>${riv.e.e}</b> y ser ${riv.pos - 1}º de ${riv.lv === 'ma' ? 'Málaga' : 'Andalucía'}: <b>${secs(riv.d)} s</b>`, Math.max(4, 100 - riv.d / 10), 'ranking?rev=' + encodeURIComponent(riv.e.e)]);
+  if (riv) O.push(['barras', `Superar a <b>${esc(riv.a[0])}</b> (${club(riv.a[1])}) en <b>${riv.e.e}</b> y ser ${riv.pos - 1}º de ${riv.lv === 'ma' ? 'Málaga' : 'Andalucía'}: <b>${secs(riv.d)} s</b>`, Math.max(4, 100 - riv.d / 10), 'ranking?rev=' + encodeURIComponent(riv.e.e)]);
   // top-10 de España más cercano
   let t10 = null;
   s.ev.forEach(e => { const r = (e.rk.y || {}).es; if (!r || r[0] <= 10) return;
@@ -88,18 +82,21 @@ function objetivos(s) {
   if (t10) O.push([FLAG_ES, `Entrar en el top-10 de España en <b>${t10.e.e}</b> (ahora ${t10.pos}º): <b>${secs(t10.d)} s</b>`, Math.max(4, 100 - t10.d / t10.e.cs * 1000), 'ranking?rev=' + encodeURIComponent(t10.e.e)]);
   // relevos
   const rd = relevosDe(s), tit = rd.filter(x => x.rol === 'T'), cerca = rd.filter(x => x.rol === 'F' && x.gap !== null && x.gap > 0).sort((a, b) => a.gap - b.gap);
-  if (tit.length) O.push(['🤝', `Titular en ${[...new Set(tit.map(x => x.r.n))].map(n => `<b>${n}</b>`).join(', ')}`, 100, 'objetivos']);
-  if (cerca[0]) O.push(['🤝', `Entrar en el <b>${cerca[0].r.n}</b>: le faltan <b>${secs(cerca[0].gap)} s</b> en ${cerca[0].leg} (≈ 50 m)`, Math.max(4, 100 - cerca[0].gap / 10), 'objetivos']);
+  if (tit.length) O.push(['relevo', `Titular en ${[...new Set(tit.map(x => x.r.n))].map(n => `<b>${n}</b>`).join(', ')}`, 100, 'relevos']);
+  if (cerca[0]) O.push(['relevo', `Entrar en el <b>${cerca[0].r.n}</b>: le faltan <b>${secs(cerca[0].gap)} s</b> en ${cerca[0].leg} (≈ 50 m)`, Math.max(4, 100 - cerca[0].gap / 10), 'relevos']);
   return O;
 }
+/* icono de línea por nombre, o la bandera tal cual (las banderas ya son <svg>) */
+const icoDe = i => String(i).startsWith('<svg') ? i : ico(i);
+const objHref = (s, dest) => { const [sub, q] = dest.split('?'); return fichaHref(s, sub) + (q ? '?' + q : ''); };
 function objetivosCard(s) {
   const O = objetivos(s);
   if (!O.length) return '';
-  return `<div class="card obj"><h3>🎯 Próximos objetivos</h3>${O.map(([i, t, pc, tab]) => `<a class="obj-i" href="${fichaHref(s, tab.split('?')[0])}${tab.includes('?') ? '?' + tab.split('?')[1] : ''}">
-      <span class="obj-ic">${i}</span><span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="obj-go">›</span></a>`).join('')}</div>`;
+  return `<div class="card obj"><div class="h">${ico('diana')}Próximos objetivos</div>${O.map(([i, t, pc, dest]) => `<a class="obj-i" href="${objHref(s, dest)}">
+      <span class="obj-ic">${icoDe(i)}</span><span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="obj-go">›</span></a>`).join('')}</div>`;
 }
 
-/* ── 🏅 Insignias: logros conseguidos (en color) y los que le quedan (en gris) ── */
+/* ── Insignias: logros conseguidos (en color) y los que le quedan (en gris). Cada una: [icono o bandera, nombre, cómo se consigue, conseguida] ── */
 function insignias(s) {
   const pbs = s.ev.flatMap(e => { let b = {}; const n = []; [...e.h].filter(x => !x[8]).sort((a, c) => a[0] < c[0] ? -1 : 1)
     .forEach(x => { if (b[x[2]] !== undefined && x[1] < b[x[2]]) n.push(x[0]); if (b[x[2]] === undefined || x[1] < b[x[2]]) b[x[2]] = x[1]; }); return n; });
@@ -111,32 +108,35 @@ function insignias(s) {
   const rd = relevosDe(s);
   const ult = s.ev.flatMap(e => e.h).map(x => x[0]).sort().pop();
   const B = [
-    ['🏆', 'Podio en campeonato', 'Quedar entre los 3 primeros de su año en un Campeonato de Andalucía o de España', cto.some(x => x.pos <= 3)],
-    ['🔟', 'Top-10 en campeonato', 'Quedar entre los 10 primeros de su año en un Campeonato de Andalucía o de España', cto.length > 0],
-    ['🇪🇸', 'Top-10 de España', 'Estar entre los 10 mejores de España de su año en el ranking de una prueba', s.ev.some(e => e.rk.y && e.rk.y.es && e.rk.y.es[0] <= 10)],
-    ['🥇', 'Nº 1 de Málaga', 'Tener la mejor marca de Málaga de su año en una prueba', s.ev.some(e => e.rk.y && e.rk.y.ma && e.rk.y.ma[0] == 1)],
-    ['🎯', 'Mínima de España', 'Conseguir una mínima del Campeonato de España Alevín', mn > 0],
-    ['🤝', 'Relevista', 'Ser titular en un relevo del club', rd.some(x => x.rol === 'T')],
-    ['⚡', 'Bajo 30 segundos', 'Nadar un 50 en menos de 30 segundos', bajo(50, 3000)],
-    ['🚀', 'Bajo el minuto', 'Nadar un 100 en menos de 1:00', bajo(100, 6000)],
-    ['🌊', 'Bajo 2:30', 'Nadar un 200 en menos de 2:30', bajo(200, 15000)],
-    ['🎨', 'Los 4 estilos', 'Tener marca en libre, espalda, braza y mariposa', ['Libre', 'Espalda', 'Braza', 'Mariposa'].every(x => est.has(x))],
-    ['📈', '10 mejoras en un año', 'Mejorar su marca personal 10 veces en los últimos 12 meses', pbs.filter(d => d >= hace1).length >= 10],
-    ['🏟️', 'Piscina olímpica', 'Nadar en piscina de 50 m', s.ev.some(e => e.h.some(x => x[2] === '50m'))],
-    ['🔥', 'En racha', 'Mejorar una marca personal en su última competición', !!ult && pbs.includes(ult)],
+    ['copa', 'Podio en campeonato', 'Quedar entre los 3 primeros de su año en un Campeonato de Andalucía o de España', cto.some(x => x.pos <= 3)],
+    ['meta', 'Top-10 en campeonato', 'Quedar entre los 10 primeros de su año en un Campeonato de Andalucía o de España', cto.length > 0],
+    [FLAG_ES, 'Top-10 de España', 'Estar entre los 10 mejores de España de su año en el ranking de una prueba', s.ev.some(e => e.rk.y && e.rk.y.es && e.rk.y.es[0] <= 10)],
+    ['medalla', 'Nº 1 de Málaga', 'Tener la mejor marca de Málaga de su año en una prueba', s.ev.some(e => e.rk.y && e.rk.y.ma && e.rk.y.ma[0] == 1)],
+    ['diana', 'Mínima de España', 'Conseguir una mínima del Campeonato de España Alevín', mn > 0],
+    ['relevo', 'Relevista', 'Ser titular en un relevo del club', rd.some(x => x.rol === 'T')],
+    ['crono', 'Bajo 30 segundos', 'Nadar un 50 en menos de 30 segundos', bajo(50, 3000)],
+    ['crono', 'Bajo el minuto', 'Nadar un 100 en menos de 1:00', bajo(100, 6000)],
+    ['crono', 'Bajo 2:30', 'Nadar un 200 en menos de 2:30', bajo(200, 15000)],
+    ['nadador', 'Los 4 estilos', 'Tener marca en libre, espalda, braza y mariposa', ['Libre', 'Espalda', 'Braza', 'Mariposa'].every(x => est.has(x))],
+    ['tendencia', '10 mejoras en un año', 'Mejorar su marca personal 10 veces en los últimos 12 meses', pbs.filter(d => d >= hace1).length >= 10],
+    ['carriles', 'Piscina olímpica', 'Nadar en piscina de 50 m', s.ev.some(e => e.h.some(x => x[2] === '50m'))],
+    ['historia', 'En racha', 'Mejorar una marca personal en su última competición', !!ult && pbs.includes(ult)],
   ];
   return B;
 }
 function insigniasCard(s) {
   const B = insignias(s), ok = B.filter(b => b[3]);
-  return `<div class="card"><h3>🏅 Insignias <span class="muted small">· ${ok.length} de ${B.length}</span></h3>
-    <div class="badges">${[...ok, ...B.filter(b => !b[3])].map(([i, t, d, on]) => `<div class="badge ${on ? 'on' : ''}" title="${esc(d)}"><span>${i}</span><small>${t}</small></div>`).join('')}</div>
+  return `<div class="card"><div class="h">${ico('medalla')}Insignias <span class="h-n">· ${ok.length} de ${B.length}</span></div>
+    <div class="badges">${[...ok, ...B.filter(b => !b[3])].map(([i, t, d, on]) => `<button class="badge ${on ? 'on' : ''}" title="${esc(d)}"><span>${icoDe(i)}</span><small>${t}</small></button>`).join('')}</div>
     <p class="tiny muted" id="badge-info" style="margin-top:8px">En gris, las que le quedan por conseguir. Pulsa una insignia para ver cómo se consigue.</p></div>`;
 }
 
-/* ── pestañas ── */
-function tabResumen(s) {
-  const evY = s.ev.map(e => e.rk.y || {});
+/* ── contenido de las sub-pantallas (cada bloque va sobre una tarjeta: nunca texto suelto sobre el agua) ── */
+const bloque = (icono, titulo, cuerpo, intro) => `<div class="card"><div class="h">${icoDe(icono)}${titulo}</div>${intro ? `<p class="small muted" style="margin-bottom:10px">${intro}</p>` : ''}${cuerpo}</div>`;
+const notaConv = () => `<div class="card">${convNota()}</div>`;
+
+/* Marcas (además de las pruebas): Perfil por estilo y distancia, Actividad por mes y todas sus competiciones */
+function perfilActividadHTML(s) {
   const swims = []; s.ev.forEach(e => e.h.forEach(x => swims.push([x, e.e])));
   const comps = {}; swims.forEach(([x, ev]) => { const k = x[0] + '|' + x[3];
     (comps[k] = comps[k] || {d: x[0], c: x[3], l: x[4], n: 0, pb: 0, pod: 0, sw: []}); comps[k].n++; comps[k].sw.push([ev, x]); if (x[6] && x[6] <= 3) comps[k].pod++; });
@@ -144,65 +144,54 @@ function tabResumen(s) {
   s.ev.forEach(e => { const bp = {}; [...e.h].sort((a, b) => a[0] < b[0] ? -1 : 1).forEach(x => {
     if (bp[x[2]] === undefined || x[1] < bp[x[2]]) { if (bp[x[2]] !== undefined) { comps[x[0] + '|' + x[3]].pb++; esPb.add(x); } bp[x[2]] = x[1]; } }); });
   const cl = Object.values(comps).sort((a, b) => a.d < b.d ? 1 : -1);
-  const wins = swims.filter(([x]) => x[6] === 1).length, pods = swims.filter(([x]) => x[6] && x[6] <= 3).length;
-  const mn = s.cat === 'ALE' ? minimasDe(s) : null;
-  const kp = [[s.np, 'pruebas con marca'], [s.best, 'mejores puntos World Aquatics'],
-    [evY.filter(r => r.es && r.es[0] <= 10).length, `top-10 del ranking de España (nacidos ${s.y})`], [evY.filter(r => r.an && r.an[0] <= 8).length, 'top-8 del ranking de Andalucía'],
-    [evY.filter(r => r.ma && r.ma[0] == 1).length, 'nº1 del ranking de Málaga'], [(DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3).length, 'podios en Campeonatos de Andalucía/España'],
-    [`${wins}🥇 ${pods}🏅`, `victorias · podios en sus ${cl.length} competiciones`], mn ? [`${mn.ok}/${mn.rows.length}`, `mínimas de España (${mn.age} años)`] : [s.top3, 'suma de sus 3 mejores pts']];
-  const {F, M} = analisis(s);
   const perfil = (fn, keys) => keys.map(k => { const es = s.ev.filter(e => fn(e.e) === k); return [k, es.length ? Math.round(es.reduce((a, e) => a + e.pts, 0) / es.length) : 0, es.length]; });
   const pSt = perfil(strokeOf, STROKES), pDi = perfil(ev => { const d = distOf(ev); return d <= 50 ? '50 m' : d <= 100 ? '100 m' : d <= 200 ? '200 m' : '400 m o más'; }, ['50 m', '100 m', '200 m', '400 m o más']);
   const mx = Math.max(...pSt.map(x => x[1]), ...pDi.map(x => x[1]), 1);
   const toBars = arr => barsHTML(arr.map(([k, v, n]) => [`${k} <span class="of">${n} pr.</span>`, v, n ? v : '—']), mx);
   const months = {}; swims.forEach(([x]) => { const m = x[0].slice(0, 7); months[m] = (months[m] || 0) + 1; });
   const mBars = Object.keys(months).sort().map(m => [`${MES[+m.slice(5, 7) - 1]} ${m.slice(2, 4)}`, months[m]]);
-  const li = arr => arr.map(([i, t]) => `<li><i class="ins-i">${i}</i>${t}</li>`).join('');
-
-  const KD = ['np', 'pts', 'es10', 'an8', 'ma1', 'cto', 'pod', mn ? 'min' : 'top3'];
-  return `<div class="kpis">${kp.map(([v, l], i) => `<button class="kpi ${i === 1 ? 'hl' : ''}" data-kd="${KD[i]}"><b>${v}</b><span>${l}</span><span class="vd">Ver detalle ›</span></button>`).join('')}</div>
-    <div class="grid g2" style="margin-top:12px">${objetivosCard(s)}${insigniasCard(s)}</div>
-    <h2 class="st">🧠 Análisis de ${nombreCorto(s)}</h2>
-    <div class="grid g2" id="an-host">
-      <div class="card"><h3 class="good">💪 Puntos fuertes</h3><ul class="ins" id="an-bueno">${li(F) || '<li>—</li>'}</ul></div>
-      <div class="card"><h3 class="sun">🎯 A mejorar</h3><ul class="ins" id="an-malo">${li(M) || '<li>—</li>'}</ul></div>
-    </div>
-    <h2 class="st">📊 Perfil <span class="muted small">· media de puntos World Aquatics de sus mejores marcas</span></h2>
-    <div class="grid g2"><div class="card"><h3>Por estilo</h3>${toBars(pSt)}</div><div class="card"><h3>Por distancia</h3>${toBars(pDi)}</div></div>
-    <h2 class="st">🗓️ Actividad</h2>
-    <div class="grid g2"><div class="card"><h3>Pruebas nadadas por mes</h3>${barsHTML(mBars)}</div>
-      <div class="card"><h3>Competiciones <span class="muted small">(${cl.length}) · pulsa una para ver sus pruebas</span></h3><div style="max-height:520px;overflow-y:auto">
-        ${cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}<div>${edadTag(c.d, s.y)}</div></span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
-            <span class="tiny">${c.n} prueba${c.n > 1 ? 's' : ''}${c.pb ? ` · <span class="good">${c.pb} mejora${c.pb > 1 ? 's' : ''}</span>` : ''}${c.pod ? ` · 🏅 ${c.pod} podio${c.pod > 1 ? 's' : ''}` : ''}</span></span></summary>
-          <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}">
+  const lista = cl.map(c => `<details class="comp"><summary><span class="comp-d">${dtag(c.d)}<div>${edadTag(c.d, s.y)}</div></span><span class="comp-n"><b>${esc(c.c)}</b><span class="tiny muted">${esc(c.l)}</span>
+            <span class="tiny">${c.n} prueba${c.n > 1 ? 's' : ''}${c.pb ? ` · <span class="good">${c.pb} mejora${c.pb > 1 ? 's' : ''}</span>` : ''}${c.pod ? ` · ${ico('medalla')} ${c.pod} podio${c.pod > 1 ? 's' : ''}` : ''}</span></span></summary>
+          <table class="rt">${c.sw.map(([ev, x]) => `<tr class="click" data-goto="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(ev)}">
             <td><b>${ev}</b> <span class="of">${x[2]}</span>${x[9] && x[9].length ? `<div class="tiny muted">también ${x[9].map(o => fmt(o[0])).join(', ')}</div>` : ''}</td>
             <td class="num"><b>${esPb.has(x) ? '<span class="sun">★ </span>' : ''}${fmt(x[1])}</b></td>
             <td>${x[6] ? posB(x[6]) + `<span class="of">de ${x[7]}</span>` : '<span class="muted">—</span>'}</td>
             <td class="num">${x[5] || '—'} <span class="of">pts</span></td></tr>`).join('')}</table>
-          <p class="tiny muted" style="margin-top:4px">★ = mejor marca personal ese día · puesto entre los nacidos en ${s.y} · pulsa una prueba para ver su evolución.</p></details>`).join('')}</div></div></div>`;
+          <p class="tiny muted" style="margin-top:4px">★ = mejor marca personal ese día · puesto entre los nacidos en ${s.y} · pulsa una prueba para ver su evolución.</p></details>`).join('');
+  return bloque('barras', 'Perfil', `<div class="grid g2"><div><h3>Por estilo</h3>${toBars(pSt)}</div><div><h3>Por distancia</h3>${toBars(pDi)}</div></div>`,
+      'Media de puntos World Aquatics de sus mejores marcas.') +
+    bloque('historia', 'Actividad', `<h3>Pruebas nadadas por mes</h3>${barsHTML(mBars)}`) +
+    bloque('carriles', `Competiciones <span class="h-n">· ${cl.length}</span>`, `<div style="max-height:520px;overflow-y:auto">${lista}</div>`, 'Pulsa una para ver sus pruebas.');
 }
 
-/* El análisis de varias temporadas (historial.json) se suma al del Resumen: un único análisis, sin frases repetidas */
+/* Evolución (además del historial): el análisis completo (sin el tope de 3 del resumen) */
+const liAnalisis = arr => frasesCortas(arr, arr.length).map(([i, t]) => `<li><i class="ins-i">${icoDe(i)}</i>${t}</li>`).join('');
+function analisisCompletoHTML(s) {
+  const {F, M} = analisis(s);
+  return bloque('medalla', 'Puntos fuertes', `<ul class="ins">${liAnalisis(F) || '<li>—</li>'}</ul>`) +
+    bloque('diana', 'A mejorar', `<ul class="ins" id="an-malo">${liAnalisis(M) || '<li>—</li>'}</ul>`);
+}
+
+/* y el análisis de varias temporadas, de historial.json */
 function pintarAnalisis(s) {
   cargarHistorial().then(H => {
     const A = H.an[String(s.id)], host = document.getElementById('an-host'); if (!A || !host) return;
-    const ya = new Set([...host.querySelectorAll('li')].map(li => li.textContent.slice(2, 40)));
-    const nuevos = arr => (arr || []).filter(([, t]) => !ya.has(t.replace(/<[^>]+>/g, '').slice(0, 38)));
-    const li = arr => arr.map(([i, t]) => `<li><i class="ins-i">${i}</i>${t}</li>`).join('');
-    const malo = nuevos(A.malo); if (malo.length) document.getElementById('an-malo').insertAdjacentHTML('beforeend', li(malo));
-    const evo = nuevos([...(A.evo || []), ...(A.bueno || [])]), comp = nuevos(A.comp);
-    host.insertAdjacentHTML('beforeend', (evo.length ? `<div class="card"><h3>📈 Su evolución <span class="muted small">· desde su primera temporada</span></h3><ul class="ins">${li(evo)}</ul></div>` : '') +
-      (comp.length ? `<div class="card"><h3>⚖️ Comparado con los demás</h3><ul class="ins">${li(comp)}</ul>
-        <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p></div>` : ''));
+    const li = liAnalisis;
+    if ((A.malo || []).length) { const ul = document.getElementById('an-malo');
+      if (ul) { if (ul.textContent.trim() === '—') ul.innerHTML = ''; ul.insertAdjacentHTML('beforeend', li(A.malo)); } }
+    const evo = [...(A.evo || []), ...(A.bueno || [])], comp = A.comp || [];
+    host.insertAdjacentHTML('beforeend', (evo.length ? bloque('tendencia', 'Su evolución', `<ul class="ins">${li(evo)}</ul>`, 'Desde su primera temporada.') : '') +
+      (comp.length ? bloque('balanza', 'Comparado con los demás', `<ul class="ins">${li(comp)}</ul>
+        <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p>`) : ''));
   }).catch(() => {});
 }
 
 /* Pruebas: una fila por prueba; al pulsarla se despliega su evolución (todas sus marcas) ahí mismo */
 function tabPruebas(s, sk, p) {
   const open = p.ev;
-  return `<div class="bar-row"><p class="small muted">De su mejor a su peor prueba (puesto en España). Comparando con: <b>${scopeLbl(s, sk)}</b>. <b>Pulsa una prueba</b> para ver todas sus marcas.</p>${segScope(s, sk)}</div>
-    <div class="bar-row">${piscSeg()}</div>
-    <div class="prs">${s.ev.map(e => { const r = e.rk[sk] || {}, m = mejorConv(s, e), mej = e.first - e.cs, ab = open === e.e;
+  return `<div class="card"><div class="bar-row"><p class="small muted">De su mejor a su peor prueba (puesto en España). Comparando con: <b>${scopeLbl(s, sk)}</b>. <b>Pulsa una prueba</b> para ver todas sus marcas.</p>${segScope(s, sk)}</div>
+    <div class="bar-row" style="margin-bottom:0">${piscSeg()}</div></div>
+    <div class="prs" style="margin-top:10px">${s.ev.map(e => { const r = e.rk[sk] || {}, m = mejorConv(s, e), mej = e.first - e.cs, ab = open === e.e;
       return `<div class="pr ${ab ? 'open' : ''}" id="pr-${e.e.replace(/ /g, '-')}">
         <button class="pr-h" data-pr="${esc(e.e)}" aria-expanded="${ab}">
           <span class="pr-n"><b>${e.e}</b> <span class="of">${e.pool}</span>${e.ss === '26-27' ? '<span class="ss">26-27</span>' : ''}</span>
@@ -215,10 +204,10 @@ function tabPruebas(s, sk, p) {
           ${mej > 0 ? `<div class="kv"><span>Mejora en la temporada</span><b class="good">−${secs(mej)} s</b></div>` : ''}
           <div class="kv"><span>Ranking (${scopeLbl(s, sk)})</span><b>${LV.map(([lv, l]) => r[lv] ? `${l} ${r[lv][0]}º/${r[lv][1]}` : '').filter(Boolean).join(' · ')}</b></div>
           ${m ? `<div class="kv"><span>Marca real</span><b>${fmt(e.cs)} en ${e.pool}${m[2] !== e.pool ? ` · equivalente de ${fmt(m[1])} en ${m[2]}` : ''}</b></div>` : ''}
-          <div class="pr-acc"><a class="chip" href="#comparar?ids=${s.id}&ev=${encodeURIComponent(e.e)}">⚖️ Comparar esta prueba</a>
-            <a class="chip" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">📊 Rivales y ranking</a>
-            <a class="chip" href="${fichaHref(s, 'historial')}?hev=${encodeURIComponent(e.e)}">📈 Por temporadas</a></div>
-          ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>${p.ev && piscDestino() ? '' : convNota()}`;
+          <div class="pr-acc"><a class="chip" href="#comparar?ids=${s.id}&ev=${encodeURIComponent(e.e)}">${ico('balanza')}Comparar esta prueba</a>
+            <a class="chip" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">${ico('barras')}Rivales y ranking</a>
+            <a class="chip" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}">${ico('tendencia')}Por temporadas</a></div>
+          ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>${p.ev && piscDestino() ? '' : notaConv()}${perfilActividadHTML(s)}`;
 }
 
 /* Ranking: dónde está hoy (rivales por delante y por detrás) y, debajo, su puesto semana a semana */
@@ -227,41 +216,48 @@ function tabRankingFicha(s, sk, ev) {
   if (!e) return '<p class="empty">Sin marcas.</p>';
   const txt = LV.map(([lv, lbl]) => { const r = e.rk[sk] && e.rk[sk][lv]; if (!r) return '';
     const nb = e.nb[sk][lv], i = nb.findIndex(x => x[0] === s.n && x[6] === s.y), a = nb[i - 1], b = nb[i + 1];
-    return `<li><i class="ins-i">${lv === 'ma' ? '🔵' : lv === 'an' ? FLAG_AN : FLAG_ES}</i><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
+    return `<li><i class="ins-i">${nivelHTML(lv)}</i><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
       ? (b ? ` · le sigue ${esc(b[0])} (${club(b[1])}) a ${secs(b[3] - e.cs)} s` : '')
       : ` · a ${secs(r[2])} s del líder · delante: ${esc(a[0])} (${club(a[1])}) a ${secs(e.cs - a[3])} s`}</li>`; }).join('');
-  return `<div class="bar-row"><p class="small muted">Comparando con: <b>${scopeLbl(s, sk)}</b></p>${segScope(s, sk)}</div>
-    ${pruebaSel('rev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.rk[sk] && x.rk[sk].es ? x.rk[sk].es[0] + 'º' : ''])))}
-    <h2 class="st" style="margin-top:6px">📍 Dónde está hoy en ${e.e} <span class="muted small">${e.pool} · ${fmt(e.cs)}</span></h2>
-    <div class="card" style="margin-bottom:12px"><ul class="ins">${txt}</ul></div>
-    <details class="card rel-det" style="margin-bottom:12px"><summary>🏁 Ver los 10 primeros de Málaga, Andalucía y España</summary>
+  return `<div class="card"><div class="bar-row"><p class="small muted">Comparando con: <b>${scopeLbl(s, sk)}</b></p>${segScope(s, sk)}</div>
+    ${pruebaSel('rev', s.ev.map(x => x.e), e.e, Object.fromEntries(s.ev.map(x => [x.e, x.rk[sk] && x.rk[sk].es ? x.rk[sk].es[0] + 'º' : ''])))}</div>
+    ${bloque('diana', `Dónde está hoy en ${e.e} <span class="h-n">${e.pool} · ${fmt(e.cs)}</span>`, `<ul class="ins">${txt}</ul>`)}
+    <details class="card rel-det"><summary>${ico('meta')}Ver los 10 primeros de Málaga, Andalucía y España</summary>
       <div class="grid g3" style="margin-top:10px">${LV.map(([lv, l]) => rivalLista(s, e, sk, lv, l)).join('')}</div></details>
-    <h2 class="st">📈 Su puesto semana a semana</h2>
-    <div id="hist-host"><p class="empty">Cargando el ranking semanal…</p></div>`;
+    ${bloque('tendencia', 'Su puesto semana a semana', '<div id="hist-host"><p class="empty">Cargando el ranking semanal…</p></div>')}`;
 }
 
-/* Objetivos: Campeonato de Andalucía, mínimas de España y relevos */
-function relevosFicha(s) {
-  const rd = relevosDe(s);
+/* Sus relevos: los de su categoría en los que es titular (primero, destacados) y, en el resto, lo que le falta para entrar */
+function subRelevos(s) {
   const c = REL.cats.find(x => x.key === s.cat);
   if (!c) return '';
-  const fila = x => `<tr class="click" data-goto="#club/${s.cat}/relevos?pl=mix&lv=an&r=${relId(x.r)}"><td class="t" data-l=""><b>${x.r.n}</b> <span class="sun">›</span></td>
-    <td data-l="Situación">${x.rol === 'T' ? `<span class="good"><b>✓ Titular</b></span> · ${x.r.tipo === 'E' ? 'posta de ' + strokeOf(x.leg).toLowerCase() : x.leg} · <b>${fmt(relOrig(x).cs)}</b> <span class="of">${relOrig(x).pl}</span>`
-      : x.rol === 'I' ? `En el equipo (${x.leg} · <b>${fmt(relOrig(x).cs)}</b> <span class="of">${relOrig(x).pl}</span>), pero <span class="bad">faltan relevistas</span>`
+  const orden = {T: 0, I: 1, F: 2};
+  const rd = relevosDe(s).sort((a, b) => orden[a.rol] - orden[b.rol] || (a.gap ?? 0) - (b.gap ?? 0));
+  const fila = x => {
+    const o = relOrig(x), marca = `<b>${fmt(o.cs)}</b> <span class="of">${o.pl}</span>`;
+    const estado = x.rol === 'T' ? `<span class="good"><b>Titular</b></span> · ${x.r.tipo === 'E' ? 'posta de ' + strokeOf(x.leg).toLowerCase() : x.leg} · ${marca}`
+      : x.rol === 'I' ? `En el equipo (${x.leg} · ${marca}), pero <span class="bad">faltan relevistas</span>`
       : x.need === null ? `Sin marca en ${x.leg}: <span class="good">con cualquier marca entraría</span> (al equipo le faltan relevistas)`
       : x.gap !== null && x.gap <= 0 ? `<span class="good">Entraría</span> (${x.leg})`
-      : `${x.cs ? `Su ${x.leg}: <b>${fmt(relOrig(x).cs)}</b> <span class="of">${relOrig(x).pl}</span> · ` : `Sin marca en ${x.leg} · `}necesita <b>≈ ${fmt(x.need)}</b> <span class="of">en 50 m</span>${x.gap !== null ? ` · <span class="bad">le faltan ${secs(x.gap)} s</span>` : ''}`}</td>
-    <td data-l="Equipo">${x.P.tot ? `<b>≈ ${fmt(x.P.tot)}</b> <span class="of">50 m</span>${x.P.tot25 ? ` · ≈ ${fmt(x.P.tot25)} <span class="of">25 m</span>` : ''}<div class="of">${x.P.lv.an.pos ? x.P.lv.an.pos + 'º de Andalucía' : ''}</div>` : '<span class="muted">incompleto</span>'}</td></tr>`;
-  return `<h2 class="st">🤝 Relevos del club</h2>
-    <p class="small muted" style="margin-bottom:10px">Relevo teórico con las mejores marcas de los últimos 14 meses (regla «suma de tiempos»), con 25 y 50 m juntas: cada marca se convierte a su equivalente en la otra piscina para elegir a los mejores. <a class="sun" href="#club/${s.cat}/relevos">Ver todos los relevos de ${esc(s.catl)} →</a></p>
-    ${rd.length ? `<table class="rt cards"><tr><th>Relevo</th><th>Situación</th><th>Equipo del club</th></tr>${rd.map(fila).join('')}</table><p class="tiny muted" style="margin-top:6px">Pulsa un relevo para ver el equipo completo, sus marcas y quién más puede entrar.</p>`
-      : `<p class="empty">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`}${convNota()}`;
+      : `${x.cs ? `Su ${x.leg}: ${marca} · ` : `Sin marca en ${x.leg} · `}necesita <b>≈ ${fmt(x.need)}</b> <span class="of">en 50 m</span>${x.gap !== null ? ` · <span class="bad">le faltan ${secs(x.gap)} s</span>` : ''}`;
+    return `<a class="fila ${x.rol === 'T' ? 'tit' : ''}" href="#club/${s.cat}/relevos?pl=mix&lv=an&r=${relId(x.r)}">${ico('relevo')}
+      <span><b>${x.r.n}</b><span class="rel-e">${estado}</span></span>
+      <span class="dcha">${x.P.tot ? `≈ ${fmt(x.P.tot)}<small class="of">${x.P.lv.an.pos ? x.P.lv.an.pos + 'º de Andalucía' : '50 m'}</small>` : '<small class="of">incompleto</small>'}</span></a>`;
+  };
+  const intro = `Relevo teórico con las mejores marcas de los últimos 14 meses (regla «suma de tiempos»), con 25 y 50 m juntas: cada marca se convierte a su equivalente en la otra piscina para elegir a los mejores. <a class="sun" href="#club/${s.cat}/relevos">Ver todos los relevos de ${esc(s.catl)} ›</a>`;
+  return bloque('relevo', `Relevos de ${esc(s.catl)}`,
+    rd.length ? `<div class="lista">${rd.map(fila).join('')}</div><p class="tiny muted" style="margin-top:8px">Pulsa un relevo para ver el equipo completo, sus marcas y quién más puede entrar.</p>`
+      : `<p class="vacio">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`, intro) + notaConv();
 }
-function tabObjetivos(s) {
-  let h = '';
-  if ((DATA.claves_by || {})[String(s.id)]) h += '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>';
-  if (s.cat === 'ALE') h += `<h2 class="st">🇪🇸 Mínimas del Campeonato de España</h2>${tabMinimas(s)}`;
-  return h + relevosFicha(s);
+
+/* En el club: por prueba, su puesto hoy entre los del CNA de su sexo y año y dónde quedaría su mejor marca a la misma edad */
+function subClub(s) {
+  const filas = s.ev.map(e => { const t = textoClub(e, s);
+    return `<div class="fila club-e">${franja(e.e)}<span><b>${e.e}</b> <span class="of">${e.pool}</span><b class="club-t">${fmt(e.cs)}</b>
+      ${t.hoy || t.hi ? `${t.hoy ? `<span class="rel-e">${t.hoy}</span>` : ''}${t.hi ? `<span class="rel-e">${t.hi}</span>` : ''}` : '<span class="rel-e muted">Sin datos del club para esta prueba</span>'}</span></div>`; }).join('');
+  return bloque('grupo', 'En el club', `<div class="lista">${filas}</div>
+    <p class="tiny muted" style="margin-top:8px">Histórico desde la temporada 13-14 · misma piscina</p>`,
+    `Cómo está ${nombreCorto(s)} entre los nadadores del CNA de su mismo sexo.`);
 }
 
 function segScope(s, sk) {
@@ -273,22 +269,24 @@ function rivalLista(s, e, sk, lv, lbl) {
   const L = DATA.lists[scopeKey(s, sk) + '|' + e.e], r = e.rk[sk] && e.rk[sk][lv];
   if (!L || !r) return `<div class="card"><h3 class="lv-${lv}">${lbl}</h3><p class="muted small">No aplica.</p></div>`;
   const isMe = x => x[0] === s.n && x[6] === s.y;
-  const row = x => { const d = x[3] - e.cs, me = isMe(x);
-    return `<tr class="${me ? 'me' : x[7] ? 'club' : ''}"><td style="width:44px">${posB(x[5])}</td>
-      <td style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x[0])} · ${esc(x[1])}"><b>${esc(x[0])}</b><div class="tiny muted">${club(x[1])} · ${x[6]}</div></td>
-      <td class="num" style="width:70px"><b>${fmt(x[3])}</b><div>${dtag(x[8])}</div></td>
-      <td class="num ${d < 0 ? 'bad' : 'good'}" style="width:58px">${me ? '' : gapS(d)}</td></tr>`; };
-  let h = L[lv].filter(x => x[5] <= 10).map(row).join('');
-  if (r[0] > 10) h += `<tr class="sep"><td colspan="4">· · ·</td></tr>` + e.nb[sk][lv].filter(x => x[5] > 10).map(row).join('');
+  const row = x => { const d = x[3] - e.cs, me = isMe(x), cs = SW[String(x[10])];
+    return rkFila({
+      pos: posB(x[5]), nom: esc(x[0]), sub: `${club(x[1])} · ${x[6]}`, marca: fmt(x[3]),
+      cls: me ? 'me yo' + (s.benicio ? ' mio' : '') : x[7] ? 'me' : '',
+      det: [['Fecha', dtag(x[8])], ...(me ? [] : [['Dif.', `<b class="${d < 0 ? 'bad' : 'good'}">${gapS(d)}</b>`]])],
+      acc: x[7] && cs && !me ? [['Ver ficha', `href="${fichaHref(cs)}"`]] : [],
+    }); };
+  let h = L[lv].filter(x => x[5] <= 10).map(row);
+  if (r[0] > 10) h.push(rkSep(), ...e.nb[sk][lv].filter(x => x[5] > 10).map(row));
   return `<div class="card"><div class="bar-row" style="margin-bottom:6px"><h3 class="lv-${lv}" style="margin:0">${lbl}</h3><span>${posB(r[0], r[1])}</span></div>
-    <table class="rt" style="table-layout:fixed">${h}</table></div>`;
+    ${rkLista(h)}</div>`;
 }
 
 function tabMinimas(s) {
   const mn = minimasDe(s);
   const celda = (P, cls, ev) => !P.x ? `<td class="num muted" data-l="Su mejor ${cls}">—${P.man ? `<div class="tiny">${fmt(P.man[1])} con crono manual (${dfmt(P.man[0])}): no acredita</div>` : ''}</td>` :
     `<td class="num click" data-l="Su mejor ${cls}" ${cmpAttr(s, P.x[0], P.x[3], ev)} title="Pulsa para ver la competición">${P.man ? `<div class="tiny muted">mejor con crono manual: ${fmt(P.man[1])} (${dfmt(P.man[0])}), no acredita</div>` : ''}<b>${fmt(P.x[1])}</b> ${dtag(P.x[0])}<div class="tiny ${P.d <= 0 ? 'good' : 'bad'}">${P.d <= 0 ? '✓ −' + secs(P.d) : '+' + secs(P.d) + ' s'} (${pctTxt(P.p)})</div></td>`;
-  return `<div class="note" style="margin-bottom:12px"><b>XIV Campeonato de España Alevín</b> (8-11 de julio de 2027) · normativa RFEN 27-406 del 12/10/2026. Al ser ${esc(s.catl).toLowerCase()} de ${s.cy}º año le corresponde la columna de <b>${mn.age} años</b>. Tabla A = piscina de 50 m · Tabla B = piscina de 25 m.
+  return bloque(FLAG_ES, 'Mínimas del Campeonato de España', `<div class="note" style="margin-top:0"><b>XIV Campeonato de España Alevín</b> (8-11 de julio de 2027) · normativa RFEN 27-406 del 12/10/2026. Al ser ${esc(s.catl).toLowerCase()} de ${s.cy}º año le corresponde la columna de <b>${mn.age} años</b>. Tabla A = piscina de 50 m · Tabla B = piscina de 25 m.
       <ul style="margin:6px 0 0 18px"><li>Solo valen marcas <b>desde el 08/05/2026</b> hasta el 20/06/2027 y con <b>cronometraje electrónico o semiautomático</b> (las de crono manual se muestran aparte y no acreditan).</li>
         <li>Máximo <b>4 pruebas individuales</b>.</li>
         <li>Sin mínima se puede entrar por <b>acceso por ranking</b> (cupo total de 650 nadadores), según el porcentaje respecto a la mínima de 25 m en las distancias no oficiales de la Liga Alevín (75, 150, 300 y 600 m, desde el 01/10/2026). La RFEN no publica esas distancias en su ranking, así que aquí no se puede calcular.</li></ul></div>
@@ -300,7 +298,7 @@ function tabMinimas(s) {
       <td class="num" data-l="Mínima 50 m (${mn.age} años)"><b>${fmt(r.pools['50m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['50m'].min13)}</div>` : ''}</td>${celda(r.pools['50m'], '50 m', r.ev)}
       <td class="num" data-l="Mínima 25 m (${mn.age} años)"><b>${fmt(r.pools['25m'].min)}</b>${s.cy === 1 ? `<div class="tiny muted">el año que viene (13 años): ${fmt(r.pools['25m'].min13)}</div>` : ''}</td>${celda(r.pools['25m'], '25 m', r.ev)}
       <td data-l="Estado">${r.bestp === null ? '<span class="muted">Sin marca</span>' : r.bestp <= 0 ? '<span class="good"><b>✓ Conseguida</b></span>'
-        : `faltan <b>${secs(r.bestd)} s</b> <span class="of">(${r.bestp.toFixed(1)}%, ${r.bestpl})</span><div class="meter"><i style="width:${Math.max(4, 100 - r.bestp * 5)}%"></i></div>`}</td></tr>`).join('')}</table>`;
+        : `faltan <b>${secs(r.bestd)} s</b> <span class="of">(${r.bestp.toFixed(1)}%, ${r.bestpl})</span><div class="meter"><i style="width:${Math.max(4, 100 - r.bestp * 5)}%"></i></div>`}</td></tr>`).join('')}</table>`);
 }
 
 /* Clasificación real para el Campeonato de Andalucía Alevín (circulares FAN): suma de puntos AQUA de 4 pruebas,
@@ -310,7 +308,7 @@ function pintarClasif(s) {
   cargarHistorial().then(H => {
     if (!document.body.contains(host)) return;
     const amb = `${s.g}|${s.y}`;
-    host.innerHTML = '<h2 class="st" style="margin-top:4px">🏊 ¿Entra en el Campeonato de Andalucía?</h2>' + Object.values(H.clasif || {}).map(C => {
+    host.innerHTML = Object.values(H.clasif || {}).map(C => {
       const A = C.amb[amb], ev = C.pruebas;
       const cab = `<h3>${C.nombre} <span class="muted small">· circular FAN ${C.circular}</span></h3>
         <p class="small muted" style="margin-bottom:10px">Entran los <b>${C.corte} mejores de Andalucía nacidos en ${s.y}</b> en la <b>suma de puntos AQUA</b> de ${ev.join(', ')} (marcas desde el ${dfmt(C.desde)}).</p>`;
@@ -336,77 +334,169 @@ function pintarClasif(s) {
 
 /* botón «Volver»: a la pantalla de la que se vino; si se entró directo, a la categoría del nadador */
 function volverHTML(s, cat) {
-  const NOM = {inicio: 'Inicio', club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', benicio: 'Benicio', nadador: 'ficha anterior'};
+  const NOM = {inicio: 'Inicio', mi: 'Mi nadador', club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', benicio: 'Mi nadador', nadador: 'la ficha anterior'};
   if (volverA) {
     const sec = volverA.slice(1).split(/[/?]/)[0] || 'inicio';
-    return `<a class="back" href="${esc(volverA)}">‹ Volver a ${NOM[sec] || 'la pantalla anterior'}</a>`;
+    return `<a class="volver" href="${esc(volverA)}">${ico('flecha-atras')}Volver a ${NOM[sec] || 'la pantalla anterior'}</a>`;
   }
-  if (!s.benicio && cat) return `<a class="back" href="#club/${cat.key}">‹ Volver a ${cat.label}</a>`;
+  if (!s.benicio && cat) return `<a class="volver" href="#club/${cat.key}">${ico('flecha-atras')}Volver a ${cat.label}</a>`;
   return '';
 }
 
+/* ── Pantalla del nadador: resumen («Mi nadador» y la de cualquier otro nadador) ── */
+const iniciales = n => String(n).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const piscinaTxt = pl => String(pl || '').replace(/m$/, ' m');
+
+/* Nivel de una competición: el de su campeonato si dio un logro; si no, por el nombre (España, Andalucía o Málaga) */
+function nivelComp(s, d, c) {
+  const x = (DATA.destacados || []).find(x => x.id === s.id && x.date === d && x.comp === c);
+  if (x) return x.lv;
+  return /espa[ñn]a/i.test(c) ? 'es' : /andaluc/i.test(c) ? 'an' : /m[aá]laga/i.test(c) ? 'ma' : null;
+}
+
+/* Sus últimas competiciones: fecha, nombre, nivel y su mejor puesto (o cuántas pruebas nadó) */
+function ultimasComps(s, n = 3) {
+  const C = {};
+  s.ev.forEach(e => e.h.forEach(x => { const k = x[0] + '|' + x[3];
+    const c = C[k] = C[k] || {d: x[0], c: x[3], n: 0, mejor: null};
+    c.n++; if (x[6] && (!c.mejor || x[6] < c.mejor[0])) c.mejor = [x[6], e.e]; }));
+  return Object.values(C).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, n);
+}
+
+/* Logros: podios y top-10 de campeonatos (relleno) y top-10 de España / top-8 de Andalucía / nº 1 de Málaga en el ranking (borde fino).
+   Al tocarlos se abre su ventana de detalle; un top-10 de campeonato sin podio abre esa competición. */
+function logrosHTML(s) {
+  const L = (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).map(x =>
+    `<button class="bdg-b" ${x.pos <= 3 ? 'data-kd="cto"' : cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">${badgeCto(x.lv, x.pos, x.ev)}</button>`);
+  s.ev.forEach(e => { const r = e.rk.y || {};
+    if (r.es && r.es[0] <= 10) L.push(`<button class="bdg-b" data-kd="es10">${badgeRanking('es', r.es[0], e.e)}</button>`);
+    else if (r.ma && r.ma[0] == 1) L.push(`<button class="bdg-b" data-kd="ma1">${badgeRanking('ma', 1, e.e)}</button>`);
+    if (r.an && r.an[0] <= 8) L.push(`<button class="bdg-b" data-kd="an8">${badgeRanking('an', r.an[0], e.e)}</button>`); });
+  return L.length ? `<div class="logros">${L.join('')}</div>` : '';
+}
+
+/* Su mejor momento: la marca, cuánto mejoró, la prueba (franja de estilo), piscina, fecha y sus puestos */
+function mejorMomentoHTML(s) {
+  const m = mejorMomento(s);
+  if (!m) return '';
+  const rk = m.rk || {}, TOP = {es: 10, an: 8, ma: 1};
+  const niv = ['es', 'an', 'ma'].filter(lv => rk[lv]).map(lv =>
+    `<span class="${rk[lv][0] <= TOP[lv] ? 'top' : ''}">${nivelHTML(lv)}${rk[lv][0]}º ${NIVEL_NOM[lv]}</span>`).join('');
+  return `<button class="card mm" data-kd="pts">
+    <span class="h">${ico('crono')}Su mejor momento<span class="mm-ver">Sus pruebas ›</span></span>
+    <span class="mm-t"><span class="num-xl">${fmt(m.cs)}</span>${m.mejora > 0 ? `<span class="mejora" title="mejor que su marca anterior">${ico('tendencia')}${secs(m.mejora)} s</span>` : ''}</span>
+    <span class="mm-sub">${franja(m.e)}<b>${esc(m.e)}</b> · piscina ${piscinaTxt(m.pool)}${m.fecha ? ' · ' + dfmt(m.fecha) : ''}</span>
+    ${niv ? `<span class="niveles">${niv}</span>` : ''}</button>`;
+}
+
+const filasFrase = L => L.map(([i, t]) => `<div class="fila">${icoDe(i)}<span>${t}</span></div>`).join('');
+
+function resumenHTML(s, cat) {
+  const elegido = s.benicio, F_ = s.g === 'F';
+  const ante = elegido ? (F_ ? 'Mi nadadora' : 'Mi nadador') : (F_ ? 'Nadadora del club' : 'Nadador del club');
+  const boton = !ESTRELLA_ELEGIBLE ? '' : elegido ? '<button class="chg" data-cambiar>Cambiar</button>'
+    : `<button class="chg" data-mi-estrella>Marcar como mi ${F_ ? 'nadadora' : 'nadador'}</button>`;
+  const portada = `<div class="portada" style="--foto:url(img/mi-nadador.jpg)">
+      <div class="portada-vol">${volverHTML(s, cat)}</div>
+      <div class="portada-tit"><div class="av" aria-hidden="true">${esc(iniciales(s.n))}</div>
+        <div class="portada-txt"><small>${ante}</small><h1>${esc(s.n)}</h1><p>${catAnyo(s)} · ${s.np} prueba${s.np === 1 ? '' : 's'}</p></div>${boton}</div>
+    </div>`;
+  if (!s.ev.length) return portada + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
+
+  const {F, M} = analisis(s), O = objetivos(s);
+  const destaca = frasesCortas(F), mejorar = frasesCortas(M);
+  const objetivosL = O.map(([i, t, pc, dest]) => `<a class="fila" href="${objHref(s, dest)}">${icoDe(i)}<span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="dcha">›</span></a>`).join('');
+  const acc = accesosDe(s).map(([sub, l, i]) => `<a class="acc" href="${sub === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, sub)}">${
+    sub === 'espana' ? FLAG_ES : sub === 'andalucia' ? FLAG_AN : ico(i)}<span>${l}</span></a>`).join('');
+  const comps = ultimasComps(s).map(c => { const lv = nivelComp(s, c.d, c.c);
+    return `<button class="fila" ${cmpAttr(s, c.d, c.c, c.mejor ? c.mejor[1] : '')}>${lv ? nivelHTML(lv) : ico('meta')}<span><b>${esc(c.c)}</b> · ${dfmt(c.d)}</span>
+      <span class="dcha">${c.mejor ? `${c.mejor[0]}º · ${esc(c.mejor[1])}` : `${c.n} prueba${c.n > 1 ? 's' : ''}`}</span></button>`; }).join('');
+
+  const pd = podiosDe(s);
+  const filaPod = pd.comps ? `<button class="fila" data-kd="pod">${ico('medalla')}<span><b>${pd.victorias}</b> victoria${pd.victorias === 1 ? '' : 's'} · <b>${pd.podios}</b> podio${pd.podios === 1 ? '' : 's'} en ${pd.comps} competicion${pd.comps === 1 ? '' : 'es'}</span><span class="dcha">›</span></button>` : '';
+  return `${portada}
+    ${logrosHTML(s)}
+    <div class="resumen">
+    ${mejorMomentoHTML(s)}
+    <div class="accesos">${acc}</div>
+    <div class="card"><div class="lista"><button class="fila" data-kd="top3">${ico('tendencia')}<span>Suma de sus 3 mejores pruebas: <b>${s.top3} pts</b></span><span class="dcha">›</span></button></div></div>
+    ${destaca.length ? `<div class="card"><div class="h">${ico('medalla')}Dónde destaca</div><div class="lista">${filasFrase(destaca)}</div></div>` : ''}
+    ${mejorar.length || O.length ? `<div class="card"><div class="h">${ico('diana')}Para seguir mejorando</div>
+      ${mejorar.length ? `<div class="lista">${filasFrase(mejorar)}</div>` : ''}
+      ${O.length ? `<div class="h h-sub">Próximos objetivos</div><div class="lista">${objetivosL}</div>` : ''}</div>` : ''}
+    <div class="card"><div class="h">${ico('carriles')}Últimas competiciones</div><div class="lista">${comps}${filaPod}</div>
+      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
+    ${insigniasCard(s)}
+    </div>`;
+}
 
 /* ── vista ── */
-function vistaFicha(app, s, tab, p) {
-  const tabs = fichaTabs(s);
-  // enlaces antiguos: Evolución/Historial, Rivales → Ranking, Mínimas y Cto. Andalucía → Objetivos
-  if (tab === 'evolucion') { tab = 'historial'; if (p.ev && !p.hev) p.hev = p.ev; }
-  if (tab === 'rivales') { tab = 'ranking'; if (p.ev && !p.rev) p.rev = p.ev; }
-  if (tab === 'minimas' || tab === 'andalucia') tab = 'objetivos';
-  if (!tabs.find(t => t[0] === tab)) tab = 'resumen';
-  const sk = s.cat ? (p.sk || 'y') : 'y';
-  const href = (t, q) => fichaHref(s, t) + (q ? '?' + q : '');
-  const logros = [];
-  (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).forEach(x =>
-    logros.push(`<span class="tag click ${x.pos <= 3 ? 'gold' : ''}" ${cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">🏆 ${x.pos}º ${x.lv === 'es' ? 'Cto. España' : 'Cto. AND'} · ${x.ev}</span>`));
-  s.ev.forEach(e => { const r = e.rk.y || {};
-    if (r.es && r.es[0] <= 10) logros.push(`<a class="tag gold" style="text-decoration:none" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">${FLAG_ES} ${r.es[0]}º España · ${e.e}</a>`);
-    else if (r.ma && r.ma[0] == 1) logros.push(`<a class="tag" style="text-decoration:none;color:inherit" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">🥇 1º Málaga · ${e.e}</a>`); });
-  const cat = s.cat ? catOf(s.cat) : null;
-  const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
+/* enlaces con ?ev= de otras pantallas: cada sub-pantalla lo llama de una forma */
+function paramsSub(sub, p) {
+  const q = Object.assign({}, p);
+  if (sub === 'evolucion' && q.ev && !q.hev) q.hev = q.ev;
+  if (sub === 'ranking' && q.ev && !q.rev) q.rev = q.ev;
+  return q;
+}
 
-  let body = '';
-  if (tab === 'resumen') body = tabResumen(s);
-  else if (tab === 'pruebas') body = tabPruebas(s, sk, p);
-  else if (tab === 'ranking') body = tabRankingFicha(s, sk, rev);
-  else if (tab === 'objetivos') body = tabObjetivos(s);
-  else if (tab === 'historial') body = '<div id="hist-host"><p class="empty">Cargando el historial…</p></div>';
+function vistaFicha(app, s, sub, params) {
+  const cat = s.cat ? catOf(s.cat) : null;
+  if (sub !== 'resumen' && !accesosDe(s).some(a => a[0] === sub)) {   // no aplica a este nadador: a su pantalla principal
+    history.replaceState(null, '', fichaHref(s)); sub = 'resumen'; params = {};
+  }
+  if (sub === 'resumen') {
+    app.innerHTML = resumenHTML(s, cat);
+    app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
+    const camb = app.querySelector('[data-cambiar]');
+    if (camb) camb.onclick = () => elegirEstrella(null);
+  } else vistaSub(app, s, sub, paramsSub(sub, params));
+  app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
+    if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">conseguida</span>' : ''}`; });
+  const est = app.querySelector('[data-mi-estrella]');
+  if (est) est.onclick = () => elegirEstrella(s.id);
+}
+
+/* Sub-pantallas de los accesos: «‹ Nombre», título y el contenido de cada una */
+function vistaSub(app, s, sub, p) {
+  const sk = s.cat ? (p.sk || 'y') : 'y';
+  const href = q => fichaHref(s, sub) + (q ? '?' + q : '');
+  const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
+  const tit = (accesosDe(s).find(a => a[0] === sub) || [])[1] || '';
+
+  const body = !s.ev.length ? '<div class="vacio">Todavía no tiene marcas esta temporada</div>'
+    : sub === 'marcas' ? tabPruebas(s, sk, p)
+    : sub === 'ranking' ? tabRankingFicha(s, sk, rev)
+    : sub === 'espana' ? tabMinimas(s)
+    : sub === 'andalucia' ? bloque(FLAG_AN, '¿Entra en el Campeonato de Andalucía?', '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>')
+    : sub === 'relevos' ? subRelevos(s)
+    : sub === 'club' ? subClub(s)
+    : `<div class="card"><div id="hist-host"><p class="empty">Cargando el historial…</p></div></div><div id="an-host">${analisisCompletoHTML(s)}</div>`;   // evolucion
 
   app.innerHTML = `
-    <div class="hero">
-      ${volverHTML(s, cat)}
-      <h1>${s.benicio ? '⭐ ' : ''}${esc(s.n)}</h1>
-      <div class="meta">${s.y} · ${SEXO_TXT[s.g]} · ${s.catl ? `${catAnyo(s)} en 26-27` : 'fuera de categoría'} · ${s.np} pruebas · última competición ${dfmt(s.last)}</div>
-      <div class="hero-acc"><a class="chip" href="#comparar?ids=${s.id}">⚖️ Comparar con otros</a>
-        ${ESTRELLA_ELEGIBLE ? `<button class="chip" data-mi-estrella>${s.benicio ? '⭐ Es mi nadador · quitar' : '☆ Marcar como mi nadador'}</button>` : ''}</div>
-      ${logros.length ? `<div class="tags scroll">${logros.join('')}</div>` : ''}
-    </div>
-    <nav class="tabs">${tabs.map(([k, l]) => `<a href="${href(k, k === 'pruebas' || k === 'ranking' ? 'sk=' + sk : '')}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav>
-    <section>${body}</section>`;
+    <a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>
+    <div class="card sub-cab"><span class="ante">${esc(s.n)}</span><h1>${tit}</h1></div>
+    <section style="margin-top:12px">${body}</section>`;
 
-  const keep = o => { const q = new URLSearchParams(Object.assign({}, p, o)); location.hash = href(tab, q.toString()); };
+  const keep = o => { const q = new URLSearchParams(Object.assign({}, p, o)); location.hash = href(q.toString()); };
   app.querySelectorAll('[data-sk] button').forEach(b => b.onclick = () => keep({sk: b.dataset.v}));
   onChips(app, 'rev', v => keep({rev: v}));
   app.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => keep({ev: p.ev === b.dataset.pr ? '' : b.dataset.pr}));
-  if (tab === 'historial') pintarHistorial(s, tab, p, keep);
-  if (tab === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);
-  if (tab === 'objetivos') pintarClasif(s);
-  if (tab === 'resumen') { pintarAnalisis(s); app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd)); }
+  if (s.ev.length) {
+    if (sub === 'evolucion') { pintarHistorial(s, 'historial', p, keep); pintarAnalisis(s); }
+    if (sub === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);
+    if (sub === 'andalucia') pintarClasif(s);
+  }
   app.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { location.hash = el.dataset.goto; });
-  app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
-    if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">✓ conseguida</span>' : ''}`; });
+  rkBind(app);
   bindPisc(app);
-  const est = app.querySelector('[data-mi-estrella]');
-  if (est) est.onclick = () => elegirEstrella(s.benicio ? null : s.id);
-  const on = app.querySelector('.tabs a.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   // al abrir una prueba, que se vea su cabecera
-  if (tab === 'pruebas' && p.ev) setTimeout(() => { const el = document.getElementById('pr-' + p.ev.replace(/ /g, '-'));
+  if (sub === 'marcas' && p.ev) setTimeout(() => { const el = document.getElementById('pr-' + p.ev.replace(/ /g, '-'));
     if (el) { const t = el.getBoundingClientRect().top; if (t < 50 || t > innerHeight * 0.55) window.scrollTo(0, scrollY + t - 60); } }, 0);
 }
 
 /* Ventana con el detalle de cada dato del Resumen: qué pruebas, cuándo, dónde y con qué marca */
 function abrirKpiFicha(s, k) {
-  const ir = ev => `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(ev)}`;
+  const ir = ev => `${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(ev)}`;
   const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} ${edadTag(e.date, s.y)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
       <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
   const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
@@ -437,7 +527,7 @@ function abrirKpiFicha(s, k) {
     tit = `Mínimas del Campeonato de España (${mn.age} años)`;
     cuerpo = `<table class="rt">${[...mn.rows].sort((a, b) => (a.bestp === null) - (b.bestp === null) || a.bestp - b.bestp).map(r => `<tr><td><b>${r.ev}</b></td>
         <td class="num">${r.bestp === null ? '<span class="muted">sin marca</span>' : r.bestp <= 0 ? '<span class="good">✓ conseguida</span>' : `faltan <b>${secs(r.bestd)} s</b> <span class="of">${r.bestpl}</span>`}</td></tr>`).join('')}</table>
-      <p style="margin-top:10px"><a class="btn ghost" href="${fichaHref(s, 'objetivos')}">Ver en Objetivos →</a></p>`;
+      <p style="margin-top:10px"><a class="btn ghost" href="${fichaHref(s, 'espana')}">Ver en Cto. España →</a></p>`;
   } else {
     const L = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 3);
     tit = 'Sus 3 mejores pruebas (puntos)'; cuerpo = `<table class="rt">${L.map(e => filaEv(e)).join('')}</table>`;
