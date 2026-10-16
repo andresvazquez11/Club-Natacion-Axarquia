@@ -5,7 +5,7 @@ import { cargar, evalIn } from './cargar.mjs';
 const SWS = [{ id: 1, n: 'BEN UNO', benicio: true, g: 'M', y: 2015, ev: [] }, { id: 2, n: 'OTRO CLUB', g: 'M', y: 2015, ev: [] }];
 const ctx = cargar(['comunes.js', 'vistas/rankings.js'],
   { swimmers: SWS, cats: [], lists: {}, relevos: { cats: [] } });
-evalIn(ctx, `Object.assign(SW, {1: DATA.swimmers[0], 2: DATA.swimmers[1]});`);
+evalIn(ctx, `SW['1'].benicio = true;`);
 const html = (expr, ...a) => { ctx.__a = a; return evalIn(ctx, `${expr}(...__a)`); };
 
 //            nombre, club, ?, cs, pts, pos, año, club?, fecha, piscina, id
