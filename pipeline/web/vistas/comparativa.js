@@ -1,6 +1,5 @@
-/* 📍 El club frente a los demás clubes + detalle de cada estadística
+/* El club frente a los demás clubes + detalle de cada estadística
    (integrado desde la sesión «Comparación con el resto de clubes y detalle de cada estadística») */
-const medal = p => p == 1 ? '🥇' : p == 2 ? '🥈' : p == 3 ? '🥉' : '';
 const LVN = {ma: 'Málaga', an: 'Andalucía', es: 'España'};
 
 /* bloque de comparación: '' = club entero · 'ALE' = categoría (ambos sexos) · 'M|ALE' = categoría y sexo */
@@ -14,7 +13,7 @@ const cmpScope = (cat, g) => cat ? (g && g !== 'all' ? `${g}|${cat}` : cat) : ''
 function cmpLines(c) {
   if (!c) return '';
   return '<span class="cmp">' + LV.filter(([lv]) => c[lv]).map(([lv, l]) =>
-    `${medal(c[lv][0])}<i class="lv-${lv}">${c[lv][0]}º</i> de ${c[lv][1]} clubes · ${l}`).join('<br>') + '</span>';
+    `<i class="lv-${lv}">${c[lv][0]}º</i> de ${c[lv][1]} clubes · ${l}`).join('<br>') + '</span>';
 }
 
 /* panel con el puesto del club en un nivel; devuelve HTML y se repinta con los botones */
@@ -23,11 +22,11 @@ function cmpPanelHTML(scope, suf, lv) {
   const L = C.lv[lv], me = L.rows.find(x => x[7]), up = L.rows.find(x => x[0] === L.pos - 1), r = L.r;
   const ent = {ma: 'de la provincia de Málaga', an: 'de Andalucía', es: 'de España'}[lv];
   const msg = L.pos === 1
-    ? (L.rows[1] ? `🏆 <b>Mejor club ${ent}${suf}</b>. El segundo, ${esc(L.rows[1][1])}, suma ${L.rows[1][4]} presencias en el top-8 frente a las ${me[4]} del club.` : `🏆 <b>Único club ${ent}</b> con nadadores${suf}.`)
+    ? (L.rows[1] ? `<b>Mejor club ${ent}${suf}</b>. El segundo, ${esc(L.rows[1][1])}, suma ${L.rows[1][4]} presencias en el top-8 frente a las ${me[4]} del club.` : `<b>Único club ${ent}</b> con nadadores${suf}.`)
     : `Para subir al ${L.pos - 1}º puesto, por delante de <b>${esc(up[1])}</b>, faltan <b>${up[4] - me[4] + 1}</b> presencias más en el top-8.`;
   const met = (v, lbl, rk, u, st) => { const pct = rk[2] ? Math.round(v / rk[2] * 100) : 0;
     return `<button class="cmp-mt" data-stat="${st}|${scope}"><b>${v.toLocaleString('es')}${u}</b> ${posB(rk[0])}<span class="lbl">${lbl} · el mejor club: ${rk[2].toLocaleString('es')}${u}</span><div class="meter"><i style="width:${pct}%"></i></div><span class="vd">Ver detalle ›</span></button>`; };
-  return `<div class="cmp-head"><div class="cmp-pos lv-${lv}">${medal(L.pos)}${L.pos}º<small> de ${L.t}</small></div>
+  return `<div class="cmp-head"><div class="cmp-pos lv-${lv}">${L.pos}º<small> de ${L.t}</small></div>
       <div class="cmp-txt"><b>C.N. Axarquía es el ${L.pos}º club ${ent}${suf}</b><p class="small" style="margin-top:4px;color:var(--ink2)">${msg}</p></div></div>
     <div class="cmp-m">${met(me[4], 'Presencias en el top-8', r.t8, '', 'pos|' + lv + '8')}${met(me[5], 'Pruebas nº1', r.n1, '', 'pos|' + lv + '1')}${met(me[3], 'Nadadores en ranking', r.sw, '', 'sw|' + lv)}${met(me[6], 'Nivel medio', r.avg, ' pts', 'avg|' + lv)}</div>
     <div style="margin-top:12px;max-height:420px;overflow-y:auto"><table class="rt"><tr><th>#</th><th>Club</th><th class="num">Nad.</th><th class="num">Top-8</th><th class="num">Nº1</th><th class="num">Nivel</th></tr>
@@ -67,13 +66,13 @@ function openStat(st, mantenerScroll) {
   const cats = DATA.cats.map(c => c.key).filter((k, i, a) => a.indexOf(k) === i).map(catOf)
     .filter(c => S0.some(s => s.cat === c.key && (fg === 'all' || s.g === fg)));
   const filtros = (orden) => `<div class="stat-flt">
-    ${sg ? '' : `<div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('sg', [['all', 'Todos', S0.length], ['M', '♂ Chicos', S0.filter(s => s.g === 'M').length], ['F', '♀ Chicas', S0.filter(s => s.g === 'F').length]], fg)}</div>`}
+    ${sg ? '' : `<div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('sg', [['all', 'Todos', S0.length], ['M', 'Chicos', S0.filter(s => s.g === 'M').length], ['F', 'Chicas', S0.filter(s => s.g === 'F').length]], fg)}</div>`}
     ${sk ? '' : `<div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('sc', [['all', 'Todas'], ...cats.map(c => [c.key, c.label, S0.filter(s => s.cat === c.key && (fg === 'all' || s.g === fg)).length])], fc)}</div>`}
     <div class="flt"><span class="flt-l">Año</span>${chipsHTML('sy', [['all', 'Todos'], ...yrs.map(y => [y, y, S1.filter(s => s.y === y).length])], fy)}</div>
     ${orden ? `<div class="flt"><span class="flt-l">Ordenar por</span>${chipsHTML('so', orden, F.o || orden[0][0])}</div>` : ''}</div>`;
   const donde = cat ? ` · ${cat.label}${sg ? ' ' + SEXO_TXT[sg].toLowerCase() : ''}` : '';
   const C = cmpDe(scope);
-  const rk = m => { const r = C && C.lv[lv] && C.lv[lv].r[m]; return r ? `<p class="small" style="margin:4px 0 10px">${medal(r[0])}<b class="lv-${lv}">${r[0]}º de ${r[1]} clubes</b> de ${LVN[lv]} en esta estadística · el mejor club tiene ${r[2].toLocaleString('es')}</p>` : ''; };
+  const rk = m => { const r = C && C.lv[lv] && C.lv[lv].r[m]; return r ? `<p class="small" style="margin:4px 0 10px"><b class="lv-${lv}">${r[0]}º de ${r[1]} clubes</b> de ${LVN[lv]} en esta estadística · el mejor club tiene ${r[2].toLocaleString('es')}</p>` : ''; };
   const top = k => { const K = ((DATA.comparativa || {}).kpi || {})[k]; return K ? `<p class="small" style="margin:4px 0 10px">${cmpLines(K).replace('class="cmp"', '')}</p>` : ''; };
   const posLv = (e, l) => { const r = (e.rk.y || {})[l]; return r ? posB(r[0], r[1]) : '—'; };
   let title = '', intro = '', body = '', rank = '', orden = null;
@@ -99,7 +98,7 @@ function openStat(st, mantenerScroll) {
     body = R.length ? `<table class="rt cards"><tr><th>Puesto</th><th>Nadador</th><th>Prueba</th><th class="num">Marca</th><th>Campeonato</th><th>Fecha</th></tr>` +
       R.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" data-evo="${x.id}|${x.ev}"><td class="t" data-l="">${posB(x.pos)}<span class="of">de ${x.of}</span><span class="m-only">&nbsp; ${esc(x.n)}</span></td>
         <td class="hide-m" data-l="Nadador"><b>${esc(x.n)}</b><div class="tiny muted">${x.y} ${SEXO[x.g]}</div></td><td data-l="Prueba">${x.ev} <span class="of">${x.pool}</span></td>
-        <td class="num" data-l="Marca"><b>${fmt(x.cs)}</b></td><td data-l="Campeonato" style="white-space:normal">${x.lv === 'es' ? '🇪🇸' : '🟢'} ${esc(x.comp)}</td><td data-l="Fecha">${dtag(x.date)}</td></tr>`).join('') + '</table>'
+        <td class="num" data-l="Marca"><b>${fmt(x.cs)}</b></td><td data-l="Campeonato" style="white-space:normal">${nivelHTML(x.lv === 'es' ? 'es' : 'an')} ${esc(x.comp)}</td><td data-l="Fecha">${dtag(x.date)}</td></tr>`).join('') + '</table>'
       : '<p class="empty">Ninguno todavía.</p>';
   } else if (kind === 'sw' || kind === 'avg') {
     // Orden «Importancia» (por defecto en nadadores): 1º quien ha nadado un Campeonato de España,

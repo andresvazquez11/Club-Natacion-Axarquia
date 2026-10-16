@@ -1,4 +1,4 @@
-/* 📊 Rankings: cualquier prueba, por año o categoría, sexo y nivel */
+/* Rankings: cualquier prueba, por año o categoría, sexo y nivel */
 const RK_KEYS = Object.keys(DATA.lists).map(k => k.split('|'));   // [sexo, ámbito, prueba]
 
 function vistaRankings(app, p) {
@@ -26,11 +26,11 @@ function vistaRankings(app, p) {
   }
 
   app.innerHTML = `
-    <div class="hd"><div><h1>📊 Rankings</h1><p>Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo: púlsalos para ver su ficha.</p></div></div>
-    <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', '♂ Masculino'], ['F', '♀ Femenino']], g)}</div>
+    <div class="hd"><div><h1>${ico('barras')} Rankings</h1><p>Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo: púlsalos para ver su ficha.</p></div></div>
+    <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
     <div class="flt"><span class="flt-l">Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
     ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])))}
-    <div class="flt"><span class="flt-l">Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, l]), lv)}</div>
+    <div class="flt"><span class="flt-l">Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, nivelHTML(k) + ' ' + l]), lv)}</div>
     <div class="card">${tabla}</div>`;
 
   app.querySelectorAll('tr[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });

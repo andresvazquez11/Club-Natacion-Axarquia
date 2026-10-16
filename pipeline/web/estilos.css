@@ -507,3 +507,6 @@ td.click{cursor:pointer}
 
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   html.clara{--surf:rgba(255,255,255,.95)} html.acuatico{--surf:rgba(3,22,44,.94)}}
+/* textos sueltos de Club/Campeonatos/Rankings: nunca directamente sobre el agua */
+html.acuatico .seg{background:var(--solid)}
+#app > p.tiny,#app > p.small{display:block;width:fit-content;max-width:100%;padding:7px 12px;border-radius:12px;background:var(--surf);border:1px solid var(--surf-bd)}

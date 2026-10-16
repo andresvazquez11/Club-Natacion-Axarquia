@@ -23,11 +23,11 @@ function analisis(s) {
   const F = [], M = [];
   const evY = s.ev.map(e => ({e, r: e.rk.y || {}}));
   const byPts = [...s.ev].sort((a, b) => b.pts - a.pts);
-  if (byPts.length) F.push(['medalla', `Sus pruebas de más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
+  if (byPts.length) F.push(['medalla', `Más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const t10 = evY.filter(x => x.r.es && x.r.es[0] <= 10);
-  if (t10.length) F.push([FLAG_ES, `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
+  if (t10.length) F.push([FLAG_ES, `Top-10 de España en su año: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
   const mo = evY.filter(x => x.r.ma && x.r.ma[0] == 1);
-  if (mo.length) F.push(['medalla', `Número 1 de Málaga en ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
+  if (mo.length) F.push(['medalla', `Nº 1 de Málaga: ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
   const cto = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3);
   if (cto.length) F.push(['copa', `Podios en campeonatos: ${cto.map(x => `<b>${x.pos}º ${x.ev}</b> (${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'})`).join(', ')}.`]);
   const prog = s.ev.map(e => { const h = e.h.filter(x => x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1);
@@ -36,21 +36,21 @@ function analisis(s) {
   if (bestProg.length) F.push(['tendencia', `Mayor progresión: ${bestProg.map(p => `<b>${p.e.e}</b> (−${secs(p.seg)} s, ${p.imp.toFixed(1)}%)`).join(', ')}.`]);
   if (s.cat === 'ALE') {
     const mn = minimasDe(s), close = mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp);
-    if (close.length) F.push(['diana', `Más cerca de la mínima de España (${mn.age} años): ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
+    if (close.length) F.push(['diana', `Cerca de la mínima de España: ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
     const pend = mn.rows.filter(r => !r.e).map(r => r.ev);
-    if (pend.length) M.push(['diana', `Pruebas del Campeonato de España que aún no ha nadado: ${pend.join(', ')}.`]);
+    if (pend.length) M.push(['diana', `Aún sin nadar del Cto. de España: ${pend.join(', ')}.`]);
     const far = mn.rows.filter(r => r.bestp !== null && r.bestp > 10).sort((a, b) => b.bestp - a.bestp).slice(0, 3);
     if (far.length) M.push(['diana', `Más lejos de la mínima: ${far.map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
   }
   if ((DATA.claves_by || {})[String(s.id)]) {
     const sin = DATA.claves_ev.filter(ev => !s.ev.find(e => e.e === ev));
-    if (sin.length) M.unshift(['diana', `<b>${sin.join(', ')}</b>: sin marca y es prueba clave para el Campeonato de Andalucía. Conviene nadarla pronto.`]);
+    if (sin.length) M.unshift(['diana', `<b>${sin.join(', ')}</b>: sin marca y es clave para el Cto. de Andalucía.`]);
   }
-  if (byPts.length > 3) M.push(['diana', `Pruebas con menos puntos: ${byPts.slice(-3).reverse().map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
+  if (byPts.length > 3) M.push(['diana', `Menos puntos: ${byPts.slice(-3).reverse().map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const threat = [];
   s.ev.forEach(e => { const nb = (e.nb.y || {}).ma; if (!nb) return; const i = nb.findIndex(x => x[0] === s.n && x[6] === s.y), b = nb[i + 1];
     if (b && b[3] - e.cs < 100) threat.push(`<b>${e.e}</b>: ${esc(b[0])} a ${secs(b[3] - e.cs)} s`); });
-  if (threat.length) M.push(['lupa', `Rivales de Málaga a menos de 1 s por detrás: ${threat.join('; ')}.`]);
+  if (threat.length) M.push(['lupa', `Rivales de Málaga a menos de 1 s: ${threat.join('; ')}.`]);
   const stale = s.ev.filter(e => e.date && s.last && (Date.parse(s.last) - Date.parse(e.date)) / 864e5 > 120 && e.h.length > 1);
   if (stale.length) M.push(['historia', `Sin mejorar en más de 4 meses: ${stale.map(e => `<b>${e.e}</b> (desde ${dfmt(e.date)})`).join(', ')}.`]);
   return {F, M};

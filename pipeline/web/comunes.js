@@ -22,7 +22,7 @@ const MINIMAS = (() => {
 
 const LV = [['ma', 'Málaga'], ['an', 'Andalucía'], ['es', 'España']];
 const SW = Object.fromEntries(DATA.swimmers.map(s => [String(s.id), s]));
-/* ⭐ Nadador estrella.
+/* ★ Nadador estrella.
    · temporada.html (la tuya): fijo, DATA.estrella_fija = Benicio.
    · club.html (la que se comparte): cada familia elige al suyo y queda guardado en su dispositivo;
      también se puede mandar un enlace con ?nadador=ID para que ya venga elegido. */
@@ -45,7 +45,7 @@ function elegirEstrella(id) {
   location.hash = '#mi';   // con nadador, su pantalla; sin él (Cambiar), el selector
   location.reload();
 }
-const SEXO = {M: '♂', F: '♀'};
+const SEXO = {M: 'Masc.', F: 'Fem.'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
 /* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */
 const bandera = (cols, t) => `<svg class="flag" viewBox="0 0 18 12" width="18" height="12" role="img" aria-label="${t}"><title>${t}</title>` +
@@ -205,13 +205,13 @@ const ORDEN_NAD_TXT = [['imp', 'Importancia'], ['pts', 'Puntos'], ['es', 'Puesto
 DATA.swimmers.forEach(s => Object.assign(s, nadImp(s)));   // se calcula una vez al cargar
 const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.ctoEs.join(' · '))}">${FLAG_ES} Cto. España</span>` : '';
 
-/* 📘 Manual de uso (PDF publicado junto a la página) */
+/* Manual de uso (PDF publicado junto a la página) */
 const MANUAL_URL = 'manual.pdf';
 
-/* 🔍 Buscador de nadadores del club: escribe un nombre y lleva a su ficha */
+/* Buscador de nadadores del club: escribe un nombre y lleva a su ficha */
 const sinAc = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 function buscadorHTML(id, ph) {
-  return `<div class="buscador"><input class="search" id="${id}" type="search" placeholder="${ph || '🔍 Busca a cualquier nadador del club…'}" autocomplete="off">
+  return `<div class="buscador"><input class="search" id="${id}" type="search" placeholder="${ph || 'Busca a cualquier nadador del club…'}" autocomplete="off">
     <div class="bus-res" id="${id}-r" hidden></div></div>`;
 }
 function bindBuscador(id) {
@@ -220,13 +220,13 @@ function bindBuscador(id) {
     const q = sinAc(inp.value.trim());
     if (q.length < 2) { res.hidden = true; return; }
     const L = DATA.swimmers.filter(s => sinAc(s.n).includes(q)).sort((a, b) => a.n.localeCompare(b.n)).slice(0, 8);
-    res.innerHTML = L.length ? L.map(s => `<a href="${fichaHref(s)}">${s.benicio ? '⭐ ' : ''}<b>${esc(s.n)}</b> <span class="of">${s.y} · ${SEXO[s.g]} · ${s.catl || ''}</span></a>`).join('')
+    res.innerHTML = L.length ? L.map(s => `<a href="${fichaHref(s)}">${s.benicio ? '★ ' : ''}<b>${esc(s.n)}</b> <span class="of">${s.y} · ${SEXO[s.g]} · ${s.catl || ''}</span></a>`).join('')
       : '<p class="small muted" style="padding:10px 12px">Ningún nadador del club con ese nombre.</p>';
     res.hidden = false;
   };
 }
 
-/* 🤝 Relevos de un nadador: titular (T), en un equipo aún incompleto (I) o lo que le falta para entrar (F) */
+/* Relevos de un nadador: titular (T), en un equipo aún incompleto (I) o lo que le falta para entrar (F) */
 const REL = DATA.relevos || {cats: []};
 function relevosDe(s, pools = ['mix']) {
   const c = REL.cats.find(x => x.key === s.cat); if (!c) return [];

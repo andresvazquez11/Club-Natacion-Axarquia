@@ -1,4 +1,4 @@
-/* ⚖️ Comparar de 2 a 4 nadadores (del club o de otros clubes).
+/* Comparar de 2 a 4 nadadores (del club o de otros clubes).
    Datos en comparar.json (se carga al abrir la sección):
      d: {pid: [nombre, club, sexo, año, andaluz, malagueño]}
      t: {pid: {temporada: {prueba: [mejor 25 m, mejor 50 m, pts, puesto España en su año, total]}}}
@@ -73,7 +73,7 @@ function vistaComparar(app, p) {
   const ids = (p.ids || '').split(',').filter(Boolean).slice(0, 4);
   const de = ids.find(id => SW[id]);
   app.innerHTML = `${de ? `<a class="back" href="${fichaHref(SW[de], 'pruebas')}">‹ Volver a la ficha de ${nombreCorto(SW[de])}</a>` : ''}
-    <div class="hd"><div><h1>⚖️ Comparar nadadores</h1>
+    <div class="hd"><div><h1>Comparar nadadores</h1>
       <p>Elige de 2 a 4 nadadores del club o de otros clubes (provincia de Málaga y los 30 mejores de Andalucía y de España de cada año y prueba).</p></div></div>
     <div id="cmp-host"><p class="empty">Cargando nadadores…</p></div>`;
   cargarComparar().then(C => pintarComparar(C, ids, p))
@@ -106,7 +106,7 @@ function pintarComparar(C, ids, p) {
   }
   let h = `<div class="card"><h3>Nadadores elegidos <span class="muted small">(${ids.length} de 4)</span></h3>
     <div class="tags" style="gap:8px">${sel || '<span class="muted small">Todavía ninguno.</span>'}</div>
-    ${ids.length < 4 ? `<input class="search" id="cmp-q" type="search" placeholder="🔍 Añadir nadador: escribe su nombre…" autocomplete="off" style="margin-top:12px">
+    ${ids.length < 4 ? `<input class="search" id="cmp-q" type="search" placeholder="Añadir nadador: escribe su nombre…" autocomplete="off" style="margin-top:12px">
       <div class="swl" id="cmp-res" style="margin-top:8px"></div>` : ''}
     ${sugeridos.length ? `<p class="small muted" style="margin-top:10px">Referentes sugeridos para ${corto(nom(ids[0]))}:</p>
       <div class="tags" style="margin-top:6px">${sugeridos.map(([id, txt]) => `<button class="chip" data-anadir="${id}">＋ ${esc(nom(id))} <span class="n">${club(C.d[id][1])} · ${txt}</span></button>`).join('')}</div>` : ''}
@@ -223,12 +223,12 @@ function cmpCuerpo(C, ids, p) {
     const q = new URLSearchParams(location.hash.split('?')[1] || ''); q.set('ev', tr.dataset.cev); location.hash = '#comparar?' + q; }), 0);
 
   return `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:12px">${tarj}</div>
-    <h2 class="st">📈 Evolución en una prueba</h2>
+    <h2 class="st">Evolución en una prueba</h2>
     ${pruebaSel('cev', evs, ev, Object.fromEntries(evs.map(x => [x, `${cuenta[x]}/${ids.length}`])))}
     <div class="bar-row"><div class="seg" data-cmodo><button data-v="temp" class="${modo === 'temp' ? 'on' : ''}">Por temporada</button><button data-v="edad" class="${modo === 'edad' ? 'on' : ''}">A la misma edad</button></div>${piscSeg()}</div>
     ${modo === 'edad' ? '<p class="small muted" style="margin-bottom:10px">«A la misma edad» compara lo que hacía cada uno con 10, 11, 12… años, aunque fuera en temporadas distintas: ideal para comparar con un referente mayor.</p>' : ''}
-    ${cara.length ? `<div class="card" style="margin-bottom:12px"><h3>🥊 Cara a cara en ${ev}</h3><ul class="ins">${cara.map(c => `<li data-i="›">${c}</li>`).join('')}</ul></div>` : ''}
+    ${cara.length ? `<div class="card" style="margin-bottom:12px"><h3>Cara a cara en ${ev}</h3><ul class="ins">${cara.map(c => `<li data-i="›">${c}</li>`).join('')}</ul></div>` : ''}
     ${graf || '<p class="empty">Ninguno de los elegidos tiene marcas en esta prueba.</p>'}
     ${tablas}
-    <h2 class="st">📋 Todas sus pruebas</h2><div class="card">${todas}</div>`;
+    <h2 class="st">Todas sus pruebas</h2><div class="card">${todas}</div>`;
 }
