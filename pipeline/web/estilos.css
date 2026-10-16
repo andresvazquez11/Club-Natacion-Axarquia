@@ -6,7 +6,7 @@
   --glass:rgba(255,255,255,.13); --glass2:rgba(255,255,255,.2); --line:rgba(255,255,255,.24);
   --good:#7cf5b4; --bad:#ffb4a8;
   --ma:#90e0ef; --an:#7cf5b4; --es:#ffd60a;
-  --r:16px; --nav-w:232px; --nav-h:68px;
+  --r:16px; --nav-w:232px; --nav-h:68px; --cab-h:56px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -22,12 +22,20 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 
 /* ═══ Estructura ═══ */
 .shell{min-height:100vh}
-.main{padding:20px 16px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom));max-width:1280px;margin:0 auto;outline:none}
+.main{padding:calc(var(--cab-h) + 18px) 16px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom));max-width:1280px;margin:0 auto;outline:none}
 .nav{position:fixed;z-index:30;display:flex}
 .nav a{text-decoration:none;display:flex;align-items:center;gap:10px;color:var(--ink2);font-weight:700;border-radius:12px}
 .nav a i{font-style:normal;font-size:1.25rem;line-height:1}
 .nav a.on{color:var(--sun-ink);background:var(--sun)}
-.brand{display:none}
+.ico{width:1.25em;height:1.25em;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em}
+.cab{position:fixed;top:0;left:0;right:0;z-index:40;height:var(--cab-h);display:flex;align-items:center;gap:10px;padding:0 12px;
+  background:rgba(3,4,94,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.cab .brand{display:flex;gap:10px;align-items:center;color:var(--ink);text-decoration:none}
+.cab .brand b{display:block;font-size:1rem}.cab .brand small{color:var(--ink3);font-size:.75rem}
+.cab .brand span{display:none}
+.cab .brand-logo{flex:none;object-fit:cover}
+.cab-bus{flex:1 1 auto;min-width:0;max-width:520px;margin-left:auto}
+.cab-bus .search{min-height:38px}
 .nav-foot{display:none}
 .nav a span.corto{display:none}
 
@@ -41,15 +49,14 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 }
 /* Ordenador: menú lateral */
 @media (min-width:900px){
-  .nav{top:0;bottom:0;left:0;width:var(--nav-w);flex-direction:column;gap:4px;padding:20px 14px;
+  .nav{top:var(--cab-h);bottom:0;left:0;width:var(--nav-w);flex-direction:column;gap:4px;padding:20px 14px;
     background:rgba(3,4,94,.5);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-right:1px solid var(--line)}
   .nav a{padding:11px 14px;font-size:.92rem}
   .nav a:not(.on):hover{background:var(--glass)}
-  .brand{display:flex;gap:10px;align-items:center;padding:4px 8px 18px}
-  .brand-ico{font-size:1.8rem}
-  .brand b{display:block;font-size:1rem}.brand small{color:var(--ink3);font-size:.75rem}
+  .cab .brand span{display:block}
+  .cab-bus{margin-left:24px;margin-right:auto}
   .nav-foot{display:block;margin-top:auto;font-size:.7rem;color:var(--ink3);padding:8px}
-  .main{margin-left:var(--nav-w);padding:28px 32px 48px}
+  .main{margin-left:var(--nav-w);padding:calc(var(--cab-h) + 24px) 32px 48px}
 }
 
 /* ═══ Tipografía de sección ═══ */

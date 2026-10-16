@@ -1,13 +1,18 @@
 /* 🌊 Tema «Piscina»: fondo de agua (azulejos ondulados, corcheras y reflejos de luz en movimiento),
    gotas de condensación en las tarjetas de cristal y una pequeña salpicadura al pulsar.
    Las texturas se dibujan una sola vez en un canvas y se repiten: no hay imágenes ni vídeos que cargar. */
-/* botón de modo: 🌊 acuático (predeterminado) o normal (sin agua, como antes); se recuerda en el dispositivo */
-function cambiarModo() {
-  const n = document.documentElement.classList.toggle('normal');
-  try { localStorage.setItem('cna_modo', n ? 'normal' : 'agua'); } catch (e) {}
+/* Modo de la página: «clara» (predeterminado) o «acuático»; se recuerda en el dispositivo.
+   La clase «normal» se mantiene en el modo claro mientras los estilos antiguos la usen (se retira con el rediseño visual). */
+function aplicarModo(m) {
+  const c = document.documentElement.classList;
+  c.toggle('clara', m === 'clara'); c.toggle('acuatico', m === 'acuatico'); c.toggle('normal', m === 'clara');
   document.querySelectorAll('.modo-b').forEach(b => b.innerHTML = modoTxt());
 }
-const modoTxt = () => document.documentElement.classList.contains('normal') ? '🌊 Modo acuático' : '◐ Modo normal';
+function cambiarModo() {
+  const m = leerModo() === 'clara' ? 'acuatico' : 'clara';
+  guardarModo(m); aplicarModo(m);
+}
+const modoTxt = () => ico('gota') + (leerModo() === 'clara' ? 'Acuático' : 'Claro');
 (function () {
   const quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const T = 2 * Math.PI;
