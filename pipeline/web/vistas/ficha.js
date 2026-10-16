@@ -25,7 +25,7 @@ function analisis(s) {
   const byPts = [...s.ev].sort((a, b) => b.pts - a.pts);
   if (byPts.length) F.push(['medalla', `Más nivel: ${byPts.slice(0, 3).map(e => `<b>${e.e}</b> (${e.pts} pts)`).join(', ')}.`]);
   const t10 = evY.filter(x => x.r.es && x.r.es[0] <= 10);
-  if (t10.length) F.push([FLAG_ES, `Top-10 de España en su año: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
+  if (t10.length) F.push([FLAG_ES, `Top-10 de España entre los nacidos en ${s.y}: ${t10.map(x => `<b>${x.e.e}</b> (${x.r.es[0]}º de ${x.r.es[1]})`).join(', ')}.`]);
   const mo = evY.filter(x => x.r.ma && x.r.ma[0] == 1);
   if (mo.length) F.push(['medalla', `Nº 1 de Málaga: ${mo.map(x => `<b>${x.e.e}</b>`).join(', ')}.`]);
   const cto = (DATA.destacados || []).filter(x => x.id === s.id && x.pos <= 3);
@@ -36,7 +36,7 @@ function analisis(s) {
   if (bestProg.length) F.push(['tendencia', `Mayor progresión: ${bestProg.map(p => `<b>${p.e.e}</b> (−${secs(p.seg)} s, ${p.imp.toFixed(1)}%)`).join(', ')}.`]);
   if (s.cat === 'ALE') {
     const mn = minimasDe(s), close = mn.rows.filter(r => r.bestp !== null).sort((a, b) => a.bestp - b.bestp);
-    if (close.length) F.push(['diana', `Cerca de la mínima de España: ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
+    if (close.length) F.push(['diana', `Cerca de la mínima de España (${mn.age} años): ${close.slice(0, 3).map(r => `<b>${r.ev}</b> (${faltaTxt(r)})`).join(', ')}.`]);
     const pend = mn.rows.filter(r => !r.e).map(r => r.ev);
     if (pend.length) M.push(['diana', `Aún sin nadar del Cto. de España: ${pend.join(', ')}.`]);
     const far = mn.rows.filter(r => r.bestp !== null && r.bestp > 10).sort((a, b) => b.bestp - a.bestp).slice(0, 3);
