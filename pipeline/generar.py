@@ -451,6 +451,8 @@ def main():
     marcas, minfo = H.unir_marcas(H.cargar_marcas(MARCAS_2526), H.preparar_marcas({'2627': rows_new}, club))
     relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper(), records)
     movimientos = escribir_historial(swimmers, rows_new, marcas, minfo)
+    ruta_edades = os.path.join(BASE_DIR, 'edades_base.json.gz')
+    puestos_club(swimmers, hist, H.cargar(ruta_edades) if os.path.exists(ruta_edades) else {})
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
@@ -576,6 +578,55 @@ def records_club(swimmers, hist):
                 if pid not in top[k] or cs < top[k][pid][1]:
                     top[k][pid] = [pid, cs, d, s['n'], s['y']]
     return {k: sorted(v.values(), key=lambda x: x[1])[:3] for k, v in top.items()}
+
+
+def puestos_club(swimmers, hist, base):
+    """Puesto de cada prueba de cada nadador actual dentro del club: e['cl'] = {'hoy': [pos, n], 'hi': [pos, n, edad]}.
+    Siempre en la piscina de e['pool'] y con la mejor marca de cada nadador distinto (él incluido una sola vez).
+    hoy: nadadores actuales con mismo sexo y año. hi: marcas del club a su misma edad federativa (base cerrada +
+    marcas actuales, una por nadador). pos = 1 + nº de otros nadadores con marca estrictamente mejor."""
+    by = {s['id']: s for s in swimmers}
+    hoy = defaultdict(dict)            # (g, y, ev, pool) → {pid: cs}
+    for s in swimmers:
+        for e in s['ev']:
+            k = (s['g'], s['y'], e['e'], e['pool'])
+            if s['id'] not in hoy[k] or e['cs'] < hoy[k][s['id']]:
+                hoy[k][s['id']] = e['cs']
+    act = defaultdict(dict)            # (g, edad, ev, pool) → {pid: mejor cs a esa edad} (marcas actuales, sin parciales)
+    for (pid, ev), xs in hist.items():
+        s = by.get(pid)
+        if not s:
+            continue
+        for x in xs:
+            d, cs, pool = x[0], x[1], x[2]
+            if x[8]:
+                continue
+            edad = int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0) - s['y']
+            k = (s['g'], edad, ev, pool)
+            if str(pid) not in act[k] or cs < act[k][str(pid)]:
+                act[k][str(pid)] = cs
+
+    def puesto(marcas, pid):
+        return [1 + sum(1 for q, c in marcas.items() if q != pid and c < marcas[pid]), len(marcas)]
+
+    for s in swimmers:
+        pid = str(s['id'])
+        for e in s['ev']:
+            cl = {}
+            grupo = {str(q): c for q, c in hoy[(s['g'], s['y'], e['e'], e['pool'])].items()}
+            if pid in grupo:
+                cl['hoy'] = puesto(grupo, pid)
+            propias = [x for x in hist.get((s['id'], e['e']), []) if not x[8] and x[2] == e['pool']]
+            if propias:
+                m = min(propias, key=lambda x: x[1])
+                edad = int(m[0][:4]) + (1 if int(m[0][5:7]) >= 10 else 0) - s['y']
+                marcas = {str(q): c for q, c in base.get(f"{s['g']}|E{edad}|{e['e']}|{e['pool']}", [])}
+                for q, c in act[(s['g'], edad, e['e'], e['pool'])].items():
+                    if q not in marcas or c < marcas[q]:
+                        marcas[q] = c
+                cl['hi'] = puesto(marcas, pid) + [edad]
+            if cl:
+                e['cl'] = cl
 
 
 def escribir_historial(swimmers, rows_new, marcas, info):
