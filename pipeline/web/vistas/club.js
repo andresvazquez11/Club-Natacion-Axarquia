@@ -32,7 +32,11 @@ function vistaClub(app, p) {
     relevos: ['Relevos', 'Los mejores relevos que podría formar el club en cada categoría y en qué puesto quedarían frente a los demás clubes.'],
     records: ['Récords del club', 'Las mejores marcas hechas con el club en cada categoría de edad, prueba y piscina.'],
     historia: ['Historia del club', 'Cómo le ha ido al club temporada a temporada desde la 13-14: nadadores, resultados, categorías y nadadores destacados.']}[tab];
-  const head = `<a class="volver" href="#club">${ico('flecha-atras')}Club</a><div class="hd" style="margin-top:10px"><div><h1>${cabe[0]}</h1><p>${cabe[1]}</p></div></div>${tabsHTML}`;
+  // al llegar desde «Sus relevos» de una ficha, un único «Volver» a esa ficha; si no, a Club
+  const desdeFicha = tab === 'relevos' && p.r && /^#(mi|nadador)\b/.test(hashAnterior || '');
+  const atras = desdeFicha ? `<a class="volver" href="${esc(hashAnterior)}">${ico('flecha-atras')}Volver a su ficha</a>`
+    : `<a class="volver" href="#club">${ico('flecha-atras')}Club</a>`;
+  const head = `${atras}<div class="hd" style="margin-top:10px"><div><h1>${cabe[0]}</h1><p>${cabe[1]}</p></div></div>${tabsHTML}`;
   if (tab === 'relevos') return clubRelevos(app, p, c, cats, head);
   if (tab === 'records') return clubRecords(app, p, c, head);
   if (tab === 'historia') return clubHistoria(app, p, head);
@@ -138,7 +142,7 @@ function clubRelevos(app, p, c, cats, head) {
         <p class="tiny muted" style="margin:6px 0 10px">No están en los Campeonatos de Andalucía ni de España, pero se nadan en trofeos, ligas y el Campeonato de Andalucía de Clubes.</p>
         <div class="grid g2">${otros.map(r => relCard(r, pl, lv)).join('')}</div></details>` : ''}`; };
   const n = g => R ? R.rel.filter(r => (g === 'all' || r.g === g) && r.of).length : 0;
-  app.innerHTML = `${p.r ? '<a class="back" href="#" id="rel-back">‹ Volver</a>' : ''}${head}
+  app.innerHTML = `${head}
     <div class="note"><b>Relevo teórico</b>: suma de las mejores marcas de 4 nadadores del club en los <b>últimos 14 meses</b> (desde el ${dfmt(REL.desde)}), como en la regla «suma de tiempos» de la RFEN y la FAN. El puesto se calcula haciendo lo mismo con todos los clubes.
       <details style="margin-top:4px"><summary class="sun" style="cursor:pointer">Más información</summary>La RFEN no publica un ranking de relevos de clubes. Para inscribir un relevo en los Campeonatos de Andalucía de invierno se usa la suma de las marcas individuales de los 4 relevistas (circular FAN NAT.01/26).
         Con <b>«25 y 50 m juntas»</b> cada marca se convierte a la otra piscina con la equivalencia de puntos World Aquatics (marca × récord del mundo de una piscina / récord de la otra), así se elige a los mejores aunque hayan nadado en piscinas distintas; es orientativo, para inscribir cuenta la marca real.
@@ -150,7 +154,6 @@ function clubRelevos(app, p, c, cats, head) {
     ${pl === 'mix' ? '<p class="tiny muted" style="margin:-2px 0 8px">Cada relevista con su marca real y su piscina; el tiempo del equipo, en su equivalente en 50 m y en 25 m.</p>' : ''}
     ${R ? grupo('M', 'Masculino') + grupo('F', 'Femenino') + grupo('X', 'Mixtos <span class="muted small">· 2 chicos y 2 chicas</span>') : '<p class="empty">Esta categoría no tiene relevos.</p>'}
     <p class="tiny muted" style="margin-top:12px">Relevos de los programas 26-27 de los Campeonatos de Andalucía (FAN) y de España (RFEN). Debajo de cada relevo se indica en qué campeonato se nada; los demás mixtos están en «Otros mixtos · trofeos y ligas». En los relevos de estilos el orden es espalda, braza, mariposa y libre, y se busca el reparto más rápido. </p>${convNota()}`;
-  const vb = document.getElementById('rel-back'); if (vb) vb.onclick = ev => { ev.preventDefault(); history.back(); };
   // llegada desde la ficha (Objetivos): se abre y resalta ese relevo
   const foco = p.r && document.getElementById('rel-' + p.r);
   if (foco) { foco.classList.add('foco'); foco.querySelectorAll('details').forEach(d => d.open = true);
