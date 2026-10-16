@@ -164,15 +164,25 @@ function perfilActividadHTML(s) {
     bloque('carriles', `Competiciones <span class="h-n">· ${cl.length}</span>`, `<div style="max-height:520px;overflow-y:auto">${lista}</div>`, 'Pulsa una para ver sus pruebas.');
 }
 
-/* Evolución (además del historial): el análisis de varias temporadas, de historial.json */
+/* Evolución (además del historial): el análisis completo (sin el tope de 3 del resumen) */
+const liAnalisis = arr => frasesCortas(arr, arr.length).map(([i, t]) => `<li><i class="ins-i">${icoDe(i)}</i>${t}</li>`).join('');
+function analisisCompletoHTML(s) {
+  const {F, M} = analisis(s);
+  return bloque('medalla', 'Puntos fuertes', `<ul class="ins">${liAnalisis(F) || '<li>—</li>'}</ul>`) +
+    bloque('diana', 'A mejorar', `<ul class="ins" id="an-malo">${liAnalisis(M) || '<li>—</li>'}</ul>`);
+}
+
+/* y el análisis de varias temporadas, de historial.json */
 function pintarAnalisis(s) {
   cargarHistorial().then(H => {
     const A = H.an[String(s.id)], host = document.getElementById('an-host'); if (!A || !host) return;
-    const li = arr => frasesCortas(arr, arr.length).map(([i, t]) => `<li><i class="ins-i">${icoDe(i)}</i>${t}</li>`).join('');
+    const li = liAnalisis;
+    if ((A.malo || []).length) { const ul = document.getElementById('an-malo');
+      if (ul) { if (ul.textContent.trim() === '—') ul.innerHTML = ''; ul.insertAdjacentHTML('beforeend', li(A.malo)); } }
     const evo = [...(A.evo || []), ...(A.bueno || [])], comp = A.comp || [];
-    host.innerHTML = (evo.length ? bloque('tendencia', 'Su evolución', `<ul class="ins">${li(evo)}</ul>`, 'Desde su primera temporada.') : '') +
+    host.insertAdjacentHTML('beforeend', (evo.length ? bloque('tendencia', 'Su evolución', `<ul class="ins">${li(evo)}</ul>`, 'Desde su primera temporada.') : '') +
       (comp.length ? bloque('balanza', 'Comparado con los demás', `<ul class="ins">${li(comp)}</ul>
-        <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p>`) : '');
+        <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p>`) : ''));
   }).catch(() => {});
 }
 
@@ -454,7 +464,7 @@ function vistaSub(app, s, sub, p) {
     : sub === 'andalucia' ? bloque(FLAG_AN, '¿Entra en el Campeonato de Andalucía?', '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>')
     : sub === 'relevos' ? subRelevos(s)
     : sub === 'club' ? subClub(s)
-    : `<div class="card"><div id="hist-host"><p class="empty">Cargando el historial…</p></div></div><div id="an-host"></div>`;   // evolucion
+    : `<div class="card"><div id="hist-host"><p class="empty">Cargando el historial…</p></div></div><div id="an-host">${analisisCompletoHTML(s)}</div>`;   // evolucion
 
   app.innerHTML = `
     <a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>
