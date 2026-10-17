@@ -83,6 +83,48 @@ function entEvolucion(T, nId, ev) {
   return [...dias.values()].sort((a, b) => a.fecha - b.fecha);
 }
 
+/* Seguimiento de un nadador en una prueba: primer, mejor y último tiempo, media, mejora (centésimas y %)
+   y tendencia (media de sus últimos tiempos frente a los primeros, en %: negativa = va más rápido) */
+function entStatsNadador(T, nId, ev) {
+  const L = T.filter(t => t.nId === nId && t.ev === ev).sort((a, b) => a.fecha - b.fecha || a.ronda - b.ronda);
+  if (!L.length) return null;
+  const media = a => a.reduce((x, t) => x + t.cs, 0) / a.length;
+  const mejor = L.reduce((a, t) => t.cs < a.cs ? t : a);
+  const k = Math.min(3, Math.floor(L.length / 2));
+  return {nId, n: L[0].n, rfen: L[0].rfen, veces: L.length, primero: L[0], mejor, ultimo: L[L.length - 1],
+    media: Math.round(media(L)), mejora: L[0].cs - mejor.cs, mejoraPct: (L[0].cs - mejor.cs) / L[0].cs * 100,
+    tendencia: k ? (media(L.slice(-k)) - media(L.slice(0, k))) / media(L.slice(0, k)) * 100 : null};
+}
+const entPct = v => v == null ? '—' : `<b class="${v <= 0 ? 'good' : 'bad'}">${v <= 0 ? '−' : '+'}${Math.abs(v).toFixed(1)}%</b>`;
+const entPctMejora = v => v == null ? '—' : v > 0 ? `<b class="good">${v.toFixed(1)}%</b>` : '0%';
+
+/* Gráfico de varias curvas (comparar nadadores): series = [{nombre, color, filas: [{fecha, cs, dia}]}].
+   Como en el resto de la web: tiempo más alto arriba, mejor abajo. */
+const ENT_COLORES = ['#0a6cff', '#e0861a', '#0f9d8a', '#8b3fd9'];
+function entGraficoComparar(series) {
+  const todas = series.flatMap(s => s.filas);
+  if (!todas.length) return '<p class="empty">Sin tiempos para comparar.</p>';
+  const movil = typeof window !== 'undefined' && window.innerWidth < 600;
+  const W = movil ? 400 : 760, H = movil ? 240 : 260, P = {l: 50, r: 14, t: 14, b: 30};
+  const ts = todas.map(t => t.fecha), cs = todas.map(t => t.cs);
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), tr = (t1 - t0) || 1;
+  const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .12, 20), lo = mn - pad, hi = mx + pad;
+  const X = t => t1 === t0 ? W / 2 : P.l + (t - t0) / tr * (W - P.l - P.r);
+  const Y = c => P.t + (hi - c) / (hi - lo) * (H - P.t - P.b);
+  let g = '';
+  for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="ent-eje"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end" class="ent-tx">${fmt(Math.round(c))}</text>`; }
+  const dias = [...new Set(todas.map(t => t.dia))].sort(), paso = Math.ceil(dias.length / (movil ? 5 : 8)) || 1;
+  dias.forEach((d, i) => { if (i % paso) return; const t = todas.find(x => x.dia === d).fecha;
+    g += `<text x="${X(t)}" y="${H - 8}" text-anchor="middle" class="ent-tx">${d.slice(8)}/${d.slice(5, 7)}</text>`; });
+  series.forEach(s => {
+    if (s.filas.length > 1) g += `<polyline fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" points="${s.filas.map(t => X(t.fecha) + ',' + Y(t.cs)).join(' ')}"/>`;
+    s.filas.forEach(t => { g += `<circle cx="${X(t.fecha)}" cy="${Y(t.cs)}" r="4" fill="${s.color}"><title>${esc(s.nombre)} · ${dfmt(t.dia)} · ${fmt(t.cs)}</title></circle>`; });
+  });
+  return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución comparada">${g}</svg>
+    <div class="ent-leyenda">${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.nombre)}</span>`).join('')}</div>`;
+}
+
 /* Su mejor marca de competición de esa prueba en equivalente de 25 m (los entrenamientos son en piscina de 25 m):
    las de 50 m se convierten con conv() (puntos World Aquatics). {cs, fecha, pool, real} o null. Sin parciales (x[8]). */
 function entMejorCompeticion(s, ev) {
@@ -201,7 +243,7 @@ function entBarrasSemana(S) {
 
 /* ── Sección Entrenamientos (#entrenamientos) ── */
 function vistaEntrenamientos(app, p) {
-  const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all'};
+  const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || ''};
   app.innerHTML = `
     <div class="card sub-cab"><span class="ante">Modo entrenador</span><h1>Entrenamientos</h1></div>
     <div id="ent-host" style="margin-top:12px"></div>`;
@@ -210,7 +252,8 @@ function vistaEntrenamientos(app, p) {
 }
 function pintarEntrenamientos(host, f) {
   const T = ENT.T || [];
-  const go = o => { const q = Object.assign({}, f, o); location.hash = `#entrenamientos?cat=${q.cat}&estilo=${q.estilo}&dias=${q.dias}`; };
+  const go = o => { const q = Object.assign({}, f, o);
+    location.hash = `#entrenamientos?cat=${q.cat}&estilo=${q.estilo}&dias=${q.dias}&cev=${encodeURIComponent(q.cev)}&cn=${encodeURIComponent(q.cn)}`; };
   const F = entFiltrar(T, f), R = entResumen(F);
   const cuenta = o => entFiltrar(T, Object.assign({}, f, o)).length;
   const cats = DATA.cats.filter(c => T.some(t => t.cat === c.key));
@@ -232,11 +275,28 @@ function pintarEntrenamientos(host, f) {
     </details>`).join('');
   const pruebas = R.pruebas.map(pr => `
     <div class="card"><div class="h">${franja(pr.ev)}${esc(pr.ev)} <span class="h-n">(${pr.nads.length} nadadores · ${pr.n} tiempos)</span></div>
-      <table class="rt"><tr><th>#</th><th>Nadador</th><th class="num">Mejor</th><th class="num">Último</th><th class="num" title="Mejor marca de competición en equivalente de piscina de 25 m">Comp. 25 m</th></tr>
-      ${pr.nads.map((m, i) => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos?ev=${encodeURIComponent(pr.ev)}"` : ''}>
-        <td>${i + 1}</td><td style="max-width:0;width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b></td>
-        <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${fmt(m.ultimo.cs)}</td><td class="num">${(c => c ? fmt(c.cs) : '—')(m.rfen && Object.hasOwn(SW, m.rfen) ? entMejorCompeticion(SW[m.rfen], pr.ev) : null)}</td></tr>`).join('')}</table>
+      <div class="tw"><table class="rt"><tr><th>#</th><th>Nadador</th><th class="num">Mejor</th><th class="num" title="Mejora de su mejor tiempo frente al primero">Mejora</th><th class="num" title="Media de sus últimos tiempos frente a los primeros (negativo: va más rápido)">Tend.</th><th class="num" title="Mejor marca de competición en equivalente de piscina de 25 m">Comp. 25 m</th></tr>
+      ${pr.nads.map((m, i) => { const st = entStatsNadador(F, m.nId, pr.ev); return `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos?ev=${encodeURIComponent(pr.ev)}"` : ''}>
+        <td>${i + 1}</td><td style="max-width:0;width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.veces} ${m.veces === 1 ? 'vez' : 'veces'} · último ${fmt(m.ultimo.cs)}</div></td>
+        <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${entPctMejora(st.mejoraPct)}</td><td class="num">${entPct(st.tendencia)}</td><td class="num">${(c => c ? fmt(c.cs) : '—')(m.rfen && Object.hasOwn(SW, m.rfen) ? entMejorCompeticion(SW[m.rfen], pr.ev) : null)}</td></tr>`; }).join('')}</table></div>
     </div>`).join('');
+  // Comparar nadadores en una prueba (hasta 4)
+  const cev = R.pruebas.some(x => x.ev === f.cev) ? f.cev : (R.pruebas[0] || {}).ev;
+  const prC = R.pruebas.find(x => x.ev === cev);
+  const elegidos = prC ? (f.cn ? f.cn.split(',') : prC.nads.slice(0, 3).map(m => m.nId)).filter(id => prC.nads.some(m => m.nId === id)).slice(0, 4) : [];
+  const toggleN = id => { const l = elegidos.includes(id) ? elegidos.filter(x => x !== id) : [...elegidos, id].slice(-4); return l.join(','); };
+  const comparar = prC ? `
+    <div class="card"><div class="h">${ico('balanza')}Comparar nadadores</div>
+      ${chipsHTML('cev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.nads.length]), cev)}
+      <div class="tiny muted" style="margin:2px 0 4px">Elige hasta 4 nadadores</div>
+      <div class="chips" data-chips="cn">${prC.nads.map(m => { const k = elegidos.indexOf(m.nId);
+        return `<button class="chip ${k >= 0 ? 'on' : ''}" data-v="${esc(toggleN(m.nId))}"${k >= 0 ? ` style="background:${ENT_COLORES[k]};border-color:${ENT_COLORES[k]}"` : ''}>${esc(m.n.split(' ')[0])} ${esc((m.n.split(' ')[1] || '').charAt(0))}.</button>`; }).join('')}</div>
+      ${entGraficoComparar(elegidos.map((id, k) => ({nombre: prC.nads.find(m => m.nId === id).n, color: ENT_COLORES[k], filas: entEvolucion(F, id, cev)})))}
+      ${elegidos.length ? `<div class="tw"><table class="rt" style="margin-top:8px"><tr><th>Nadador</th><th class="num">Mejor</th><th class="num">Media</th><th class="num">Mejora</th><th class="num">Tend.</th><th class="num">Comp. 25 m</th></tr>
+        ${elegidos.map((id, k) => { const st = entStatsNadador(F, id, cev), sw = st.rfen && Object.hasOwn(SW, st.rfen) ? SW[st.rfen] : null, c = sw ? entMejorCompeticion(sw, cev) : null;
+          return `<tr><td style="max-width:0;width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="ent-pt" style="background:${ENT_COLORES[k]}"></i><b>${esc(st.n)}</b></td>
+            <td class="num"><b>${fmt(st.mejor.cs)}</b></td><td class="num">${fmt(st.media)}</td><td class="num">${entPctMejora(st.mejoraPct)}</td><td class="num">${entPct(st.tendencia)}</td><td class="num">${c ? fmt(c.cs) : '—'}</td></tr>`; }).join('')}</table></div>` : ''}
+    </div>` : '';
   const nads = R.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
       <td style="max-width:0;width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.pruebas.map(esc).join(' · ')}</div></td>
       <td class="num">${m.sesiones}</td><td class="num"><b>${m.tiempos}</b></td></tr>`).join('');
@@ -251,6 +311,7 @@ function pintarEntrenamientos(host, f) {
       <div class="kpi"><b>${R.pruebas.length}</b><span>pruebas distintas</span></div>
     </div>
     <div class="card"><div class="h">${ico('barras')}Tiempos tomados por semana</div>${entBarrasSemana(entPorSemana(F))}</div>
+    ${comparar}
     <div class="card"><div class="h">${ico('crono')}Entrenamientos <span class="h-n">(${R.entrenamientos.length})</span></div>${ents}</div>
     <div class="h h-sub" style="margin-top:16px">${ico('medalla')}Mejores tiempos por prueba</div>
     ${pruebas || '<div class="vacio">Sin pruebas con estilo y distancia.</div>'}
@@ -260,6 +321,8 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'cat', v => go({cat: v}));
   onChips(host, 'estilo', v => go({estilo: v}));
   onChips(host, 'dias', v => go({dias: v}));
+  onChips(host, 'cev', v => go({cev: v, cn: ''}));
+  onChips(host, 'cn', v => go({cev, cn: v}));
   host.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
   host.querySelector('#ent-salir').onclick = async e => { e.preventDefault(); await entSalir(); entPreparar(host, () => pintarEntrenamientos(host, f)); };
   host.querySelector('#ent-act').onclick = async e => { e.preventDefault(); await entCargar(true); pintarEntrenamientos(host, f); };
@@ -286,6 +349,11 @@ function pintarEntrenosNadador(app, s, p) {
         <div class="kpi"><b>${dfmt(R.entrenamientos[0] ? entDia(R.entrenamientos[0].fecha) : '')}</b><span>último entreno</span></div>
       </div>
       ${ev ? `<div class="card">${chipsHTML('ev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.n]), ev)}
+        ${(st => st ? `<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0 0">
+          <div class="kpi"><b>${fmt(st.media)}</b><span>media (${st.veces} ${st.veces === 1 ? 'vez' : 'veces'})</span></div>
+          <div class="kpi"><b>${entPctMejora(st.mejoraPct)}</b><span>mejora desde el primero (${fmt(st.primero.cs)})</span></div>
+          <div class="kpi"><b>${entPct(st.tendencia)}</b><span>tendencia de sus últimos tiempos</span></div>
+        </div>` : '')(entStatsNadador(T, T[0].nId, ev))}
         <div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));margin:8px 0">
           <div class="kpi"><b>${fmt(mejor)}</b><span>mejor en entreno</span></div>
           <div class="kpi"><b>${comp ? fmt(comp.cs) : '—'}</b><span>mejor en competición (25 m)${comp ? `<br>${entOrigen(comp)} · ${dfmt(comp.fecha)}` : ''}</span></div>

@@ -104,3 +104,12 @@ test('entMejorEntrenoPrevio: el mejor tiempo anterior de la misma prueba, sin co
   assert.equal(ev('entMejorEntrenoPrevio', T, r4).id, 'r1');                 // 31.23 del día 20
   assert.equal(ev('entMejorEntrenoPrevio', T, T.find(t => t.id === 'r1')), null);
 });
+
+test('entStatsNadador: primero, mejor, media, mejora y tendencia', () => {
+  const T = ev('entTiempos', D, SW);
+  const st = ev('entStatsNadador', T, 'a', '50 Libre');
+  assert.equal(st.veces, 2); assert.equal(st.primero.cs, 3123); assert.equal(st.mejor.cs, 3050); assert.equal(st.media, 3087);
+  assert.equal(st.mejora, 73); assert.ok(Math.abs(st.mejoraPct - 2.34) < 0.01);
+  assert.ok(st.tendencia < 0);                       // va más rápido
+  assert.equal(ev('entStatsNadador', T, 'a', '200 Mariposa'), null);
+});
