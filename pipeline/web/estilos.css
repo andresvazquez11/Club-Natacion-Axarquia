@@ -548,3 +548,15 @@ td.click{cursor:pointer}
 /* textos sueltos de Club/Campeonatos/Rankings: nunca directamente sobre el agua */
 html.acuatico .seg{background:var(--solid)}
 #app > p.tiny,#app > p.small{display:block;width:fit-content;max-width:100%;padding:7px 12px;border-radius:12px;background:var(--surf);border:1px solid var(--surf-bd)}
+/* Entrenamientos (vistas/entrenamientos.js) */
+.ent-puerta p{font-size:.85rem;color:var(--ink2);line-height:1.5}
+.ent-chart .ent-bar{fill:var(--link)}
+.ent-chart .ent-eje{stroke:var(--ln)}
+.ent-chart .ent-tx{fill:var(--ink2);font-size:11px}
+.ent-ses{border-top:1px solid var(--ln);padding:8px 0}
+.ent-ses:first-of-type{border-top:0}
+.ent-ses summary{cursor:pointer;list-style:none;font-size:.85rem;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.ent-ses summary::-webkit-details-marker{display:none}
+.ent-ses-r{width:100%;font-size:.75rem;color:var(--ink2)}
+.ent-ses .rt{margin-top:8px}
+.nav a.ent-on .ico{color:var(--hl)}

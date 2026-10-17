@@ -7,6 +7,7 @@ function accesosDe(s) {
   if ((DATA.claves_by || {})[String(s.id)]) out.push(['andalucia', 'Cto. Andalucía', 'carriles']);
   if (REL.cats.some(c => c.key === s.cat)) out.push(['relevos', 'Sus relevos', 'relevo']);
   out.push(['club', 'En el club', 'grupo'], ['comparar', 'Comparar', 'balanza']);
+  if (typeof esEntrenadorLocal === 'function' && esEntrenadorLocal()) out.push(['entrenos', 'Entrenamientos', 'pizarra']);
   return out;
 }
 
