@@ -7,21 +7,22 @@ import historial as H
 import generar as G
 
 
-def fila(pid, cs, nac, club='C.N. AXARQUIA', fecha='10/03/2024', genero='F'):
+def fila(pid, cs, nac, club='C.N. AXARQUIA', fecha='10/03/2024', genero='F', nombre='X'):
     return {'profile_id': pid, 'valor_original': cs, 'fecha_nacimiento': str(nac), 'club': club,
             'id_tipo_piscina': '25m', 'estilo': '50 Braza', 'genero': genero, 'date': fecha,
-            'nombre': 'X', 'parcial': False}
+            'nombre': nombre, 'parcial': False}
 
 
 class TestEdades(unittest.TestCase):
     def test_mejor_por_nadador_y_edad(self):
         filas = [
-            fila('A', 3900, 2012), fila('A', 3842, 2012, fecha='01/05/2024'),   # 12 años, dos marcas del mismo nadador
-            fila('B', 3800, 2012),
+            fila('A', 3900, 2012, nombre='ANA  RUIZ'), fila('A', 3842, 2012, fecha='01/05/2024', nombre='ANA  RUIZ'),   # 12 años, dos marcas del mismo nadador
+            fila('B', 3800, 2012, nombre='BEA SOTO'),
             fila('C', 3000, 2012, club='OTRO CLUB'),
         ]
         r = H.marcas_club_edades({'2324': filas})
-        self.assertEqual(r, {'F|E12|50 Braza|25m': [['B', 3800], ['A', 3842]]})
+        # [pid, cs, nombre]: el nombre sirve para enseñar a los antiguos nadadores en el histórico de «En el club»
+        self.assertEqual(r, {'F|E12|50 Braza|25m': [['B', 3800, 'Bea Soto'], ['A', 3842, 'Ana Ruiz']]})
 
 
 def nad(pid, y, cs, pool='25m', g='F'):
@@ -71,6 +72,14 @@ class TestPuestosClub(unittest.TestCase):
         r = G.puestos_club([a], hist_de(a), {'F|E12|50 Braza|25m': [['X', 3700], ['A', 3900]]}, {'X': 'Ana Ruiz', 'A': 'Yo'}, wr=WR)
         self.assertEqual([x[:2] for x in r['clh']['F|E12|50 Braza']], [['X', 3828], ['A', 3974]])
         self.assertEqual(r['cln'], {'X': 'Ana Ruiz'})          # solo los que no son nadadores actuales
+
+    def test_nombre_de_la_base_si_no_se_conoce(self):
+        a = nad('A', 2014, 3842)
+        base = {'F|E12|50 Braza|25m': [['X', 3700, 'Ana Ruiz'], ['Z', 3800, 'Eva Gil']], 'F|E12|50 Braza|50m': [['W', 4000]]}
+        r = G.puestos_club([a], hist_de(a), base, {'Z': 'Eva Gil Mora'}, wr=WR)
+        self.assertEqual(a['ev'][0]['cl']['hi'], [3, 4, 12])
+        # `nombres` manda; si falta, el de la base; la entrada antigua sin nombre ([pid, cs]) sigue funcionando
+        self.assertEqual(r['cln'], {'X': 'Ana Ruiz', 'Z': 'Eva Gil Mora'})
 
 
 if __name__ == '__main__':

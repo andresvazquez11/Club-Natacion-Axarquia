@@ -684,10 +684,11 @@ def marcas_club_records(filas_por_temporada, club_match='AXARQ', top=3):
 
 
 def marcas_club_edades(filas_por_temporada, club_match='AXARQ'):
-    """{'g|E{edad}|prueba|piscina': [[pid, cs], …]}: la mejor marca de CADA nadador distinto del club a esa edad
-    federativa, ordenada por tiempo. Base para ver en qué puesto histórico del club quedaría una marca a esa edad."""
+    """{'g|E{edad}|prueba|piscina': [[pid, cs, nombre], …]}: la mejor marca de CADA nadador distinto del club a esa
+    edad federativa, ordenada por tiempo. Base para ver en qué puesto histórico del club quedaría una marca a esa edad;
+    el nombre permite enseñar también a los nadadores que ya no están en el club."""
     todo = marcas_club_records(filas_por_temporada, club_match, top=None)
-    return {k: [[m[0], m[1]] for m in v] for k, v in todo.items() if re.fullmatch(r'E\d+', k.split('|')[1])}
+    return {k: [[m[0], m[1], m[3]] for m in v] for k, v in todo.items() if re.fullmatch(r'E\d+', k.split('|')[1])}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

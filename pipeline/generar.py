@@ -649,17 +649,20 @@ def puestos_club(swimmers, hist, base, nombres=None, wr=None):
             m = propia.get((s['id'], e['e']))
             if m:
                 edad = edad_de(m[3], s['y'])
-                marcas = {}
+                marcas, nom_base = {}, {}
                 for pool in ('25m', '50m'):
-                    for q, cs in base.get(f"{s['g']}|E{edad}|{e['e']}|{pool}", []):
+                    for q, cs, *resto in base.get(f"{s['g']}|E{edad}|{e['e']}|{pool}", []):   # [pid, cs] o [pid, cs, nombre]
                         mejor(marcas, str(q), cs, pool, s['g'], e['e'])
+                        if resto and resto[0]:
+                            nom_base[str(q)] = resto[0]
                 for q, x in act[(s['g'], edad, e['e'])].items():
                     if q not in marcas or x[0] < marcas[q][0]:
                         marcas[q] = x
                 if pid in marcas:
                     cl['hi'] = puesto(marcas, pid) + [edad]
                     clh[f"{s['g']}|E{edad}|{e['e']}"] = sorted(([q, *x] for q, x in marcas.items()), key=lambda x: x[1])
-                    cln.update({q: nombres[q] for q in marcas if q not in actuales and q in (nombres or {})})
+                    nom = {**nom_base, **(nombres or {})}          # `nombres` manda; si falta, el guardado en la base
+                    cln.update({q: nom[q] for q in marcas if q not in actuales and q in nom})
             if cl:
                 e['cl'] = cl
     return {'clh': clh, 'cln': cln}
