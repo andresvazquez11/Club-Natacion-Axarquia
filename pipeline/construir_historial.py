@@ -7,11 +7,15 @@ Precalcula, en local, lo que no cambia:
   · las fotos semanales del ranking desde octubre de 2025 → historico_ranking.json.gz (raíz del repo)
   · los nadadores comparables (club + Málaga + 30 mejores de Andalucía y España) → pipeline/comparables_base.json.gz
 
+  · todas las marcas hechas con el club en las temporadas cerradas → pipeline/club_historico.json.gz (≈1 MB, va en
+    GitHub) y, a partir de ellas, los récords del club (top-10) → records_base.json.gz y la mejor marca de cada
+    nadador del club por edad, prueba y piscina → edades_base.json.gz
+
 Uso:
   python3 pipeline/construir_historial.py <carpeta con RAW_1011…RAW_2425, RAW_2526(_v2), RAW_2627> [temporada.html]
-  python3 pipeline/construir_historial.py <carpeta> --solo-edades     (solo regenera edades_base.json.gz)
-
-  · la mejor marca de cada nadador del club por edad, prueba y piscina → pipeline/edades_base.json.gz
+  python3 pipeline/construir_historial.py <carpeta> --solo-club       (extracto del club + récords + base por edad)
+  python3 pipeline/construir_historial.py --desde-extracto            (récords + base por edad desde el extracto,
+                                                                        sin carpetas RAW: sirve en GitHub)
 
 Vuelve a ejecutarlo si entran nadadores nuevos en el club (el historial solo se guarda de los del club).
 """
@@ -21,6 +25,8 @@ import historial as H
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(BASE)
+EXTRACTO = os.path.join(BASE, 'club_historico.json.gz')
+RECORDS_TOP = 10           # récords del club: los 10 mejores de cada prueba (en la web, 3 a la vista y 10 al desplegar)
 
 
 def club_actual(html):
@@ -37,20 +43,42 @@ def raw(carpeta, t):
     return None
 
 
-def guardar_edades(carpeta):
-    """Mejor marca de cada nadador del club por edad (temporadas cerradas) → edades_base.json.gz."""
-    ed = H.marcas_club_edades({t: H.cargar(raw(carpeta, t)) for t in H.TEMPORADAS[:-1] if raw(carpeta, t)})
-    ruta = os.path.join(BASE, 'edades_base.json.gz')
+def solo_club(filas, club_match='AXARQ'):
+    """Las filas (marcas RFEN) hechas con el club."""
+    return [r for r in filas if club_match in str(r.get('club') or '').upper()]
+
+
+def _guardar(nombre, datos):
+    ruta = os.path.join(BASE, nombre)
     with gzip.open(ruta, 'wt', 9, encoding='utf-8') as f:
-        json.dump(ed, f, ensure_ascii=False, separators=(',', ':'))
-    print(f'  base por edad: {len(ed)} claves ({os.path.getsize(ruta) / 1e6:.2f} MB)')
+        json.dump(datos, f, ensure_ascii=False, separators=(',', ':'))
+    return os.path.getsize(ruta) / 1e6
+
+
+def guardar_extracto(carpeta):
+    """{temporada: [filas del club]} de las temporadas cerradas → club_historico.json.gz. Devuelve ese dict."""
+    ext = {t: solo_club(H.cargar(raw(carpeta, t))) for t in H.TEMPORADAS[:-1] if raw(carpeta, t)}
+    mb = _guardar('club_historico.json.gz', ext)
+    print(f'  extracto del club: {sum(map(len, ext.values())):,} marcas ({mb:.2f} MB)')
+    return ext
+
+
+def guardar_bases_club(ext):
+    """Récords del club (top-10) y mejor marca por edad, desde las marcas del club → records_base y edades_base."""
+    recs = H.marcas_club_records(ext, top=RECORDS_TOP)
+    print(f'  récords del club: {len(recs)} pruebas/categorías ({_guardar("records_base.json.gz", recs):.2f} MB)')
+    ed = H.marcas_club_edades(ext)
+    print(f'  base por edad: {len(ed)} claves ({_guardar("edades_base.json.gz", ed):.2f} MB)')
 
 
 def main():
-    args = [a for a in sys.argv[1:] if a != '--solo-edades']
+    if '--desde-extracto' in sys.argv:
+        guardar_bases_club(H.cargar(EXTRACTO))
+        return
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
     carpeta = args[0]
-    if '--solo-edades' in sys.argv:
-        guardar_edades(carpeta)
+    if '--solo-club' in sys.argv or '--solo-edades' in sys.argv:      # --solo-edades: nombre antiguo
+        guardar_bases_club(guardar_extracto(carpeta))
         return
     html = args[1] if len(args) > 1 else os.path.join(REPO, 'temporada.html')
     club = club_actual(html)
@@ -84,12 +112,8 @@ def main():
     with gzip.open(os.path.join(BASE, 'historia_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump(historia, f, ensure_ascii=False, separators=(',', ':'))
     print(f'  historia del club: {len(historia)} temporadas')
-    # récords del club: todas las marcas hechas con el club en las temporadas cerradas, también de quien ya no está
-    recs = H.marcas_club_records({t: H.cargar(raw(carpeta, t)) for t in H.TEMPORADAS[:-1] if raw(carpeta, t)})
-    with gzip.open(os.path.join(BASE, 'records_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
-        json.dump(recs, f, ensure_ascii=False, separators=(',', ':'))
-    print(f'  récords del club: {len(recs)} pruebas/categorías guardadas')
-    guardar_edades(carpeta)
+    # marcas hechas con el club en las temporadas cerradas (también de quien ya no está): extracto, récords y base por edad
+    guardar_bases_club(guardar_extracto(carpeta))
     with gzip.open(os.path.join(BASE, 'historial_base.json.gz'), 'wt', 9, encoding='utf-8') as f:
         json.dump({'club': list(club), 'temps': temps, 'coh': coh}, f, ensure_ascii=False, separators=(',', ':'))
 

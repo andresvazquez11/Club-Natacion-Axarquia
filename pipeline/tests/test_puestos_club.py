@@ -25,6 +25,18 @@ class TestEdades(unittest.TestCase):
         self.assertEqual(r, {'F|E12|50 Braza|25m': [['B', 3800, 'Bea Soto'], ['A', 3842, 'Ana Ruiz']]})
 
 
+class TestExtractoClub(unittest.TestCase):
+    def test_solo_marcas_del_club(self):
+        import construir_historial as C
+        filas = [fila('A', 3900, 2012), fila('C', 3000, 2012, club='OTRO CLUB'), fila('D', 3100, 2012, club=None)]
+        self.assertEqual([r['profile_id'] for r in C.solo_club(filas)], ['A'])
+
+    def test_records_guardan_diez(self):
+        filas = [fila(f'P{i}', 3800 + i, 2012) for i in range(12)]
+        r = H.marcas_club_records({'2324': filas}, top=10)
+        self.assertEqual(len(r['F|E12|50 Braza|25m']), 10)
+
+
 def nad(pid, y, cs, pool='25m', g='F'):
     return {'id': pid, 'g': g, 'y': y, 'n': pid, 'ev': [{'e': '50 Braza', 'cs': cs, 'pool': pool}]}
 

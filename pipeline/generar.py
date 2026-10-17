@@ -550,7 +550,7 @@ def historia_club(rows_new):
 
 
 def records_club(swimmers, hist):
-    """Récords del club: las 3 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
+    """Récords del club: las 10 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
     (edad federativa: año en que termina la temporada − año de nacimiento), prueba y piscina → [[pid, cs, fecha, nombre, año]].
     Temporadas cerradas desde la 13-14 en records_base.json.gz (también nadadores que ya no están) + marcas actuales."""
     import historial as H
@@ -577,7 +577,7 @@ def records_club(swimmers, hist):
                 k = f"{s['g']}|{grupo}|{ev}|{pool}"
                 if pid not in top[k] or cs < top[k][pid][1]:
                     top[k][pid] = [pid, cs, d, s['n'], s['y']]
-    return {k: sorted(v.values(), key=lambda x: x[1])[:3] for k, v in top.items()}
+    return {k: sorted(v.values(), key=lambda x: x[1])[:10] for k, v in top.items()}   # top-10: 3 a la vista y 10 al desplegar
 
 
 def nombres_club():
