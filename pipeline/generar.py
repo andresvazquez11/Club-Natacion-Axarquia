@@ -469,8 +469,48 @@ def main():
         with open(ruta, 'w', encoding='utf-8') as f:
             f.write(plantilla.replace('/*__DATA__*/null', json.dumps(data, ensure_ascii=False, separators=(',', ':'))))
     print(f'{len(swimmers)} nadadores del club · {len(lists)} listas · {os.path.getsize(HTML_OUT)/1e6:.1f} MB')
+    escribir_nadadores_cronometro(swimmers, records)
     if os.environ.get('CNA_SUMMARY'):
         escribir_resumen(os.environ['CNA_SUMMARY'], swimmers, rows_new, claves, movimientos)
+
+
+def mejores_marcas(s, records):
+    """Mejor marca de competición de cada prueba en equivalente de piscina de 25 m (los entrenamientos son en 25 m):
+    {'50 Libre': [cs_25m, fecha, competición, piscina_real, cs_real]}. Las marcas de 50 m se convierten con la
+    equivalencia de puntos World Aquatics (cs × récord 25 m ÷ récord 50 m, como conv() en la web) y se queda la mejor.
+    Como bestPoolMarks() en la web: no cuentan los parciales (x[8])."""
+    mm = {}
+    for e in s.get('ev') or []:
+        w = (records.get(s['g']) or {}).get(e['e']) or {}
+        for x in e.get('h') or []:
+            if len(x) > 8 and x[8]:
+                continue
+            cs, pool = x[1], x[2]
+            if pool == '25m':
+                c25 = cs
+            elif pool == '50m' and w.get('25m') and w.get('50m'):
+                c25 = round(cs * w['25m'] / w['50m'])
+            else:
+                continue
+            cur = mm.get(e['e'])
+            if cur is None or c25 < cur[0]:
+                mm[e['e']] = [c25, x[0], (x[3] or '')[:60], pool, cs]
+    return mm
+
+
+def escribir_nadadores_cronometro(swimmers, records):
+    """Lista del club para el cronómetro de entrenamientos (cronometro/nadadores.json): licencia RFEN, nombre,
+    categoría, sexo, año y sus mejores marcas de competición en equivalente de 25 m. Son datos que ya muestra la web;
+    el cronómetro los usa para sincronizar sus equipos y comparar cada tiempo de entrenamiento con la mejor marca."""
+    carpeta = os.path.join(os.path.dirname(os.path.abspath(CLUB_OUT)), 'cronometro')
+    if not os.path.isdir(carpeta):
+        return
+    lista = [{'id': str(s['id']), 'n': s['n'], 'cat': s['cat'], 'g': s['g'], 'y': s['y'], 'mm': mejores_marcas(s, records)}
+             for s in sorted(swimmers, key=lambda s: (s['cat'], s['n']))]
+    ruta = os.path.join(carpeta, 'nadadores.json')
+    with open(ruta, 'w', encoding='utf-8') as f:
+        json.dump({'fecha': date.today().isoformat(), 'nadadores': lista}, f, ensure_ascii=False, separators=(',', ':'))
+    print(f'Cronómetro: {len(lista)} nadadores con sus marcas → {ruta} ({os.path.getsize(ruta) / 1e3:.0f} KB)')
 
 
 JS_ORDEN = ['comunes.js', 'iconos.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/club.js', 'vistas/campeonatos.js',

@@ -129,6 +129,10 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .parc-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;margin-top:2px;}
 .parc-line b{color:var(--txt);font-weight:700;}
 .parc-undo{background:none;border:1px solid var(--brd);color:var(--mut);border-radius:7px;width:30px;height:26px;font-size:13px;cursor:pointer;touch-action:manipulation;}
+.sum-cmp{font-size:11.5px;font-weight:500;color:var(--mut);line-height:1.45;margin-top:3px;white-space:normal;font-variant-numeric:tabular-nums;}
+.sum-cmp .cmp-f{opacity:.75;}
+.cmp-mej{color:var(--grn-l);} .cmp-peor{color:var(--amb);}
+.pb.pb-comp{background:#0c2a0c;color:var(--grn-l);}
 .sum-parc{font-size:12px;font-weight:500;color:var(--mut);font-variant-numeric:tabular-nums;margin-top:2px;white-space:normal;}
 /* ── Tablero de calles ── */
 .b-hint{font-size:13px;color:var(--mut);background:var(--surf);border-radius:10px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -361,7 +365,18 @@ async function registrarEntrenador(u) {
     return 'error';
   }
 }
+// Mejores marcas de competición del club (las publica cada día la web de estadísticas en nadadores.json)
+let MARCAS = {};   // licencia RFEN → {'50 Libre': {'25m': [centésimas, fecha, competición]}}
+function cargarMarcas() {
+  fetch('nadadores.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d || !Array.isArray(d.nadadores)) return;
+    MARCAS = {};
+    d.nadadores.forEach(n => { if (/^\d{3,12}$/.test(String(n.id)) && n.mm && typeof n.mm === 'object') MARCAS[String(n.id)] = n.mm; });
+    if (canRerender() || (SA && rondaTerminada())) render();
+  }).catch(() => {});
+}
 function conectarColecciones() {
+  cargarMarcas();
   document.getElementById('app').innerHTML = '<div class="center-msg"><h2>Cargando...</h2></div>';
   _dbReady = false; _initN = 0;
   _initTimer = setTimeout(() => { if (!_dbReady) { _dbReady = true; render(); } }, 6000);
@@ -832,6 +847,55 @@ function seriesDe(sesId) {
 }
 function calleDe(r) { const g = S.grupos.find(g=>g.id===r.gId); return g ? g.nombre : ''; }
 function nombreDe(nId) { const n = S.nadadores.find(n=>n.id===nId); return n ? n.n : '?'; }
+// ── Comparaciones de un tiempo con sus mejores marcas (resúmenes y PDF, nunca mientras se cronometra) ──
+const fmtCs = cs => { cs = Math.round(cs); const m = Math.floor(cs/6000), sg = Math.floor(cs%6000/100), c = String(cs%100).padStart(2,'0');
+  return m ? `${m}:${String(sg).padStart(2,'0')}.${c}` : `${sg}.${c}`; };
+const fmtFechaIso = f => f ? `${f.slice(8,10)}/${f.slice(5,7)}/${f.slice(2,4)}` : '';
+const evNombre = (estilo, dist) => `${dist} ${estilo.charAt(0).toUpperCase()+estilo.slice(1)}`;
+// Mejor marca de competición de esa prueba en equivalente de piscina de 25 m (los entrenamientos son en 25 m).
+// nadadores.json: [cs en 25 m, fecha, competición, piscina real, cs real]; si viene de 50 m está convertida (puntos World Aquatics)
+function mejorCompeticion(nId, estilo, dist) {
+  const n = S.nadadores.find(x=>x.id===nId);
+  if (!n || !n.rfen || !estilo || !dist) return null;
+  const m = (MARCAS[n.rfen] || {})[evNombre(estilo, dist)];
+  if (!Array.isArray(m)) return null;
+  const cs = Number(m[0]), real = Number(m[4]);
+  if (!Number.isFinite(cs) || cs <= 0) return null;
+  return {cs, fecha: String(m[1]||'').slice(0,10), comp: String(m[2]||''), pool: m[3]==='50m' ? '50m' : '25m',
+          real: Number.isFinite(real) && real > 0 ? real : cs};
+}
+const origenComp = c => c.pool === '50m' ? `de ${fmtCs(c.real)} en 50 m` : '25 m';
+// Mejor tiempo de entrenamiento anterior en la misma prueba (otros tiempos, hasta la fecha de ese entrenamiento)
+function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta) {
+  let best = null;
+  S.resultados.forEach(r => {
+    if (r.nId!==nId || r.id===excluirId) return;
+    const c = resCombo(r); if (c.estilo!==estilo || c.dist!==Number(dist)) return;
+    const ses = S.sesiones.find(x=>x.id===r.sesId); const f = ses ? ses.fecha : 0;
+    if (hasta && f > hasta) return;
+    if (!best || r.ms < best.ms) best = {ms:r.ms, fecha:f};
+  });
+  return best;
+}
+// {comp, entreno, difComp (s), difEnt (s)}: diferencias negativas = mejora
+function comparaciones(nId, estilo, dist, ms, resId, hasta) {
+  const comp = mejorCompeticion(nId, estilo, dist), ent = mejorEntrenoPrevio(nId, estilo, dist, resId, hasta);
+  return {comp, ent, difComp: comp ? (ms - comp.cs*10)/1000 : null, difEnt: ent ? (ms - ent.ms)/1000 : null};
+}
+const difTxt = d => d==null ? '' : (d <= 0 ? '-' : '+') + Math.abs(d).toFixed(1);   // guion normal: el PDF no tiene el signo −
+function comparaHTML(c) {
+  const dif = d => `<b class="${d<=0?'cmp-mej':'cmp-peor'}">${difTxt(d)}</b>`;
+  const out = [];
+  if (c.comp) out.push(`Competición ${fmtCs(c.comp.cs)} <span class="cmp-f">${origenComp(c.comp)} · ${fmtFechaIso(c.comp.fecha)}</span> ${dif(c.difComp)}`);
+  if (c.ent) out.push(`Entreno ${fmtTime(c.ent.ms)} <span class="cmp-f">${fmtDateShort(c.ent.fecha)}</span> ${dif(c.difEnt)}`);
+  return out.length ? `<div class="sum-cmp">${out.join('<br>')}</div>` : '';
+}
+function comparaTexto(c) {
+  const out = [];
+  if (c.comp) out.push(`mejor competición en 25 m ${fmtCs(c.comp.cs)} (${origenComp(c.comp)}, ${fmtFechaIso(c.comp.fecha)}) ${difTxt(c.difComp)}`);
+  if (c.ent) out.push(`mejor entreno ${fmtTime(c.ent.ms)} (${fmtDateShort(c.ent.fecha)}) ${difTxt(c.difEnt)}`);
+  return out.join(' · ');
+}
 function deshacerLlegada(key) {
   if (!SA) return;
   const i = SA.llegados.findIndex(l=>l.key===key);
@@ -975,6 +1039,8 @@ async function exportar(sesId) {
     x.res.forEach((r,i) => {
       txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}\n`;
       if (r.parciales && r.parciales.length>1) txt += `   Parciales 50 m: ${fmtTramos(r.parciales)}\n`;
+      const ct = comparaTexto(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha));
+      if (ct) txt += `   Comparado con su ${ct}\n`;
     });
   });
   await compartirArchivo(txt, nombreArchivo(ses, 'txt'), 'text/plain');
@@ -1037,12 +1103,17 @@ async function generarPDF(sesId, btn) {
       const best = x.res[0] ? x.res[0].ms : 0;
       doc.autoTable({
         startY: y + 2, margin: {left:M, right:M},
-        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[])]],
-        body: x.res.map((r,i) => [i+1, nombreDe(r.nId), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
-                                  ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[])]),
-        theme: 'striped', styles: {fontSize: 9, cellPadding: 1.8},
+        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), 'Mejor competición (25 m)', 'Mejor entreno']],
+        body: x.res.map((r,i) => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha);
+          return [i+1, nombreDe(r.nId), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
+            ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[]),
+            c.comp ? `${fmtCs(c.comp.cs)} (${difTxt(c.difComp)})\n${origenComp(c.comp)} · ${fmtFechaIso(c.comp.fecha)}` : '—',
+            c.ent ? `${fmtTime(c.ent.ms)} (${difTxt(c.difEnt)})\n${fmtDateShort(c.ent.fecha)}` : '—']; }),
+        theme: 'striped', styles: {fontSize: 8.5, cellPadding: 1.6},
         headStyles: {fillColor: AZUL, textColor: 255},
-        columnStyles: {0:{cellWidth:8}, 3:{fontStyle:'bold'}},
+        columnStyles: {0:{cellWidth:7}, 3:{fontStyle:'bold'}},
+        didParseCell: h => { if (h.section!=='body') return; const t = String(h.cell.raw||'');
+          if (h.column.index >= h.table.columns.length-2 && /\(-/.test(t)) h.cell.styles.textColor = [10,122,67]; },
       });
       doc.setFontSize(10);
       y = doc.lastAutoTable.finalY + 10;
@@ -1531,13 +1602,15 @@ function renderResumenRonda() {
   const best = Math.min(...lleg.map(l=>l.ms));
   const pbBadge = l => {
     const prev = mejorPrevia(l.nId, l.resId);
-    return prev!=null && l.ms < prev ? '<span class="pb">MEJOR MARCA</span>' : '';
+    return prev!=null && l.ms < prev ? '<span class="pb">MEJOR ENTRENO</span>' : '';
   };
+  const cmpDe = l => comparaciones(l.nId, SA.estilo, SA.dist, l.ms, l.resId, Date.now());
+  const cmpBadge = l => { const c = cmpDe(l); return c.difComp!=null && c.difComp < 0 ? '<span class="pb pb-comp">MEJORA SU MARCA</span>' : ''; };
   const fila = (l, pos, gap) => `
     <div class="sum-row" style="--lc:${l.color}">
       ${pos!=null?`<div class="rpos${pos===1?' gold':''}">${pos}</div>`:''}
       ${laneTag(l.lane, l.color)}
-      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}</div>
+      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}${comparaHTML(cmpDe(l))}</div>
       <div style="text-align:right">
         <div class="sum-time">${fmtTime(l.ms)}</div>
         ${gap?`<div class="sum-gap">${gap}</div>`:''}
@@ -1619,7 +1692,7 @@ function renderResultados(sesId, backAction, backLabel) {
       ${x.res.map((r,i)=>`
         <div class="result-row">
           <div class="rpos${i===0?' gold':''}">${i+1}</div>
-          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div></div>
+          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha))}</div>
           <div style="text-align:right">
             <div class="rtime">${fmtTime(r.ms)}</div>
             ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}

@@ -35,6 +35,13 @@
     <div id="resumen" class="muted" style="margin-top:10px"></div>
     <button id="btn-importar" disabled style="margin-top:10px">Importar</button>
   </div>
+  <div class="card" id="paso-borrar" hidden>
+    <b>Dejar los entrenamientos a cero</b>
+    <p class="muted">Borra para siempre. No toca nadadores, equipos ni entrenadores.</p>
+    <p><button id="btn-borrar-sim" style="background:#b45309">Borrar solo la simulación (sim_…)</button></p>
+    <p style="margin-top:10px"><input id="confirmar" placeholder="Escribe BORRAR" autocomplete="off" style="min-height:40px;border-radius:10px;border:1px solid #334155;background:#0b1222;color:#e2e8f0;padding:0 10px">
+      <button id="btn-borrar-todo" style="background:#dc2626" disabled>Borrar TODOS los entrenamientos</button></p>
+  </div>
   <pre id="log" hidden></pre>
 </main>
 <script>
@@ -75,7 +82,27 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
     $('btn-login').hidden = !!u;
     $('estado-login').textContent = u ? `Sesión: ${u.email}` : 'Entra con una cuenta de administrador.';
     $('paso-archivo').hidden = !u;
+    $('paso-borrar').hidden = !u;
   });
+  // Borrado de entrenamientos (sesiones, tiempos, calles, plantillas): solo la simulación o todo
+  const ENTRENOS = ['resultados', 'gnads', 'grupos', 'sesiones', 'plantillas'];
+  async function borrar(filtro, etiqueta) {
+    $('btn-borrar-sim').disabled = $('btn-borrar-todo').disabled = true;
+    try {
+      for (const c of ENTRENOS) {
+        const docs = (await db.collection(c).get()).docs.filter(d => filtro(d.id));
+        for (let i = 0; i < docs.length; i += 400) {
+          const batch = db.batch(); docs.slice(i, i + 400).forEach(d => batch.delete(d.ref)); await batch.commit();
+        }
+        log(`✓ ${c}: ${docs.length} borrados`);
+      }
+      log(`Borrado terminado (${etiqueta}).`);
+    } catch (err) { log('✗ Error: ' + err.message); }
+    $('btn-borrar-sim').disabled = false; $('confirmar').value = '';
+  }
+  $('confirmar').oninput = () => { $('btn-borrar-todo').disabled = $('confirmar').value.trim() !== 'BORRAR'; };
+  $('btn-borrar-sim').onclick = () => borrar(id => id.startsWith('sim_'), 'simulación');
+  $('btn-borrar-todo').onclick = () => { if ($('confirmar').value.trim() === 'BORRAR') borrar(() => true, 'todos los entrenamientos'); };
   function seleccion() {
     if (!datos) return null;
     const sinDemo = $('sin-demo').checked;
