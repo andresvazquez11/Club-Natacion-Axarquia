@@ -1,0 +1,1831 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cronómetro Natación</title>
+<meta name="description" content="Cronómetro de entrenamiento del Club Natación Axarquía">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Crono CNA">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>html,body{margin:0;padding:0}body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<style>
+:root{
+  --bg:#0f172a;--surf:#1e293b;--brd:#334155;
+  --txt:#e2e8f0;--mut:#94a3b8;
+  --grn:#22c55e;--grn-l:#4ade80;--grn-s:#0c2a0c;
+  --blu:#3b82f6;--blu-l:#93c5fd;--blu-s:#0c1a2a;
+  --red:#ef4444;--amb:#f59e0b;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;min-height:100vh;}
+#app{max-width:480px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-left,0px)) max(32px,env(safe-area-inset-bottom,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+.btn{display:block;width:100%;padding:13px 16px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;text-align:center;transition:opacity .12s;-webkit-tap-highlight-color:transparent;}
+.btn:active{opacity:.75;}
+.btn-green{background:var(--grn);color:#fff;}
+.btn-blue{background:var(--blu);color:#fff;}
+.btn-surf{background:var(--surf);color:var(--txt);border:1px solid var(--brd);}
+.btn-red-line{background:transparent;color:var(--red);border:1px solid var(--red);}
+.btn-sm{padding:8px 14px;font-size:13px;border-radius:9px;width:auto;display:inline-block;}
+.btn-icon{background:none;border:none;cursor:pointer;padding:4px 8px;font-size:17px;-webkit-tap-highlight-color:transparent;}
+.btn-inline{width:auto;display:inline-block;}
+.card{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:10px;}
+.h1{font-size:22px;font-weight:700;margin-bottom:16px;}
+.label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin-bottom:8px;display:block;}
+.muted{color:var(--mut);}
+.row{display:flex;align-items:center;gap:10px;}
+.wrap{display:flex;flex-wrap:wrap;gap:8px;}
+.mt8{margin-top:8px;}.mt16{margin-top:16px;}.mt24{margin-top:24px;}
+.mb8{margin-bottom:8px;}.mb16{margin-bottom:16px;}
+.input{background:var(--surf);color:var(--txt);border:1px solid var(--brd);border-radius:10px;padding:11px 14px;font-size:15px;width:100%;outline:none;}
+.input:focus{border-color:var(--blu);}
+.input::placeholder{color:var(--mut);}
+.pill{display:inline-flex;align-items:center;padding:7px 14px;border-radius:20px;font-size:14px;cursor:pointer;background:var(--surf);border:1px solid var(--brd);color:var(--mut);user-select:none;transition:all .12s;-webkit-tap-highlight-color:transparent;}
+.pill.sel{background:var(--blu);border-color:var(--blu);color:#fff;font-weight:600;}
+.pill-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:12px;font-size:13px;cursor:pointer;background:var(--bg);color:var(--mut);border:1px solid var(--brd);}
+.picker-row{display:grid;gap:8px;margin-bottom:16px;}
+.p4{grid-template-columns:repeat(4,1fr);}
+.pick-btn{padding:10px 4px;border:1px solid var(--brd);border-radius:10px;background:var(--surf);color:var(--mut);font-size:13px;cursor:pointer;text-align:center;transition:all .12s;-webkit-tap-highlight-color:transparent;}
+.pick-btn.on{border-color:var(--blu);background:var(--blu-s);color:var(--blu-l);font-weight:600;}
+.tabs{display:flex;background:var(--surf);border-radius:10px;padding:3px;margin-bottom:16px;gap:2px;}
+.tab-btn{flex:1;padding:8px;border:none;border-radius:8px;background:none;color:var(--mut);font-size:14px;font-weight:500;cursor:pointer;transition:all .12s;}
+.tab-btn.on{background:var(--bg);color:var(--txt);font-weight:700;}
+.grupo-card{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:10px;}
+.grupo-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.grupo-name{font-weight:700;color:var(--blu-l);}
+.gclock{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);margin:4px 0 10px;}
+.arr-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--brd);}
+.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--mut);font-size:14px;cursor:pointer;padding:0;margin-bottom:16px;-webkit-tap-highlight-color:transparent;}
+.badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.b-grn{background:var(--grn-s);color:var(--grn-l);}
+.b-blu{background:var(--blu-s);color:var(--blu-l);}
+.b-amb{background:#2a1c0c;color:var(--amb);}
+.center-msg{text-align:center;padding:40px 16px;color:var(--mut);}
+.center-msg h2{color:var(--txt);margin-bottom:8px;}
+.result-row{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surf);border-radius:12px;margin-bottom:8px;}
+.rpos{width:28px;height:28px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+.rpos.gold{background:#2a1c0c;color:var(--amb);}
+.rname{flex:1;font-weight:600;}
+.rtime{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);}
+.hist-row{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.nad-grid{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;}
+.nad-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surf);border:1px solid var(--brd);border-radius:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.nad-row.active{border-color:var(--blu);background:var(--blu-s);}
+.iclock{font-size:48px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);text-align:center;padding:16px 0;}
+.t-chip{display:inline-block;padding:4px 10px;background:var(--bg);border-radius:8px;font-size:13px;font-variant-numeric:tabular-nums;margin:3px;}
+.sep{border:none;border-top:1px solid var(--brd);margin:16px 0;}
+/* ── En curso ── */
+.ec-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.salida-card{background:var(--surf);border:1px solid var(--brd);border-radius:16px;padding:12px;margin-bottom:18px;}
+.salida-next{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.salida-btn{display:block;width:100%;min-height:68px;border:none;border-radius:14px;background:var(--grn);color:#fff;font-size:22px;font-weight:800;letter-spacing:.5px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+.salida-btn:active{filter:brightness(.85);transform:scale(.99);}
+.salida-btn[disabled]{opacity:.5;}
+.lane-tag{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 7px;border-radius:7px;font-size:12px;font-weight:800;color:#0f172a;flex-shrink:0;}
+.next-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;background:var(--bg);border-radius:9px;font-size:13px;font-weight:600;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 8px;}
+.sec-hdr .label{margin:0;}
+.agua-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.agua-row{display:flex;align-items:stretch;gap:0;background:var(--surf);border:1px solid var(--brd);border-left:6px solid var(--lc,var(--blu));border-radius:14px;overflow:hidden;min-height:76px;}
+.agua-info{flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;}
+.agua-meta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);}
+.agua-name{font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.agua-clk{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);line-height:1.1;}
+.llego-btn{flex:0 0 112px;border:none;background:var(--blu);color:#fff;font-size:19px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+.llego-btn:active{filter:brightness(.8);}
+.agua-row.done{background:var(--grn-s);border-color:#166534;}
+.agua-row.done .agua-clk{color:var(--grn-l);}
+.undo-btn{flex:0 0 112px;border:none;background:transparent;color:var(--mut);font-size:14px;font-weight:600;cursor:pointer;border-left:1px solid #166534;touch-action:manipulation;}
+.lleg-list{display:flex;flex-direction:column;gap:6px;}
+.lleg-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surf);border-radius:10px;font-size:14px;}
+.lleg-row .t{font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);}
+.lleg-undo{background:none;border:1px solid var(--brd);color:var(--mut);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;touch-action:manipulation;}
+.seg{display:flex;background:var(--surf);border-radius:12px;padding:4px;gap:4px;margin-bottom:12px;}
+.seg button{flex:1;min-height:44px;border:none;border-radius:9px;background:none;color:var(--mut);font-size:15px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.seg button.on{background:var(--blu);color:#fff;}
+.sum-row{display:flex;align-items:center;gap:10px;padding:12px;background:var(--surf);border-radius:12px;margin-bottom:8px;border-left:5px solid var(--lc,var(--brd));}
+.sum-name{flex:1;min-width:0;font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sum-time{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l);}
+.sum-gap{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;min-width:46px;text-align:right;}
+.pb{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;background:#2a1c0c;color:var(--amb);font-size:10px;font-weight:800;vertical-align:middle;}
+.lane-block{margin-bottom:14px;}
+.fin-btn{background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.fin-btn.armed{background:var(--red);color:#fff;}
+.llego-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;}
+.llego-btn small{font-size:12px;font-weight:600;opacity:.85;margin-top:3px;}
+.llego-btn.parcial{background:#7c3aed;}
+.parc-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;margin-top:2px;}
+.parc-line b{color:var(--txt);font-weight:700;}
+.parc-undo{background:none;border:1px solid var(--brd);color:var(--mut);border-radius:7px;width:30px;height:26px;font-size:13px;cursor:pointer;touch-action:manipulation;}
+.sum-parc{font-size:12px;font-weight:500;color:var(--mut);font-variant-numeric:tabular-nums;margin-top:2px;white-space:normal;}
+/* ── Tablero de calles ── */
+.b-hint{font-size:13px;color:var(--mut);background:var(--surf);border-radius:10px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.b-hint b{color:var(--txt);}
+.b-cancel{margin-left:auto;background:none;border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;}
+.b-lanes{display:flex;flex-direction:column;gap:10px;}
+.b-lane{border-radius:14px;background:color-mix(in srgb,var(--lc) 16%,var(--bg));border:2px solid color-mix(in srgb,var(--lc) 55%,transparent);overflow:hidden;cursor:default;transition:box-shadow .12s;}
+.b-lane.armed{cursor:pointer;}
+.b-lane-hdr{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--lc);color:var(--lt);}
+.b-lane-name{font-weight:800;font-size:15px;}
+.b-lane-info{font-size:12px;font-weight:600;opacity:.85;}
+.b-lane-del{margin-left:auto;background:rgba(0,0,0,.18);border:none;color:inherit;border-radius:8px;width:32px;height:28px;font-size:14px;cursor:pointer;}
+.b-cards{display:flex;flex-wrap:wrap;gap:8px;padding:10px;min-height:58px;align-items:flex-start;}
+.b-card{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 12px;border-radius:12px;background:var(--surf);border:1px solid var(--brd);font-size:15px;font-weight:600;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;transition:transform .1s,box-shadow .1s;}
+.b-card.in-lane{background:var(--bg);border:2px solid var(--lc);}
+.b-num{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:var(--lc);color:var(--lt);font-size:12px;font-weight:800;}
+.b-card.sel{outline:3px solid #fff;outline-offset:1px;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.45);}
+.b-card.dragging{opacity:.3;}
+.b-ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.6);transform-origin:center;opacity:.95;}
+.drop-over{box-shadow:0 0 0 3px #fff inset;}
+.b-card.drop-over{box-shadow:-5px 0 0 0 #fff;}
+.b-empty{font-size:13px;color:var(--mut);padding:10px 4px;}
+.b-add-lane{width:100%;min-height:48px;margin:10px 0 16px;border:2px dashed var(--brd);border-radius:12px;background:none;color:var(--blu-l);font-size:15px;font-weight:600;cursor:pointer;}
+.b-pool{background:var(--surf);border:2px solid var(--brd);border-radius:14px;padding:10px;}
+.b-pool.armed{border-color:var(--red);border-style:dashed;cursor:pointer;}
+.b-pool-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.b-pool-hint{font-size:12px;color:var(--red);font-weight:600;margin-left:auto;}
+.b-pills{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;padding-bottom:2px;}
+.b-pills .pill{flex-shrink:0;font-size:13px;padding:6px 12px;font-family:inherit;}
+.b-pool-cards{padding:10px 0 0;max-height:46vh;overflow-y:auto;}
+.b-pool .b-card{background:var(--bg);}
+/* ── Tiempos: columnas por calle ── */
+.lanes-grid{display:grid;gap:8px;align-items:start;}
+.lane-col{display:flex;flex-direction:column;gap:6px;background:color-mix(in srgb,var(--lc) 12%,var(--bg));border-radius:12px;padding:0 0 6px;min-width:0;}
+.lane-head{background:var(--lc);color:var(--lt);font-weight:900;font-size:18px;text-align:center;padding:6px 0;border-radius:12px 12px 0 0;letter-spacing:.5px;}
+.lane-empty{text-align:center;color:var(--mut);padding:10px 0;}
+.sw-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;margin:0 4px;padding:8px 6px 0;min-height:112px;border-radius:12px;border:3px solid var(--lc);background:var(--surf);color:var(--txt);text-align:left;font-family:inherit;cursor:pointer;overflow:hidden;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+.sw-card:active{filter:brightness(1.25);transform:scale(.98);}
+.sw-meta{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--mut);}
+.sw-nm{font-size:15px;font-weight:800;line-height:1.15;word-break:normal;overflow-wrap:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.sw-clk{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l);line-height:1.1;}
+.sw-last{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;}
+.sw-act{margin:auto -6px 0;padding:6px 2px;background:var(--blu);color:#fff;text-align:center;font-size:14px;font-weight:900;letter-spacing:.3px;line-height:1.1;display:flex;flex-direction:column;align-items:center;}
+.sw-act small{font-size:10px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.5px;}
+.sw-card.parcial .sw-act{background:#7c3aed;}
+.sw-card.done{border-color:#16a34a;background:var(--grn-s);cursor:default;}
+.sw-card.done .sw-act{background:#16a34a;}
+.sw-undo{margin:0 -6px;padding:8px 4px;background:rgba(0,0,0,.25);border:none;color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;}
+.sw-dots{display:inline-flex;gap:3px;margin-left:auto;}
+.sw-dots i{width:8px;height:8px;border-radius:50%;background:var(--brd);display:inline-block;}
+.sw-dots i.on{background:#a78bfa;}
+.sw-dots i.skip{background:transparent;border:1.5px solid #a78bfa;width:5px;height:5px;}
+.sw-extra{display:flex;gap:4px;margin:0 4px;}
+.sw-mini{flex:1;min-width:0;min-height:36px;padding:0 2px;border:1px solid var(--brd);border-radius:9px;background:var(--bg);color:var(--mut);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.sw-mini.fin{color:var(--txt);}
+.lleg-row{border-left:5px solid var(--lc,var(--brd));}
+.toggle-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;margin-bottom:16px;cursor:pointer;touch-action:manipulation;}
+.toggle-row.dis{opacity:.5;cursor:default;}
+.sw{width:46px;height:28px;border-radius:14px;background:var(--brd);position:relative;flex-shrink:0;transition:background .15s;}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s;}
+.sw.on{background:var(--grn);}
+.sw.on::after{left:21px;}
+.next-chip{border:1px solid transparent;cursor:pointer;touch-action:manipulation;min-height:40px;font-family:inherit;color:var(--txt);}
+.next-chip.off{opacity:.55;border-style:dashed;border-color:var(--red);}
+.next-chip.off .nm{text-decoration:line-through;}
+.next-chip .ns{font-size:10px;font-weight:800;color:var(--red);text-transform:uppercase;}
+.edit-link{background:none;border:1px solid var(--brd);color:var(--blu-l);border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.ed-lane{background:var(--bg);border-left:5px solid var(--lc);border-radius:12px;padding:10px;margin-bottom:10px;}
+.ed-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:700;}
+.ed-row{display:flex;align-items:center;gap:6px;padding:4px 0;}
+.ed-row .pos{width:20px;text-align:center;color:var(--mut);font-size:13px;font-weight:700;}
+.ed-row .nm{flex:1;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ed-btn{position:relative;width:40px;height:40px;flex-shrink:0;border:1px solid var(--brd);border-radius:10px;background:var(--surf);color:var(--txt);font-size:17px;cursor:pointer;touch-action:manipulation;display:inline-flex;align-items:center;justify-content:center;}
+.ed-btn[disabled]{opacity:.3;}
+.ed-btn.del{color:var(--red);}
+.ed-btn select{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:16px;cursor:pointer;}
+.ed-add{width:100%;min-height:44px;margin-top:6px;border:1px dashed var(--brd);border-radius:10px;background:none;color:var(--blu-l);font-size:14px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.ed-res{display:flex;align-items:center;padding:10px;background:var(--surf);border-radius:9px;cursor:pointer;min-height:44px;}
+</style>
+<div id="app"><div class="center-msg"><h2>Cargando...</h2></div></div>
+<script>
+'use strict';
+// ── Constants ────────────────────────────────────────────────
+const ESTILOS = ['libre','braza','mariposa','espalda'];
+const DISTS   = [50,100,200,400];
+const EMO     = {libre:'🏊',braza:'🐸',mariposa:'🦋',espalda:'🔄'};
+const COLS    = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','entrenadores'];
+
+// ── State ────────────────────────────────────────────────────
+let _db = null, _dbReady = false, _initN = 0, _initTimer = null;
+const S = {equipos:[],nadadores:[],sesiones:[],grupos:[],gnads:[],resultados:[],plantillas:[],entrenadores:[]};
+let route = {screen:'home'};
+let SA = null;   // active session timing state
+let PS = null;   // preparar screen state
+let _clk = null; // clock interval
+
+// ── Coach identity (localStorage) ───────────────────────────
+let coachName = null;
+function loadCoach() {
+  try { coachName = localStorage.getItem('coach_name') || null; } catch { coachName = null; }
+}
+function saveCoach(name) {
+  coachName = name;
+  try { localStorage.setItem('coach_name', name); } catch {}
+}
+// Per-coach filtered views
+function myEqs()    { return S.equipos.filter(e=>e.coach===coachName||e.shared===true); }
+function myEqIds()  { return new Set(myEqs().map(e=>e.id)); }
+function myNads()   { const ids=myEqIds(); return S.nadadores.filter(n=>ids.has(n.eqId)); }
+function myPersonalEqIds() { return new Set(S.equipos.filter(e=>e.coach===coachName).map(e=>e.id)); }
+function mySes()    {
+  const personalIds = myPersonalEqIds();
+  return S.sesiones.filter(s=>s.coach===coachName||(!s.coach&&personalIds.has(s.eqId)));
+}
+
+// ── Conexión: Firebase (login con Google + Firestore) ───────
+// Solo pueden entrar las cuentas de Google dadas de alta en la colección
+// "entrenadores" (lo controlan las reglas de Firestore, ver firestore.rules).
+let _auth = null, _user = null, _unsubs = [];
+function pantallaMensaje(titulo, texto, extra) {
+  document.getElementById('app').innerHTML = `
+    <div class="center-msg" style="padding-top:56px">
+      <img src="icons/icon-192.png" alt="" width="88" height="88" style="margin-bottom:16px">
+      <h2>${titulo}</h2>
+      <p style="margin-bottom:18px">${texto}</p>
+      ${extra||''}
+    </div>`;
+}
+function renderLogin() {
+  pantallaMensaje('Cronómetro Natación', 'Entra con la cuenta de Google que el club tiene dada de alta.',
+    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>`);
+}
+async function loginGoogle() {
+  const prov = new firebase.auth.GoogleAuthProvider();
+  prov.setCustomParameters({prompt:'select_account'});
+  try {
+    await _auth.signInWithPopup(prov);
+  } catch (e) {
+    // En algunas apps instaladas en el móvil no se permiten ventanas emergentes
+    if (['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'].includes(e.code)) {
+      await _auth.signInWithRedirect(prov);
+    } else if (e.code !== 'auth/popup-closed-by-user') {
+      pantallaMensaje('No se pudo entrar', esc(e.message), `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="login-google">Reintentar</button>`);
+    }
+  }
+}
+async function logout() {
+  _unsubs.forEach(u => { try { u(); } catch {} });
+  _unsubs = [];
+  Object.keys(S).forEach(k => { S[k] = []; });
+  _dbReady = false; _initN = 0; _db = null; SA = null; PS = null;
+  route = {screen:'home'};
+  await _auth.signOut();
+}
+function sinAcceso() {
+  _unsubs.forEach(u => { try { u(); } catch {} });
+  _unsubs = [];
+  pantallaMensaje('Cuenta sin acceso',
+    `La cuenta <b>${esc(_user && _user.email)}</b> todavía no está dada de alta como entrenador. Pide al administrador del club que te agregue.`,
+    `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
+}
+// Campos que se pintan sin plantilla de texto libre: se normalizan al leer
+function limpiarDoc(col, d) {
+  if (col==='sesiones' || col==='plantillas') {
+    d.estilo = ESTILOS.includes(d.estilo) ? d.estilo : null;
+    const n = Number(d.dist); d.dist = Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
+  return d;
+}
+function miEmail() { return _user && _user.email ? _user.email.toLowerCase() : null; }
+function soyAdmin() { const e = S.entrenadores.find(x=>x.id===miEmail()); return !!(e && e.admin); }
+
+async function dbInit() {
+  if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
+    pantallaMensaje('Falta configurar Firebase', 'Copia la configuración de tu proyecto de Firebase en <code>firebase-config.js</code>.');
+    return;
+  }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  _auth = firebase.auth();
+  const fs = firebase.firestore();
+  // Datos guardados en el móvil: la app sigue funcionando con mala cobertura en la piscina
+  try { await fs.enablePersistence({synchronizeTabs:true}); } catch (e) { console.warn('persistencia', e.code); }
+  try { await _auth.getRedirectResult(); } catch (e) { console.warn('login', e.code); }
+  _auth.onAuthStateChanged(u => {
+    _user = u;
+    if (!u) { renderLogin(); return; }
+    _db = fs;
+    conectarColecciones();
+  });
+}
+function conectarColecciones() {
+  document.getElementById('app').innerHTML = '<div class="center-msg"><h2>Cargando...</h2></div>';
+  _dbReady = false; _initN = 0;
+  _initTimer = setTimeout(() => { if (!_dbReady) { _dbReady = true; render(); } }, 6000);
+  for (const col of COLS) {
+    _unsubs.push(_db.collection(col).onSnapshot(snap => {
+      S[col] = snap.docs.filter(d => d.exists).map(d => limpiarDoc(col, {id:d.id,...d.data()}));
+      if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
+      else if (canRerender()) render();
+    }, err => {
+      console.warn(col, err.code);
+      if (err.code === 'permission-denied') { clearTimeout(_initTimer); sinAcceso(); return; }
+      if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
+    }));
+  }
+}
+
+// ── DB Mutations ─────────────────────────────────────────────
+const DB = {
+  async crearEquipo(nombre) {
+    const ts = Date.now(), ref = _db.collection('equipos').doc();
+    S.equipos.unshift({id:ref.id,nombre,ts,coach:coachName}); render();
+    await ref.set({nombre,ts,coach:coachName}).catch(console.error);
+    return ref.id;
+  },
+  async borrarEquipo(id) {
+    const nIds = S.nadadores.filter(n=>n.eqId===id).map(n=>n.id);
+    S.equipos = S.equipos.filter(e=>e.id!==id);
+    S.nadadores = S.nadadores.filter(n=>n.eqId!==id);
+    render();
+    await _db.collection('equipos').doc(id).delete().catch(console.error);
+    for (const nid of nIds) await _db.collection('nadadores').doc(nid).delete().catch(console.error);
+  },
+  async crearNadador(eqId, n) {
+    const ref = _db.collection('nadadores').doc();
+    S.nadadores.push({id:ref.id,eqId,n}); render();
+    await ref.set({eqId,n}).catch(console.error);
+    return ref.id;
+  },
+  async borrarNadador(id) {
+    S.nadadores = S.nadadores.filter(n=>n.id!==id); render();
+    await _db.collection('nadadores').doc(id).delete().catch(console.error);
+  },
+  async crearSesion(eqId, estilo, dist, notas, parciales) {
+    const fecha = Date.now(), ref = _db.collection('sesiones').doc();
+    const coach = coachName;
+    const data = {eqId,fecha,estilo,dist,notas:notas||null,fin:null,coach,parciales:!!parciales};
+    S.sesiones.push({id:ref.id,...data});
+    await ref.set(data).catch(console.error);
+    return ref.id;
+  },
+  async finalizarSesion(id) {
+    const fin = Date.now();
+    const s = S.sesiones.find(s=>s.id===id);
+    if (s) s.fin = fin;
+    await _db.collection('sesiones').doc(id).update({fin}).catch(console.error);
+  },
+  async crearGrupo(sesId, nombre, ord) {
+    const ref = _db.collection('grupos').doc();
+    S.grupos.push({id:ref.id,sesId,nombre,ord});
+    await ref.set({sesId,nombre,ord}).catch(console.error);
+    return ref.id;
+  },
+  async asignarNad(gId, nId, pos) {
+    const ref = _db.collection('gnads').doc();
+    S.gnads.push({id:ref.id,gId,nId,pos:pos||0});
+    await ref.set({gId,nId,pos:pos||0}).catch(console.error);
+    return ref.id;
+  },
+  // Devuelve el id al instante; la escritura sigue en segundo plano
+  guardarRes(sesId, nId, gId, ms, modo, extra) {
+    const ref = _db.collection('resultados').doc();
+    const data = {sesId,nId,gId:gId||null,ms,modo,...(extra||{})};
+    S.resultados.push({id:ref.id,...data});
+    ref.set(data).catch(console.error);
+    return ref.id;
+  },
+  borrarRes(id) {
+    S.resultados = S.resultados.filter(r=>r.id!==id);
+    _db.collection('resultados').doc(id).delete().catch(console.error);
+  },
+  // Última distribución de calles del entrenador (una por entrenador)
+  guardarPlantilla(calles, estilo, dist, parciales) {
+    const data = {coach:coachName, ts:Date.now(), estilo:estilo||null, dist:dist||null, parciales:!!parciales, calles};
+    const prev = miPlantilla();
+    if (prev) {
+      Object.assign(prev, data);
+      _db.collection('plantillas').doc(prev.id).update(data).catch(console.error);
+    } else {
+      const ref = _db.collection('plantillas').doc();
+      S.plantillas.push({id:ref.id,...data});
+      ref.set(data).catch(console.error);
+    }
+  }
+};
+function miPlantilla() {
+  return S.plantillas.filter(p=>p.coach===coachName).sort((a,b)=>b.ts-a.ts)[0] || null;
+}
+function plantillaDesdeSA() {
+  return SA.grupos.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.nId)}));
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function fmtTime(ms) {
+  if (ms == null || ms < 0) return '--:--.0';
+  const d = Math.floor(ms/100)%10;
+  const s = Math.floor(ms/1000)%60;
+  const m = Math.floor(ms/60000);
+  return m > 0 ? `${m}:${String(s).padStart(2,'0')}.${d}` : `${s}.${d}`;
+}
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function canRerender() { return !['en-curso','preparar'].includes(route.screen); }
+function eqNombre(eqId) { const e=S.equipos.find(e=>e.id===eqId); return e?e.nombre:'?'; }
+function sesLabel(ses) {
+  if (!ses) return '';
+  return ses.estilo && ses.dist
+    ? `${EMO[ses.estilo]||'🏊'} ${esc(ses.estilo)} ${esc(ses.dist)}m`
+    : '🏊 Sesión libre';
+}
+function saveNotas() {
+  const el = document.getElementById('notas-input');
+  if (el && PS) PS.notas = el.value;
+}
+function fmtDateShort(ts) {
+  return new Date(ts).toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+}
+// Returns [{ms, fecha, estilo, dist}] sorted by fecha — best time per session
+function getSwimmerSessions(nId, filter) {
+  const myIds = new Set(mySes().map(s=>s.id));
+  const res = S.resultados.filter(r => {
+    if (r.nId !== nId) return false;
+    if (!myIds.has(r.sesId)) return false;
+    if (!filter) return true;
+    const s = S.sesiones.find(s=>s.id===r.sesId);
+    return s && s.estilo===filter.estilo && Number(s.dist)===Number(filter.dist);
+  });
+  const by = {};
+  res.forEach(r => {
+    if (!by[r.sesId] || r.ms < by[r.sesId].ms) {
+      const s = S.sesiones.find(s=>s.id===r.sesId);
+      if (s) by[r.sesId] = {ms:r.ms, fecha:s.fecha, estilo:s.estilo, dist:s.dist};
+    }
+  });
+  return Object.values(by).sort((a,b)=>a.fecha-b.fecha);
+}
+function calcTrend(sessions) {
+  if (sessions.length < 4) return null;
+  const recent = sessions.slice(-3).map(s=>s.ms);
+  const older  = sessions.slice(-6,-3).map(s=>s.ms);
+  if (!older.length) return null;
+  const avgR = recent.reduce((a,b)=>a+b,0)/recent.length;
+  const avgO = older.reduce((a,b)=>a+b,0)/older.length;
+  const diff = avgO - avgR; // positive = improving (lower ms = better)
+  const pct  = Math.abs(diff/avgO*100);
+  if (pct < 1) return {dir:'→',color:'#94a3b8',label:'Estable'};
+  return diff > 0
+    ? {dir:'↑',color:'#22c55e',label:`+${pct.toFixed(1)}%`}
+    : {dir:'↓',color:'#ef4444',label:`${pct.toFixed(1)}%`};
+}
+function svgChart(points) {
+  if (points.length < 2) return '<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px">Necesitás 2 sesiones para ver el gráfico</div>';
+  const W=300,H=140,pl=46,pr=10,pt=10,pb=28,cw=W-pl-pr,ch=H-pt-pb;
+  const ms_v = points.map(p=>p.ms);
+  const mn=Math.min(...ms_v), mx=Math.max(...ms_v);
+  const pad=(mx-mn)*0.2||800;
+  const yMin=mn-pad, yMax=mx+pad, yRng=yMax-yMin;
+  const px=i=>pl+(points.length<2?cw/2:i/(points.length-1)*cw);
+  const py=ms=>pt+ch-((ms-yMin)/yRng)*ch;
+  const bestIdx=ms_v.indexOf(mn);
+  const line=points.map((p,i)=>`${px(i).toFixed(1)},${py(p.ms).toFixed(1)}`).join(' ');
+  const ticks=[0.15,0.5,0.85].map(f=>{
+    const ms=yMin+f*yRng, y=py(ms).toFixed(1);
+    return `<line x1="${pl}" y1="${y}" x2="${pl+cw}" y2="${y}" stroke="#334155" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="${pl-4}" y="${(py(ms)+4).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${fmtTime(ms)}</text>`;
+  }).join('');
+  const dots=points.map((p,i)=>`<circle cx="${px(i).toFixed(1)}" cy="${py(p.ms).toFixed(1)}" r="${i===bestIdx?5:3}" fill="${i===bestIdx?'#f59e0b':'#3b82f6'}" stroke="var(--surf)" stroke-width="1.5"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">
+<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ch}" stroke="#334155" stroke-width="1"/>
+<line x1="${pl}" y1="${pt+ch}" x2="${pl+cw}" y2="${pt+ch}" stroke="#334155" stroke-width="1"/>
+${ticks}
+<text x="${px(0).toFixed(1)}" y="${H-6}" text-anchor="start" font-size="9" fill="#94a3b8">${fmtDateShort(points[0].fecha)}</text>
+<text x="${px(points.length-1).toFixed(1)}" y="${H-6}" text-anchor="end" font-size="9" fill="#94a3b8">${fmtDateShort(points[points.length-1].fecha)}</text>
+<polyline points="${line}" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+${dots}
+</svg>`;
+}
+
+// ── Navigation ───────────────────────────────────────────────
+function nav(r) {
+  if (_clk) { clearInterval(_clk); _clk = null; }
+  route = r;
+  render();
+}
+function navPreparar(eqId) {
+  // Start with one empty lane, coaches fill it from club search
+  PS = {eqId, estilo:null, dist:null, notas:'',
+        sinGrupo:[], grupos:[{key:'calle1', nombre:'Calle 1', nads:[]}],
+        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false,
+        oferta: plantillaUsable()};
+  boardReset();
+  route = {screen:'preparar', eqId};
+  render();
+}
+// Plantilla anterior con los nadadores que aún existen
+function plantillaUsable() {
+  const p = miPlantilla();
+  if (!p || !Array.isArray(p.calles)) return null;
+  const calles = p.calles.map(c => ({
+    nombre: c.nombre,
+    nads: (c.nIds||[]).map(id=>S.nadadores.find(n=>n.id===id)).filter(Boolean).map(n=>({id:n.id,n:n.n}))
+  })).filter(c=>c.nads.length);
+  return calles.length ? {calles, estilo:p.estilo, dist:p.dist, parciales:!!p.parciales, ts:p.ts} : null;
+}
+function usarPlantilla() {
+  if (!PS || !PS.oferta) return;
+  const o = PS.oferta;
+  PS.grupos = o.calles.map((c,i)=>({key:'calle'+i+'-'+Date.now(), nombre:c.nombre, nads:c.nads.map(n=>({...n}))}));
+  if (o.estilo) PS.estilo = o.estilo;
+  if (o.dist) PS.dist = Number(o.dist);
+  PS.parciales = !!o.parciales;
+  PS.oferta = null;
+  render();
+}
+
+// ── Clock ────────────────────────────────────────────────────
+function startClock() {
+  if (_clk) clearInterval(_clk);
+  _clk = setInterval(() => {
+    if (!SA) return;
+    const now = Date.now();
+    document.querySelectorAll('.live-clk[data-t0]').forEach(el => {
+      el.textContent = fmtTime(now - Number(el.dataset.t0));
+    });
+    // Pasa a "Llegados" las filas que ya llevan un rato marcadas
+    if (SA.recientes.some(r => now - r.tLleg > RECIENTE_MS)) {
+      SA.recientes = SA.recientes.filter(r => now - r.tLleg <= RECIENTE_MS);
+      SA.tLayout = now;
+      render();
+    }
+  }, 100);
+}
+
+// ── Pantalla encendida mientras se cronometra ───────────────
+let _wake = null;
+async function pedirWakeLock() {
+  try { if ('wakeLock' in navigator && !_wake) { _wake = await navigator.wakeLock.request('screen'); _wake.addEventListener('release', () => { _wake = null; }); } } catch {}
+}
+function soltarWakeLock() { try { if (_wake) _wake.release(); } catch {} _wake = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && route.screen === 'en-curso') pedirWakeLock();
+});
+
+// ── Preparar actions ─────────────────────────────────────────
+function toggleSel(id) {
+  if (!PS) return;
+  PS.sel.has(id) ? PS.sel.delete(id) : PS.sel.add(id);
+  render();
+}
+function crearGrupoPS() {
+  if (!PS || PS.sel.size===0) return;
+  const ids = [...PS.sel];
+  const nads = PS.sinGrupo.filter(n=>ids.includes(n.id));
+  PS.grupos.push({key:Date.now()+'', nombre:`Grupo ${PS.grupos.length+1}`, nads});
+  PS.sinGrupo = PS.sinGrupo.filter(n=>!ids.includes(n.id));
+  PS.sel.clear();
+  render();
+}
+function quitarDeGrupo(key, nId) {
+  if (!PS) return;
+  const g = PS.grupos.find(g=>g.key===key);
+  if (!g) return;
+  const nad = g.nads.find(n=>n.id===nId);
+  if (!nad) return;
+  g.nads = g.nads.filter(n=>n.id!==nId);
+  if (g.nads.length===0) PS.grupos = PS.grupos.filter(g=>g.key!==key);
+  PS.sinGrupo = [...PS.sinGrupo, nad].sort((a,b)=>a.n.localeCompare(b.n));
+  render();
+}
+function moverGrupo(idx, dir) {
+  if (!PS) return;
+  const j = idx+dir;
+  if (j<0||j>=PS.grupos.length) return;
+  [PS.grupos[idx],PS.grupos[j]] = [PS.grupos[j],PS.grupos[idx]];
+  render();
+}
+function moverNadGrupo(key, pi, dir) {
+  if (!PS) return;
+  const g = PS.grupos.find(g=>g.key===key);
+  if (!g) return;
+  const j = pi + dir;
+  if (j<0||j>=g.nads.length) return;
+  [g.nads[pi],g.nads[j]] = [g.nads[j],g.nads[pi]];
+  render();
+}
+async function iniciarSesion() {
+  if (!PS) return;
+  const {estilo, dist, notas, grupos} = PS;
+  // Solo iniciar si al menos una calle tiene nadadores
+  const callesConNads = grupos.filter(g=>g.nads.length>0);
+  if (callesConNads.length===0) return;
+  // Desde la página principal no hay equipo: se usa el más frecuente entre los nadadores
+  let eqId = PS.eqId;
+  if (!eqId) {
+    const cnt = {};
+    callesConNads.flatMap(g=>g.nads).forEach(n => {
+      const nad = S.nadadores.find(x=>x.id===n.id);
+      if (nad) cnt[nad.eqId] = (cnt[nad.eqId]||0)+1;
+    });
+    eqId = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0] || null;
+  }
+  const parciales = PS.parciales && Number(dist) > 50;
+  DB.guardarPlantilla(callesConNads.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})), estilo, dist, parciales);
+  const sesId = await DB.crearSesion(eqId, estilo, dist, notas, parciales);
+  for (let i=0; i<callesConNads.length; i++) {
+    const g = callesConNads[i];
+    const gId = await DB.crearGrupo(sesId, g.nombre, i);
+    for (let p=0; p<g.nads.length; p++) await DB.asignarNad(gId, g.nads[p].id, p);
+  }
+  buildSA(sesId);
+  route = {screen:'en-curso', sesId};
+  startClock();
+  pedirWakeLock();
+  render();
+}
+// Modelo de cronometraje:
+// - SALIDA (común) lanza al primero que espera en cada calle; cada nadador
+//   arranca con su propio t0, aunque otros sigan en el agua.
+// - LLEGÓ es individual: cada nadador en el agua tiene su botón.
+// Colores de calle bien distintos entre sí (fondo, texto sobre el color)
+const LANE_COLORS = ['#ef4444','#3b82f6','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899'];
+const LANE_TXT    = ['#fff',   '#fff',   '#111',   '#06210f','#fff',   '#111',   '#04232a','#fff'];
+function laneTxt(color) { const i = LANE_COLORS.indexOf(color); return i<0 ? '#111' : LANE_TXT[i]; }
+function laneTag(label, color) { return `<span class="lane-tag" style="background:${color};color:${laneTxt(color)}">${esc(label)}</span>`; }
+const RECIENTE_MS = 1600; // la fila llegada se queda en su sitio este tiempo antes de bajar
+function buildSA(sesId) {
+  const gs = S.grupos.filter(g=>g.sesId===sesId).sort((a,b)=>a.ord-b.ord);
+  const ses = S.sesiones.find(s=>s.id===sesId);
+  const dist = ses ? Number(ses.dist) : 0;
+  SA = {
+    sesId,
+    dist,
+    tramos: ses && ses.parciales && dist > 50 ? Math.round(dist/50) : 1, // toques por nadador
+    ronda: 1,
+    nSalida: 0,
+    tUltSalida: 0,
+    tLayout: 0,
+    vista: 'rapidos',
+    finArmed: false,
+    seq: 0,
+    noSale: new Set(), // calles cuyo nadador no sale en la próxima SALIDA
+    editando: false,
+    buscar: null,      // {gId, q} buscador de la calle en edición
+    agua: [],       // nadando ahora
+    llegados: [],   // ya llegados en esta ronda
+    recientes: [],  // llegados que aún se muestran en su sitio (evita saltos bajo el dedo)
+    grupos: gs.map((g, idx) => {
+      const gnds = S.gnads.filter(gn=>gn.gId===g.id).sort((a,b)=>(a.pos||0)-(b.pos||0));
+      const nads = gnds.map(gn => {
+        const n = S.nadadores.find(n=>n.id===gn.nId);
+        return {nId:gn.nId, n:n?n.n:'?'};
+      });
+      return {gId:g.id, nombre:g.nombre, idx, color:LANE_COLORS[idx%LANE_COLORS.length], nads, next:0};
+    })
+  };
+}
+function laneShort(g) {
+  const m = /(\d+)/.exec(g.nombre||'');
+  return m ? 'C'+m[1] : String(g.nombre||'?').slice(0,3);
+}
+function quedanPorSalir() { return SA.grupos.some(g => g.next < g.nads.length); }
+function rondaTerminada() { return SA.agua.length===0 && !quedanPorSalir() && SA.llegados.length>0; }
+function ordenFila(a, b) { return a.salida-b.salida || a.laneIdx-b.laneIdx; }
+
+// ── En-curso actions ─────────────────────────────────────────
+function salidaTanda(t) {
+  if (!SA || !quedanPorSalir()) return;
+  if (t - SA.tUltSalida < 800) return; // evita doble toque accidental
+  const salen = SA.grupos.filter(g => g.next < g.nads.length && !SA.noSale.has(g.gId));
+  if (!salen.length) return;
+  SA.tUltSalida = t;
+  SA.nSalida++;
+  SA.finArmed = false;
+  SA.noSale.clear(); // el que no salió sigue primero en su calle para la siguiente
+  salen.forEach(g => {
+    const nad = g.nads[g.next++];
+    SA.agua.push({
+      key: `k${++SA.seq}`,
+      gId: g.gId, laneIdx: g.idx, lane: laneShort(g), color: g.color,
+      nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0
+    });
+  });
+  SA.agua.sort(ordenFila);
+  render();
+}
+function llegoNad(key, t) {
+  if (!SA) return;
+  const i = SA.agua.findIndex(a=>a.key===key);
+  if (i<0) return;
+  const a = SA.agua.splice(i,1)[0];
+  const ms = t - a.t0;
+  const extra = {ronda:SA.ronda, salida:a.salida};
+  if (SA.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, SA.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
+  const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
+  const rec = {...a, ms, resId, tLleg: Date.now()};
+  SA.llegados.push(rec);
+  SA.recientes.push(rec);
+  try { navigator.vibrate && navigator.vibrate(35); } catch {}
+  render();
+}
+// Toque en el botón del nadador: parcial cada 50 m o llegada en el último tramo
+function marcaNad(key, t) {
+  if (!SA) return;
+  const a = SA.agua.find(x=>x.key===key);
+  if (!a) return;
+  // Un tramo de 50 m dura bastante más de 4 s: un segundo toque tan rápido es accidental
+  if (a.tUlt && t - a.tUlt < 4000) return;
+  a.tUlt = t;
+  if (a.parc.length < SA.tramos-1) {
+    a.parc.push(t - a.t0);
+    try { navigator.vibrate && navigator.vibrate(20); } catch {}
+    render();
+  } else {
+    llegoNad(key, t);
+  }
+}
+// "🏁 Llegó" en modo parciales: termina aunque falten parciales por marcar
+function llegoDirecto(key, t) {
+  const a = SA && SA.agua.find(x=>x.key===key);
+  if (!a) return;
+  if (a.tUlt && t - a.tUlt < 1500) return;
+  llegoNad(key, t);
+}
+function deshacerParcial(key) {
+  const a = SA && SA.agua.find(x=>x.key===key);
+  if (!a || !a.parc.length) return;
+  a.parc.pop();
+  a.tUlt = 0;
+  render();
+}
+// Tiempos de cada tramo de 50 m a partir de los acumulados
+function tramosDe(parc) {
+  return (parc||[]).map((v,i,arr)=> v==null ? null : i===0 ? v : (arr[i-1]==null ? null : v-arr[i-1]));
+}
+function fmtTramos(parc) { return tramosDe(parc).map(v=>v==null?'—':fmtTime(v)).join(' · '); }
+function deshacerLlegada(key) {
+  if (!SA) return;
+  const i = SA.llegados.findIndex(l=>l.key===key);
+  if (i<0) return;
+  if (Date.now() - SA.llegados[i].tLleg < 1000) return; // doble toque sobre LLEGÓ
+  const l = SA.llegados.splice(i,1)[0];
+  SA.recientes = SA.recientes.filter(r=>r.key!==key);
+  DB.borrarRes(l.resId);
+  const {ms, resId, tLleg, ...a} = l;
+  a.tUlt = 0;
+  while (a.parc.length && a.parc[a.parc.length-1]==null) a.parc.pop();
+  SA.agua.push(a);
+  SA.agua.sort(ordenFila);
+  SA.tLayout = Date.now();
+  render();
+}
+function repetirSerie() {
+  if (!SA) return;
+  SA.ronda++;
+  SA.nSalida = 0;
+  SA.agua = []; SA.llegados = []; SA.recientes = [];
+  SA.vista = 'rapidos';
+  SA.noSale.clear();
+  SA.grupos.forEach(g => { g.next = 0; });
+  render();
+  window.scrollTo(0,0);
+}
+async function finalizarSesion() {
+  if (!SA) return;
+  // Si aún hay nadadores en el agua o por salir, pedir un segundo toque
+  if ((SA.agua.length>0 || quedanPorSalir()) && !SA.finArmed) {
+    SA.finArmed = true; render();
+    setTimeout(() => { if (SA && SA.finArmed) { SA.finArmed = false; render(); } }, 3000);
+    return;
+  }
+  const ses = S.sesiones.find(s=>s.id===SA.sesId);
+  DB.guardarPlantilla(plantillaDesdeSA().filter(c=>c.nIds.length), ses&&ses.estilo, ses&&ses.dist, ses&&ses.parciales);
+  await DB.finalizarSesion(SA.sesId);
+  const sesId = SA.sesId;
+  SA = null;
+  soltarWakeLock();
+  if (_clk) { clearInterval(_clk); _clk = null; }
+  nav({screen:'resultados', sesId});
+}
+// ── Edición de calles en curso (solo afecta a los que esperan) ──
+function grupoSA(gId) { return SA && SA.grupos.find(g=>g.gId===gId); }
+function toggleNoSale(gId) {
+  if (!SA) return;
+  SA.noSale.has(gId) ? SA.noSale.delete(gId) : SA.noSale.add(gId);
+  render();
+}
+function editMover(gId, i, dir) {
+  const g = grupoSA(gId); if (!g) return;
+  const a = g.next+i, b = a+dir;
+  if (b < g.next || b >= g.nads.length) return;
+  [g.nads[a], g.nads[b]] = [g.nads[b], g.nads[a]];
+  render();
+}
+function editQuitar(gId, i) {
+  const g = grupoSA(gId); if (!g) return;
+  g.nads.splice(g.next+i, 1);
+  if (g.next >= g.nads.length) SA.noSale.delete(gId);
+  render();
+}
+function editCambiarCalle(gId, i, toGId) {
+  const g = grupoSA(gId), dest = grupoSA(toGId);
+  if (!g || !dest || g===dest) return;
+  const [nad] = g.nads.splice(g.next+i, 1);
+  dest.nads.push(nad);
+  DB.asignarNad(dest.gId, nad.nId, dest.nads.length-1);
+  if (g.next >= g.nads.length) SA.noSale.delete(gId);
+  render();
+}
+function editAgregar(gId, nId) {
+  const g = grupoSA(gId); const nad = S.nadadores.find(n=>n.id===nId);
+  if (!g || !nad) return;
+  g.nads.push({nId, n:nad.n});
+  DB.asignarNad(g.gId, nId, g.nads.length-1);
+  SA.buscar = {gId, q:''};
+  render();
+  const inp = document.getElementById('sa-search'); if (inp) inp.focus();
+}
+async function editNuevaCalle() {
+  if (!SA) return;
+  const idx = SA.grupos.length;
+  const nums = SA.grupos.map(g=>parseInt((/(\d+)/.exec(g.nombre)||[])[1])||0);
+  const nombre = `Calle ${Math.max(0,...nums)+1}`;
+  const gId = await DB.crearGrupo(SA.sesId, nombre, idx);
+  SA.grupos.push({gId, nombre, idx, color:LANE_COLORS[idx%LANE_COLORS.length], nads:[], next:0});
+  SA.buscar = {gId, q:''};
+  render();
+}
+// Mejor marca previa del nadador en el mismo estilo/distancia (otras sesiones o rondas)
+function mejorPrevia(nId, excluirId) {
+  const ses = S.sesiones.find(s=>s.id===SA.sesId);
+  if (!ses || !ses.estilo || !ses.dist) return null;
+  const mismas = new Set(S.sesiones.filter(s=>s.estilo===ses.estilo&&Number(s.dist)===Number(ses.dist)).map(s=>s.id));
+  const prev = S.resultados.filter(r=>r.nId===nId && r.id!==excluirId && mismas.has(r.sesId) && !(r.sesId===SA.sesId && r.ronda===SA.ronda));
+  return prev.length ? Math.min(...prev.map(r=>r.ms)) : null;
+}
+
+// ── Export ───────────────────────────────────────────────────
+async function exportar(sesId) {
+  const ses = S.sesiones.find(s=>s.id===sesId);
+  if (!ses) return;
+  const nIds = [...new Set(S.resultados.filter(r=>r.sesId===sesId).map(r=>r.nId))];
+  const ranked = nIds.map(nId => {
+    const n = S.nadadores.find(n=>n.id===nId);
+    const rs = S.resultados.filter(r=>r.sesId===sesId&&r.nId===nId).sort((a,b)=>a.ms-b.ms);
+    const ts = rs.map(r=>r.ms);
+    return {n:n?n.n:'?', mejor:ts[0], ts, parc:rs[0].parciales};
+  }).sort((a,b)=>a.mejor-b.mejor);
+  let txt = `CRONÓMETRO NATACIÓN\n${'─'.repeat(28)}\n`;
+  txt += `Equipo: ${eqNombre(ses.eqId)}\nSesión: ${sesLabel(ses).replace(/🏊|🐸|🦋|🔄/g,'').trim()}\nFecha: ${fmtDate(ses.fecha)}\n${'─'.repeat(28)}\n\nRESULTADOS:\n\n`;
+  ranked.forEach((r,i) => {
+    txt += `${i+1}. ${r.n} — ${fmtTime(r.mejor)}\n`;
+    if (r.ts.length>1) txt += `   Todos: ${r.ts.map(fmtTime).join(', ')}\n`;
+    if (r.parc && r.parc.length>1) txt += `   Parciales 50m: ${fmtTramos(r.parc)}\n`;
+  });
+  const fname = `natacion-${fmtDate(ses.fecha).replace(/\s/g,'-')}.txt`;
+  const file = new File([txt], fname, {type:'text/plain'});
+  // En el móvil abre el menú de compartir (WhatsApp, correo…); si no, descarga el archivo
+  if (navigator.canShare && navigator.canShare({files:[file]})) {
+    try { await navigator.share({files:[file], title:fname}); return; }
+    catch (e) { if (e.name==='AbortError') return; }
+  }
+  const url = URL.createObjectURL(file);
+  const link = Object.assign(document.createElement('a'), {href:url, download:fname});
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function fallbackCopy(txt) {
+  navigator.clipboard.writeText(txt).catch(()=>{});
+}
+
+// ── Screen: Bienvenida ───────────────────────────────────────
+function renderBienvenida() {
+  return `
+    <div style="padding-top:40px;text-align:center">
+      <div style="font-size:52px;margin-bottom:16px">🏊</div>
+      <div style="font-size:24px;font-weight:700;margin-bottom:8px">Cronómetro Natación</div>
+      <div class="muted mb16">¿Cómo te llamás?</div>
+      <input class="input" id="coach-input" placeholder="Tu nombre..." value="${esc(_user && _user.displayName ? _user.displayName.split(' ')[0] : '')}" style="text-align:center;font-size:18px;margin-bottom:12px" autocomplete="given-name">
+      <button class="btn btn-green" data-action="set-coach">Empezar →</button>
+    </div>`;
+}
+
+// ── Render ───────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  const act = document.activeElement;
+  const pos = act && act.id==='board-search' ? act.selectionStart : null;
+  renderPantalla(app);
+  if (pos!=null) { const el = document.getElementById('board-search'); if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} } }
+}
+function renderPantalla(app) {
+  if (!coachName) { app.innerHTML = renderBienvenida(); return; }
+  switch(route.screen) {
+    case 'home':       app.innerHTML = renderHome(); break;
+    case 'equipo':     app.innerHTML = renderEquipo(); break;
+    case 'preparar':   app.innerHTML = renderPreparar(); break;
+    case 'en-curso':   app.innerHTML = renderEnCurso(); break;
+    case 'resultados': app.innerHTML = renderResultados(route.sesId,'home','← Inicio'); break;
+    case 'historial':     app.innerHTML = renderHistorial(); break;
+    case 'hist-det':      app.innerHTML = renderResultados(route.sesId,'historial','← Historial'); break;
+    case 'evolucion':     app.innerHTML = renderEvolucion(); break;
+    case 'evolucion-nad': app.innerHTML = renderEvolucionNad(); break;
+    case 'entrenadores':  app.innerHTML = renderEntrenadores(); break;
+    default:              app.innerHTML = renderHome();
+  }
+}
+
+// ── Screen: Home ─────────────────────────────────────────────
+function renderHome() {
+  const clubEqs = S.equipos.filter(e=>e.shared===true).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const personalEqs = S.equipos.filter(e=>e.coach===coachName).sort((a,b)=>b.ts-a.ts);
+  const clubRows = clubEqs.map(e=>`
+    <div class="card row" style="cursor:pointer" data-action="go-equipo" data-eq="${esc(e.id)}">
+      <span style="flex:1;font-weight:600;font-size:15px">${esc(e.nombre)}</span>
+      <span class="muted" style="font-size:13px;margin-right:6px">${S.nadadores.filter(n=>n.eqId===e.id).length} nad.</span>
+      <span style="font-size:10px;color:var(--mut);border:1px solid var(--brd);border-radius:5px;padding:2px 6px">Club</span>
+    </div>`).join('');
+  const personalRows = personalEqs.map(e=>`
+    <div class="card row" style="cursor:pointer" data-action="go-equipo" data-eq="${esc(e.id)}">
+      <span style="flex:1;font-weight:600;font-size:15px">${esc(e.nombre)}</span>
+      <span class="muted" style="font-size:13px">${S.nadadores.filter(n=>n.eqId===e.id).length} nad.</span>
+      <button class="btn-icon" data-action="del-equipo" data-eq="${esc(e.id)}" style="color:var(--red)">✕</button>
+    </div>`).join('');
+  return `
+    <div class="row mb16">
+      <div style="flex:1">
+        <div class="h1" style="margin-bottom:2px">🏊 Equipos</div>
+        <div style="font-size:13px;color:var(--mut)">Entrenador: <span style="color:var(--blu-l);font-weight:600">${esc(coachName)}</span> <button class="btn-icon" data-action="cambiar-nombre" style="font-size:12px;color:var(--mut);padding:0 4px">✎</button></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <button class="btn btn-surf btn-sm btn-inline" data-action="historial">📋 Historial</button>
+        <button class="btn btn-surf btn-sm btn-inline" data-action="evolucion">📊 Evolución</button>
+        <a class="btn btn-surf btn-sm btn-inline" href="../temporada.html#mi" style="text-decoration:none">📈 Estadísticas</a>
+        ${soyAdmin()?'<button class="btn btn-surf btn-sm btn-inline" data-action="entrenadores">👥 Entrenadores</button>':''}
+        <button class="btn-icon" data-action="logout" style="font-size:12px;color:var(--mut)">Salir</button>
+      </div>
+    </div>
+    <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Iniciar sesión</button>
+    ${(() => { const p = plantillaUsable(); return p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:18px">Última: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores · ${fmtDate(p.ts)}</div>` : '<div style="height:14px"></div>'; })()}
+    ${clubEqs.length>0?`<span class="label">🏟 C.N. Axarquía</span>${clubRows}<div style="height:4px"></div>`:''}
+    ${personalEqs.length>0?`<span class="label ${clubEqs.length>0?'mt8':''}">Mis grupos</span>${personalRows}`:(clubEqs.length===0?'<div class="center-msg"><p>Sin equipos todavía</p></div>':'')}
+    <div class="row mt16">
+      <input class="input" id="eq-input" placeholder="Nuevo grupo propio..." style="flex:1">
+      <button class="btn btn-green btn-sm btn-inline" data-action="crear-equipo">+ Crear</button>
+    </div>`;
+}
+
+// ── Screen: Equipo ───────────────────────────────────────────
+function renderEquipo() {
+  const {eqId} = route;
+  const eq = S.equipos.find(e=>e.id===eqId);
+  if (!eq) { nav({screen:'home'}); return ''; }
+  const isShared = !!eq.shared;
+  const nads = S.nadadores.filter(n=>n.eqId===eqId).sort((a,b)=>a.n.localeCompare(b.n));
+  const rows = nads.map(n=>`
+    <div class="card row">
+      <span style="flex:1;font-weight:500">${esc(n.n)}</span>
+      ${!isShared?`<button class="btn-icon" data-action="del-nad" data-nad="${esc(n.id)}" style="color:var(--red)">✕</button>`:''}
+    </div>`).join('');
+  const addHtml = !isShared ? `
+    <div class="row mb16">
+      <input class="input" id="nad-input" placeholder="Nombre del nadador..." style="flex:1">
+      <button class="btn btn-blue btn-sm btn-inline" data-action="crear-nad">+ Agregar</button>
+    </div>` : `<div style="font-size:12px;color:var(--mut);margin-bottom:14px;padding:8px 12px;background:var(--surf);border-radius:8px;border:1px solid var(--brd)">Lista oficial del club · solo lectura</div>`;
+  return `
+    <button class="back-btn" data-action="home">← Equipos</button>
+    <div class="h1">${esc(eq.nombre)}</div>
+    ${addHtml}
+    ${rows||'<div class="muted" style="text-align:center;padding:20px 0;font-size:14px">Sin nadadores todavía</div>'}
+    ${nads.length>0?`<button class="btn btn-green mt24" data-action="preparar" data-eq="${esc(eqId)}">▶ Iniciar sesión</button>`:''}`;
+}
+
+// ── Tablero de calles (tarjetas) ─────────────────────────────
+// Se usa al preparar la sesión y al editar calles en curso.
+// Cada pantalla aporta un "adaptador" con sus calles, la lista libre y cómo mover.
+// Interacción: tocar tarjeta → tocar calle (o tarjeta destino), o mantener pulsado y arrastrar.
+let BOARD = {sel:null, q:'', cat:null};
+function boardReset() { BOARD = {sel:null, q:'', cat:null}; }
+
+const boardPS = {
+  lanes() {
+    return PS.grupos.map((g,i)=>({id:g.key, nombre:g.nombre, color:LANE_COLORS[i%LANE_COLORS.length],
+      items:g.nads.map(n=>({id:n.id, n:n.n})), ya:0, del: PS.grupos.length>1}));
+  },
+  usados() { return new Set(PS.grupos.flatMap(g=>g.nads.map(n=>n.id))); },
+  move(id, from, to, before) {
+    let item;
+    if (from==='pool') { const n = S.nadadores.find(x=>x.id===id); if (!n) return; item = {id:n.id, n:n.n}; }
+    else {
+      const g = PS.grupos.find(g=>g.key===from); if (!g) return;
+      const i = g.nads.findIndex(n=>n.id===id); if (i<0) return;
+      item = g.nads.splice(i,1)[0];
+    }
+    if (to==='pool') return;
+    const dest = PS.grupos.find(g=>g.key===to); if (!dest) return;
+    const bi = before ? dest.nads.findIndex(n=>n.id===before) : -1;
+    bi<0 ? dest.nads.push(item) : dest.nads.splice(bi,0,item);
+  }
+};
+
+const boardSA = {
+  lanes() {
+    return SA.grupos.map(g=>({id:g.gId, nombre:g.nombre, color:g.color,
+      items:g.nads.slice(g.next).map(n=>({id:n.nId, n:n.n})), ya:g.next, del:false}));
+  },
+  usados() { return new Set(SA.grupos.flatMap(g=>g.nads.slice(g.next).map(n=>n.nId))); },
+  move(id, from, to, before) {
+    let item;
+    if (from==='pool') { const n = S.nadadores.find(x=>x.id===id); if (!n) return; item = {nId:n.id, n:n.n}; }
+    else {
+      const g = grupoSA(from); if (!g) return;
+      const i = g.nads.findIndex((n,k)=>k>=g.next && n.nId===id); if (i<0) return;
+      item = g.nads.splice(i,1)[0];
+      if (g.next >= g.nads.length) SA.noSale.delete(g.gId);
+    }
+    if (to==='pool') return;
+    const dest = grupoSA(to); if (!dest) return;
+    const bi = before ? dest.nads.findIndex((n,k)=>k>=dest.next && n.nId===before) : -1;
+    bi<0 ? dest.nads.push(item) : dest.nads.splice(bi,0,item);
+    if (from!==to) DB.asignarNad(dest.gId, item.nId, dest.nads.length-1);
+  }
+};
+function boardActual() { return route.screen==='en-curso' ? boardSA : boardPS; }
+
+function boardMove(id, from, to, before) {
+  if (before===id) return;
+  boardActual().move(id, from, to, before||null);
+  BOARD.sel = null;
+  render();
+}
+
+function renderBoard(ad, opts) {
+  const sel = BOARD.sel;
+  const isSel = (id, from) => sel && sel.id===id && sel.from===from;
+  const lanes = ad.lanes().map(l => `
+    <div class="b-lane${sel?' armed':''}" style="--lc:${l.color};--lt:${laneTxt(l.color)}" data-action="b-lane" data-drop="${esc(l.id)}">
+      <div class="b-lane-hdr">
+        <span class="b-lane-name">${esc(l.nombre)}</span>
+        <span class="b-lane-info">${l.items.length} nad.${l.ya?` · ${l.ya} ya salieron`:''}</span>
+        ${l.del?`<button class="b-lane-del" data-action="b-lane-del" data-lane="${esc(l.id)}" aria-label="Quitar calle">✕</button>`:''}
+      </div>
+      <div class="b-cards">
+        ${l.items.map((it,i)=>`<div class="b-card in-lane${isSel(it.id,l.id)?' sel':''}" data-action="b-card" data-card="${esc(it.id)}" data-from="${esc(l.id)}" data-n="${esc(it.n)}">
+          <span class="b-num">${i+1}</span><span class="b-nm">${esc(it.n)}</span></div>`).join('')}
+        ${l.items.length ? '' : `<div class="b-empty">${sel?'Toca aquí para poner a '+esc(sel.n):'Arrastra nadadores aquí'}</div>`}
+      </div>
+    </div>`).join('');
+
+  const usados = ad.usados();
+  const q = BOARD.q.toLowerCase();
+  const eqs = myEqs().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const libres = myNads().filter(n => !usados.has(n.id)
+    && (!BOARD.cat || n.eqId===BOARD.cat)
+    && (!q || n.n.toLowerCase().includes(q))).sort((a,b)=>a.n.localeCompare(b.n));
+  const max = opts.poolMax || 60;
+  const pills = eqs.length>1 ? `<div class="b-pills">
+      <button class="pill${!BOARD.cat?' sel':''}" data-action="board-cat" data-cat="">Todos</button>
+      ${eqs.map(e=>`<button class="pill${BOARD.cat===e.id?' sel':''}" data-action="board-cat" data-cat="${esc(e.id)}">${esc(e.nombre)}</button>`).join('')}
+    </div>` : '';
+  const poolSelFromLane = sel && sel.from!=='pool';
+  const pool = `
+    <div class="b-pool${poolSelFromLane?' armed':''}" data-action="b-pool" data-drop="pool">
+      <div class="b-pool-hdr">
+        <span class="label" style="margin:0">${opts.poolTitulo||'Nadadores'}</span>
+        ${poolSelFromLane?`<span class="b-pool-hint">Toca aquí para quitar a ${esc(sel.n)}</span>`:''}
+      </div>
+      ${pills}
+      <input class="input" id="board-search" placeholder="🔍 Buscar nadador…" value="${esc(BOARD.q)}" autocomplete="off">
+      <div class="b-cards b-pool-cards">
+        ${libres.slice(0,max).map(n=>`<div class="b-card${isSel(n.id,'pool')?' sel':''}" data-action="b-card" data-card="${esc(n.id)}" data-from="pool" data-n="${esc(n.n)}"><span class="b-nm">${esc(n.n)}</span></div>`).join('')
+          || `<div class="b-empty">${q?'Sin coincidencias':'Todos están en una calle'}</div>`}
+        ${libres.length>max?`<div class="b-empty">+${libres.length-max} más · busca por nombre</div>`:''}
+      </div>
+    </div>`;
+  return `
+    <div class="b-hint">${sel?`<b>${esc(sel.n)}</b> seleccionado · toca una calle o un nadador para ponerlo delante <button class="b-cancel" data-action="b-cancel">Cancelar</button>`:'Mantén pulsado y arrastra, o toca un nadador y luego su calle'}</div>
+    <div class="b-lanes">${lanes}</div>
+    ${opts.extraLanes||''}
+    ${pool}`;
+}
+
+// Tocar: selecciona; con algo seleccionado, toca destino
+function boardTap(el) {
+  const act = el.dataset.action;
+  const sel = BOARD.sel;
+  if (act==='b-card') {
+    const id = el.dataset.card, from = el.dataset.from;
+    if (!sel) { BOARD.sel = {id, from, n:el.dataset.n}; render(); return; }
+    if (sel.id===id && sel.from===from) { BOARD.sel = null; render(); return; }
+    if (from==='pool') {
+      if (sel.from!=='pool') boardMove(sel.id, sel.from, 'pool');
+      else { BOARD.sel = {id, from, n:el.dataset.n}; render(); }
+      return;
+    }
+    boardMove(sel.id, sel.from, from, id); // delante de la tarjeta tocada
+  } else if (act==='b-lane') {
+    if (sel) boardMove(sel.id, sel.from, el.dataset.drop);
+  } else if (act==='b-pool') {
+    if (sel && sel.from!=='pool') boardMove(sel.id, sel.from, 'pool');
+  }
+}
+
+// Arrastre con el dedo o el ratón (pulsación larga en táctil para no bloquear el scroll)
+let DRAG = null, _ignoreClickUntil = 0;
+function dragStart() {
+  if (!DRAG) return;
+  DRAG.started = true;
+  const r = DRAG.card.getBoundingClientRect();
+  const g = DRAG.card.cloneNode(true);
+  g.classList.add('b-ghost');
+  g.style.width = r.width+'px';
+  document.body.appendChild(g);
+  DRAG.ghost = g; DRAG.dx = DRAG.x - r.left; DRAG.dy = DRAG.y - r.top;
+  DRAG.card.classList.add('dragging');
+  try { navigator.vibrate && navigator.vibrate(15); } catch {}
+  dragMoveTo(DRAG.x, DRAG.y);
+  DRAG.scroll = setInterval(() => {
+    if (!DRAG) return;
+    const m = 80;
+    if (DRAG.y < m) window.scrollBy(0, -Math.ceil((m-DRAG.y)/5));
+    else if (DRAG.y > innerHeight-m) window.scrollBy(0, Math.ceil((DRAG.y-(innerHeight-m))/5));
+  }, 16);
+}
+function dragTarget(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  const card = el.closest('.b-card.in-lane');
+  if (card && card!==DRAG.card) return {to:card.dataset.from, before:card.dataset.card, el:card};
+  const zone = el.closest('[data-drop]');
+  return zone ? {to:zone.dataset.drop, before:null, el:zone} : null;
+}
+function dragMoveTo(x, y) {
+  DRAG.x = x; DRAG.y = y;
+  DRAG.ghost.style.transform = `translate(${x-DRAG.dx}px,${y-DRAG.dy}px)`;
+  const t = dragTarget(x, y);
+  document.querySelectorAll('.drop-over').forEach(e=>e.classList.remove('drop-over'));
+  if (t) t.el.classList.add('drop-over');
+  DRAG.target = t;
+}
+function dragEnd(drop) {
+  if (!DRAG) return;
+  clearTimeout(DRAG.timer); clearInterval(DRAG.scroll);
+  if (DRAG.started) {
+    _ignoreClickUntil = Date.now()+400;
+    // Pulsación larga sin mover: no cambia nada
+    if (Math.hypot(DRAG.x-DRAG.x0, DRAG.y-DRAG.y0) < 12) drop = false;
+    if (DRAG.ghost) DRAG.ghost.remove();
+    document.querySelectorAll('.drop-over').forEach(e=>e.classList.remove('drop-over'));
+    const t = drop && DRAG.target, d = DRAG;
+    DRAG = null;
+    if (t && !(t.to===d.from && !t.before && d.from==='pool')) boardMove(d.id, d.from, t.to, t.before);
+    else render();
+    return;
+  }
+  DRAG = null;
+}
+document.addEventListener('pointerdown', e => {
+  const card = e.target.closest && e.target.closest('.b-card');
+  if (!card || e.button>0) return;
+  DRAG = {card, id:card.dataset.card, from:card.dataset.from, x:e.clientX, y:e.clientY, x0:e.clientX, y0:e.clientY,
+          mouse:e.pointerType==='mouse', started:false};
+  if (!DRAG.mouse) DRAG.timer = setTimeout(dragStart, 220);
+});
+document.addEventListener('pointermove', e => {
+  if (!DRAG) return;
+  if (!DRAG.started) {
+    const moved = Math.hypot(e.clientX-DRAG.x0, e.clientY-DRAG.y0);
+    if (DRAG.mouse) { if (moved > 5) { DRAG.x=e.clientX; DRAG.y=e.clientY; dragStart(); } }
+    else if (moved > 10) { clearTimeout(DRAG.timer); DRAG = null; } // es un scroll
+    return;
+  }
+  dragMoveTo(e.clientX, e.clientY);
+});
+document.addEventListener('pointerup', () => dragEnd(true));
+document.addEventListener('pointercancel', () => dragEnd(false));
+// Mientras se arrastra, el dedo no desplaza la página
+document.addEventListener('touchmove', e => { if (DRAG && DRAG.started) e.preventDefault(); }, {passive:false});
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.b-card')) e.preventDefault(); });
+
+// ── Screen: Preparar ─────────────────────────────────────────
+function renderPreparar() {
+  if (!PS) return '';
+  const eq = S.equipos.find(e=>e.id===PS.eqId);
+  const estilosBtns = ESTILOS.map(e=>`<button class="pick-btn${PS.estilo===e?' on':''}" data-action="set-estilo" data-val="${e}">${EMO[e]} ${e}</button>`).join('');
+  const distBtns = DISTS.map(d=>`<button class="pick-btn${PS.dist===d?' on':''}" data-action="set-dist" data-val="${d}">${d}m</button>`).join('');
+
+  const canStart = PS.grupos.some(g=>g.nads.length>0);
+  const o = PS.oferta;
+  const ofertaHtml = o ? `
+    <div class="card" style="border-color:var(--blu);background:var(--blu-s)">
+      <div style="font-weight:700;margin-bottom:4px">¿Mantener las mismas calles que la última sesión?</div>
+      <div class="muted" style="font-size:13px;margin-bottom:8px">${fmtDate(o.ts)}${o.estilo?` · ${esc(o.estilo)} ${esc(o.dist)}m`:''}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${o.calles.map((c,i)=>`<div style="font-size:13px;display:flex;gap:8px;align-items:baseline">${laneTag(c.nombre.replace(/^Calle\s*/i,'C'), LANE_COLORS[i%LANE_COLORS.length])}<span>${c.nads.map(n=>esc(n.n)).join(' · ')}</span></div>`).join('')}
+      </div>
+      <div class="row">
+        <button class="btn btn-blue" style="flex:1;min-height:48px" data-action="usar-plantilla">✓ Usar mismas calles</button>
+        <button class="btn btn-surf" style="flex:1;min-height:48px" data-action="descartar-plantilla">Empezar de cero</button>
+      </div>
+    </div>` : '';
+  return `
+    <button class="back-btn" data-action="equipo-back">← ${esc(eq?eq.nombre:'Inicio')}</button>
+    <div class="h1">Preparar sesión</div>
+    ${ofertaHtml}
+    <span class="label">Estilo</span>
+    <div class="picker-row p4">${estilosBtns}</div>
+    <span class="label">Distancia</span>
+    <div class="picker-row p4">${distBtns}</div>
+    ${(() => { const ok = Number(PS.dist) > 50; const on = ok && PS.parciales; return `<div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="toggle-parciales"':''}>
+      <div style="flex:1"><div style="font-weight:600">⏱ Tiempos parciales cada 50 m</div>
+      <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
+      <div class="sw${on?' on':''}"></div></div>`; })()}
+    <input class="input mb16" id="notas-input" placeholder="Notas opcionales..." value="${esc(PS.notas)}">
+    <span class="label">Calles (${PS.grupos.length})</span>
+    ${renderBoard(boardPS, {extraLanes:`<button class="b-add-lane" data-action="nueva-calle">➕ Añadir calle</button>`})}
+    <button class="salida-btn mt16" style="${canStart?'':'opacity:.4'}" data-action="iniciar-sesion" ${canStart?'':'disabled'}>▶ Iniciar sesión</button>`;
+}
+
+// ── Screen: En-Curso ─────────────────────────────────────────
+function renderEnCurso() {
+  if (!SA) return '';
+  const ses = S.sesiones.find(s=>s.id===SA.sesId);
+  const titulo = sesLabel(ses);
+  const eq = ses?eqNombre(ses.eqId):'';
+  const now = Date.now();
+  const totalNads = SA.grupos.reduce((s,g)=>s+g.nads.length,0);
+  const pendientes = SA.grupos.filter(g=>g.next<g.nads.length);
+
+  let html = `
+    <div class="ec-top">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:700">${titulo}${SA.ronda>1?` · <span style="color:var(--blu-l)">Ronda ${SA.ronda}</span>`:''}</div>
+        <div class="muted" style="font-size:13px">${esc(eq)} · ${SA.llegados.length}/${totalNads} llegados</div>
+      </div>
+      <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Seguro? Toca otra vez':'Finalizar'}</button>
+    </div>`;
+
+  // Ronda terminada → resumen
+  if (rondaTerminada()) return html + renderResumenRonda();
+
+  // SALIDA común: muestra quién sale en cada calle. Tocar un nombre = "no sale"
+  if (SA.editando) {
+    html += renderEditarCalles();
+  } else if (pendientes.length) {
+    const salen = pendientes.filter(g=>!SA.noSale.has(g.gId)).length;
+    html += `
+      <div class="salida-card">
+        <div class="sec-hdr" style="margin:0 0 8px">
+          <span class="label">Próxima salida${SA.nSalida?` · ${SA.nSalida+1}`:''}</span>
+          <button class="edit-link" data-action="edit-abrir">✎ Calles</button>
+        </div>
+        <div class="salida-next">
+          ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
+        </div>
+        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale</div>
+        <button class="salida-btn" data-action="salida-tanda" ${salen?'':'disabled'}>🚀 SALIDA${salen<pendientes.length&&salen?` (${salen})`:''}</button>
+      </div>`;
+  } else {
+    html += `<div class="salida-card muted" style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="flex:1">Todos han salido · esperando llegadas</span><button class="edit-link" data-action="edit-abrir">✎ Calles</button></div>`;
+  }
+
+  // En el agua: una columna fija por calle, con su color. Cuando alguien llega
+  // solo se mueve su columna; las demás calles no saltan bajo el dedo.
+  const recientesKeys = new Set(SA.recientes.map(r=>r.key));
+  const enAgua = SA.agua.length + SA.recientes.length;
+  if (enAgua) {
+    const cols = Math.min(SA.grupos.length, 4);
+    html += `<div class="sec-hdr"><span class="label">En el agua (${SA.agua.length})</span>${SA.tramos>1?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
+      <div class="lanes-grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
+      ${SA.grupos.map(g => {
+        const fs = [...SA.agua, ...SA.recientes].filter(f=>f.gId===g.gId).sort((a,b)=>a.salida-b.salida);
+        return `<div class="lane-col" style="--lc:${g.color};--lt:${laneTxt(g.color)}">
+          <div class="lane-head">${esc(laneShort(g))}</div>
+          ${fs.map(f => renderSwCard(f, recientesKeys.has(f.key), now)).join('') || '<div class="lane-empty">—</div>'}
+        </div>`;
+      }).join('')}
+      </div>`;
+  }
+
+  // Llegados: compactos, el último arriba
+  const lleg = SA.llegados.filter(l=>!recientesKeys.has(l.key)).sort((a,b)=>b.tLleg-a.tLleg);
+  if (lleg.length) {
+    html += `<div class="sec-hdr" style="margin-top:16px"><span class="label">Llegados ✓ (${lleg.length})</span></div>
+      <div class="lleg-list">
+      ${lleg.map(l=>`<div class="lleg-row" style="--lc:${l.color}">
+          ${laneTag(l.lane, l.color)}
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}</span>
+          <span class="t">${fmtTime(l.ms)}</span>
+          <button class="lleg-undo" data-action="deshacer" data-key="${esc(l.key)}" aria-label="Deshacer">↶</button>
+        </div>`).join('')}
+      </div>`;
+  }
+  return html;
+}
+
+// Tarjeta de un nadador en el agua: toda la tarjeta es el botón
+function renderSwCard(f, done, now) {
+  const conParc = SA.tramos > 1;
+  const dots = conParc ? `<span class="sw-dots">${Array.from({length:SA.tramos},(_,i)=>`<i class="${i<f.parc.length?'on':''}${i<f.parc.length&&f.parc[i]==null?' skip':''}"></i>`).join('')}</span>` : '';
+  if (done) {
+    return `<div class="sw-card done">
+      <span class="sw-nm">${esc(f.n)}</span>
+      <span class="sw-clk">${fmtTime(f.ms)}</span>
+      <span class="sw-act">✓ Llegó</span>
+      <button class="sw-undo" data-action="deshacer" data-key="${esc(f.key)}">↶ Deshacer</button>
+    </div>`;
+  }
+  const esParcial = conParc && f.parc.length < SA.tramos-1;
+  const ultimo = conParc && f.parc.length ? f.parc[f.parc.length-1] : null;
+  return `<button class="sw-card${esParcial?' parcial':''}" data-action="llego" data-key="${esc(f.key)}">
+      <span class="sw-meta">S${f.salida}${dots}</span>
+      <span class="sw-nm">${esc(f.n)}</span>
+      <span class="sw-clk live-clk" data-t0="${f.t0}">${fmtTime(now-f.t0)}</span>
+      ${ultimo!=null?`<span class="sw-last">${f.parc.length*50}m ${fmtTime(ultimo)}</span>`:''}
+      <span class="sw-act">${esParcial?`<small>parcial</small>${(f.parc.length+1)*50} m`:'LLEGÓ'}</span>
+    </button>
+    ${conParc ? `<div class="sw-extra">
+      ${f.parc.length?`<button class="sw-mini" data-action="deshacer-parcial" data-key="${esc(f.key)}" aria-label="Deshacer parcial">↶</button>`:''}
+      ${esParcial?`<button class="sw-mini fin" data-action="llego-directo" data-key="${esc(f.key)}">🏁 Llegó</button>`:''}
+    </div>` : ''}`;
+}
+
+function renderEditarCalles() {
+  return `<div class="salida-card">
+    <div class="sec-hdr" style="margin:0 0 6px">
+      <span class="label" style="margin:0">Editar calles</span>
+      <button class="btn btn-green btn-sm btn-inline" data-action="edit-cerrar">✓ Listo</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-bottom:8px">Solo cambia a los que esperan; los que están nadando siguen igual.</div>
+    ${renderBoard(boardSA, {poolTitulo:'Agregar nadadores', poolMax:24, extraLanes:`<button class="b-add-lane" data-action="ed-nueva-calle">➕ Añadir calle</button>`})}
+  </div>`;
+}
+
+function renderResumenRonda() {
+  const lleg = SA.llegados;
+  const best = Math.min(...lleg.map(l=>l.ms));
+  const pbBadge = l => {
+    const prev = mejorPrevia(l.nId, l.resId);
+    return prev!=null && l.ms < prev ? '<span class="pb">MEJOR MARCA</span>' : '';
+  };
+  const fila = (l, pos, gap) => `
+    <div class="sum-row" style="--lc:${l.color}">
+      ${pos!=null?`<div class="rpos${pos===1?' gold':''}">${pos}</div>`:''}
+      ${laneTag(l.lane, l.color)}
+      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}</div>
+      <div style="text-align:right">
+        <div class="sum-time">${fmtTime(l.ms)}</div>
+        ${gap?`<div class="sum-gap">${gap}</div>`:''}
+      </div>
+    </div>`;
+
+  let cuerpo;
+  if (SA.vista==='calle') {
+    cuerpo = SA.grupos.map(g => {
+      const ls = lleg.filter(l=>l.gId===g.gId).sort((a,b)=>a.salida-b.salida);
+      if (!ls.length) return '';
+      return `<div class="lane-block">
+        <span class="label" style="color:${g.color}">${esc(g.nombre)}</span>
+        ${ls.map(l=>fila(l, null, `salida ${l.salida}`)).join('')}
+      </div>`;
+    }).join('');
+  } else {
+    cuerpo = [...lleg].sort((a,b)=>a.ms-b.ms)
+      .map((l,i)=>fila(l, i+1, i===0?'':`+${((l.ms-best)/1000).toFixed(1)}`)).join('');
+  }
+
+  return `
+    <div class="card" style="text-align:center;padding:14px">
+      <div style="font-size:28px">🏁</div>
+      <div style="font-weight:700;font-size:17px">Serie completa${SA.ronda>1?` · ronda ${SA.ronda}`:''}</div>
+      <div class="muted" style="font-size:13px">${lleg.length} nadadores · mejor ${fmtTime(best)}</div>
+    </div>
+    <div class="seg">
+      <button class="${SA.vista!=='calle'?'on':''}" data-action="vista" data-v="rapidos">⚡ Más rápidos</button>
+      <button class="${SA.vista==='calle'?'on':''}" data-action="vista" data-v="calle">🏊 Por calle</button>
+    </div>
+    ${cuerpo}
+    <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir serie (ronda ${SA.ronda+1})</button>
+    <button class="btn btn-green mt8" style="min-height:56px;font-size:17px" data-action="finalizar-sesion">✓ Terminar y guardar</button>`;
+}
+
+// ── Screen: Resultados / Hist-Det ────────────────────────────
+function renderResultados(sesId, backAction, backLabel) {
+  const ses = S.sesiones.find(s=>s.id===sesId);
+  if (!ses) return `<div class="center-msg"><p>Sesión no encontrada</p></div>`;
+  const nIds = [...new Set(S.resultados.filter(r=>r.sesId===sesId).map(r=>r.nId))];
+  const ranked = nIds.map(nId => {
+    const n = S.nadadores.find(n=>n.id===nId);
+    const rs = S.resultados.filter(r=>r.sesId===sesId&&r.nId===nId).sort((a,b)=>a.ms-b.ms);
+    const ts = rs.map(r=>r.ms);
+    return {nId, n:n?n.n:'?', mejor:ts[0], ts, parc:rs[0].parciales};
+  }).sort((a,b)=>a.mejor-b.mejor);
+  const rows = ranked.length===0
+    ? '<div class="center-msg"><p>Sin tiempos registrados en esta sesión</p></div>'
+    : ranked.map((r,i)=>`
+      <div class="result-row">
+        <div class="rpos${i===0?' gold':''}">${i+1}</div>
+        <div class="rname">${esc(r.n)}</div>
+        <div>
+          <div class="rtime">${fmtTime(r.mejor)}</div>
+          ${r.ts.length>1?`<div style="font-size:11px;color:var(--mut)">${r.ts.map(fmtTime).join(' · ')}</div>`:''}
+          ${r.parc&&r.parc.length>1?`<div style="font-size:11px;color:var(--mut)">50m: ${fmtTramos(r.parc)}</div>`:''}
+        </div>
+      </div>`).join('');
+  return `
+    <div class="h1">${sesLabel(ses)}</div>
+    <div class="muted mb16" style="font-size:13px">${esc(eqNombre(ses.eqId))} · ${fmtDate(ses.fecha)}</div>
+    ${rows}
+    <div class="row mt16">
+      <button class="btn btn-green btn-inline" style="flex:1" data-action="exportar" data-ses="${esc(sesId)}">📤 Exportar</button>
+      <button class="btn btn-surf btn-inline" style="flex:1" data-action="${backAction}">${backLabel}</button>
+    </div>`;
+}
+
+// ── Screen: Historial ────────────────────────────────────────
+function renderHistorial() {
+  const rows = [...mySes()].sort((a,b)=>b.fecha-a.fecha).map(s => {
+    const em = s.estilo?(EMO[s.estilo]||'🏊'):'🏊';
+    const det = s.estilo&&s.dist?`${esc(s.estilo)} ${esc(s.dist)}m`:'Sin definir';
+    return `
+      <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}">
+        <div style="font-size:22px">${em}</div>
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(eqNombre(s.eqId))}</div>
+          <div class="muted" style="font-size:13px">${det} · ${fmtDate(s.fecha)}</div>
+        </div>
+        <div class="muted" style="font-size:20px">›</div>
+      </div>`;
+  }).join('');
+  return `
+    <button class="back-btn" data-action="home">← Inicio</button>
+    <div class="h1">📋 Historial</div>
+    ${rows||'<div class="center-msg"><p>Sin sesiones todavía</p></div>'}`;
+}
+
+// ── Screen: Evolución ────────────────────────────────────────
+function renderEvolucion() {
+  const eqs = myEqs();
+  let html = '';
+  eqs.forEach(eq => {
+    const nads = S.nadadores.filter(n=>n.eqId===eq.id).sort((a,b)=>a.n.localeCompare(b.n));
+    if (!nads.length) return;
+    html += `<span class="label">${esc(eq.nombre)}</span>`;
+    nads.forEach(nad => {
+      const res = S.resultados.filter(r=>r.nId===nad.id);
+      if (!res.length) {
+        html += `<div class="card row" style="opacity:.45"><span style="flex:1;font-weight:500">${esc(nad.n)}</span><span class="muted" style="font-size:12px">Sin tiempos</span></div>`;
+        return;
+      }
+      const best = Math.min(...res.map(r=>r.ms));
+      const sesCount = new Set(res.map(r=>r.sesId)).size;
+      const trend = calcTrend(getSwimmerSessions(nad.id, null));
+      html += `
+        <div class="card row" style="cursor:pointer" data-action="evolucion-nad" data-nid="${esc(nad.id)}">
+          <div style="flex:1">
+            <div style="font-weight:600">${esc(nad.n)}</div>
+            <div class="muted" style="font-size:12px">${sesCount} sesión${sesCount!==1?'es':''}</div>
+          </div>
+          <div style="text-align:right;min-width:60px">
+            <div style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(best)}</div>
+            ${trend?`<div style="font-size:15px;color:${trend.color}">${trend.dir}</div>`:''}
+          </div>
+        </div>`;
+    });
+  });
+  return `
+    <button class="back-btn" data-action="home">← Inicio</button>
+    <div class="h1">📊 Evolución</div>
+    ${html||'<div class="center-msg"><h2>Sin datos</h2><p>Realizá sesiones para ver estadísticas</p></div>'}`;
+}
+function renderEvolucionNad() {
+  const {nId} = route;
+  const nad = S.nadadores.find(n=>n.id===nId);
+  if (!nad) { nav({screen:'evolucion'}); return ''; }
+  const eq = S.equipos.find(e=>e.id===nad.eqId);
+  // Combos con datos
+  const combosMap = {};
+  S.resultados.filter(r=>r.nId===nId).forEach(r => {
+    const s = S.sesiones.find(s=>s.id===r.sesId);
+    if (s && s.estilo && s.dist) combosMap[`${s.estilo}|${s.dist}`]={estilo:s.estilo,dist:s.dist};
+  });
+  const combos = Object.values(combosMap);
+  const filter = route.filter||null;
+  const sessions = getSwimmerSessions(nId, filter);
+  const trend = calcTrend(sessions);
+  const allMs = sessions.map(s=>s.ms);
+  const bestMs = allMs.length?Math.min(...allMs):null;
+  const lastMs = sessions.length?sessions[sessions.length-1].ms:null;
+  const filterPills = combos.length > 1 ? `
+    <div class="wrap mb16">
+      <span class="pill${!filter?' sel':''}" data-action="evo-filter" data-f="">Todos</span>
+      ${combos.map(c=>`<span class="pill${filter&&filter.estilo===c.estilo&&Number(filter.dist)===Number(c.dist)?' sel':''}" data-action="evo-filter" data-f="${esc(c.estilo+'|'+c.dist)}">${EMO[c.estilo]||'🏊'} ${esc(c.estilo)} ${esc(c.dist)}m</span>`).join('')}
+    </div>` : '';
+  const statsHtml = allMs.length ? `
+    <div class="picker-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+      <div style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--mut);margin-bottom:3px;letter-spacing:.5px">MEJOR</div>
+        <div style="font-weight:700;color:var(--amb);font-variant-numeric:tabular-nums;font-size:15px">${fmtTime(bestMs)}</div>
+      </div>
+      <div style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--mut);margin-bottom:3px;letter-spacing:.5px">ÚLTIMO</div>
+        <div style="font-weight:700;font-variant-numeric:tabular-nums;font-size:15px">${fmtTime(lastMs)}</div>
+      </div>
+      <div style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--mut);margin-bottom:3px;letter-spacing:.5px">TENDENCIA</div>
+        <div style="font-weight:700;font-size:20px;color:${trend?trend.color:'#94a3b8'}">${trend?trend.dir:'–'}</div>
+      </div>
+    </div>` : '';
+  const sesRows = [...sessions].reverse().slice(0,12).map((s,i) => {
+    const isLast=i===0, isBest=s.ms===bestMs&&!isLast;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--brd)">
+      <div style="flex:1">
+        <span style="font-size:13px">${fmtDateShort(s.fecha)}</span>
+        ${s.estilo?`<span class="muted" style="font-size:12px"> · ${EMO[s.estilo]||''} ${esc(s.estilo)} ${esc(s.dist)}m</span>`:''}
+      </div>
+      ${isLast?'<span class="badge b-blu">Último</span>':''}
+      ${isBest?'<span class="badge b-amb">Mejor</span>':''}
+      <span style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(s.ms)}</span>
+    </div>`;
+  }).join('');
+  return `
+    <button class="back-btn" data-action="evolucion">← Evolución</button>
+    <div class="h1">${esc(nad.n)}</div>
+    <div class="muted mb16" style="font-size:13px">${eq?esc(eq.nombre):''} · ${sessions.length} sesión${sessions.length!==1?'es':''}</div>
+    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../temporada.html#nadador/${encodeURIComponent(nad.rfen)}">📈 Ver ficha de competición</a>`:''}
+    ${filterPills}
+    ${statsHtml}
+    ${sessions.length>=2?`<div class="card mb16" style="padding:10px 10px 4px">${svgChart(sessions)}</div>`:sessions.length===1?'<div class="muted" style="text-align:center;padding:12px;font-size:13px">Necesitás 2 sesiones para ver el gráfico</div>':''}
+    ${sesRows?`<span class="label mt16">Sesiones</span>${sesRows}`:''}`;
+}
+
+// ── Screen: Entrenadores (solo administradores) ──────────────
+function renderEntrenadores() {
+  if (!soyAdmin()) { nav({screen:'home'}); return ''; }
+  const rows = [...S.entrenadores].sort((a,b)=>a.id.localeCompare(b.id)).map(e=>`
+    <div class="card row">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${esc(e.nombre||e.id)}</div>
+        <div class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis">${esc(e.id)}${e.admin?' · administrador':''}</div>
+      </div>
+      ${e.id!==miEmail()?`<button class="btn-icon" data-action="del-entrenador" data-email="${esc(e.id)}" style="color:var(--red)" aria-label="Quitar acceso">✕</button>`:''}
+    </div>`).join('');
+  return `
+    <button class="back-btn" data-action="home">← Inicio</button>
+    <div class="h1">👥 Entrenadores</div>
+    <div class="muted mb16" style="font-size:13px">Solo las cuentas de Google de esta lista pueden entrar en la app.</div>
+    ${rows}
+    <span class="label mt16">Nadadores del club</span>
+    <div class="card">
+      <div class="muted" style="font-size:13px;margin-bottom:10px">Trae de la web de estadísticas los nadadores nuevos y los cambios de categoría. Cada nadador queda unido a su licencia RFEN y a su ficha de competición.</div>
+      <button class="btn btn-blue" data-action="sync-nadadores">Sincronizar con Estadísticas</button>
+      ${_sync?`<div style="font-size:13px;margin-top:10px">${esc(_sync.estado)}</div>`:''}
+      <div class="muted" style="font-size:12px;margin-top:6px">${S.nadadores.filter(n=>esEquipoClub(n.eqId)&&n.rfen).length} de ${S.nadadores.filter(n=>esEquipoClub(n.eqId)).length} nadadores del club con licencia</div>
+    </div>
+    <span class="label mt16">Dar acceso</span>
+    <input class="input mb8" id="ent-nombre" placeholder="Nombre">
+    <div class="row">
+      <input class="input" id="ent-email" type="email" placeholder="correo@gmail.com" style="flex:1" autocomplete="off">
+      <button class="btn btn-green btn-sm btn-inline" data-action="add-entrenador">+ Agregar</button>
+    </div>`;
+}
+// ── Sincronizar nadadores con la web de estadísticas ─────────
+// nadadores.json lo genera cada día el proceso de la web (licencia RFEN, nombre, categoría).
+const CAT_EQUIPO = {BEN:['club_ben','Benjamín'], ALE:['club_ale','Alevín'], INF:['club_inf','Infantil'], JUN:['club_jun','Junior'], ABS:['club_abs','Absoluto']};
+function normNombre(s) {
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z ]/g,'').split(/\s+/).filter(Boolean).join(' ');
+}
+let _sync = null;
+const EQUIPOS_CAT = new Set(Object.values(CAT_EQUIPO).map(x=>x[0]));
+function esEquipoClub(eqId) { return EQUIPOS_CAT.has(eqId) || !!S.equipos.find(e=>e.id===eqId && e.shared); }
+async function sincronizarNadadores() {
+  _sync = {estado:'Leyendo la lista del club…'}; render();
+  try {
+    const r = await fetch('nadadores.json', {cache:'no-cache'});
+    if (!r.ok) throw new Error('No se pudo leer nadadores.json ('+r.status+')');
+    const web = (await r.json()).nadadores || [];
+    const res = {nuevos:0, emparejados:0, categoria:0, nombre:0, sinCambios:0, equipos:0};
+    for (const [cat, [eqId, nombre]] of Object.entries(CAT_EQUIPO)) {
+      if (!S.equipos.find(e=>e.id===eqId) && web.some(w=>w.cat===cat)) {
+        await _db.collection('equipos').doc(eqId).set({nombre, shared:true, ts:Date.now()}); res.equipos++;
+      }
+    }
+    const club = S.nadadores.filter(n => esEquipoClub(n.eqId));
+    for (const w of web) {
+      if (!/^\d{3,12}$/.test(String(w.id)) || !CAT_EQUIPO[w.cat]) continue;
+      const eqId = CAT_EQUIPO[w.cat][0];
+      let nad = S.nadadores.find(n=>n.rfen===String(w.id));   // la licencia manda, esté en el equipo que esté
+      if (!nad) {
+        const cands = club.filter(n=>!n.rfen && normNombre(n.n)===normNombre(w.n));
+        if (cands.length===1) { nad = cands[0]; await _db.collection('nadadores').doc(nad.id).update({rfen:String(w.id)}); res.emparejados++; }
+      }
+      if (!nad) {
+        await _db.collection('nadadores').doc('rfen_'+w.id).set({eqId, n:String(w.n).slice(0,200), rfen:String(w.id)}); res.nuevos++; continue;
+      }
+      const cambios = {};
+      if (nad.eqId !== eqId) { cambios.eqId = eqId; res.categoria++; }
+      if (nad.n !== w.n) { cambios.n = String(w.n).slice(0,200); res.nombre++; }
+      if (Object.keys(cambios).length) await _db.collection('nadadores').doc(nad.id).update(cambios); else res.sinCambios++;
+    }
+    const enWeb = new Set(web.map(w=>String(w.id)));
+    const fuera = club.filter(n=>n.rfen && !enWeb.has(n.rfen)).length;
+    _sync = {estado:`Listo · ${res.nuevos} nuevos · ${res.emparejados} emparejados · ${res.categoria} cambian de categoría · ${res.nombre} nombres actualizados · ${res.sinCambios} sin cambios${fuera?` · ${fuera} ya no están en la web (se conservan)`:''}`};
+  } catch (e) {
+    _sync = {estado:'Error: '+e.message};
+  }
+  render();
+}
+async function addEntrenador() {
+  const email = (document.getElementById('ent-email').value||'').trim().toLowerCase();
+  const nombre = (document.getElementById('ent-nombre').value||'').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
+  await _db.collection('entrenadores').doc(email).set({nombre:nombre||null, admin:false}).catch(e=>alert(e.message));
+}
+async function delEntrenador(email) {
+  await _db.collection('entrenadores').doc(email).delete().catch(e=>alert(e.message));
+}
+
+// ── Event Handling ───────────────────────────────────────────
+// La hora de SALIDA/LLEGÓ se toma al apoyar el dedo (pointerdown), no al soltarlo
+let _press = null;
+document.getElementById('app').addEventListener('pointerdown', function(e) {
+  const b = e.target.closest('.salida-btn,.llego-btn');
+  _press = b ? {id:b.dataset.action+'|'+(b.dataset.key||''), t:Date.now()} : null;
+}, true);
+function tiempoToque(btn) {
+  const id = btn.dataset.action+'|'+(btn.dataset.key||'');
+  return (_press && _press.id===id && Date.now()-_press.t < 1500) ? _press.t : Date.now();
+}
+document.getElementById('app').addEventListener('click', async function(e) {
+  if (Date.now() < _ignoreClickUntil) return; // clic que sigue a un arrastre
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  e.stopPropagation();
+  const act = btn.dataset.action;
+  switch(act) {
+    case 'set-coach': {
+      const inp = document.getElementById('coach-input');
+      const v = inp?inp.value.trim():'';
+      if (!v) return;
+      saveCoach(v); render(); break;
+    }
+    case 'cambiar-nombre': {
+      coachName = null;
+      try { localStorage.removeItem('coach_name'); } catch {}
+      render(); break;
+    }
+    case 'home':         nav({screen:'home'}); break;
+    case 'login-google': await loginGoogle(); break;
+    case 'logout':       await logout(); break;
+    case 'entrenadores': nav({screen:'entrenadores'}); break;
+    case 'add-entrenador': await addEntrenador(); break;
+    case 'sync-nadadores': await sincronizarNadadores(); break;
+    case 'del-entrenador': await delEntrenador(btn.dataset.email); break;
+    case 'historial':    nav({screen:'historial'}); break;
+    case 'hist-det':      nav({screen:'hist-det', sesId:btn.dataset.ses}); break;
+    case 'evolucion':     nav({screen:'evolucion'}); break;
+    case 'evolucion-nad': nav({screen:'evolucion-nad', nId:btn.dataset.nid, filter:null}); break;
+    case 'evo-filter': {
+      const fStr=btn.dataset.f;
+      if (!fStr) { route.filter=null; }
+      else { const [es,di]=fStr.split('|'); route.filter={estilo:es,dist:parseInt(di)}; }
+      render(); break;
+    }
+    case 'go-equipo':    nav({screen:'equipo', eqId:btn.dataset.eq}); break;
+    case 'equipo-back':  { const eid=PS&&PS.eqId; PS=null; nav(eid?{screen:'equipo',eqId:eid}:{screen:'home'}); break; }
+    case 'nueva-sesion': navPreparar(null); break;
+    case 'usar-plantilla': saveNotas(); usarPlantilla(); break;
+    case 'descartar-plantilla': saveNotas(); if (PS) { PS.oferta = null; render(); } break;
+    case 'crear-equipo': {
+      const inp = document.getElementById('eq-input');
+      const v = inp?inp.value.trim():'';
+      if (!v) return;
+      inp.value='';
+      await DB.crearEquipo(v);
+      break;
+    }
+    case 'del-equipo':   await DB.borrarEquipo(btn.dataset.eq); break;
+    case 'preparar':     navPreparar(btn.dataset.eq||route.eqId); break;
+    case 'crear-nad': {
+      const inp = document.getElementById('nad-input');
+      const v = inp?inp.value.trim():'';
+      if (!v) return;
+      inp.value='';
+      await DB.crearNadador(route.eqId, v);
+      break;
+    }
+    case 'del-nad':      await DB.borrarNadador(btn.dataset.nad); break;
+    case 'set-estilo':   saveNotas(); if(PS){PS.estilo=btn.dataset.val;render();} break;
+    case 'set-dist':     saveNotas(); if(PS){PS.dist=parseInt(btn.dataset.val);render();} break;
+    case 'quitar-de-grupo': saveNotas(); quitarDeGrupo(btn.dataset.gkey, btn.dataset.nad); break;
+    case 'mover-grupo':  saveNotas(); moverGrupo(parseInt(btn.dataset.idx), parseInt(btn.dataset.dir)); break;
+    case 'eliminar-grupo': saveNotas(); if(PS){PS.grupos.splice(parseInt(btn.dataset.idx),1);render();} break;
+    case 'nueva-calle':  saveNotas(); if(PS){const n=PS.grupos.length+1;PS.grupos.push({key:'calle'+Date.now()+'-'+Math.random().toString(36).slice(2,6),nombre:`Calle ${n}`,nads:[]});render();} break;
+    case 'iniciar-sesion': saveNotas(); await iniciarSesion(); break;
+    case 'set-club-cat': saveNotas(); if(PS){PS.clubCat=btn.dataset.cat||null;render();} break;
+    case 'add-nad-to-grupo': saveNotas(); {
+      if (!PS) break;
+      const {gkey,nid,n} = btn.dataset;
+      const g = PS.grupos.find(g=>g.key===gkey);
+      if (g && !g.nads.find(x=>x.id===nid)) {
+        g.nads.push({id:nid,n});
+      }
+      render();
+      // mantener el foco en el input de esa calle
+      const inp = document.getElementById('gs-'+gkey);
+      if (inp) { inp.focus(); }
+      break;
+    }
+    case 'mover-nad-grupo': moverNadGrupo(btn.dataset.gkey, +btn.dataset.pi, +btn.dataset.dir); break;
+    case 'salida-tanda':    salidaTanda(tiempoToque(btn)); break;
+    case 'llego': {
+      const t = tiempoToque(btn);
+      // Si la lista cambió entre el toque y el soltar, el dedo apuntaba a otra fila: ignorar
+      if (_press && SA && _press.t < SA.tLayout && Date.now()-_press.t < 1500) break;
+      marcaNad(btn.dataset.key, t); break;
+    }
+    case 'deshacer':        deshacerLlegada(btn.dataset.key); break;
+    case 'deshacer-parcial': deshacerParcial(btn.dataset.key); break;
+    case 'llego-directo':   llegoDirecto(btn.dataset.key, Date.now()); break;
+    case 'b-card': case 'b-lane': case 'b-pool': saveNotas(); boardTap(btn); break;
+    case 'b-cancel':        BOARD.sel = null; render(); break;
+    case 'board-cat':       saveNotas(); BOARD.cat = btn.dataset.cat || null; render(); break;
+    case 'b-lane-del': {
+      saveNotas();
+      if (PS) { PS.grupos = PS.grupos.filter(g=>g.key!==btn.dataset.lane); BOARD.sel = null; render(); }
+      break;
+    }
+    case 'toggle-parciales': saveNotas(); if (PS) { PS.parciales = !PS.parciales; render(); } break;
+    case 'no-sale':         toggleNoSale(btn.dataset.gid); break;
+    case 'edit-abrir':      if (SA) { SA.editando = true; boardReset(); render(); } break;
+    case 'edit-cerrar':     if (SA) { SA.editando = false; SA.buscar = null; render(); } break;
+    case 'ed-mover':        editMover(btn.dataset.gid, +btn.dataset.i, +btn.dataset.dir); break;
+    case 'ed-quitar':       editQuitar(btn.dataset.gid, +btn.dataset.i); break;
+    case 'ed-buscar':       if (SA) { SA.buscar = {gId:btn.dataset.gid, q:''}; render(); const i=document.getElementById('sa-search'); if (i) i.focus(); } break;
+    case 'ed-buscar-cerrar': if (SA) { SA.buscar = null; render(); } break;
+    case 'ed-agregar':      editAgregar(btn.dataset.gid, btn.dataset.nid); break;
+    case 'ed-nueva-calle':  await editNuevaCalle(); break;
+    case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
+    case 'repetir-serie':   repetirSerie(); break;
+    case 'finalizar-sesion': await finalizarSesion(); break;
+    case 'exportar':     await exportar(btn.dataset.ses||route.sesId); break;
+  }
+  if (route.screen==='en-curso') { if (!_clk) startClock(); }
+});
+
+document.getElementById('app').addEventListener('keydown', async function(e) {
+  if (e.key!=='Enter') return;
+  if (e.target.id==='coach-input') {
+    const v=e.target.value.trim(); if(!v) return;
+    saveCoach(v); render();
+  } else if (e.target.id==='eq-input') {
+    const v=e.target.value.trim(); if(!v) return;
+    e.target.value=''; await DB.crearEquipo(v);
+  } else if (e.target.id==='nad-input') {
+    const v=e.target.value.trim(); if(!v) return;
+    e.target.value=''; await DB.crearNadador(route.eqId, v);
+  }
+});
+
+document.getElementById('app').addEventListener('change', function(e) {
+  if (e.target.dataset.action==='ed-calle' && e.target.value) {
+    editCambiarCalle(e.target.dataset.gid, +e.target.dataset.i, e.target.value);
+  }
+});
+
+document.getElementById('app').addEventListener('input', function(e) {
+  // Buscador del tablero de calles
+  if (e.target.id==='board-search') {
+    BOARD.q = e.target.value;
+    render();
+    return;
+  }
+  // Buscador inline por calle: input tiene data-gkey
+  const gkey = e.target.dataset.gkey;
+  if (gkey && PS && e.target.id.startsWith('gs-')) {
+    PS.grupoSearch[gkey] = e.target.value;
+    const pos = e.target.selectionStart;
+    render();
+    const el = document.getElementById('gs-'+gkey);
+    if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} }
+  }
+  // Campo de notas
+  if (e.target.id==='notas-input' && PS) {
+    PS.notas = e.target.value;
+  }
+});
+
+// ── Init ─────────────────────────────────────────────────────
+loadCoach();
+dbInit();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e=>console.warn('sw', e));
+</script>
+
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Importar datos · Cronómetro</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0f172a;color:#e2e8f0;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  main{max-width:520px;margin:0 auto;padding:24px 16px}
+  h1{font-size:22px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:14px;margin:12px 0}
+  button{min-height:46px;padding:0 18px;border:none;border-radius:12px;background:#22c55e;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  button[disabled]{opacity:.4}
+  .muted{color:#94a3b8;font-size:13px}
+  pre{white-space:pre-wrap;font-size:13px;background:#0b1222;border-radius:10px;padding:10px}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<main>
+  <h1>Importar datos al cronómetro</h1>
+  <p class="muted">Carga el archivo <code>cronometro-export.json</code> (exportado del cronómetro de Claude) en Firebase. Se puede repetir sin duplicar: cada registro conserva su identificador.</p>
+  <div class="card" id="paso-login">
+    <div id="estado-login" class="muted">Comprobando sesión…</div>
+    <button id="btn-login" hidden>Entrar con Google</button>
+  </div>
+  <div class="card" id="paso-archivo" hidden>
+    <input type="file" id="archivo" accept="application/json">
+    <label style="display:block;margin-top:10px"><input type="checkbox" id="sin-demo" checked> Omitir datos de prueba (los que empiezan por <code>demo_</code>)</label>
+    <div id="resumen" class="muted" style="margin-top:10px"></div>
+    <button id="btn-importar" disabled style="margin-top:10px">Importar</button>
+  </div>
+  <pre id="log" hidden></pre>
+</main>
+<script>
+'use strict';
+const COLS = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas'];
+const ESTILOS = ['libre','braza','mariposa','espalda'];
+// Campos admitidos por colección; el resto se descarta
+const CAMPOS = {
+  equipos:['nombre','ts','coach','shared'], nadadores:['eqId','n','rfen'],
+  sesiones:['eqId','fecha','estilo','dist','notas','fin','coach','parciales'],
+  grupos:['sesId','nombre','ord'], gnads:['gId','nId','pos'],
+  resultados:['sesId','nId','gId','ms','modo','ronda','salida','parciales'],
+  plantillas:['coach','ts','estilo','dist','parciales','calles']
+};
+const ID_OK = /^[A-Za-z0-9_-]{1,64}$/;
+function validar(col, d) {
+  if (!d || !ID_OK.test(d.id) || typeof d.data !== 'object' || !d.data) return null;
+  const out = {};
+  for (const k of CAMPOS[col]) if (k in d.data) out[k] = d.data[k];
+  if ('estilo' in out && !ESTILOS.includes(out.estilo)) out.estilo = null;
+  if ('dist' in out) { const n = Number(out.dist); out.dist = Number.isFinite(n) && n > 0 ? n : null; }
+  if ('ms' in out && !Number.isFinite(out.ms)) return null;
+  if ('rfen' in out && !/^\d{3,12}$/.test(String(out.rfen))) delete out.rfen;
+  for (const k of ['nombre','n','coach','notas']) if (k in out && out[k] != null) out[k] = String(out[k]).slice(0, 200);
+  return {id:d.id, data:out};
+}
+const $ = id => document.getElementById(id);
+let datos = null;
+function log(t) { const el = $('log'); el.hidden = false; el.textContent += t + '\n'; }
+
+if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
+  $('estado-login').textContent = 'Falta la configuración de Firebase en firebase-config.js.';
+} else {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth(), db = firebase.firestore();
+  $('btn-login').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => alert(e.message));
+  auth.onAuthStateChanged(u => {
+    $('btn-login').hidden = !!u;
+    $('estado-login').textContent = u ? `Sesión: ${u.email}` : 'Entra con una cuenta de administrador.';
+    $('paso-archivo').hidden = !u;
+  });
+  function seleccion() {
+    if (!datos) return null;
+    const sinDemo = $('sin-demo').checked;
+    const out = {};
+    for (const c of COLS) out[c] = (datos.colecciones[c]||[])
+      .filter(d => !(sinDemo && String(d.id).startsWith('demo_')))
+      .map(d => validar(c, d)).filter(Boolean);
+    return out;
+  }
+  function resumir() {
+    const s = seleccion(); if (!s) return;
+    $('resumen').textContent = COLS.map(c => `${c}: ${s[c].length}`).join(' · ');
+    $('btn-importar').disabled = false;
+  }
+  $('archivo').onchange = async e => {
+    try { datos = JSON.parse(await e.target.files[0].text()); if (!datos.colecciones) throw new Error('Formato no válido'); resumir(); }
+    catch (err) { datos = null; $('resumen').textContent = 'No se pudo leer: ' + err.message; $('btn-importar').disabled = true; }
+  };
+  $('sin-demo').onchange = resumir;
+  $('btn-importar').onclick = async () => {
+    const s = seleccion(); if (!s) return;
+    $('btn-importar').disabled = true;
+    try {
+      for (const c of COLS) {
+        const docs = s[c];
+        for (let i = 0; i < docs.length; i += 400) {
+          const batch = db.batch();
+          docs.slice(i, i+400).forEach(d => batch.set(db.collection(c).doc(d.id), d.data));
+          await batch.commit();
+        }
+        log(`✓ ${c}: ${docs.length}`);
+      }
+      log('Importación terminada.');
+    } catch (err) {
+      log('✗ Error: ' + err.message + (err.code === 'permission-denied' ? ' — ¿tu cuenta está en "entrenadores"?' : ''));
+      $('btn-importar').disabled = false;
+    }
+  };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+rules_version = '2';
+// Solo entran cuentas de Google con el correo verificado y dadas de alta
+// en la colección "entrenadores" (id del documento = correo en minúsculas).
+// Los administradores (campo admin: true) pueden dar y quitar acceso.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function correo() {
+      return request.auth.token.email.lower();
+    }
+    function esEntrenador() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/entrenadores/$(correo()));
+    }
+    function esAdmin() {
+      return esEntrenador()
+        && get(/databases/$(database)/documents/entrenadores/$(correo())).data.admin == true;
+    }
+
+    match /entrenadores/{email} {
+      allow read: if esEntrenador();
+      allow write: if esAdmin();
+    }
+
+    match /{coleccion}/{doc} {
+      allow read, write: if esEntrenador()
+        && coleccion in ['equipos', 'nadadores', 'sesiones', 'grupos', 'gnads', 'resultados', 'plantillas'];
+    }
+  }
+}
