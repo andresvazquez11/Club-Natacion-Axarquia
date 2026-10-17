@@ -1,14 +1,14 @@
 // Service worker: deja la app abrible sin conexión en la piscina.
 // Los datos los guarda Firestore en el propio móvil; aquí solo se guarda la "carcasa".
 // Al publicar cambios, sube la versión para que los móviles se actualicen.
-const VERSION = 'crono-v4';
+const VERSION = 'crono-v5';
 const CARCASA = [
   './', 'index.html', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'nadadores.json'
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CARCASA)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CARCASA.map(u => new Request(u, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
@@ -30,8 +30,9 @@ self.addEventListener('fetch', e => {
     })));
     return;
   }
-  // Archivos de la app: primero red (para recibir actualizaciones), si no hay, caché
-  e.respondWith(fetch(req).then(res => {
+  // Archivos de la app: primero red, siempre comprobando con el servidor (no la caché HTTP de 10 min de GitHub Pages);
+  // sin conexión, lo guardado
+  e.respondWith(fetch(req, {cache: 'no-cache'}).then(res => {
     if (res.ok) { const copia = res.clone(); caches.open(VERSION).then(c => c.put(req, copia)); }
     return res;
   }).catch(() => caches.match(req).then(r => r || caches.match('index.html'))));
