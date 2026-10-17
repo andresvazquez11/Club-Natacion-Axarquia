@@ -296,6 +296,11 @@ function limpiarDoc(col, d) {
     d.estilo = ESTILOS.includes(d.estilo) ? d.estilo : null;
     const n = Number(d.dist); d.dist = Number.isFinite(n) && n > 0 ? n : null;
   }
+  if (col==='resultados') {   // serie y salida se muestran tal cual: siempre enteros positivos
+    for (const k of ['ronda','salida']) { const n = Number(d[k]); d[k] = Number.isInteger(n) && n > 0 ? n : 1; }
+    d.ms = Number(d.ms) || 0;
+  }
+  if (col==='sesiones') { d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null; }
   if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
   return d;
 }

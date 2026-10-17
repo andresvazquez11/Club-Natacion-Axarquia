@@ -12,6 +12,7 @@ function entNavModo() { const a = document.getElementById('nav-ent'); if (a) a.c
 /* Nombre de la prueba como en la web ('libre', 50 → '50 Libre') */
 const entPrueba = (estilo, dist) => `${dist} ${estilo.charAt(0).toUpperCase()}${estilo.slice(1)}`;
 const entCs = ms => Math.round(ms / 10);            // el cronómetro guarda milésimas; la web usa centésimas
+const entEntero = v => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : 1; };   // serie/salida: nunca texto libre
 const entDia = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /* Une los datos del cronómetro: cada tiempo con su sesión, su prueba y el nadador de la web (por licencia RFEN).
@@ -25,7 +26,7 @@ function entTiempos(D, sw) {
     const dist = Number(r.estilo ? r.dist : s.dist) || null;
     const n = nad.get(r.nId) || {};
     const web = n.rfen && Object.hasOwn(sw, String(n.rfen)) ? sw[String(n.rfen)] : null;
-    return {id: r.id, sesId: r.sesId, fecha: s.fecha, dia: entDia(s.fecha), coach: s.coach || '', ronda: r.ronda || 1,
+    return {id: r.id, sesId: r.sesId, fecha: Number(s.fecha) || 0, dia: entDia(Number(s.fecha) || 0), coach: s.coach || '', ronda: entEntero(r.ronda),
       estilo, dist, ev: estilo && dist ? entPrueba(estilo, dist) : null, cs: entCs(r.ms), parciales: r.parciales || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(Boolean).sort((a, b) => a.fecha - b.fecha);
@@ -197,7 +198,7 @@ function pintarEntrenamientos(host, f) {
       <span class="ent-ses-r">${e.pruebas.map(ev => `${franja(ev)}${esc(ev)}`).join(' ') || 'Sin prueba'} · ${e.nads} nad. · ${e.tiempos.length} tiempos</span></summary>
       <table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Tiempo</th></tr>
       ${[...e.tiempos].sort((a, b) => a.ronda - b.ronda || a.cs - b.cs).map(t => `<tr${t.rfen ? ` class="click" data-href="#nadador/${t.rfen}/entrenos"` : ''}>
-        <td>${esc(t.n)}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${t.ronda}</span></td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
+        <td>${esc(t.n)}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}</span></td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
     </details>`).join('');
   const pruebas = R.pruebas.map(pr => `
     <div class="card"><div class="h">${franja(pr.ev)}${esc(pr.ev)} <span class="h-n">(${pr.nads.length} nadadores · ${pr.n} tiempos)</span></div>

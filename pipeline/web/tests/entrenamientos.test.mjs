@@ -77,3 +77,10 @@ test('rutas: #entrenamientos es una sección y entrenos una pantalla de la ficha
   assert.equal(r('#nadador/7/entrenos').sub, 'entrenos');
   assert.equal(r('#nadador/7/entrenos').redirigir, undefined);
 });
+
+test('entTiempos: la serie siempre es un entero (nunca HTML guardado en la base de datos)', () => {
+  const D2 = structuredClone(D);
+  D2.resultados[1].ronda = '<img src=x onerror=alert(1)>';
+  const T = ev('entTiempos', D2, SW);
+  assert.equal(T.find(t => t.id === 'r2').ronda, 1);
+});
