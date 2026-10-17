@@ -1,7 +1,7 @@
 // Service worker: deja la app abrible sin conexión en la piscina.
 // Los datos los guarda Firestore en el propio móvil; aquí solo se guarda la "carcasa".
 // Al publicar cambios, sube la versión para que los móviles se actualicen.
-const VERSION = 'crono-v1';
+const VERSION = 'crono-v2';
 const CARCASA = [
   './', 'index.html', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
@@ -20,10 +20,11 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const propio = url.origin === location.origin;
-  const sdk = url.origin === 'https://www.gstatic.com' && url.pathname.startsWith('/firebasejs/');
+  const sdk = (url.origin === 'https://www.gstatic.com' && url.pathname.startsWith('/firebasejs/'))
+    || (url.origin === 'https://cdnjs.cloudflare.com' && url.pathname.startsWith('/ajax/libs/jspdf'));
   if (!propio && !sdk) return; // Firestore, login de Google, etc. van directos a la red
   if (sdk) {
-    // El SDK de Firebase tiene versión fija: primero caché
+    // Librerías con versión fija (Firebase, jsPDF): primero caché
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => {
       const copia = res.clone(); caches.open(VERSION).then(c => c.put(req, copia)); return res;
     })));

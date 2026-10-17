@@ -287,12 +287,12 @@ function sinAcceso() {
   _unsubs.forEach(u => { try { u(); } catch {} });
   _unsubs = [];
   pantallaMensaje('Cuenta sin acceso',
-    `La cuenta <b>${esc(_user && _user.email)}</b> todavía no está dada de alta como entrenador. Pide al administrador del club que te agregue.`,
+    `El administrador del club no ha dado acceso a <b>${esc(_user && _user.email)}</b> o lo ha retirado. Si crees que es un error, habla con él.`,
     `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
 }
 // Campos que se pintan sin plantilla de texto libre: se normalizan al leer
 function limpiarDoc(col, d) {
-  if (col==='sesiones' || col==='plantillas') {
+  if (col==='sesiones' || col==='plantillas' || col==='resultados') {
     d.estilo = ESTILOS.includes(d.estilo) ? d.estilo : null;
     const n = Number(d.dist); d.dist = Number.isFinite(n) && n > 0 ? n : null;
   }
@@ -313,12 +313,48 @@ async function dbInit() {
   // Datos guardados en el móvil: la app sigue funcionando con mala cobertura en la piscina
   try { await fs.enablePersistence({synchronizeTabs:true}); } catch (e) { console.warn('persistencia', e.code); }
   try { await _auth.getRedirectResult(); } catch (e) { console.warn('login', e.code); }
-  _auth.onAuthStateChanged(u => {
+  _auth.onAuthStateChanged(async u => {
     _user = u;
     if (!u) { renderLogin(); return; }
     _db = fs;
+    pantallaMensaje('Entrando…', '');
+    const estado = await registrarEntrenador(u);
+    if (estado === 'bloqueado') { sinAcceso(); return; }
+    if (estado === 'pendiente') { esperarAprobacion(); return; }
     conectarColecciones();
   });
+}
+// Acceso por solicitud: cualquier cuenta de Google puede pedir acceso (queda en "entrenadores"
+// sin aprobar) y el administrador la aprueba o la rechaza. Las reglas de Firestore lo exigen.
+function esperarAprobacion() {
+  pantallaMensaje('Solicitud enviada',
+    `Has pedido acceso con <b>${esc(_user.email)}</b>. El administrador del club tiene que aprobarlo; en cuanto lo haga, el cronómetro se abrirá solo.`,
+    `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
+  const off = _db.collection('entrenadores').doc(miEmail()).onSnapshot(snap => {
+    const d = snap.exists ? snap.data() : {};
+    if (d.bloqueado === true) { off(); sinAcceso(); }
+    else if (d.aprobado === true || d.admin === true) { off(); conectarColecciones(); }
+  }, () => {});
+  _unsubs.push(off);
+}
+async function registrarEntrenador(u) {
+  const ref = _db.collection('entrenadores').doc(String(u.email||'').toLowerCase());
+  try {
+    const snap = await ref.get();
+    const ahora = Date.now();
+    if (!snap.exists) {
+      await ref.set({nombre: u.displayName || null, alta: ahora, ultimo: ahora});
+      return 'pendiente';
+    }
+    const d = snap.data() || {};
+    if (d.bloqueado === true) return 'bloqueado';
+    if (d.aprobado !== true && d.admin !== true) return 'pendiente';
+    if (!d.ultimo || ahora - d.ultimo > 3600e3) ref.update({ultimo: ahora}).catch(()=>{});
+    return 'ok';
+  } catch (e) {
+    console.warn('registro', e.code);   // sin conexión: se sigue con lo guardado en el móvil
+    return 'error';
+  }
 }
 function conectarColecciones() {
   document.getElementById('app').innerHTML = '<div class="center-msg"><h2>Cargando...</h2></div>';
@@ -458,14 +494,14 @@ function getSwimmerSessions(nId, filter) {
     if (r.nId !== nId) return false;
     if (!myIds.has(r.sesId)) return false;
     if (!filter) return true;
-    const s = S.sesiones.find(s=>s.id===r.sesId);
-    return s && s.estilo===filter.estilo && Number(s.dist)===Number(filter.dist);
+    const c = resCombo(r);
+    return c.estilo===filter.estilo && c.dist===Number(filter.dist);
   });
   const by = {};
   res.forEach(r => {
     if (!by[r.sesId] || r.ms < by[r.sesId].ms) {
-      const s = S.sesiones.find(s=>s.id===r.sesId);
-      if (s) by[r.sesId] = {ms:r.ms, fecha:s.fecha, estilo:s.estilo, dist:s.dist};
+      const s = S.sesiones.find(s=>s.id===r.sesId), c = resCombo(r);
+      if (s) by[r.sesId] = {ms:r.ms, fecha:s.fecha, estilo:c.estilo, dist:c.dist};
     }
   });
   return Object.values(by).sort((a,b)=>a.fecha-b.fecha);
@@ -666,7 +702,10 @@ function buildSA(sesId) {
   SA = {
     sesId,
     dist,
+    estilo: ses ? ses.estilo : null,
+    parciales: !!(ses && ses.parciales),
     tramos: ses && ses.parciales && dist > 50 ? Math.round(dist/50) : 1, // toques por nadador
+    nuevaSerie: null,  // formulario de la siguiente serie con otro estilo
     ronda: 1,
     nSalida: 0,
     tUltSalida: 0,
@@ -725,7 +764,7 @@ function llegoNad(key, t) {
   if (i<0) return;
   const a = SA.agua.splice(i,1)[0];
   const ms = t - a.t0;
-  const extra = {ronda:SA.ronda, salida:a.salida};
+  const extra = {ronda:SA.ronda, salida:a.salida, estilo:SA.estilo||null, dist:SA.dist||null};
   if (SA.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, SA.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
   const rec = {...a, ms, resId, tLleg: Date.now()};
@@ -769,6 +808,25 @@ function tramosDe(parc) {
   return (parc||[]).map((v,i,arr)=> v==null ? null : i===0 ? v : (arr[i-1]==null ? null : v-arr[i-1]));
 }
 function fmtTramos(parc) { return tramosDe(parc).map(v=>v==null?'—':fmtTime(v)).join(' · '); }
+// Estilo y distancia de cada tiempo (los antiguos, sin estilo propio, usan los de su sesión)
+function resCombo(r) {
+  if (r.estilo && r.dist) return {estilo:r.estilo, dist:Number(r.dist)};
+  const s = S.sesiones.find(x=>x.id===r.sesId);
+  return s && s.estilo && s.dist ? {estilo:s.estilo, dist:Number(s.dist)} : {estilo:null, dist:null};
+}
+function comboLabel(estilo, dist) { return estilo && dist ? `${EMO[estilo]||'🏊'} ${esc(estilo)} ${esc(dist)}m` : '🏊 Serie libre'; }
+function comboTexto(estilo, dist) { return estilo && dist ? `${estilo.charAt(0).toUpperCase()+estilo.slice(1)} ${dist} m` : 'Serie libre'; }
+// Series de un entrenamiento: [{ronda, estilo, dist, res:[tiempos]}]
+function seriesDe(sesId) {
+  const by = {};
+  S.resultados.filter(r=>r.sesId===sesId).forEach(r => {
+    const c = resCombo(r), k = r.ronda || 1;
+    (by[k] = by[k] || {ronda:k, estilo:c.estilo, dist:c.dist, res:[]}).res.push(r);
+  });
+  return Object.values(by).sort((a,b)=>a.ronda-b.ronda).map(x => (x.res.sort((a,b)=>a.ms-b.ms), x));
+}
+function calleDe(r) { const g = S.grupos.find(g=>g.id===r.gId); return g ? g.nombre : ''; }
+function nombreDe(nId) { const n = S.nadadores.find(n=>n.id===nId); return n ? n.n : '?'; }
 function deshacerLlegada(key) {
   if (!SA) return;
   const i = SA.llegados.findIndex(l=>l.key===key);
@@ -785,8 +843,13 @@ function deshacerLlegada(key) {
   SA.tLayout = Date.now();
   render();
 }
-function repetirSerie() {
+function repetirSerie(cfg) {
   if (!SA) return;
+  if (cfg) {   // nueva serie con otro estilo/distancia
+    SA.estilo = cfg.estilo; SA.dist = Number(cfg.dist) || 0; SA.parciales = !!cfg.parciales;
+    SA.tramos = SA.parciales && SA.dist > 50 ? Math.round(SA.dist/50) : 1;
+  }
+  SA.nuevaSerie = null;
   SA.ronda++;
   SA.nSalida = 0;
   SA.agua = []; SA.llegados = []; SA.recientes = [];
@@ -863,33 +926,18 @@ async function editNuevaCalle() {
 }
 // Mejor marca previa del nadador en el mismo estilo/distancia (otras sesiones o rondas)
 function mejorPrevia(nId, excluirId) {
-  const ses = S.sesiones.find(s=>s.id===SA.sesId);
-  if (!ses || !ses.estilo || !ses.dist) return null;
-  const mismas = new Set(S.sesiones.filter(s=>s.estilo===ses.estilo&&Number(s.dist)===Number(ses.dist)).map(s=>s.id));
-  const prev = S.resultados.filter(r=>r.nId===nId && r.id!==excluirId && mismas.has(r.sesId) && !(r.sesId===SA.sesId && r.ronda===SA.ronda));
+  if (!SA.estilo || !SA.dist) return null;
+  const prev = S.resultados.filter(r => {
+    if (r.nId!==nId || r.id===excluirId || (r.sesId===SA.sesId && r.ronda===SA.ronda)) return false;
+    const c = resCombo(r);
+    return c.estilo===SA.estilo && c.dist===Number(SA.dist);
+  });
   return prev.length ? Math.min(...prev.map(r=>r.ms)) : null;
 }
 
-// ── Export ───────────────────────────────────────────────────
-async function exportar(sesId) {
-  const ses = S.sesiones.find(s=>s.id===sesId);
-  if (!ses) return;
-  const nIds = [...new Set(S.resultados.filter(r=>r.sesId===sesId).map(r=>r.nId))];
-  const ranked = nIds.map(nId => {
-    const n = S.nadadores.find(n=>n.id===nId);
-    const rs = S.resultados.filter(r=>r.sesId===sesId&&r.nId===nId).sort((a,b)=>a.ms-b.ms);
-    const ts = rs.map(r=>r.ms);
-    return {n:n?n.n:'?', mejor:ts[0], ts, parc:rs[0].parciales};
-  }).sort((a,b)=>a.mejor-b.mejor);
-  let txt = `CRONÓMETRO NATACIÓN\n${'─'.repeat(28)}\n`;
-  txt += `Equipo: ${eqNombre(ses.eqId)}\nSesión: ${sesLabel(ses).replace(/🏊|🐸|🦋|🔄/g,'').trim()}\nFecha: ${fmtDate(ses.fecha)}\n${'─'.repeat(28)}\n\nRESULTADOS:\n\n`;
-  ranked.forEach((r,i) => {
-    txt += `${i+1}. ${r.n} — ${fmtTime(r.mejor)}\n`;
-    if (r.ts.length>1) txt += `   Todos: ${r.ts.map(fmtTime).join(', ')}\n`;
-    if (r.parc && r.parc.length>1) txt += `   Parciales 50m: ${fmtTramos(r.parc)}\n`;
-  });
-  const fname = `natacion-${fmtDate(ses.fecha).replace(/\s/g,'-')}.txt`;
-  const file = new File([txt], fname, {type:'text/plain'});
+// ── Compartir o descargar un archivo ─────────────────────────
+async function compartirArchivo(blob, fname, tipo) {
+  const file = new File([blob], fname, {type:tipo});
   // En el móvil abre el menú de compartir (WhatsApp, correo…); si no, descarga el archivo
   if (navigator.canShare && navigator.canShare({files:[file]})) {
     try { await navigator.share({files:[file], title:fname}); return; }
@@ -900,8 +948,113 @@ async function exportar(sesId) {
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
-function fallbackCopy(txt) {
-  navigator.clipboard.writeText(txt).catch(()=>{});
+function nombreArchivo(ses, ext) {
+  const f = new Date(ses.fecha);
+  const iso = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
+  return `entrenamiento-${iso}.${ext}`;
+}
+
+// ── Export: texto ────────────────────────────────────────────
+async function exportar(sesId) {
+  const d = datosEntrenamiento(sesId);
+  if (!d) return;
+  const {ses, series} = d;
+  let txt = `C.N. AXARQUÍA · RESUMEN DE ENTRENAMIENTO\n${'─'.repeat(40)}\n`;
+  txt += `Fecha: ${fmtDate(ses.fecha)} ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''}\n`;
+  txt += `Grupo: ${eqNombre(ses.eqId)}${ses.coach?`\nEntrenador: ${ses.coach}`:''}\n`;
+  txt += `Series: ${series.length} · Nadadores: ${d.nads.length} · Tiempos: ${d.nTiempos}\n`;
+  if (d.nads.length) txt += `Nadadores: ${d.nads.join(', ')}\n`;
+  if (ses.notas) txt += `Notas: ${ses.notas}\n`;
+  series.forEach(x => {
+    txt += `\nSERIE ${x.ronda} · ${comboTexto(x.estilo, x.dist).toUpperCase()}\n`;
+    x.res.forEach((r,i) => {
+      txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}\n`;
+      if (r.parciales && r.parciales.length>1) txt += `   Parciales 50 m: ${fmtTramos(r.parciales)}\n`;
+    });
+  });
+  await compartirArchivo(txt, nombreArchivo(ses, 'txt'), 'text/plain');
+}
+
+// ── Export: PDF ──────────────────────────────────────────────
+// jsPDF se descarga solo al pedir el primer PDF (y queda guardado para usarlo sin conexión)
+const LIB_PDF = [
+  ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk'],
+  ['https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js', 'sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3'],
+];
+function cargarScript(src, integrity) {
+  return new Promise((ok, ko) => {
+    if (document.querySelector(`script[src="${src}"]`)) return ok();
+    const el = Object.assign(document.createElement('script'), {src, integrity, crossOrigin:'anonymous'});
+    el.onload = ok; el.onerror = () => ko(new Error('No se pudo descargar el generador de PDF. ¿Hay conexión?'));
+    document.head.appendChild(el);
+  });
+}
+async function logoDataURL() {
+  try {
+    const b = await (await fetch('icons/icon-192.png')).blob();
+    return await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); });
+  } catch { return null; }
+}
+async function generarPDF(sesId, btn) {
+  const d = datosEntrenamiento(sesId);
+  if (!d) return;
+  const txtBtn = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando PDF…'; }
+  try {
+    for (const [src, sri] of LIB_PDF) await cargarScript(src, sri);
+    const {ses, series} = d;
+    const doc = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 14;
+    const AZUL = [15,23,42], GRIS = [100,116,139];
+    const logo = await logoDataURL();
+    if (logo) doc.addImage(logo, 'PNG', M, 10, 18, 18);
+    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...AZUL);
+    doc.text('Resumen de entrenamiento', M+22, 17);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...GRIS);
+    doc.text('C.N. Axarquía', M+22, 23);
+    let y = 36;
+    const linea = (et, v) => { doc.setFont('helvetica','bold'); doc.setTextColor(...AZUL); doc.text(et, M, y);
+      doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+      const t = doc.splitTextToSize(String(v), W-M*2-30); doc.text(t, M+30, y); y += 5.5*t.length; };
+    linea('Fecha', `${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''}${d.min?` (${d.min} min)`:''}`);
+    linea('Grupo', eqNombre(ses.eqId));
+    if (ses.coach) linea('Entrenador', ses.coach);
+    linea('Resumen', `${series.length} ${series.length===1?'serie':'series'} · ${d.nads.length} nadadores · ${d.nTiempos} tiempos`);
+    if (d.combos.length) linea('Estilos', d.combos.join(' · '));
+    if (d.nads.length) linea('Nadadores', d.nads.join(', '));
+    if (ses.notas) linea('Notas', ses.notas);
+    y += 3;
+    series.forEach(x => {
+      if (y > H - 40) { doc.addPage(); y = 18; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...AZUL);
+      doc.text(`Serie ${x.ronda} · ${comboTexto(x.estilo, x.dist)}`, M, y);
+      const conParc = x.res.some(r => r.parciales && r.parciales.length > 1);
+      const best = x.res[0] ? x.res[0].ms : 0;
+      doc.autoTable({
+        startY: y + 2, margin: {left:M, right:M},
+        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[])]],
+        body: x.res.map((r,i) => [i+1, nombreDe(r.nId), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
+                                  ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[])]),
+        theme: 'striped', styles: {fontSize: 9, cellPadding: 1.8},
+        headStyles: {fillColor: AZUL, textColor: 255},
+        columnStyles: {0:{cellWidth:8}, 3:{fontStyle:'bold'}},
+      });
+      doc.setFontSize(10);
+      y = doc.lastAutoTable.finalY + 10;
+    });
+    if (!series.length) { doc.setTextColor(...GRIS); doc.text('Sin tiempos registrados en este entrenamiento.', M, y); }
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...GRIS);
+      doc.text(`Cronómetro CNA · ${fmtDate(Date.now())}`, M, H-8);
+      doc.text(`${i} / ${n}`, W-M, H-8, {align:'right'});
+    }
+    await compartirArchivo(doc.output('blob'), nombreArchivo(ses, 'pdf'), 'application/pdf');
+  } catch (e) {
+    alert(e.message || 'No se pudo generar el PDF');
+  } finally {
+    if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = txtBtn; }
+  }
 }
 
 // ── Screen: Bienvenida ───────────────────────────────────────
@@ -971,6 +1124,7 @@ function renderHome() {
         <button class="btn-icon" data-action="logout" style="font-size:12px;color:var(--mut)">Salir</button>
       </div>
     </div>
+    ${soyAdmin() && solicitudesPendientes().length ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${solicitudesPendientes().length} ${solicitudesPendientes().length===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
     <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Iniciar sesión</button>
     ${(() => { const p = plantillaUsable(); return p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:18px">Última: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores · ${fmtDate(p.ts)}</div>` : '<div style="height:14px"></div>'; })()}
     ${clubEqs.length>0?`<span class="label">🏟 C.N. Axarquía</span>${clubRows}<div style="height:4px"></div>`:''}
@@ -1256,7 +1410,7 @@ function renderPreparar() {
 function renderEnCurso() {
   if (!SA) return '';
   const ses = S.sesiones.find(s=>s.id===SA.sesId);
-  const titulo = sesLabel(ses);
+  const titulo = comboLabel(SA.estilo, SA.dist);
   const eq = ses?eqNombre(ses.eqId):'';
   const now = Date.now();
   const totalNads = SA.grupos.reduce((s,g)=>s+g.nads.length,0);
@@ -1265,10 +1419,10 @@ function renderEnCurso() {
   let html = `
     <div class="ec-top">
       <div style="flex:1;min-width:0">
-        <div style="font-size:17px;font-weight:700">${titulo}${SA.ronda>1?` · <span style="color:var(--blu-l)">Ronda ${SA.ronda}</span>`:''}</div>
+        <div style="font-size:17px;font-weight:700">${titulo} · <span style="color:var(--blu-l)">Serie ${SA.ronda}</span></div>
         <div class="muted" style="font-size:13px">${esc(eq)} · ${SA.llegados.length}/${totalNads} llegados</div>
       </div>
-      <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Seguro? Toca otra vez':'Finalizar'}</button>
+      <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
     </div>`;
 
   // Ronda terminada → resumen
@@ -1403,7 +1557,7 @@ function renderResumenRonda() {
   return `
     <div class="card" style="text-align:center;padding:14px">
       <div style="font-size:28px">🏁</div>
-      <div style="font-weight:700;font-size:17px">Serie completa${SA.ronda>1?` · ronda ${SA.ronda}`:''}</div>
+      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)}</div>
       <div class="muted" style="font-size:13px">${lleg.length} nadadores · mejor ${fmtTime(best)}</div>
     </div>
     <div class="seg">
@@ -1411,39 +1565,75 @@ function renderResumenRonda() {
       <button class="${SA.vista==='calle'?'on':''}" data-action="vista" data-v="calle">🏊 Por calle</button>
     </div>
     ${cuerpo}
-    <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir serie (ronda ${SA.ronda+1})</button>
-    <button class="btn btn-green mt8" style="min-height:56px;font-size:17px" data-action="finalizar-sesion">✓ Terminar y guardar</button>`;
+    ${SA.nuevaSerie ? renderNuevaSerie() : `
+    <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir igual · serie ${SA.ronda+1}</button>
+    <button class="btn btn-surf mt8" style="min-height:52px;font-size:16px" data-action="ns-abrir">➕ Nueva serie con otro estilo</button>`}
+    <button class="btn btn-green mt8" style="min-height:56px;font-size:17px" data-action="finalizar-sesion">🏁 Terminar entrenamiento</button>`;
+}
+function renderNuevaSerie() {
+  const f = SA.nuevaSerie, ok = Number(f.dist) > 50;
+  return `<div class="card mt16" style="border-color:var(--blu)">
+    <div style="font-weight:700;margin-bottom:10px">Serie ${SA.ronda+1} · mismas calles</div>
+    <span class="label">Estilo</span>
+    <div class="picker-row p4">${ESTILOS.map(e=>`<button class="pick-btn${f.estilo===e?' on':''}" data-action="ns-estilo" data-val="${e}">${EMO[e]} ${e}</button>`).join('')}</div>
+    <span class="label">Distancia</span>
+    <div class="picker-row p4">${DISTS.map(d=>`<button class="pick-btn${Number(f.dist)===d?' on':''}" data-action="ns-dist" data-val="${d}">${d}m</button>`).join('')}</div>
+    <div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="ns-parc"':''}>
+      <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>
+    <div class="row">
+      <button class="btn btn-blue" style="flex:2;min-height:52px" data-action="ns-empezar" ${f.estilo&&f.dist?'':'disabled style="opacity:.4"'}>▶ Empezar serie ${SA.ronda+1}</button>
+      <button class="btn btn-surf" style="flex:1;min-height:52px" data-action="ns-cancelar">Cancelar</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Para cambiar nadadores o calles usa ✎ Calles al empezar.</div>
+  </div>`;
 }
 
-// ── Screen: Resultados / Hist-Det ────────────────────────────
-function renderResultados(sesId, backAction, backLabel) {
+// ── Screen: Resumen del entrenamiento (Resultados / Hist-Det) ─
+function datosEntrenamiento(sesId) {
   const ses = S.sesiones.find(s=>s.id===sesId);
-  if (!ses) return `<div class="center-msg"><p>Sesión no encontrada</p></div>`;
-  const nIds = [...new Set(S.resultados.filter(r=>r.sesId===sesId).map(r=>r.nId))];
-  const ranked = nIds.map(nId => {
-    const n = S.nadadores.find(n=>n.id===nId);
-    const rs = S.resultados.filter(r=>r.sesId===sesId&&r.nId===nId).sort((a,b)=>a.ms-b.ms);
-    const ts = rs.map(r=>r.ms);
-    return {nId, n:n?n.n:'?', mejor:ts[0], ts, parc:rs[0].parciales};
-  }).sort((a,b)=>a.mejor-b.mejor);
-  const rows = ranked.length===0
-    ? '<div class="center-msg"><p>Sin tiempos registrados en esta sesión</p></div>'
-    : ranked.map((r,i)=>`
-      <div class="result-row">
-        <div class="rpos${i===0?' gold':''}">${i+1}</div>
-        <div class="rname">${esc(r.n)}</div>
-        <div>
-          <div class="rtime">${fmtTime(r.mejor)}</div>
-          ${r.ts.length>1?`<div style="font-size:11px;color:var(--mut)">${r.ts.map(fmtTime).join(' · ')}</div>`:''}
-          ${r.parc&&r.parc.length>1?`<div style="font-size:11px;color:var(--mut)">50m: ${fmtTramos(r.parc)}</div>`:''}
-        </div>
-      </div>`).join('');
+  if (!ses) return null;
+  const series = seriesDe(sesId);
+  const res = S.resultados.filter(r=>r.sesId===sesId);
+  const nads = [...new Set(res.map(r=>r.nId))].map(nombreDe).sort((a,b)=>a.localeCompare(b));
+  const combos = [...new Set(series.map(x=>comboTexto(x.estilo, x.dist)))];
+  const fin = ses.fin || null;
+  return {ses, series, nads, combos, nTiempos: res.length,
+          min: fin ? Math.max(1, Math.round((fin - ses.fecha)/60000)) : null};
+}
+function fmtHora(ts) { return new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); }
+
+function renderResultados(sesId, backAction, backLabel) {
+  const d = datosEntrenamiento(sesId);
+  if (!d) return `<div class="center-msg"><p>Sesión no encontrada</p></div>`;
+  const {ses, series} = d;
+  const stat = (v, t) => `<div style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
+      <div style="font-weight:800;font-size:20px">${v}</div><div class="muted" style="font-size:11px">${t}</div></div>`;
+  const bloques = series.map(x => {
+    const best = x.res[0] ? x.res[0].ms : 0;
+    return `<span class="label mt16">Serie ${x.ronda} · ${comboLabel(x.estilo, x.dist)}</span>
+      ${x.res.map((r,i)=>`
+        <div class="result-row">
+          <div class="rpos${i===0?' gold':''}">${i+1}</div>
+          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div></div>
+          <div style="text-align:right">
+            <div class="rtime">${fmtTime(r.ms)}</div>
+            ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}
+          </div>
+        </div>`).join('')}`;
+  }).join('');
   return `
-    <div class="h1">${sesLabel(ses)}</div>
-    <div class="muted mb16" style="font-size:13px">${esc(eqNombre(ses.eqId))} · ${fmtDate(ses.fecha)}</div>
-    ${rows}
-    <div class="row mt16">
-      <button class="btn btn-green btn-inline" style="flex:1" data-action="exportar" data-ses="${esc(sesId)}">📤 Exportar</button>
+    <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento</div>
+    <div class="muted mb16" style="font-size:13px">${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''} · ${esc(eqNombre(ses.eqId))}${ses.coach?` · ${esc(ses.coach)}`:''}</div>
+    <div class="picker-row" style="grid-template-columns:repeat(${d.min?4:3},1fr);margin-bottom:12px">
+      ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${d.min?stat(d.min,'minutos'):''}
+    </div>
+    ${d.combos.length?`<div class="muted" style="font-size:13px;margin-bottom:6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
+    ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
+    ${ses.notas?`<div class="card mt8" style="font-size:13px">${esc(ses.notas)}</div>`:''}
+    ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
+    <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
+    <div class="row mt8">
+      <button class="btn btn-surf btn-inline" style="flex:1" data-action="exportar" data-ses="${esc(sesId)}">📤 Texto</button>
       <button class="btn btn-surf btn-inline" style="flex:1" data-action="${backAction}">${backLabel}</button>
     </div>`;
 }
@@ -1452,7 +1642,9 @@ function renderResultados(sesId, backAction, backLabel) {
 function renderHistorial() {
   const rows = [...mySes()].sort((a,b)=>b.fecha-a.fecha).map(s => {
     const em = s.estilo?(EMO[s.estilo]||'🏊'):'🏊';
-    const det = s.estilo&&s.dist?`${esc(s.estilo)} ${esc(s.dist)}m`:'Sin definir';
+    const ser = seriesDe(s.id);
+    const combos = [...new Set(ser.map(x=>comboTexto(x.estilo, x.dist)))];
+    const det = ser.length ? `${ser.length} ${ser.length===1?'serie':'series'} · ${esc(combos.join(', '))}` : (s.estilo&&s.dist?`${esc(s.estilo)} ${esc(s.dist)}m`:'Sin tiempos');
     return `
       <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}">
         <div style="font-size:22px">${em}</div>
@@ -1512,8 +1704,8 @@ function renderEvolucionNad() {
   // Combos con datos
   const combosMap = {};
   S.resultados.filter(r=>r.nId===nId).forEach(r => {
-    const s = S.sesiones.find(s=>s.id===r.sesId);
-    if (s && s.estilo && s.dist) combosMap[`${s.estilo}|${s.dist}`]={estilo:s.estilo,dist:s.dist};
+    const c = resCombo(r);
+    if (c.estilo && c.dist) combosMap[`${c.estilo}|${c.dist}`]=c;
   });
   const combos = Object.values(combosMap);
   const filter = route.filter||null;
@@ -1566,33 +1758,42 @@ function renderEvolucionNad() {
 }
 
 // ── Screen: Entrenadores (solo administradores) ──────────────
+function fmtFechaHora(ts) {
+  return ts ? new Date(ts).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+}
+function solicitudesPendientes() { return S.entrenadores.filter(e=>!e.admin && e.aprobado!==true && e.bloqueado!==true); }
 function renderEntrenadores() {
   if (!soyAdmin()) { nav({screen:'home'}); return ''; }
-  const rows = [...S.entrenadores].sort((a,b)=>a.id.localeCompare(b.id)).map(e=>`
-    <div class="card row">
+  const fila = (e, botones) => `
+    <div class="card row" style="${e.bloqueado?'opacity:.6':''}">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${esc(e.nombre||e.id)}</div>
-        <div class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis">${esc(e.id)}${e.admin?' · administrador':''}</div>
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis">${esc(e.nombre||e.id)}${e.admin?' <span class="badge b-blu">admin</span>':''}</div>
+        <div class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis">${esc(e.id)}</div>
+        <div class="muted" style="font-size:11px">Alta ${fmtFechaHora(e.alta)} · último acceso ${fmtFechaHora(e.ultimo)}</div>
       </div>
-      ${e.id!==miEmail()?`<button class="btn-icon" data-action="del-entrenador" data-email="${esc(e.id)}" style="color:var(--red)" aria-label="Quitar acceso">✕</button>`:''}
-    </div>`).join('');
+      <div style="display:flex;flex-direction:column;gap:6px">${botones}</div>
+    </div>`;
+  const b = (txt, cls, email, accion) => `<button class="btn ${cls} btn-sm btn-inline" data-action="acceso-entrenador" data-email="${esc(email)}" data-accion="${accion}">${txt}</button>`;
+  const porUltimo = (x,y) => (y.ultimo||0)-(x.ultimo||0);
+  const pend = solicitudesPendientes().sort(porUltimo);
+  const con = S.entrenadores.filter(e=>(e.admin||e.aprobado===true) && e.bloqueado!==true).sort(porUltimo);
+  const sin = S.entrenadores.filter(e=>e.bloqueado===true).sort(porUltimo);
   return `
     <button class="back-btn" data-action="home">← Inicio</button>
     <div class="h1">👥 Entrenadores</div>
-    <div class="muted mb16" style="font-size:13px">Solo las cuentas de Google de esta lista pueden entrar en la app.</div>
-    ${rows}
+    <div class="muted mb16" style="font-size:13px">Cualquiera con el enlace puede pedir acceso con su cuenta de Google. Solo entran las cuentas que apruebes, aquí y en la sección Entrenamientos de la web.</div>
+    ${pend.length?`<span class="label" style="color:var(--amb)">🔔 Solicitudes de acceso (${pend.length})</span>
+      ${pend.map(e=>fila(e, b('Aprobar','btn-green',e.id,'aprobar')+b('Rechazar','btn-red-line',e.id,'quitar'))).join('')}`:''}
+    <span class="label mt16">Con acceso (${con.length})</span>
+    ${con.map(e=>fila(e, e.id!==miEmail() && !e.admin ? b('Quitar acceso','btn-red-line',e.id,'quitar') : '')).join('')}
+    ${sin.length?`<span class="label mt16">Sin acceso (${sin.length})</span>
+      ${sin.map(e=>fila(e, b('Dar acceso','btn-surf',e.id,'aprobar'))).join('')}`:''}
     <span class="label mt16">Nadadores del club</span>
     <div class="card">
       <div class="muted" style="font-size:13px;margin-bottom:10px">Trae de la web de estadísticas los nadadores nuevos y los cambios de categoría. Cada nadador queda unido a su licencia RFEN y a su ficha de competición.</div>
       <button class="btn btn-blue" data-action="sync-nadadores">Sincronizar con Estadísticas</button>
       ${_sync?`<div style="font-size:13px;margin-top:10px">${esc(_sync.estado)}</div>`:''}
       <div class="muted" style="font-size:12px;margin-top:6px">${S.nadadores.filter(n=>esEquipoClub(n.eqId)&&n.rfen).length} de ${S.nadadores.filter(n=>esEquipoClub(n.eqId)).length} nadadores del club con licencia</div>
-    </div>
-    <span class="label mt16">Dar acceso</span>
-    <input class="input mb8" id="ent-nombre" placeholder="Nombre">
-    <div class="row">
-      <input class="input" id="ent-email" type="email" placeholder="correo@gmail.com" style="flex:1" autocomplete="off">
-      <button class="btn btn-green btn-sm btn-inline" data-action="add-entrenador">+ Agregar</button>
     </div>`;
 }
 // ── Sincronizar nadadores con la web de estadísticas ─────────
@@ -1641,14 +1842,9 @@ async function sincronizarNadadores() {
   }
   render();
 }
-async function addEntrenador() {
-  const email = (document.getElementById('ent-email').value||'').trim().toLowerCase();
-  const nombre = (document.getElementById('ent-nombre').value||'').trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
-  await _db.collection('entrenadores').doc(email).set({nombre:nombre||null, admin:false}).catch(e=>alert(e.message));
-}
-async function delEntrenador(email) {
-  await _db.collection('entrenadores').doc(email).delete().catch(e=>alert(e.message));
+async function cambiarAcceso(email, accion) {
+  const cambio = accion === 'aprobar' ? {aprobado: true, bloqueado: false} : {bloqueado: true};
+  await _db.collection('entrenadores').doc(email).update(cambio).catch(e=>alert(e.message));
 }
 
 // ── Event Handling ───────────────────────────────────────────
@@ -1684,9 +1880,8 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'login-google': await loginGoogle(); break;
     case 'logout':       await logout(); break;
     case 'entrenadores': nav({screen:'entrenadores'}); break;
-    case 'add-entrenador': await addEntrenador(); break;
     case 'sync-nadadores': await sincronizarNadadores(); break;
-    case 'del-entrenador': await delEntrenador(btn.dataset.email); break;
+    case 'acceso-entrenador': await cambiarAcceso(btn.dataset.email, btn.dataset.accion); break;
     case 'historial':    nav({screen:'historial'}); break;
     case 'hist-det':      nav({screen:'hist-det', sesId:btn.dataset.ses}); break;
     case 'evolucion':     nav({screen:'evolucion'}); break;
@@ -1773,6 +1968,13 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
+    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales}; render(); } break;
+    case 'ns-cancelar':     if (SA) { SA.nuevaSerie = null; render(); } break;
+    case 'ns-estilo':       if (SA && SA.nuevaSerie) { SA.nuevaSerie.estilo = btn.dataset.val; render(); } break;
+    case 'ns-dist':         if (SA && SA.nuevaSerie) { SA.nuevaSerie.dist = Number(btn.dataset.val); render(); } break;
+    case 'ns-parc':         if (SA && SA.nuevaSerie) { SA.nuevaSerie.parciales = !SA.nuevaSerie.parciales; render(); } break;
+    case 'ns-empezar':      if (SA && SA.nuevaSerie && SA.nuevaSerie.estilo && SA.nuevaSerie.dist) repetirSerie(SA.nuevaSerie); break;
+    case 'pdf':             await generarPDF(btn.dataset.ses||route.sesId, btn); break;
     case 'finalizar-sesion': await finalizarSesion(); break;
     case 'exportar':     await exportar(btn.dataset.ses||route.sesId); break;
   }
