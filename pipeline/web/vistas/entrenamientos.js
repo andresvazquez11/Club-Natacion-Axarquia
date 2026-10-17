@@ -100,6 +100,47 @@ function entStatsNadador(T, nId, ev) {
 const entPct = v => v == null ? '—' : `<b class="${v <= 0 ? 'good' : 'bad'}">${v <= 0 ? '−' : '+'}${Math.abs(v).toFixed(1)}%</b>`;
 const entPctMejora = v => v == null ? '—' : v > 0 ? `<b class="good">${v.toFixed(1)}%</b>` : '0%';
 
+/* Resumen del grupo: entrenamientos del grupo y, por nadador, a cuántos vino, cuántos tiempos tiene y qué estilos entrenó */
+function entGrupo(T) {
+  const ses = new Set(T.map(t => t.sesId));
+  const m = new Map();
+  T.forEach(t => { const x = m.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, cat: t.cat, ses: new Set(), tiempos: 0, estilos: new Set()};
+    x.ses.add(t.sesId); x.tiempos++; if (t.estilo) x.estilos.add(t.estilo); m.set(t.nId, x); });
+  return {sesiones: ses.size, nadadores: [...m.values()].map(x => ({nId: x.nId, n: x.n, rfen: x.rfen, cat: x.cat, sesiones: x.ses.size,
+      asistencia: ses.size ? x.ses.size / ses.size * 100 : 0, tiempos: x.tiempos, estilos: ENT_ESTILOS.filter(e => x.estilos.has(e))}))
+    .sort((a, b) => b.sesiones - a.sesiones || b.tiempos - a.tiempos || a.n.localeCompare(b.n))};
+}
+/* Dispersión del grupo en una prueba: por día, el tiempo más rápido, la mediana y el más lento, y todos los puntos */
+function entDispersion(T, ev) {
+  const L = T.filter(t => t.ev === ev), dias = new Map();
+  L.forEach(t => { (dias.get(t.dia) || dias.set(t.dia, []).get(t.dia)).push(t); });
+  const med = a => { const v = a.map(t => t.cs).sort((x, y) => x - y), k = v.length >> 1; return v.length % 2 ? v[k] : Math.round((v[k - 1] + v[k]) / 2); };
+  return {puntos: L, dias: [...dias.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1)
+    .map(([dia, a]) => ({dia, fecha: a[0].fecha, n: a.length, min: Math.min(...a.map(t => t.cs)), max: Math.max(...a.map(t => t.cs)), mediana: med(a)}))};
+}
+function entGraficoDispersion(D, ev) {
+  if (!D.puntos.length) return '<p class="empty">Sin tiempos en esta prueba.</p>';
+  const movil = typeof window !== 'undefined' && window.innerWidth < 600;
+  const W = movil ? 400 : 760, H = movil ? 250 : 270, P = {l: 50, r: 14, t: 14, b: 30};
+  const ts = D.dias.map(d => d.fecha), cs = D.puntos.map(t => t.cs);
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), tr = (t1 - t0) || 1;
+  const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .1, 20), lo = Math.max(0, mn - pad), hi = mx + pad;
+  const X = t => t1 === t0 ? W / 2 : P.l + (t - t0) / tr * (W - P.l - P.r);
+  const Y = c => P.t + (hi - c) / (hi - lo) * (H - P.t - P.b);
+  const xDia = d => X(D.dias.find(x => x.dia === d).fecha);
+  let g = '';
+  for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="ent-eje"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end" class="ent-tx">${fmt(Math.round(c))}</text>`; }
+  const paso = Math.ceil(D.dias.length / (movil ? 5 : 8)) || 1;
+  D.dias.forEach((d, i) => { if (!(i % paso)) g += `<text x="${X(d.fecha)}" y="${H - 8}" text-anchor="middle" class="ent-tx">${d.dia.slice(8)}/${d.dia.slice(5, 7)}</text>`; });
+  if (D.dias.length > 1) g += `<polygon class="ent-banda" points="${[...D.dias.map(d => X(d.fecha) + ',' + Y(d.max)), ...[...D.dias].reverse().map(d => X(d.fecha) + ',' + Y(d.min))].join(' ')}"/>`;
+  D.puntos.forEach(t => { const c = `<circle cx="${xDia(t.dia)}" cy="${Y(t.cs)}" r="4" class="ent-punto"><title>${esc(t.n)} · ${dfmt(t.dia)} · ${fmt(t.cs)}</title></circle>`;
+    g += t.rfen ? `<a href="#nadador/${t.rfen}/entrenos?ev=${encodeURIComponent(ev)}">${c}</a>` : c; });
+  if (D.dias.length > 1) g += `<polyline fill="none" class="ent-mediana" points="${D.dias.map(d => X(d.fecha) + ',' + Y(d.mediana)).join(' ')}"/>`;
+  return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Dispersión de tiempos del grupo">${g}</svg>
+    <div class="ent-leyenda"><span><i class="ent-l-punto"></i>cada tiempo (pulsa para ver al nadador)</span><span><i class="ent-l-med"></i>mediana del grupo</span><span><i class="ent-l-banda"></i>del más rápido al más lento</span></div>`;
+}
+
 /* Gráfico de varias curvas (comparar nadadores): series = [{nombre, color, filas: [{fecha, cs, dia}]}].
    Como en el resto de la web: tiempo más alto arriba, mejor abajo. */
 const ENT_COLORES = ['#0a6cff', '#e0861a', '#0f9d8a', '#8b3fd9'];
@@ -245,7 +286,7 @@ function entBarrasSemana(S) {
 
 /* ── Sección Entrenamientos (#entrenamientos) ── */
 function vistaEntrenamientos(app, p) {
-  const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || ''};
+  const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || '', gev: p.gev || ''};
   app.innerHTML = `
     <div class="card sub-cab"><span class="ante">Modo entrenador</span><h1>Entrenamientos</h1></div>
     <div id="ent-host" style="margin-top:12px"></div>`;
@@ -255,7 +296,7 @@ function vistaEntrenamientos(app, p) {
 function pintarEntrenamientos(host, f) {
   const T = ENT.T || [];
   const go = o => { const q = Object.assign({}, f, o);
-    location.hash = `#entrenamientos?cat=${q.cat}&estilo=${q.estilo}&dias=${q.dias}&cev=${encodeURIComponent(q.cev)}&cn=${encodeURIComponent(q.cn)}`; };
+    location.hash = `#entrenamientos?cat=${q.cat}&estilo=${q.estilo}&dias=${q.dias}&cev=${encodeURIComponent(q.cev)}&cn=${encodeURIComponent(q.cn)}&gev=${encodeURIComponent(q.gev)}`; };
   const F = entFiltrar(T, f), R = entResumen(F);
   const cuenta = o => entFiltrar(T, Object.assign({}, f, o)).length;
   const cats = DATA.cats.filter(c => T.some(t => t.cat === c.key));
@@ -282,6 +323,25 @@ function pintarEntrenamientos(host, f) {
         <td>${i + 1}</td><td style="max-width:0;width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.veces} ${m.veces === 1 ? 'vez' : 'veces'} · último ${fmt(m.ultimo.cs)}</div></td>
         <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${entPctMejora(st.mejoraPct)}</td><td class="num">${entPct(st.tendencia)}</td><td class="num">${(c => c ? fmt(c.cs) : '—')(m.rfen && Object.hasOwn(SW, m.rfen) ? entMejorCompeticion(SW[m.rfen], pr.ev) : null)}</td></tr>`; }).join('')}</table></div>
     </div>`).join('');
+  // El grupo (la categoría elegida o todo el club): asistencia, estilos y dispersión de tiempos
+  const G = entGrupo(F), catNom = f.cat === 'all' ? 'Todo el club' : ((DATA.cats.find(c => c.key === f.cat) || {}).label || f.cat);
+  const gev = R.pruebas.some(x => x.ev === f.gev) ? f.gev : (R.pruebas[0] || {}).ev;
+  const DG = gev ? entDispersion(F, gev) : null, ultimo = DG && DG.dias[DG.dias.length - 1], primero = DG && DG.dias[0];
+  const grupo = `
+    <div class="card"><div class="h">${ico('grupo')}El grupo · ${esc(catNom)} <span class="h-n">(${G.nadadores.length} nadadores · ${G.sesiones} entrenamientos)</span></div>
+      <div class="tw"><table class="rt"><tr><th>Nadador</th><th class="num">Sesiones</th><th class="num">Asist.</th><th class="num">Tiempos</th><th>Estilos</th></tr>
+      ${G.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
+        <td style="max-width:0;width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b></td>
+        <td class="num">${m.sesiones} de ${G.sesiones}</td><td class="num"><b class="${m.asistencia >= 75 ? 'good' : m.asistencia < 50 ? 'bad' : ''}">${Math.round(m.asistencia)}%</b></td>
+        <td class="num">${m.tiempos}</td><td class="ent-estilos">${m.estilos.map(e => `<span title="${e}">${franja(e)}</span>`).join('')}</td></tr>`).join('')}</table></div>
+      <div class="ent-leyenda" style="margin-bottom:4px">${ENT_ESTILOS.map(e => `<span>${franja(e)}${e.charAt(0).toUpperCase() + e.slice(1)}</span>`).join('')}</div>
+      ${gev ? `<div class="h h-sub">${ico('tendencia')}Cómo va el grupo en cada prueba</div>
+        ${chipsHTML('gev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.n]), gev)}
+        ${entGraficoDispersion(DG, gev)}
+        ${DG.dias.length > 1 ? `<p class="tiny muted" style="margin-top:6px">Mediana del grupo: ${fmt(primero.mediana)} el ${dfmt(primero.dia)} → ${fmt(ultimo.mediana)} el ${dfmt(ultimo.dia)}
+          (${entPct((ultimo.mediana - primero.mediana) / primero.mediana * 100)}). Diferencia entre el más rápido y el más lento: ${fmt(primero.max - primero.min)} → ${fmt(ultimo.max - ultimo.min)}.</p>` : ''}` : ''}
+    </div>`;
+
   // Comparar nadadores en una prueba (hasta 4)
   const cev = R.pruebas.some(x => x.ev === f.cev) ? f.cev : (R.pruebas[0] || {}).ev;
   const prC = R.pruebas.find(x => x.ev === cev);
@@ -313,6 +373,7 @@ function pintarEntrenamientos(host, f) {
       <div class="kpi"><b>${R.pruebas.length}</b><span>pruebas distintas</span></div>
     </div>
     <div class="card"><div class="h">${ico('barras')}Tiempos tomados por semana</div>${entBarrasSemana(entPorSemana(F))}</div>
+    ${grupo}
     ${comparar}
     <div class="card"><div class="h">${ico('crono')}Entrenamientos <span class="h-n">(${R.entrenamientos.length})</span></div>${ents}</div>
     <div class="h h-sub" style="margin-top:16px">${ico('medalla')}Mejores tiempos por prueba</div>
@@ -325,6 +386,7 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'dias', v => go({dias: v}));
   onChips(host, 'cev', v => go({cev: v, cn: ''}));
   onChips(host, 'cn', v => go({cev, cn: v}));
+  onChips(host, 'gev', v => go({gev: v}));
   host.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
   host.querySelector('#ent-salir').onclick = async e => { e.preventDefault(); await entSalir(); entPreparar(host, () => pintarEntrenamientos(host, f)); };
   host.querySelector('#ent-act').onclick = async e => { e.preventDefault(); await entCargar(true); pintarEntrenamientos(host, f); };

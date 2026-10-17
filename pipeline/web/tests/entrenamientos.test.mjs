@@ -119,3 +119,16 @@ test('entTiempos: descarta tiempos imposibles (menos de 10 s por cada 50 m)', ()
   D2.resultados.push({ id: 'rx', sesId: 's1', nId: 'a', ms: 1553, ronda: 1, estilo: 'libre', dist: 50 });
   assert.ok(!ev('entTiempos', D2, SW).some(t => t.id === 'rx'));
 });
+
+test('entGrupo: sesiones del grupo y, por nadador, asistencia y estilos', () => {
+  const G = ev('entGrupo', ev('entTiempos', D, SW));
+  assert.equal(G.sesiones, 2);
+  assert.deepEqual(G.nadadores.map(m => [m.nId, m.sesiones, Math.round(m.asistencia), m.tiempos, m.estilos]),
+    [['a', 2, 100, 3, ['libre', 'espalda']], ['b', 1, 50, 1, ['libre']]]);
+});
+
+test('entDispersion: por día, más rápido, mediana y más lento', () => {
+  const X = ev('entDispersion', ev('entTiempos', D, SW), '50 Libre');
+  assert.equal(X.puntos.length, 3);
+  assert.deepEqual(X.dias.map(d => [d.n, d.min, d.mediana, d.max]), [[2, 2987, 3055, 3123], [1, 3050, 3050, 3050]]);
+});
