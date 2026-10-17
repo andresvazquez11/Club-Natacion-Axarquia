@@ -33,8 +33,10 @@ function entTiempos(D, sw) {
     return {id: r.id, sesId: r.sesId, fecha: Number(s.fecha) || 0, dia: entDia(Number(s.fecha) || 0), coach: s.coach || '', ronda: entEntero(r.ronda),
       estilo, dist, ev: estilo && dist ? entPrueba(estilo, dist) : null, cs: entCs(r.ms), parciales: r.parciales || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
-  }).filter(Boolean).sort((a, b) => a.fecha - b.fecha);
+  }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
+/* Descarta tiempos imposibles (pulsaciones de prueba, errores): menos de 10 s por cada 50 m */
+const entPlausible = t => t.cs > 0 && t.cs >= (t.dist || 50) * 20;
 
 /* Filtra por categoría ('all' o clave), estilo ('all' o estilo) y periodo en días ('all' o número) */
 function entFiltrar(T, f, ahora = Date.now()) {
@@ -108,7 +110,7 @@ function entGraficoComparar(series) {
   const W = movil ? 400 : 760, H = movil ? 240 : 260, P = {l: 50, r: 14, t: 14, b: 30};
   const ts = todas.map(t => t.fecha), cs = todas.map(t => t.cs);
   const t0 = Math.min(...ts), t1 = Math.max(...ts), tr = (t1 - t0) || 1;
-  const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .12, 20), lo = mn - pad, hi = mx + pad;
+  const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .12, 20), lo = Math.max(0, mn - pad), hi = mx + pad;
   const X = t => t1 === t0 ? W / 2 : P.l + (t - t0) / tr * (W - P.l - P.r);
   const Y = c => P.t + (hi - c) / (hi - lo) * (H - P.t - P.b);
   let g = '';

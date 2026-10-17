@@ -113,3 +113,9 @@ test('entStatsNadador: primero, mejor, media, mejora y tendencia', () => {
   assert.ok(st.tendencia < 0);                       // va más rápido
   assert.equal(ev('entStatsNadador', T, 'a', '200 Mariposa'), null);
 });
+
+test('entTiempos: descarta tiempos imposibles (menos de 10 s por cada 50 m)', () => {
+  const D2 = structuredClone(D);
+  D2.resultados.push({ id: 'rx', sesId: 's1', nId: 'a', ms: 1553, ronda: 1, estilo: 'libre', dist: 50 });
+  assert.ok(!ev('entTiempos', D2, SW).some(t => t.id === 'rx'));
+});
