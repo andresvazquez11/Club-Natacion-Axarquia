@@ -43,29 +43,39 @@ function textoClub(e, s) {
   };
 }
 
-/* Ranking interno del club en una prueba y piscina (el detalle de cada fila de «En el club").
-   pos = 1 + nº de nadadores con marca estrictamente mejor (igual que e.cl en generar.py). */
-const posClub = filas => filas.sort((a, b) => a.cs - b.cs).map(x => Object.assign(x, {pos: 1 + filas.filter(o => o.cs < x.cs).length}));
+/* Ranking interno del club en una prueba (el detalle de cada fila de «En el club»), con 25 y 50 m juntas como en Relevos:
+   cada marca se compara por su equivalente en 50 m (conv, puntos World Aquatics) y se muestra con su marca y piscina reales.
+   pos = 1 + nº de nadadores con equivalente estrictamente mejor (igual que e.cl en generar.py). */
+const posClub = filas => filas.sort((a, b) => a.c50 - b.c50).map(x => Object.assign(x, {pos: 1 + filas.filter(o => o.c50 < x.c50).length}));
 
-/* Hoy: los nadadores actuales del CNA de su mismo sexo y año, con su mejor marca en esa prueba y piscina */
-function rankingClubHoy(s, ev, pool) {
+/* su mejor marca de una prueba por equivalente en 50 m: {c50, cs, pool} (null si no se puede convertir) */
+function mejorClub(o, e) {
+  let m = null;
+  const ver = (cs, pool) => { const c = conv(cs, pool, '50m', o.g, e.e); if (c !== null && (!m || c < m.c50)) m = {c50: c, cs, pool}; };
+  ver(e.cs, e.pool);
+  (e.h || []).forEach(x => { if (!x[8]) ver(x[1], x[2]); });
+  return m;
+}
+
+/* Hoy: los nadadores actuales del CNA de su mismo sexo y año, con su mejor marca en esa prueba (cualquier piscina) */
+function rankingClubHoy(s, ev) {
   const filas = [];
   DATA.swimmers.forEach(o => {
     if (o.g !== s.g || o.y !== s.y) return;
-    const cs = Math.min(...o.ev.filter(e => e.e === ev && e.pool === pool).map(e => e.cs));
-    if (isFinite(cs)) filas.push({pid: String(o.id), n: o.n, cs, yo: String(o.id) === String(s.id)});
+    const e = o.ev.find(x => x.e === ev), m = e && mejorClub(o, e);
+    if (m) filas.push(Object.assign({pid: String(o.id), n: o.n, yo: String(o.id) === String(s.id)}, m));
   });
   return posClub(filas);
 }
 
-/* Histórico: la mejor marca de cada nadador del CNA a su misma edad (desde la 13-14), en esa prueba y piscina.
-   DATA.clh = {'g|E{edad}|prueba|piscina': [[pid, cs], …]}; DATA.cln = nombres de los que ya no están (si se saben). */
+/* Histórico: la mejor marca de cada nadador del CNA a su misma edad (desde la 13-14), en esa prueba y en cualquier piscina.
+   DATA.clh = {'g|E{edad}|prueba': [[pid, cs 50 m, cs real, piscina], …]}; DATA.cln = nombres de los que ya no están. */
 function rankingClubHist(s, e) {
-  const edad = e.cl && e.cl.hi ? e.cl.hi[2] : null, L = edad && (DATA.clh || {})[`${s.g}|E${edad}|${e.e}|${e.pool}`];
+  const edad = e.cl && e.cl.hi ? e.cl.hi[2] : null, L = edad && (DATA.clh || {})[`${s.g}|E${edad}|${e.e}`];
   if (!L) return null;
   const ex = s.g === 'F' ? 'Exnadadora del club' : 'Exnadador del club';
-  return {edad, filas: posClub(L.map(([pid, cs]) => { const o = SW[String(pid)];
-    return {pid: String(pid), n: o ? o.n : (DATA.cln || {})[pid] || ex, cs, yo: String(pid) === String(s.id), actual: !!o}; }))};
+  return {edad, filas: posClub(L.map(([pid, c50, cs, pool]) => { const o = SW[String(pid)];
+    return {pid: String(pid), n: o ? o.n : (DATA.cln || {})[pid] || ex, c50, cs, pool, yo: String(pid) === String(s.id), actual: !!o}; }))};
 }
 
 /* Victorias y podios en sus competiciones (puesto entre los nacidos en su año), para la fila del Resumen que abre la ventana «pod» */

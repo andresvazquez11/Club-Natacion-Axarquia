@@ -250,46 +250,51 @@ function subRelevos(s) {
       : `<p class="vacio">Ahora mismo ${nombreCorto(s)} no está entre los candidatos de los relevos de ${esc(s.catl)} (le falta marca en las pruebas de relevos o hay compañeros más rápidos).</p>`, intro) + notaConv();
 }
 
-/* En el club: por prueba, su puesto hoy entre los del CNA de su sexo y año y dónde quedaría su mejor marca a la misma edad */
+/* En el club: por prueba, su puesto hoy entre los del CNA de su sexo y año y dónde quedaría su mejor marca a la misma edad.
+   25 y 50 m juntas, como en Relevos: se compara el equivalente en 50 m y se enseña la marca real con su piscina. */
+const enOtra = (m, g, ev) => { const o = m.pool === '50m' ? '25m' : '50m', c = conv(m.cs, m.pool, o, g, ev);
+  return c === null ? '' : `≈ ${fmt(c)} en ${o.replace('m', ' m')}`; };
 function subClub(s) {
-  const filas = s.ev.map(e => { const t = textoClub(e, s);
-    return `<a class="fila club-e" href="${clubHref(s, e)}">${franja(e.e)}<span><b>${e.e}</b> <span class="of">${e.pool}</span><b class="club-t">${fmt(e.cs)}</b>
+  const filas = s.ev.map(e => { const t = textoClub(e, s), m = mejorClub(s, e) || {cs: e.cs, pool: e.pool};
+    return `<a class="fila club-e" href="${clubHref(s, e)}">${franja(e.e)}<span><b>${e.e}</b><b class="club-t">${fmt(m.cs)}</b> <span class="of">${m.pool}</span>
       ${t.hoy || t.hi ? `${t.hoy ? `<span class="rel-e">${t.hoy}</span>` : ''}${t.hi ? `<span class="rel-e">${t.hi}</span>` : ''}` : '<span class="rel-e muted">Sin datos del club para esta prueba</span>'}</span><span class="dcha">›</span></a>`; }).join('');
   return bloque('grupo', 'En el club', `<div class="lista">${filas}</div>
-    <p class="tiny muted" style="margin-top:8px">Pulsa una prueba para ver el ranking del club completo · histórico desde la temporada 13-14 · misma piscina</p>`,
-    `Cómo está ${nombreCorto(s)} entre los nadadores del CNA de su mismo sexo.`);
+    <p class="tiny muted" style="margin-top:8px">Pulsa una prueba para ver el ranking del club completo · histórico desde la temporada 13-14 · piscinas de 25 y 50 m juntas</p>`,
+    `Cómo está ${nombreCorto(s)} entre los nadadores del CNA de su mismo sexo.`) + convNota();
 }
 
-const clubHref = (s, e) => `${fichaHref(s, 'club')}?ev=${encodeURIComponent(e.e)}&pl=${e.pool}`;
+const clubHref = (s, e) => `${fichaHref(s, 'club')}?ev=${encodeURIComponent(e.e)}`;
 
-/* Detalle de una fila de «En el club»: el ranking interno del CNA en esa prueba y piscina, hoy (su año) e histórico (su edad) */
+/* Detalle de una fila de «En el club»: el ranking interno del CNA en esa prueba, hoy (su año) e histórico (su edad) */
 function subClubDetalle(s, p) {
-  const e = s.ev.find(x => x.e === p.ev && x.pool === p.pl);
+  const e = s.ev.find(x => x.e === p.ev);
   if (!e) return subClub(s);
-  const nac = s.g === 'F' ? 'nacidas' : 'nacidos', t = textoClub(e, s);
+  const nac = s.g === 'F' ? 'nacidas' : 'nacidos', t = textoClub(e, s), yo = mejorClub(s, e) || {c50: e.cs, cs: e.cs, pool: e.pool};
   const fila = (x, sub) => rkFila({
-    pos: posB(x.pos), nom: esc(x.n), sub, marca: fmt(x.cs),
+    pos: posB(x.pos), nom: esc(x.n), sub, marca: fmt(x.cs), pool: x.pool,
     cls: x.yo ? 'me yo' + (s.benicio ? ' mio' : '') : '',
-    det: x.yo ? [] : [['Dif.', `<b class="${x.cs - e.cs < 0 ? 'bad' : 'good'}">${gapS(x.cs - e.cs)}</b>`]],
+    det: [['Equivale', enOtra(x, s.g, e.e) || '—'],
+      ...(x.yo ? [] : [['Dif.', `<b class="${x.c50 - yo.c50 < 0 ? 'bad' : 'good'}">${gapS(x.c50 - yo.c50)}</b> <span class="of">en 50 m</span>`]])],
     acc: !x.yo && SW[x.pid] ? [['Ver ficha', `href="${fichaHref(SW[x.pid])}"`]] : [],
   });
-  const hoy = rankingClubHoy(s, e.e, e.pool), hi = rankingClubHist(s, e);
+  const hoy = rankingClubHoy(s, e.e), hi = rankingClubHist(s, e);
+  const actual = s.g === 'F' ? 'Nadadora actual' : 'Nadador actual';
   // listas largas: los 10 primeros y los que tiene alrededor; el resto, con «Ver los N»
   const listaCorta = (filas, f) => {
-    const yo = filas.findIndex(x => x.yo);
+    const i = filas.findIndex(x => x.yo);
     if (filas.length <= 15) return rkLista(filas.map(f));
     const corta = filas.slice(0, 10).map(f);
-    if (yo >= 10) corta.push(rkSep(), ...filas.slice(Math.max(10, yo - 2), yo + 3).map(f));
+    if (i >= 10) corta.push(rkSep(), ...filas.slice(Math.max(10, i - 2), i + 3).map(f));
     return `<div data-rk-corto>${rkLista(corta)}</div><div data-rk-todo hidden>${rkLista(filas.map(f))}</div>
       <button type="button" class="btn ghost" style="margin-top:8px" data-ver-todo>Ver los ${filas.length}</button>`;
   };
-  const actual = s.g === 'F' ? 'Nadadora actual' : 'Nadador actual';
-  return `<div class="card"><div class="h">${franja(e.e)}${e.e} <span class="h-n">· piscina de ${e.pool.replace('m', ' m')}</span></div>
-      <p class="small muted" style="margin:0">Su mejor marca: <b class="club-t" style="margin:0">${fmt(e.cs)}</b></p></div>
+  return `<div class="card"><div class="h">${franja(e.e)}${e.e} <span class="h-n">· 25 y 50 m juntas</span></div>
+      <p class="small muted" style="margin:0">Su mejor marca: <b class="club-t" style="margin:0">${fmt(yo.cs)}</b> en ${yo.pool.replace('m', ' m')} <span class="of">${enOtra(yo, s.g, e.e)}</span></p></div>
     ${bloque('grupo', `Hoy · CNA ${nac} en ${s.y}`, rkLista(hoy.map(x => fila(x, ''))), t.hoy ? `${nombreCorto(s)} es ${t.hoy}.` : '')}
     ${hi ? bloque('historia', `Histórico · CNA a los ${hi.edad} años`, listaCorta(hi.filas, x => fila(x, x.actual ? actual : '')),
       `La mejor marca de cada ${s.g === 'F' ? 'nadadora' : 'nadador'} del club a los ${hi.edad} años, desde la temporada 13-14. ${t.hi ? `La de ${nombreCorto(s)} es la ${t.hi}.` : ''}`)
-      : '<div class="card vacio">Todavía no hay histórico del club para esta prueba a su edad.</div>'}`;
+      : '<div class="card vacio">Todavía no hay histórico del club para esta prueba a su edad.</div>'}
+    ${convNota()}`;
 }
 
 function segScope(s, sk) {
