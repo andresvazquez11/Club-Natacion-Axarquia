@@ -7,7 +7,11 @@ const ENT_LS = 'cna_entrenador';      // en este móvil ya entró un entrenador 
 const esEntrenadorLocal = () => { try { return localStorage.getItem(ENT_LS) === '1'; } catch (e) { return false; } };
 const entMarcarLocal = si => { try { si ? localStorage.setItem(ENT_LS, '1') : localStorage.removeItem(ENT_LS); } catch (e) {} entNavModo(); };
 /* El botón «Modo entrenador» de la barra se marca cuando el modo está activo en este móvil */
-function entNavModo() { const a = document.getElementById('nav-ent'); if (a) a.classList.toggle('ent-on', esEntrenadorLocal()); }
+function entNavModo() {
+  const on = esEntrenadorLocal();
+  const a = document.getElementById('nav-ent'); if (a) a.classList.toggle('ent-on', on);
+  const c = document.getElementById('cab-crono'); if (c) c.hidden = !on;   // acceso directo al cronómetro, solo en modo entrenador
+}
 
 /* Nombre de la prueba como en la web ('libre', 50 → '50 Libre') */
 const entPrueba = (estilo, dist) => `${dist} ${estilo.charAt(0).toUpperCase()}${estilo.slice(1)}`;
@@ -79,10 +83,36 @@ function entEvolucion(T, nId, ev) {
   return [...dias.values()].sort((a, b) => a.fecha - b.fecha);
 }
 
-/* Su mejor marca en competición de esa prueba, por piscina (de los datos de la web) */
+/* Su mejor marca de competición de esa prueba en equivalente de 25 m (los entrenamientos son en piscina de 25 m):
+   las de 50 m se convierten con conv() (puntos World Aquatics). {cs, fecha, pool, real} o null. Sin parciales (x[8]). */
 function entMejorCompeticion(s, ev) {
   const e = (s && s.ev || []).find(x => x.e === ev);
-  return e && e.h ? Object.entries(bestPoolMarks(e)).map(([pool, x]) => [pool, x[1]]).sort((a, b) => a[0] < b[0] ? -1 : 1) : [];
+  let best = null;
+  (e && e.h || []).forEach(x => { if (x[8]) return;
+    const c25 = x[2] === '25m' ? x[1] : x[2] === '50m' ? conv(x[1], '50m', '25m', s.g, ev) : null;
+    if (c25 != null && (!best || c25 < best.cs)) best = {cs: c25, fecha: x[0], pool: x[2], real: x[1]}; });
+  return best;
+}
+/* Su mejor tiempo de entrenamiento anterior en esa prueba (sin contar este tiempo; hasta la fecha de este) */
+function entMejorEntrenoPrevio(T, t) {
+  let best = null;
+  T.forEach(o => { if (o.nId !== t.nId || o.ev !== t.ev || o.id === t.id || o.fecha > t.fecha) return;
+    if (!best || o.cs < best.cs) best = o; });
+  return best;
+}
+/* Comparación de un tiempo de entrenamiento con su mejor marca de competición (25 m) y su mejor entreno anterior */
+function entComparar(T, t) {
+  const s = t.rfen && Object.hasOwn(SW, t.rfen) ? SW[t.rfen] : null;
+  const comp = t.ev && s ? entMejorCompeticion(s, t.ev) : null, ent = t.ev ? entMejorEntrenoPrevio(T, t) : null;
+  return {comp, ent, difComp: comp ? (t.cs - comp.cs) / 100 : null, difEnt: ent ? (t.cs - ent.cs) / 100 : null};
+}
+const entDif = d => d == null ? '' : `<b class="${d <= 0 ? 'good' : 'bad'}">${d <= 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}</b>`;
+const entOrigen = c => c.pool === '50m' ? `de ${fmt(c.real)} en 50 m` : '25 m';
+function entCompararHTML(c) {
+  const out = [];
+  if (c.comp) out.push(`Competición ${fmt(c.comp.cs)} <span class="muted">(${entOrigen(c.comp)}, ${dfmt(c.comp.fecha)})</span> ${entDif(c.difComp)}`);
+  if (c.ent) out.push(`Entreno ${fmt(c.ent.cs)} <span class="muted">(${dfmt(c.ent.dia)})</span> ${entDif(c.difEnt)}`);
+  return out.length ? `<div class="tiny ent-cmp">${out.join(' · ')}</div>` : '';
 }
 
 /* ── Firebase: se carga solo al entrar en Entrenamientos ── */
@@ -198,14 +228,14 @@ function pintarEntrenamientos(host, f) {
       <span class="ent-ses-r">${e.pruebas.map(ev => `${franja(ev)}${esc(ev)}`).join(' ') || 'Sin prueba'} · ${e.nads} nad. · ${e.tiempos.length} tiempos</span></summary>
       <table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Tiempo</th></tr>
       ${[...e.tiempos].sort((a, b) => a.ronda - b.ronda || a.cs - b.cs).map(t => `<tr${t.rfen ? ` class="click" data-href="#nadador/${t.rfen}/entrenos"` : ''}>
-        <td>${esc(t.n)}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}</span></td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
+        <td>${esc(t.n)}${entCompararHTML(entComparar(T, t))}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}</span></td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
     </details>`).join('');
   const pruebas = R.pruebas.map(pr => `
     <div class="card"><div class="h">${franja(pr.ev)}${esc(pr.ev)} <span class="h-n">(${pr.nads.length} nadadores · ${pr.n} tiempos)</span></div>
-      <table class="rt"><tr><th>#</th><th>Nadador</th><th class="num">Mejor</th><th class="num">Último</th><th class="num">Veces</th></tr>
+      <table class="rt"><tr><th>#</th><th>Nadador</th><th class="num">Mejor</th><th class="num">Último</th><th class="num" title="Mejor marca de competición en equivalente de piscina de 25 m">Comp. 25 m</th></tr>
       ${pr.nads.map((m, i) => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos?ev=${encodeURIComponent(pr.ev)}"` : ''}>
         <td>${i + 1}</td><td style="max-width:0;width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b></td>
-        <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${fmt(m.ultimo.cs)}</td><td class="num">${m.veces}</td></tr>`).join('')}</table>
+        <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${fmt(m.ultimo.cs)}</td><td class="num">${(c => c ? fmt(c.cs) : '—')(m.rfen && Object.hasOwn(SW, m.rfen) ? entMejorCompeticion(SW[m.rfen], pr.ev) : null)}</td></tr>`).join('')}</table>
     </div>`).join('');
   const nads = R.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
       <td style="max-width:0;width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.pruebas.map(esc).join(' · ')}</div></td>
@@ -247,7 +277,7 @@ function pintarEntrenosNadador(app, s, p) {
     const ev = evs.includes(p.ev) ? p.ev : evs[0];
     const filas = ev ? entEvolucion(T, T[0].nId, ev) : [];
     const mejor = filas.length ? Math.min(...filas.map(t => t.cs)) : null;
-    const comp = ev ? entMejorCompeticion(s, ev) : [];
+    const comp = ev ? entMejorCompeticion(s, ev) : null;
     host.innerHTML = `
       <div class="kpis" style="margin-bottom:12px">
         <div class="kpi hl"><b>${R.entrenamientos.length}</b><span>entrenamientos</span></div>
@@ -258,11 +288,11 @@ function pintarEntrenosNadador(app, s, p) {
       ${ev ? `<div class="card">${chipsHTML('ev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.n]), ev)}
         <div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));margin:8px 0">
           <div class="kpi"><b>${fmt(mejor)}</b><span>mejor en entreno</span></div>
-          <div class="kpi"><b>${comp.length ? comp.map(([pool, cs]) => fmt(cs)).join(' / ') : '—'}</b><span>mejor en competición${comp.length ? ' (' + comp.map(([pool]) => pool).join(' / ') + ')' : ''}</span></div>
+          <div class="kpi"><b>${comp ? fmt(comp.cs) : '—'}</b><span>mejor en competición (25 m)${comp ? `<br>${entOrigen(comp)} · ${dfmt(comp.fecha)}` : ''}</span></div>
         </div>
         ${filas.length >= 2 ? evoChart(filas.map(t => [t.dia, t.cs, '', 'Entrenamiento']), null) : '<p class="empty">Con dos días de tiempos en esta prueba se verá su evolución.</p>'}
         <table class="rt" style="margin-top:8px"><tr><th>Fecha</th><th class="num">Tiempo</th><th>Parciales 50 m</th></tr>
-          ${[...T.filter(t => t.ev === ev)].reverse().map(t => `<tr><td>${dfmt(t.dia)}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
+          ${[...T.filter(t => t.ev === ev)].reverse().map(t => `<tr><td>${dfmt(t.dia)}${entCompararHTML(entComparar(T, t))}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
             <td class="tiny">${t.parciales && t.parciales.length > 1 ? t.parciales.map((v, i, a) => v == null || (i && a[i - 1] == null) ? '—' : fmt(entCs(i ? v - a[i - 1] : v))).join(' · ') : ''}</td></tr>`).join('')}</table>
       </div>` : ''}`;
     onChips(host, 'ev', v => { location.hash = fichaHref(s, 'entrenos') + '?ev=' + encodeURIComponent(v); });

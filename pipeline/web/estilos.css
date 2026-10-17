@@ -560,3 +560,8 @@ html.acuatico .seg{background:var(--solid)}
 .ent-ses-r{width:100%;font-size:.75rem;color:var(--ink2)}
 .ent-ses .rt{margin-top:8px}
 .nav a.ent-on .ico{color:var(--hl)}
+.ent-cmp{margin-top:2px;line-height:1.45;font-variant-numeric:tabular-nums}
+.crono-b{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 10px;border-radius:12px;flex:none;
+  background:var(--surf);border:1px solid var(--hl);color:var(--ink);font-weight:700;font-size:.72rem;text-decoration:none}
+.crono-b .ico{width:16px;height:16px;color:var(--hl)}
+.crono-b[hidden]{display:none}

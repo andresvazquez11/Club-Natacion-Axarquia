@@ -84,3 +84,23 @@ test('entTiempos: la serie siempre es un entero (nunca HTML guardado en la base 
   const T = ev('entTiempos', D2, SW);
   assert.equal(T.find(t => t.id === 'r2').ronda, 1);
 });
+
+test('entMejorCompeticion: siempre en equivalente de 25 m; la de 50 m se convierte y gana si es mejor', () => {
+  const c = cargar(ARCH, { ...structuredClone(DATA), wr: { M: { '50 Libre': { '25m': 2000, '50m': 2100 } } } });
+  const s = { g: 'M', ev: [{ e: '50 Libre', h: [
+    ['2026-01-10', 3200, '25m', 'A', '', 0, 0, 0, 0],
+    ['2026-02-10', 3300, '50m', 'B', '', 0, 0, 0, 0],      // 3300 × 2000/2100 = 3143 en 25 m: mejor
+    ['2026-03-10', 3000, '25m', 'P', '', 0, 0, 0, 1],      // parcial: no cuenta
+  ] }] };
+  c.__s = s;
+  const m = JSON.parse(evalIn(c, `JSON.stringify(entMejorCompeticion(__s, '50 Libre'))`));
+  assert.deepEqual(m, { cs: 3143, fecha: '2026-02-10', pool: '50m', real: 3300 });
+  assert.equal(evalIn(c, `entMejorCompeticion(__s, '100 Libre')`), null);
+});
+
+test('entMejorEntrenoPrevio: el mejor tiempo anterior de la misma prueba, sin contar el propio', () => {
+  const T = ev('entTiempos', D, SW);
+  const r4 = T.find(t => t.id === 'r4');
+  assert.equal(ev('entMejorEntrenoPrevio', T, r4).id, 'r1');                 // 31.23 del día 20
+  assert.equal(ev('entMejorEntrenoPrevio', T, T.find(t => t.id === 'r1')), null);
+});
