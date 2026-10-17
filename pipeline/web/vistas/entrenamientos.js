@@ -267,9 +267,13 @@ function entPuerta(host, pintar) {
 }
 /* Carga (si hace falta) y llama a pintar(host) cuando hay datos; si no, muestra la puerta */
 async function entPreparar(host, pintar) {
+  // Al cambiar un filtro (otra prueba, otro nadador) los datos ya están: se dibuja al momento, sin saltar arriba
+  if (ENT.estado === 'listo' && ENT.datos && Date.now() - ENT.cargado < 300e3) { pintar(); return; }
+  const y = RESTORE_Y;   // altura de la pantalla antes de cambiar el filtro (null si es una pantalla nueva)
   if (ENT.estado !== 'listo') { ENT.estado = ENT.estado === 'inicio' ? 'cargando' : ENT.estado; entPuerta(host, () => entPreparar(host, pintar)); }
   try { await entCargar(false); } catch (e) { ENT.estado = 'error'; ENT.error = e.message; }
-  if (ENT.estado === 'listo') pintar(); else entPuerta(host, () => entPreparar(host, pintar));
+  if (ENT.estado === 'listo') { pintar(); if (y !== null) window.scrollTo(0, y); }   // contenido cargado aparte: recuperar la altura
+  else entPuerta(host, () => entPreparar(host, pintar));
 }
 
 /* ── Gráficos sencillos ── */
