@@ -1,6 +1,6 @@
 /* Enrutador. Cuatro secciones: Mi nadador (#mi, #nadador/<id>), Club, Campeonatos y Rankings (+ Comparar y «elegir nadador»).
    resolverRuta() es pura: traduce una dirección (también las antiguas #benicio…, #inicio) a la pantalla que toca. */
-const SUB_NADADOR = ['resumen', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club'];
+const SUB_NADADOR = ['resumen', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club', 'entrenos'];
 const SUB_EQUIV = {pruebas: 'marcas', historial: 'evolucion', rivales: 'ranking', minimas: 'espana'};
 function resolverRuta(hash, ben, sw) {
   const raw = String(hash || '').replace(/^#/, '');
@@ -30,7 +30,7 @@ function resolverRuta(hash, ben, sw) {
     if (canon !== '#' + raw) x.redirigir = canon;
     return x;
   }
-  if (['club', 'campeonatos', 'rankings', 'comparar'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
+  if (['club', 'campeonatos', 'rankings', 'comparar', 'entrenamientos'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
   return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
 }
 let lastSec = null;
@@ -68,6 +68,7 @@ function route() {
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
   else if (sec === 'comparar') vistaComparar(app, params);
+  else if (sec === 'entrenamientos') vistaEntrenamientos(app, params);
   else if (sec === 'elegir') vistaElegir(app, params);
   else vistaFicha(app, SW[r.id], r.sub, params);
 
@@ -89,6 +90,7 @@ function arrancar() {
   aplicarModo(leerModo());
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
   bindBuscador('q-cab');
+  entNavModo();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
   window.addEventListener('hashchange', route);
   route();

@@ -1,25 +1,41 @@
 rules_version = '2';
-// Solo entran cuentas de Google con el correo verificado y dadas de alta
-// en la colección "entrenadores" (id del documento = correo en minúsculas).
-// Los administradores (campo admin: true) pueden dar y quitar acceso.
+// Acceso por solicitud y aprobación:
+// - Cualquier cuenta de Google con el correo verificado puede pedir acceso: crea su propia
+//   ficha en "entrenadores" (id del documento = correo en minúsculas) sin poder darse permisos.
+// - Solo entra quien el administrador (campo admin: true) aprueba (aprobado: true).
+// - El administrador puede retirar el acceso (bloqueado: true).
+// - La web de estadísticas usa las mismas reglas para la sección Entrenamientos.
 service cloud.firestore {
   match /databases/{database}/documents {
     function correo() {
       return request.auth.token.email.lower();
     }
+    function logueado() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function ficha() {
+      return /databases/$(database)/documents/entrenadores/$(correo());
+    }
     function esEntrenador() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && exists(/databases/$(database)/documents/entrenadores/$(correo()));
+      return logueado() && exists(ficha())
+        && get(ficha()).data.get('bloqueado', false) != true
+        && (get(ficha()).data.get('aprobado', false) == true || get(ficha()).data.get('admin', false) == true);
     }
     function esAdmin() {
-      return esEntrenador()
-        && get(/databases/$(database)/documents/entrenadores/$(correo())).data.admin == true;
+      return esEntrenador() && get(ficha()).data.get('admin', false) == true;
     }
 
     match /entrenadores/{email} {
-      allow read: if esEntrenador();
-      allow write: if esAdmin();
+      // La propia ficha siempre se puede leer (para saber si está bloqueada)
+      allow read: if esEntrenador() || (logueado() && email == correo());
+      // Solicitud de acceso: solo nombre y fechas; nunca admin, aprobado ni bloqueado
+      allow create: if logueado() && email == correo()
+        && request.resource.data.keys().hasOnly(['nombre', 'alta', 'ultimo']);
+      // El entrenador actualiza su último acceso; el administrador puede cambiar cualquier ficha
+      allow update: if esAdmin()
+        || (esEntrenador() && email == correo()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimo', 'nombre']));
+      allow delete: if esAdmin();
     }
 
     match /{coleccion}/{doc} {

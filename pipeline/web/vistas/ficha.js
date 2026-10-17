@@ -500,7 +500,8 @@ function vistaSub(app, s, sub, p) {
   const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
   const tit = (accesosDe(s).find(a => a[0] === sub) || [])[1] || '';
 
-  const body = !s.ev.length ? '<div class="vacio">Todavía no tiene marcas esta temporada</div>'
+  const body = sub === 'entrenos' ? subEntrenos()
+    : !s.ev.length ? '<div class="vacio">Todavía no tiene marcas esta temporada</div>'
     : sub === 'marcas' ? tabPruebas(s, sk, p)
     : sub === 'ranking' ? tabRankingFicha(s, sk, rev)
     : sub === 'espana' ? tabMinimas(s)
@@ -519,6 +520,7 @@ function vistaSub(app, s, sub, p) {
   app.querySelectorAll('[data-sk] button').forEach(b => b.onclick = () => keep({sk: b.dataset.v}));
   onChips(app, 'rev', v => keep({rev: v}));
   app.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => keep({ev: p.ev === b.dataset.pr ? '' : b.dataset.pr}));
+  if (sub === 'entrenos') pintarEntrenosNadador(app, s, p);
   if (s.ev.length) {
     if (sub === 'evolucion') { pintarHistorial(s, 'historial', p, keep); pintarAnalisis(s); }
     if (sub === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);
