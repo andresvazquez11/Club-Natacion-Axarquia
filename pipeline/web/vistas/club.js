@@ -167,6 +167,38 @@ function clubRelevos(app, p, c, cats, head) {
 /* ── Récords del club ── */
 const ORD_PRUEBAS = ['50 Libre', '100 Libre', '200 Libre', '400 Libre', '800 Libre', '1500 Libre', '50 Espalda', '100 Espalda', '200 Espalda',
   '50 Braza', '100 Braza', '200 Braza', '50 Mariposa', '100 Mariposa', '200 Mariposa', '100 Estilos', '200 Estilos', '400 Estilos'];
+const REC_VISTA = 3;      // marcas a la vista por prueba; el resto (hasta 10) se despliega con «Ver los 10 mejores»
+/* Una prueba de Récords: tarjeta con una línea compacta por marca (como los rankings), 3 a la vista y hasta 10 al
+   desplegar. L = [[pid, cs, fecha, nombre, año, piscina, …], …] ya ordenada. */
+function recPrueba(ev, L, g) {
+  const otra = x => x === '50m' ? '25m' : '50m';
+  // edad federativa con la que hizo la marca: año en que termina la temporada − año de nacimiento
+  const edad = (d, y) => !y ? '' : `${(d && d.length === 10 ? finTemp(d) : 2000 + +String(d).slice(3, 5)) - y} años`;
+  const fecha = d => d && d.length === 10 ? dfmt(d) : `temp. ${esc(d)}`;
+  const filas = L.map((x, k) => {
+    const s = SW[String(x[0])], eq = conv(x[1], x[5], otra(x[5]), g, ev), ed = edad(x[2], x[4] || (s && s.y));
+    const fila = rkFila({
+      cls: s && s.benicio ? 'yo' : '',
+      pos: posB(k + 1),
+      nom: esc(s ? s.n : (x[3] || '')),
+      sub: [ed, s ? '' : (g === 'F' ? 'Exnadadora' : 'Exnadador')].filter(Boolean).join(' · '),
+      marca: fmt(x[1]), pool: x[5],
+      det: [['Fecha', fecha(x[2])], ...(eq ? [['En ' + otra(x[5]).replace('m', ' m'), '≈ ' + fmt(eq)]] : [])],
+      acc: s ? [['Ver ficha', `href="${fichaHref(s)}"`], ...(x[2] && x[2].length === 10 ? [['Ver competición', cmpAttr(s, x[2], '', ev)]] : [])] : []});
+    return k < REC_VISTA ? fila : fila.replace('class="rk-r', 'data-x class="rk-r').replace(/data-x class="(rk-r[^"]*)"/, 'class="$1" data-extra hidden');
+  });
+  const mas = L.length > REC_VISTA
+    ? `<button type="button" class="rec-mas" aria-expanded="false">Ver los ${L.length} mejores</button>` : '';
+  return `<div class="card rec"><div class="h">${franja(ev)}${esc(ev)}</div>${rkLista(filas)}${mas}</div>`;
+}
+/* «Ver los 10 mejores» / «Ver solo los 3 mejores» */
+function recBind(root) {
+  root.querySelectorAll('.rec-mas').forEach(b => b.onclick = () => {
+    const abre = b.getAttribute('aria-expanded') !== 'true', n = b.closest('.rec').querySelectorAll('[data-extra]');
+    n.forEach(r => { r.hidden = !abre; });
+    b.setAttribute('aria-expanded', abre ? 'true' : 'false');
+    b.textContent = abre ? `Ver solo los ${REC_VISTA} mejores` : `Ver los ${n.length + REC_VISTA} mejores`; });
+}
 function clubRecords(app, p, c, head) {
   const recs = DATA.recs || {};
   const catsR = _CATS_REC.filter(([k]) => Object.keys(recs).some(x => x.split('|')[1] === k));   // claves 'E12'… = por edad
@@ -179,39 +211,30 @@ function clubRecords(app, p, c, head) {
   const ed = edadesCat.includes(+p.e) ? +p.e : '';
   const grupo = ed ? 'E' + ed : ck;
   const go = o => { const q = Object.assign({g, pl, e: ed}, o); location.hash = `#club/${o.cat || ck}/records?g=${q.g}&pl=${q.pl}${q.e && !o.cat ? '&e=' + q.e : ''}`; };
-  const otra = x => x === '50m' ? '25m' : '50m';
-  // 25 y 50 m juntas: se ordenan por su equivalente en 50 m (puntos World Aquatics). Las 3 mejores de cada piscina
+  // 25 y 50 m juntas: se ordenan por su equivalente en 50 m (puntos World Aquatics). Las 10 mejores de cada piscina
   // bastan: dentro de una piscina el orden no cambia al convertir.
   const lista = ev => {
     if (pl !== 'mix') return (recs[`${g}|${grupo}|${ev}|${pl}`] || []).map(x => [...x, pl]);
     const todos = ['50m', '25m'].flatMap(q => (recs[`${g}|${grupo}|${ev}|${q}`] || []).map(x => [...x, q, conv(x[1], q, '50m', g, ev)]))
       .filter(x => x[6] !== null).sort((a, b) => a[6] - b[6]);
-    const vistos = new Set(); return todos.filter(x => !vistos.has(x[0]) && vistos.add(x[0])).slice(0, 3);
+    const vistos = new Set(); return todos.filter(x => !vistos.has(x[0]) && vistos.add(x[0])).slice(0, 10);
   };
   const filas = ORD_PRUEBAS.map(ev => [ev, lista(ev)]).filter(x => x[1].length);
-  const nom = pid => SW[String(pid)];
-  const fecha = d => d && d.length === 10 ? dtag(d) : `<span class="dt">temp. ${esc(d)}</span>`;
-  // edad federativa con la que hizo la marca: año en que termina la temporada − año de nacimiento
-  const edad = (d, y) => !y ? '' : `<span class="of">${(d && d.length === 10 ? finTemp(d) : 2000 + +String(d).slice(3, 5)) - y} años</span>`;
-  // marca real + su piscina y, entre paréntesis, su equivalente en la otra piscina
-  const marca = (x, ev, k) => { const eq = conv(x[1], x[5], otra(x[5]), g, ev);
-    return `${k ? '' : '<b class="sun">'}${fmt(x[1])}${k ? '' : '</b>'} <span class="of">${x[5].replace('m', ' m')}</span>${eq ? ` <span class="tiny muted">(≈ ${fmt(eq)} en ${otra(x[5]).replace('m', ' m')})</span>` : ''}`; };
   app.innerHTML = `${head}
     <div class="flt"><span class="flt-l">Categoría (edad en el momento de la marca)</span>${chipsHTML('cat', catsR.map(([k, l, e]) => [k, `${l} <span class="n">${e}</span>`]), ck)}</div>
     ${edadesCat.length > 1 ? `<div class="flt"><span class="flt-l">Edad (federativa)</span>${chipsHTML('ed', [['', 'Toda la categoría'], ...edadesCat.map(e => [e, `${e} años`])], ed)}</div>` : ''}
     <div class="flt"><span class="flt-l">Sexo</span><div class="seg" data-rg>${[['M', 'Chicos'], ['F', 'Chicas']].map(([k, l]) => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     <div class="flt"><span class="flt-l">Piscina</span><div class="seg" data-rpl><button data-v="mix" class="${pl === 'mix' ? 'on' : ''}">25 y 50 m juntas</button><button data-v="50m" class="${pl === '50m' ? 'on' : ''}">Solo 50 m</button><button data-v="25m" class="${pl === '25m' ? 'on' : ''}">Solo 25 m</button></div></div>
     ${pl === 'mix' ? '<p class="tiny muted" style="margin:-2px 0 8px">Ordenadas por su equivalencia entre piscinas (puntos World Aquatics). Cada marca con su piscina real y, entre paréntesis, su equivalente en la otra.</p>' : ''}
-    ${filas.length ? `<table class="rt cards recs"><tr><th>Prueba</th><th>Récord</th><th>2ª mejor</th><th>3ª mejor</th></tr>
-      ${filas.map(([ev, L]) => `<tr class="${L.some(x => nom(x[0]) && nom(x[0]).benicio) ? 'me' : ''}"><td class="t" data-l=""><b>${ev}</b></td>
-        ${[0, 1, 2].map(k => { const x = L[k]; if (!x) return `<td data-l="${['Récord', '2ª', '3ª'][k]}" class="muted">—</td>`; const s = nom(x[0]);
-          return `<td data-l="${['Récord', '2ª', '3ª'][k]}">${marca(x, ev, k)}<div>${s ? `<a class="sw-l small ${s.benicio ? 'sun' : ''}" href="${fichaHref(s)}">${s.benicio ? '★ ' : ''}${corto(s.n)}</a>` : `<span class="small">${corto(x[3] || '')}</span>`} ${edad(x[2], x[4] || (s && s.y))} ${s ? `<span class="cmp-l" ${cmpAttr(s, x[2], '', ev)} title="Pulsa para ver la competición">${fecha(x[2])} <span class="tiny sun">›</span></span>` : fecha(x[2])}</div></td>`; }).join('')}</tr>`).join('')}</table>`
+    ${filas.length ? `<p class="tiny muted" style="margin:0 0 8px">Las 3 mejores de cada prueba; pulsa «Ver los 10 mejores» para desplegar el resto y cada línea para ver fecha, equivalencia y competición.</p>
+      ${filas.map(([ev, L]) => recPrueba(ev, L, g)).join('')}`
       : '<p class="empty">No hay marcas del club en esta categoría y piscina.</p>'}
     <p class="tiny muted" style="margin-top:10px">Récords con todas las marcas hechas con el club que tiene la RFEN, desde la temporada 13-14, también de nadadores que ya no están en el club (su nombre sale sin enlace). Categoría según su edad federativa en esa temporada: prebenjamín 8-9 años, benjamín 10-11, alevín 12-13, infantil 14-15, junior 16-18 y absoluto 19 o más. Junto a cada marca, la edad federativa que tenía (año en que termina la temporada − año de nacimiento, como cuenta la federación). La conversión entre piscinas es orientativa: los récords oficiales son por piscina.</p>${convNota()}`;
   onChips(app, 'cat', v => go({cat: v}));
   app.querySelectorAll('[data-rg] button').forEach(b => b.onclick = () => go({g: b.dataset.v}));
   app.querySelectorAll('[data-rpl] button').forEach(b => b.onclick = () => go({pl: b.dataset.v}));
   onChips(app, 'ed', v => go({e: v}));
+  rkBind(app); recBind(app);
 }
 const _CATS_REC = [['PRE', 'Prebenjamín', '8-9 años'], ['BEN', 'Benjamín', '10-11'], ['ALE', 'Alevín', '12-13'], ['INF', 'Infantil', '14-15'], ['JUN', 'Junior', '16-18'], ['ABS', 'Absoluto', '19 o más']];
 
