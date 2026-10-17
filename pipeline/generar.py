@@ -452,7 +452,7 @@ def main():
     relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper(), records)
     movimientos = escribir_historial(swimmers, rows_new, marcas, minfo)
     ruta_edades = os.path.join(BASE_DIR, 'edades_base.json.gz')
-    club_int = puestos_club(swimmers, hist, H.cargar(ruta_edades) if os.path.exists(ruta_edades) else {}, nombres_club())
+    club_int = puestos_club(swimmers, hist, H.cargar(ruta_edades) if os.path.exists(ruta_edades) else {}, nombres_club(), records)
 
     new_marks = len(rows_new)
     data = {'fecha': date.today().strftime('%d/%m/%Y'), 'cats': cats_out, 'swimmers': swimmers,
@@ -550,7 +550,7 @@ def historia_club(rows_new):
 
 
 def records_club(swimmers, hist):
-    """Récords del club: las 3 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
+    """Récords del club: las 10 mejores marcas (de nadadores distintos) hechas con el club por sexo, categoría de edad
     (edad federativa: año en que termina la temporada − año de nacimiento), prueba y piscina → [[pid, cs, fecha, nombre, año]].
     Temporadas cerradas desde la 13-14 en records_base.json.gz (también nadadores que ya no están) + marcas actuales."""
     import historial as H
@@ -577,7 +577,7 @@ def records_club(swimmers, hist):
                 k = f"{s['g']}|{grupo}|{ev}|{pool}"
                 if pid not in top[k] or cs < top[k][pid][1]:
                     top[k][pid] = [pid, cs, d, s['n'], s['y']]
-    return {k: sorted(v.values(), key=lambda x: x[1])[:3] for k, v in top.items()}
+    return {k: sorted(v.values(), key=lambda x: x[1])[:10] for k, v in top.items()}   # top-10: 3 a la vista y 10 al desplegar
 
 
 def nombres_club():
@@ -596,57 +596,73 @@ def nombres_club():
     return n
 
 
-def puestos_club(swimmers, hist, base, nombres=None):
+def puestos_club(swimmers, hist, base, nombres=None, wr=None):
     """Puesto de cada prueba de cada nadador actual dentro del club: e['cl'] = {'hoy': [pos, n], 'hi': [pos, n, edad]}.
-    Siempre en la piscina de e['pool'] y con la mejor marca de cada nadador distinto (él incluido una sola vez).
-    hoy: nadadores actuales con mismo sexo y año. hi: marcas del club a su misma edad federativa (base cerrada +
-    marcas actuales, una por nadador). pos = 1 + nº de otros nadadores con marca estrictamente mejor.
-    Devuelve {'clh': {clave: [[pid, cs], …]}, 'cln': {pid: nombre}}: la lista histórica de cada clave usada (para ver
-    el ranking interno en detalle) y el nombre de los que ya no están en el club, cuando se conoce (`nombres`)."""
+    25 y 50 m juntas, como en Relevos: cada marca se convierte a su equivalente en 50 m con los récords del mundo
+    (puntos World Aquatics) y cuenta la mejor de cada nadador distinto (él incluido una sola vez), sea de la piscina que sea.
+    hoy: nadadores actuales con mismo sexo y año. hi: marcas del club a su misma edad federativa (base cerrada de las dos
+    piscinas + marcas actuales). pos = 1 + nº de otros nadadores con equivalente estrictamente mejor.
+    Devuelve {'clh': {'g|E{edad}|prueba': [[pid, cs 50 m, cs real, piscina], …]}, 'cln': {pid: nombre}}: la lista
+    histórica de cada clave usada (para el detalle) y el nombre de los que ya no están en el club, cuando se conoce."""
     by = {s['id']: s for s in swimmers}
     clh, cln, actuales = {}, {}, {str(s['id']) for s in swimmers}
-    hoy = defaultdict(dict)            # (g, y, ev, pool) → {pid: cs}
+
+    def a50(cs, pool, g, ev):
+        if pool == '50m':
+            return cs
+        w = ((wr or {}).get(g) or {}).get(ev) or {}
+        return round(cs * w['50m'] / w[pool]) if w.get('50m') and w.get(pool) else None
+
+    def mejor(dic, pid, cs, pool, g, ev):      # dic[pid] = (cs 50 m, cs real, piscina): se queda con el mejor equivalente
+        c = a50(cs, pool, g, ev)
+        if c is not None and (pid not in dic or c < dic[pid][0]):
+            dic[pid] = (c, cs, pool)
+
+    edad_de = lambda d, y: int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0) - y
+    hoy = defaultdict(dict)            # (g, y, ev) → {pid: (cs50, cs, piscina)}
+    act = defaultdict(dict)            # (g, edad, ev) → {pid: (cs50, cs, piscina)} (marcas actuales, sin parciales)
+    propia = {}                        # (pid, ev) → (cs50, cs, piscina, fecha) su mejor equivalente
     for s in swimmers:
+        pid = str(s['id'])
         for e in s['ev']:
-            k = (s['g'], s['y'], e['e'], e['pool'])
-            if s['id'] not in hoy[k] or e['cs'] < hoy[k][s['id']]:
-                hoy[k][s['id']] = e['cs']
-    act = defaultdict(dict)            # (g, edad, ev, pool) → {pid: mejor cs a esa edad} (marcas actuales, sin parciales)
-    for (pid, ev), xs in hist.items():
-        s = by.get(pid)
-        if not s:
-            continue
-        for x in xs:
-            d, cs, pool = x[0], x[1], x[2]
-            if x[8]:
-                continue
-            edad = int(d[:4]) + (1 if int(d[5:7]) >= 10 else 0) - s['y']
-            k = (s['g'], edad, ev, pool)
-            if str(pid) not in act[k] or cs < act[k][str(pid)]:
-                act[k][str(pid)] = cs
+            mejor(hoy[(s['g'], s['y'], e['e'])], pid, e['cs'], e['pool'], s['g'], e['e'])
+            for x in hist.get((s['id'], e['e']), []):
+                if x[8]:
+                    continue
+                d, cs, pool = x[0], x[1], x[2]
+                mejor(hoy[(s['g'], s['y'], e['e'])], pid, cs, pool, s['g'], e['e'])
+                mejor(act[(s['g'], edad_de(d, s['y']), e['e'])], pid, cs, pool, s['g'], e['e'])
+                c = a50(cs, pool, s['g'], e['e'])
+                if c is not None and ((s['id'], e['e']) not in propia or c < propia[(s['id'], e['e'])][0]):
+                    propia[(s['id'], e['e'])] = (c, cs, pool, d)
 
     def puesto(marcas, pid):
-        return [1 + sum(1 for q, c in marcas.items() if q != pid and c < marcas[pid]), len(marcas)]
+        return [1 + sum(1 for q, m in marcas.items() if q != pid and m[0] < marcas[pid][0]), len(marcas)]
 
     for s in swimmers:
         pid = str(s['id'])
         for e in s['ev']:
             cl = {}
-            grupo = {str(q): c for q, c in hoy[(s['g'], s['y'], e['e'], e['pool'])].items()}
+            grupo = hoy[(s['g'], s['y'], e['e'])]
             if pid in grupo:
                 cl['hoy'] = puesto(grupo, pid)
-            propias = [x for x in hist.get((s['id'], e['e']), []) if not x[8] and x[2] == e['pool']]
-            if propias:
-                m = min(propias, key=lambda x: x[1])
-                edad = int(m[0][:4]) + (1 if int(m[0][5:7]) >= 10 else 0) - s['y']
-                marcas = {str(q): c for q, c in base.get(f"{s['g']}|E{edad}|{e['e']}|{e['pool']}", [])}
-                for q, c in act[(s['g'], edad, e['e'], e['pool'])].items():
-                    if q not in marcas or c < marcas[q]:
-                        marcas[q] = c
-                cl['hi'] = puesto(marcas, pid) + [edad]
-                clave = f"{s['g']}|E{edad}|{e['e']}|{e['pool']}"
-                clh[clave] = sorted(([q, c] for q, c in marcas.items()), key=lambda x: x[1])
-                cln.update({q: nombres[q] for q in marcas if q not in actuales and q in (nombres or {})})
+            m = propia.get((s['id'], e['e']))
+            if m:
+                edad = edad_de(m[3], s['y'])
+                marcas, nom_base = {}, {}
+                for pool in ('25m', '50m'):
+                    for q, cs, *resto in base.get(f"{s['g']}|E{edad}|{e['e']}|{pool}", []):   # [pid, cs] o [pid, cs, nombre]
+                        mejor(marcas, str(q), cs, pool, s['g'], e['e'])
+                        if resto and resto[0]:
+                            nom_base[str(q)] = resto[0]
+                for q, x in act[(s['g'], edad, e['e'])].items():
+                    if q not in marcas or x[0] < marcas[q][0]:
+                        marcas[q] = x
+                if pid in marcas:
+                    cl['hi'] = puesto(marcas, pid) + [edad]
+                    clh[f"{s['g']}|E{edad}|{e['e']}"] = sorted(([q, *x] for q, x in marcas.items()), key=lambda x: x[1])
+                    nom = {**nom_base, **(nombres or {})}          # `nombres` manda; si falta, el guardado en la base
+                    cln.update({q: nom[q] for q in marcas if q not in actuales and q in nom})
             if cl:
                 e['cl'] = cl
     return {'clh': clh, 'cln': cln}

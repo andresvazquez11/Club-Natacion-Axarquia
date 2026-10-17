@@ -365,6 +365,11 @@ table.rt{width:100%;border-collapse:collapse;font-size:.84rem}
 .rk-k i{font-style:normal;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--lab);margin-right:5px}
 .rk-ver{display:inline-flex;align-items:center;min-height:44px;margin-left:auto;padding:0 6px;font-size:12.5px;font-weight:800;color:var(--link);text-decoration:none}
 .rk-sep{text-align:center;color:var(--ink2);font-size:12px;line-height:1;padding:2px 0;border-top:1px solid var(--ln)}
+/* Récords del club: una tarjeta por prueba, 3 marcas a la vista y botón para desplegar hasta 10 */
+.rec .h{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.rec-mas{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:44px;margin-top:4px;border-top:1px solid var(--ln);font-size:12.5px;font-weight:800;color:var(--link)}
+.rec-mas::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.rec-mas[aria-expanded="true"]::after{transform:rotate(225deg) translate(-2px,-2px)}
 .rk-r.me{background:var(--me)}
 .rk-r.yo{background:rgba(255,212,0,.42);box-shadow:inset 5px 0 0 var(--sun)}
 html.acuatico .rk-r.yo{background:rgba(255,212,0,.28)}
