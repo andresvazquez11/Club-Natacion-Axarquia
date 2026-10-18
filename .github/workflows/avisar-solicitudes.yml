@@ -1,0 +1,70 @@
+name: Avisar solicitudes de acceso al cronómetro
+
+# Cada 10 minutos mira si algún entrenador ha pedido acceso al cronómetro y, si es nuevo, manda un correo
+# a Andrés para que lo apruebe. Cada solicitud se avisa una vez (queda marcada con avisado: true).
+# Necesita el secreto FIREBASE_SA (llave de una cuenta de servicio de Firebase, en JSON); sin él no hace nada.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:          # botón "Run workflow" → revisa ahora (y muestra el error si algo falla)
+
+concurrency:
+  group: avisar-solicitudes
+  cancel-in-progress: false
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+      EVENTO: ${{ github.event_name }}
+      AVISO_IDS: /tmp/avisos.json
+      AVISO_CUERPO: /tmp/avisos.txt
+    steps:
+      - id: llave
+        run: |
+          if [ -z "$FIREBASE_SA" ]; then echo "Falta el secreto FIREBASE_SA: no se revisa nada."; echo "hay=no" >> "$GITHUB_OUTPUT"; else echo "hay=si" >> "$GITHUB_OUTPUT"; fi
+
+      - if: steps.llave.outputs.hay == 'si'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+
+      - if: steps.llave.outputs.hay == 'si'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - if: steps.llave.outputs.hay == 'si'
+        run: pip install --quiet firebase-admin
+
+      - id: buscar
+        if: steps.llave.outputs.hay == 'si'
+        run: |
+          python .github/scripts/avisar_solicitudes.py buscar
+          if [ -s "$AVISO_CUERPO" ]; then
+            d="EOF_$(openssl rand -hex 8)"
+            { echo "hay=si"; echo "cuerpo<<$d"; cat "$AVISO_CUERPO"; echo; echo "$d"; } >> "$GITHUB_OUTPUT"
+          else
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Correo de aviso
+        if: steps.buscar.outputs.hay == 'si'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: andrescovidelpi@gmail.com
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Cronómetro C.N. Axarquía <andrescovidelpi@gmail.com>
+          to: andrescovidelpi@gmail.com
+          subject: "🔔 Nueva solicitud de acceso al cronómetro"
+          body: ${{ steps.buscar.outputs.cuerpo }}
+
+      - name: Marcar como avisadas
+        if: steps.buscar.outputs.hay == 'si'
+        run: python .github/scripts/avisar_solicitudes.py marcar
