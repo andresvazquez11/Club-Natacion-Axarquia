@@ -104,6 +104,10 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .t-chip{display:inline-block;padding:4px 10px;background:var(--bg);border-radius:8px;font-size:13px;font-variant-numeric:tabular-nums;margin:3px;}
 .sep{border:none;border-top:1px solid var(--brd);margin:16px 0;}
 /* ── En curso ── */
+.nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
+.nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.nado-clk b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
+.nado-clk.parado b{color:var(--mut)}
 .ec-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
 .salida-card{background:var(--surf);border:1px solid var(--brd);border-radius:16px;padding:12px;margin-bottom:18px;}
 .salida-next{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
@@ -433,6 +437,11 @@ const DB = {
     await ref.set(data).catch(console.error);
     return ref.id;
   },
+  // Tiempo nadando: tramos por serie (solo el campo nado, para no pisar sim ni otros)
+  guardarNado(id, nado) {
+    const s = S.sesiones.find(s=>s.id===id); if (s) s.nado = nado;
+    _db.collection('sesiones').doc(id).update({nado}).catch(console.error);
+  },
   async finalizarSesion(id) {
     const fin = Date.now();
     const s = S.sesiones.find(s=>s.id===id);
@@ -620,6 +629,8 @@ function startClock() {
     document.querySelectorAll('.live-clk[data-t0]').forEach(el => {
       el.textContent = fmtTime(now - Number(el.dataset.t0));
     });
+    const nd = document.getElementById('live-nado');
+    if (nd) { nd.textContent = fmtNado(msNadando(SA.nado, now)); nd.parentElement.classList.toggle('parado', !SA.nado.some(x=>x.fin==null)); }
     // Pasa a "Llegados" las filas que ya llevan un rato marcadas
     if (SA.recientes.some(r => now - r.tLleg > RECIENTE_MS)) {
       SA.recientes = SA.recientes.filter(r => now - r.tLleg <= RECIENTE_MS);
@@ -732,6 +743,7 @@ function buildSA(sesId) {
     parciales: !!(ses && ses.parciales),
     tramos: ses && ses.parciales && dist > 50 ? Math.round(dist/50) : 1, // toques por nadador
     nuevaSerie: null,  // formulario de la siguiente serie con otro estilo
+    nado: ses && Array.isArray(ses.nado) ? ses.nado : [],   // tiempo nadando: {r, ini, fin} por serie
     ronda: 1,
     nSalida: 0,
     tUltSalida: 0,
@@ -769,6 +781,7 @@ function salidaTanda(t) {
   if (t - SA.tUltSalida < 800) return; // evita doble toque accidental
   const salen = SA.grupos.filter(g => g.next < g.nads.length && !SA.noSale.has(g.gId));
   if (!salen.length) return;
+  if (SA.nSalida === 0) { SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
   SA.tUltSalida = t;
   SA.nSalida++;
   SA.finArmed = false;
@@ -796,6 +809,7 @@ function llegoNad(key, t) {
   const rec = {...a, ms, resId, tLleg: Date.now()};
   SA.llegados.push(rec);
   SA.recientes.push(rec);
+  if (rondaTerminada()) { SA.nado = cerrarTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
   try { navigator.vibrate && navigator.vibrate(35); } catch {}
   render();
 }
@@ -916,6 +930,7 @@ function deshacerLlegada(key) {
   SA.agua.push(a);
   SA.agua.sort(ordenFila);
   SA.tLayout = Date.now();
+  if (SA.nado.some(x=>x.r===SA.ronda && x.fin!=null)) { SA.nado = reabrirTramo(SA.nado, SA.ronda); DB.guardarNado(SA.sesId, SA.nado); }
   render();
 }
 function repetirSerie(cfg) {
@@ -1036,6 +1051,7 @@ async function exportar(sesId) {
   const {ses, series} = d;
   let txt = `C.N. AXARQUÍA · RESUMEN DE ENTRENAMIENTO\n${'─'.repeat(40)}\n`;
   txt += `Fecha: ${fmtDate(ses.fecha)} ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''}\n`;
+  if (ses.nado && ses.nado.length) txt += `Tiempo nadando: ${fmtNado(msNadando(ses.nado, Date.now()))}\n`;
   txt += `Grupo: ${eqNombre(ses.eqId)}${ses.coach?`\nEntrenador: ${ses.coach}`:''}\n`;
   txt += `Series: ${series.length} · Nadadores: ${d.nads.length} · Tiempos: ${d.nTiempos}\n`;
   if (d.nads.length) txt += `Nadadores: ${d.nads.join(', ')}\n`;
@@ -1095,6 +1111,7 @@ async function generarPDF(sesId, btn) {
       const t = doc.splitTextToSize(String(v), W-M*2-30); doc.text(t, M+30, y); y += 5.5*t.length; };
     linea('Fecha', `${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''}${d.min?` (${d.min} min)`:''}`);
     linea('Grupo', eqNombre(ses.eqId));
+    if (ses.nado && ses.nado.length) linea('Tiempo nadando', fmtNado(msNadando(ses.nado, Date.now())));
     if (ses.coach) linea('Entrenador', ses.coach);
     linea('Resumen', `${series.length} ${series.length===1?'serie':'series'} · ${d.nads.length} nadadores · ${d.nTiempos} tiempos`);
     if (d.combos.length) linea('Estilos', d.combos.join(' · '));
@@ -1592,7 +1609,8 @@ function renderEnCurso() {
         <div class="muted" style="font-size:13px">${esc(eq)} · ${SA.llegados.length}/${totalNads} llegados</div>
       </div>
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
-    </div>`;
+    </div>
+    <div class="nado-clk${SA.nado.some(x=>x.fin==null)?'':' parado'}"><span class="muted">Tiempo nadando</span><b id="live-nado">${fmtNado(msNadando(SA.nado, now))}</b></div>`;
 
   // Ronda terminada → resumen
   if (rondaTerminada()) return html + renderResumenRonda();
@@ -1795,8 +1813,8 @@ function renderResultados(sesId, backAction, backLabel) {
   return `
     <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}</div>
     <div class="muted mb16" style="font-size:13px">${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''} · ${esc(eqNombre(ses.eqId))}${ses.coach?` · ${esc(ses.coach)}`:''}</div>
-    <div class="picker-row" style="grid-template-columns:repeat(${d.min?4:3},1fr);margin-bottom:12px">
-      ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${d.min?stat(d.min,'minutos'):''}
+    <div class="picker-row" style="grid-template-columns:repeat(${3+(d.min?1:0)+(ses.nado&&ses.nado.length?1:0)},1fr);margin-bottom:12px">
+      ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${ses.nado&&ses.nado.length?stat(fmtNado(msNadando(ses.nado, Date.now())),'nadando'):''}${d.min?stat(d.min,'minutos'):''}
     </div>
     ${d.combos.length?`<div class="muted" style="font-size:13px;margin-bottom:6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
     ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
