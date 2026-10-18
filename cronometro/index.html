@@ -1810,26 +1810,53 @@ function renderResultados(sesId, backAction, backLabel) {
 }
 
 // ── Screen: Historial ────────────────────────────────────────
+// Filtro por estilo y distancia (recordado en el móvil): con filtro se ven solo esas series
+let HIST_F = (() => { try { const f = JSON.parse(localStorage.getItem('crono_hist')||'null'); return f && typeof f === 'object' ? {estilo: ESTILOS.includes(f.estilo)?f.estilo:null, dist: DISTS.includes(f.dist)?f.dist:null} : {estilo:null, dist:null}; } catch { return {estilo:null, dist:null}; } })();
+function guardarHistF() { try { localStorage.setItem('crono_hist', JSON.stringify(HIST_F)); } catch {} }
+function duracionSes(s) {
+  if (s.nado && s.nado.length) return `${fmtNado(msNadando(s.nado, Date.now()))} nadando`;
+  return s.fin ? `${Math.max(1, Math.round((s.fin - s.fecha)/60000))} min` : '';
+}
 function renderHistorial() {
-  const rows = [...mySes()].sort((a,b)=>b.fecha-a.fecha).map(s => {
-    const em = s.estilo?(EMO[s.estilo]||'🏊'):'🏊';
-    const ser = seriesDe(s.id);
-    const combos = [...new Set(ser.map(x=>comboTexto(x.estilo, x.dist)))];
-    const det = ser.length ? `${ser.length} ${ser.length===1?'serie':'series'} · ${esc(combos.join(', '))}` : (s.estilo&&s.dist?`${esc(s.estilo)} ${esc(s.dist)}m`:'Sin tiempos');
-    return `
+  const f = HIST_F, filtrado = !!(f.estilo || f.dist);
+  const chips = `
+    <div class="wrap" style="margin-bottom:6px">${ESTILOS.map(e=>`<span class="pill${f.estilo===e?' sel':''}" data-action="hist-estilo" data-val="${e}">${EMO[e]} ${e}</span>`).join('')}</div>
+    <div class="wrap mb16">${DISTS.map(d=>`<span class="pill${f.dist===d?' sel':''}" data-action="hist-dist" data-val="${d}">${d} m</span>`).join('')}</div>`;
+  let cuerpo;
+  if (!filtrado) {
+    cuerpo = porMes(mySes()).map(m => `<span class="label mt16">${esc(m.titulo)}</span>` + m.sesiones.map(s => {
+      const ser = seriesDe(s.id), dur = duracionSes(s);
+      const det = ser.length ? ser.map(x=>`S${x.ronda} ${comboTexto(x.estilo, x.dist)}`).join(' · ') : (s.estilo&&s.dist?comboTexto(s.estilo, s.dist):'Sin tiempos');
+      return `
       <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}">
-        <div style="font-size:22px">${em}</div>
-        <div style="flex:1">
-          <div style="font-weight:600">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}</div>
-          <div class="muted" style="font-size:13px">${det} · ${fmtDate(s.fecha)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700">${esc(fechaLarga(s.fecha))}</div>
+          <div style="font-size:14px">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}</div>
+          <div class="muted" style="font-size:13px">${esc(det)}${dur?` · ${esc(dur)}`:''}</div>
         </div>
         <div class="muted" style="font-size:20px">›</div>
-      </div>`;
-  }).join('');
+      </div>`; }).join('')).join('');
+  } else {
+    cuerpo = seriesFiltradas(mySes(), S.resultados, f).map(x => `
+      <div class="card">
+        <div class="row" style="cursor:pointer;margin-bottom:6px" data-action="hist-det" data-ses="${esc(x.ses.id)}">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700">${esc(fechaLarga(x.ses.fecha))}</div>
+            <div class="muted" style="font-size:13px">${esc(eqNombre(x.ses.eqId))} · Serie ${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${esSim(x.ses)?SIM_TAG:''}</div>
+          </div>
+          <span class="muted" style="font-size:13px;color:var(--blu-l)">Entreno ›</span>
+        </div>
+        ${x.res.map((r,i) => { const mk = x.estilo && x.dist ? marcaDe(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, x.ses.fecha)) : null;
+          return `<div class="row" style="padding:5px 0;border-top:1px solid var(--brd);font-size:14px">
+            <span class="muted" style="width:22px">${i+1}</span><span style="flex:1">${esc(nombreDe(r.nId))}${mk?` <span title="${mk==='comp'?'Marca de competición':'Mejor entreno'}">🏅</span>`:''}</span>
+            <b style="font-variant-numeric:tabular-nums">${fmtTime(r.ms)}</b></div>`; }).join('')}
+      </div>`).join('');
+  }
+  const vacio = filtrado ? 'Ninguna serie con este filtro' : 'Sin sesiones todavía';
   return `
-    <button class="back-btn" data-action="home">← Inicio</button>
     <div class="h1">📋 Historial</div>
-    ${rows||'<div class="center-msg"><p>Sin sesiones todavía</p></div>'}`;
+    ${chips}
+    ${cuerpo||`<div class="center-msg"><p>${vacio}</p></div>`}`;
 }
 
 // ── Screen: Evolución ────────────────────────────────────────
@@ -2007,6 +2034,8 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'tab':          nav({screen: btn.dataset.to}); window.scrollTo(0,0); break;
     case 'nad-cat':      NAD_CAT = btn.dataset.eq; try { localStorage.setItem('crono_cat', NAD_CAT); } catch {} render(); break;
     case 'repetir-entreno': repetirEntreno(btn.dataset.ses); break;
+    case 'hist-estilo':  HIST_F.estilo = HIST_F.estilo===btn.dataset.val ? null : btn.dataset.val; guardarHistF(); render(); break;
+    case 'hist-dist':    { const d = Number(btn.dataset.val); HIST_F.dist = HIST_F.dist===d ? null : d; guardarHistF(); render(); break; }
     case 'set-coach': {
       const inp = document.getElementById('coach-input');
       const v = inp?inp.value.trim():'';
