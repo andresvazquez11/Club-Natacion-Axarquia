@@ -15,6 +15,7 @@ La web se genera con `pipeline/generar.py` y se publica con el workflow `.github
   (`abrirRankingFicha` en `vistas/ficha.js`); desde la línea, "Ver competición". Ventanas encadenadas con "‹ Volver" (`abrirVentana` en `graficos.js`).
 - **Volver** dentro del nadador: a la pantalla de la que se llegó (`apuntarNav` / `pilaNav` en `app.js`).
 - **Visitas (GoatCounter, cuenta `andresvazquez11`)**: una visita por sección (`seccionVisita` en `app.js`). No cuentan `temporada.html`
-  ni los dispositivos marcados con `club.html?no-contar` (`?contar` lo deshace). En esos dispositivos aparece "Ver visitas".
+  ni los dispositivos marcados con `club.html?no-contar` (`?contar` lo deshace). El enlace a las estadísticas
+  NO está en la web: va solo en el correo de cada actualización.
   El panel solo lo ve Andrés con su contraseña.
 - **Manual** (`docs/manual/manual.html` → `manual.pdf`): al día. Se regenera con `node docs/manual/capturas.mjs <carpeta> [URL]`.

@@ -58,7 +58,8 @@ function nombrePantalla(h, ben, sw) {
 /* ── Contador de visitas por sección (GoatCounter) ──
    Cada pantalla se apunta como «sección», sin ids de nadador ni filtros, para ver qué partes se usan más.
    No cuenta: la página personal de Andrés (estrella fija) ni los dispositivos marcados con ?no-contar
-   (se guarda skipgc, que es lo que respeta GoatCounter; ?contar lo quita). */
+   (se guarda skipgc, que es lo que respeta GoatCounter; ?contar lo quita). Las estadísticas no se enlazan desde la
+   página: el enlace va solo en el correo de cada actualización. */
 const NOM_SECC = {marcas: 'Marcas', evolucion: 'Evolución', ranking: 'Rankings', espana: 'Cto. España', andalucia: 'Cto. Andalucía',
   relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen'};
 function seccionVisita(h, ben, sw) {
@@ -131,7 +132,7 @@ function route() {
 
   if (sec === 'club') {
     vistaClub(app, Object.assign({cat: r.parts[1], tab: r.parts[2]}, params));
-    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${noContar() || DATA.estrella_fija ? ' · <a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : ''}${FIRMA}</p>`);
+    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${FIRMA}</p>`);
   }
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
@@ -160,9 +161,7 @@ function arrancar() {
   bindBuscador('q-cab');
   entNavModo();
   marcarContador();
-  // en los dispositivos de Andrés (no cuentan), un enlace a sus estadísticas de visitas
-  const visitas = noContar() || DATA.estrella_fija ? '<a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : '';
-  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${visitas}Actualizado ${DATA.fecha}<br>Datos: RFEN${FIRMA}`;
+  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN${FIRMA}`;
   window.addEventListener('hashchange', route);
   route();
 }

@@ -120,7 +120,10 @@ jobs:
             else
               echo "✅ ACTUALIZACIÓN AUTOMÁTICA — la semanal, lanzada por el horario. El sistema funciona."
             fi
-            echo; cat resumen.txt; echo "$d"
+            echo; cat resumen.txt
+            echo; echo "📊 Visitas a la web (solo tú, con tu contraseña): https://andresvazquez11.goatcounter.com"
+            echo "   Qué secciones visita más la gente: en el panel, la lista «Pages»."
+            echo "$d"
           } >> "$GITHUB_OUTPUT"
 
       - name: Correo de éxito
