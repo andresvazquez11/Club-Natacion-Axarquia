@@ -590,5 +590,5 @@ html.acuatico .seg{background:var(--solid)}
   background:var(--ink);color:var(--bg, #fff);padding:10px 14px;border-radius:12px;font-size:.85rem;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2)}
 
 /* Toque en el agua (modo acuático, agua.js → agitarAgua): los reflejos de luz también se mecen un momento */
-.agua .agua-luz.agitada{animation:agua-luz 28s ease-in-out infinite alternate,agua-agita 1.6s ease-out}
-@keyframes agua-agita{0%{opacity:.38}15%{opacity:.62}100%{opacity:.38}}
+.agua .agua-luz.agitada{animation:agua-luz 28s ease-in-out infinite alternate,agua-agita 2.6s ease-out}
+@keyframes agua-agita{0%{opacity:.38}12%{opacity:.52}100%{opacity:.38}}

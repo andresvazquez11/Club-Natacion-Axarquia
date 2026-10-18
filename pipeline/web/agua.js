@@ -42,7 +42,7 @@ function pintarAgua() {
     '<div class="agua-hondo"></div>';
 }
 
-/* Toque en el agua (solo modo acuático): el agua del fondo se agita y se calma sola en ~1,6 s.
+/* Toque en el agua (solo modo acuático): el agua del fondo se agita y se calma sola en ~2,6 s.
    Se anima la refracción de los azulejos (#agua-refr): más desplazamiento y un ligero cambio del oleaje,
    con una oscilación que se apaga. No hay nada encima del contenido. Sin efecto con prefers-reduced-motion. */
 const AGUA_BASE = {escala: 14, fx: 0.018, fy: 0.026};
@@ -50,14 +50,14 @@ let aguaOla = null;
 function agitarAgua() {
   const disp = document.querySelector('#agua-refr feDisplacementMap'), turb = document.querySelector('#agua-refr feTurbulence');
   if (!disp || !turb) return;
-  const t0 = performance.now(), dur = 1600, fase = Math.random() * Math.PI;
+  const t0 = performance.now(), dur = 2600, fase = Math.random() * Math.PI;
   if (aguaOla) cancelAnimationFrame(aguaOla);
   const paso = ahora => {
     const k = Math.min(1, (ahora - t0) / dur);
-    const env = k < .12 ? k / .12 : Math.pow(1 - (k - .12) / .88, 2);        // sube rápido y se apaga despacio
-    const osc = Math.sin(fase + k * Math.PI * 6);
-    disp.setAttribute('scale', (AGUA_BASE.escala + env * (22 + 10 * osc)).toFixed(1));
-    turb.setAttribute('baseFrequency', `${(AGUA_BASE.fx + env * .006 * osc).toFixed(4)} ${(AGUA_BASE.fy - env * .006 * osc).toFixed(4)}`);
+    const env = k < .1 ? k / .1 : Math.pow(1 - (k - .1) / .9, 2);        // sube rápido y se apaga despacio
+    const osc = Math.sin(fase + k * Math.PI * 7);
+    disp.setAttribute('scale', (AGUA_BASE.escala + env * (14 + 6 * osc)).toFixed(1));
+    turb.setAttribute('baseFrequency', `${(AGUA_BASE.fx + env * .004 * osc).toFixed(4)} ${(AGUA_BASE.fy - env * .004 * osc).toFixed(4)}`);
     if (k < 1) aguaOla = requestAnimationFrame(paso);
     else { disp.setAttribute('scale', AGUA_BASE.escala); turb.setAttribute('baseFrequency', `${AGUA_BASE.fx} ${AGUA_BASE.fy}`); aguaOla = null; }
   };

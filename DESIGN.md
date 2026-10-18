@@ -30,7 +30,7 @@ Un agente o diseñador que lo lea debe poder construir una pantalla nueva que pa
 | Enlaces / iconos activos | `#0a6cff` | `#8fd0f2` (activo en barra: `#ffd400`) |
 | Barra inferior | blanco 96 % | `rgba(2,16,32,.95)` |
 
-El modo elegido se recuerda en el dispositivo; sin elección, se abre en Acuático. En Acuático, cada toque agita el agua del fondo ~1,6 s (`agitarAgua` en `agua.js`: más refracción en los azulejos y reflejos más vivos, que se calman solos); nada se dibuja encima del contenido. Con `prefers-reduced-motion` el agua no se mueve ni salpica.
+El modo elegido se recuerda en el dispositivo; sin elección, se abre en Acuático. En Acuático, cada toque agita el agua del fondo ~2,6 s (`agitarAgua` en `agua.js`: más refracción en los azulejos y reflejos más vivos, que se calman solos); nada se dibuja encima del contenido. Con `prefers-reduced-motion` el agua no se mueve ni salpica.
 
 ## 3. Color
 
