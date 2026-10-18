@@ -1,4 +1,4 @@
-/* Modo de la página: «clara» (predeterminado) o «acuatico»; se recuerda en el dispositivo (leerModo/guardarModo). */
+/* Modo de la página: «acuatico» (predeterminado) o «clara»; se recuerda en el dispositivo (leerModo/guardarModo). */
 function aplicarModo(m) {
   const c = document.documentElement.classList;
   c.toggle('clara', m === 'clara'); c.toggle('acuatico', m === 'acuatico');
@@ -41,3 +41,32 @@ function pintarAgua() {
     '<svg class="agua-luz" aria-hidden="true"><rect width="100%" height="100%" filter="url(#agua-caus)"/></svg>' +
     '<div class="agua-hondo"></div>';
 }
+
+/* Toque en el agua (solo modo acuático): el agua del fondo se agita y se calma sola en ~2,6 s.
+   Se anima la refracción de los azulejos (#agua-refr): más desplazamiento y un ligero cambio del oleaje,
+   con una oscilación que se apaga. No hay nada encima del contenido. Sin efecto con prefers-reduced-motion. */
+const AGUA_BASE = {escala: 14, fx: 0.018, fy: 0.026};
+let aguaOla = null;
+function agitarAgua() {
+  const disp = document.querySelector('#agua-refr feDisplacementMap'), turb = document.querySelector('#agua-refr feTurbulence');
+  if (!disp || !turb) return;
+  const t0 = performance.now(), dur = 2600, fase = Math.random() * Math.PI;
+  if (aguaOla) cancelAnimationFrame(aguaOla);
+  const paso = ahora => {
+    const k = Math.min(1, (ahora - t0) / dur);
+    const env = k < .1 ? k / .1 : Math.pow(1 - (k - .1) / .9, 2);        // sube rápido y se apaga despacio
+    const osc = Math.sin(fase + k * Math.PI * 7);
+    disp.setAttribute('scale', (AGUA_BASE.escala + env * (14 + 6 * osc)).toFixed(1));
+    turb.setAttribute('baseFrequency', `${(AGUA_BASE.fx + env * .004 * osc).toFixed(4)} ${(AGUA_BASE.fy - env * .004 * osc).toFixed(4)}`);
+    if (k < 1) aguaOla = requestAnimationFrame(paso);
+    else { disp.setAttribute('scale', AGUA_BASE.escala); turb.setAttribute('baseFrequency', `${AGUA_BASE.fx} ${AGUA_BASE.fy}`); aguaOla = null; }
+  };
+  aguaOla = requestAnimationFrame(paso);
+  const luz = document.querySelector('.agua .agua-luz');
+  if (luz) { luz.classList.remove('agitada'); void luz.getBoundingClientRect(); luz.classList.add('agitada'); }
+}
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('pointerdown', e => {
+  if (!e.isPrimary || !document.documentElement.classList.contains('acuatico')) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  agitarAgua();
+}, {passive: true});

@@ -18,7 +18,7 @@ Un agente o diseñador que lo lea debe poder construir una pantalla nueva que pa
 
 ## 2. Dos modos
 
-| | Agua clara (por defecto) | Acuático (botón) |
+| | Agua clara (botón «Claro») | Acuático (por defecto) |
 |---|---|---|
 | Idea | Agua turquesa a pleno sol | Piscina de competición, agua profunda |
 | Fondo | degradado `#6fd6ec → #a8e9f6 → #e6f9fd → #f7fdff` (de arriba a abajo), con reflejos de luz muy suaves arriba | azulejos del fondo vistos a través del agua (juntas dobladas), reflejos de luz finos, **línea negra del carril**; base `#05365f → #032a4d`. Puede ser una foto real de agua optimizada |
@@ -30,7 +30,7 @@ Un agente o diseñador que lo lea debe poder construir una pantalla nueva que pa
 | Enlaces / iconos activos | `#0a6cff` | `#8fd0f2` (activo en barra: `#ffd400`) |
 | Barra inferior | blanco 96 % | `rgba(2,16,32,.95)` |
 
-El modo elegido se recuerda en el dispositivo. Con `prefers-reduced-motion` el agua no se mueve.
+El modo elegido se recuerda en el dispositivo; sin elección, se abre en Acuático. En Acuático, cada toque agita el agua del fondo ~2,6 s (`agitarAgua` en `agua.js`: más refracción en los azulejos y reflejos más vivos, que se calman solos); nada se dibuja encima del contenido. Con `prefers-reduced-motion` el agua no se mueve ni salpica.
 
 ## 3. Color
 

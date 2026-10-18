@@ -1237,7 +1237,7 @@ const FIRMA_HTML = '<div class="firma">Desarrollado por <a href="https://www.ins
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
   const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
-  return `<nav class="tabbar">${t('home','⏱','Entrenar')}${t('historial','📋','Historial')}${t('nadadores','🏊','Nadadores')}<a href="../temporada.html#mi"><span class="ti">🌐</span>Web club</a></nav>`;
+  return `<nav class="tabbar">${t('home','⏱','Entrenar')}${t('historial','📋','Historial')}${t('nadadores','🏊','Nadadores')}<a href="../club.html#club"><span class="ti">🌐</span>Web club</a></nav>`;
 }
 function renderPantalla(app) {
   if (!coachName) { app.innerHTML = renderBienvenida(); return; }
@@ -2137,7 +2137,7 @@ function renderEvolucionNad() {
     <button class="back-btn" data-action="tab" data-to="nadadores">← Nadadores</button>
     <div class="h1">${esc(nad.n)}</div>
     <div class="muted mb16" style="font-size:13px">${eq?esc(eq.nombre):''} · ${sessions.length} sesión${sessions.length!==1?'es':''}</div>
-    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../temporada.html#nadador/${encodeURIComponent(nad.rfen)}/entrenos">📈 Ficha completa en la web del club</a>`:''}
+    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../club.html#nadador/${encodeURIComponent(nad.rfen)}/entrenos">📈 Ficha completa en la web del club</a>`:''}
     ${filterPills}
     ${statsHtml}
     ${sessions.length>=2?`<div class="card mb16" style="padding:10px 10px 4px">${svgChart(sessions)}</div>`:sessions.length===1?'<div class="muted" style="text-align:center;padding:12px;font-size:13px">Necesitás 2 sesiones para ver el gráfico</div>':''}

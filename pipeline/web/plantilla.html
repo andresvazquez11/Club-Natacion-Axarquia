@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<script>/* modo claro por defecto; acuático solo si el usuario lo eligió (antes de pintar; admite los valores antiguos) */(function(){var m='clara';try{var v=localStorage.getItem('cna_modo');if(v==='acuatico'||v==='agua')m='acuatico'}catch(e){}var c=document.documentElement.classList;c.add(m)})()</script>
+<script>/* modo acuático por defecto; claro solo si el usuario lo eligió (antes de pintar; admite los valores antiguos) */(function(){var m='acuatico';try{var v=localStorage.getItem('cna_modo');if(v==='clara'||v==='normal')m='clara'}catch(e){}document.documentElement.classList.add(m)})()</script>
 <div class="agua" aria-hidden="true"></div>
 <header class="cab" id="cab">
   <a class="brand" href="#inicio"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></a>
