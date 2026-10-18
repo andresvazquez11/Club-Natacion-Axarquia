@@ -142,3 +142,23 @@ test('entTiempos: marca los tiempos de simulación (campo sim o id sim_) y entRe
   assert.deepEqual(T.map(t => [t.id, t.sim]), [['r1', true], ['r2', true], ['r3', true], ['r4', false], ['sim_r9', true]]);
   assert.deepEqual(ev('entResumen', T).entrenamientos.map(e => [e.sesId, e.sim]), [['sim_s9', true], ['s2', false], ['s1', true]]);
 });
+
+test('entTiempos: pasa la nota del tiempo, recortada a 200 (el escape se hace al pintar)', () => {
+  const D2 = structuredClone(D);
+  D2.resultados[1].nota = '<b>viraje</b>';
+  D2.resultados[3].nota = 'x'.repeat(300);
+  const T = ev('entTiempos', D2, SW);
+  assert.equal(T.find(t => t.id === 'r2').nota, '<b>viraje</b>');
+  assert.equal(T.find(t => t.id === 'r4').nota.length, 200);
+  assert.equal(T.find(t => t.id === 'r1').nota, null);
+});
+
+test('entGrupo: cuenta como asistencia estar en «presentes» aunque no haya tiempos', () => {
+  const T = ev('entTiempos', D, SW);
+  const sin = ev('entGrupo', T, D.sesiones);
+  assert.deepEqual(sin.nadadores.find(m => m.nId === 'b').sesiones, 1);
+  const ses = structuredClone(D.sesiones); ses[1].presentes = ['a', 'b'];
+  const con = ev('entGrupo', T, ses);
+  const b = con.nadadores.find(m => m.nId === 'b');
+  assert.equal(b.sesiones, 2); assert.equal(Math.round(b.asistencia), 100);
+});

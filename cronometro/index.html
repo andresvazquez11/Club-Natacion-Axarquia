@@ -18,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
 <script src="firebase-config.js"></script>
+<script src="logica.js"></script>
 </head>
 <body>
 <style>
@@ -68,6 +69,23 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .grupo-name{font-weight:700;color:var(--blu-l);}
 .gclock{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);margin:4px 0 10px;}
 .arr-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--brd);}
+.firma{text-align:center;font-size:12px;color:var(--mut);margin:28px 0 4px}
+.firma a{color:var(--blu-l);text-decoration:none;font-weight:600}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(15,23,42,.97);border-top:1px solid var(--brd);display:grid;grid-template-columns:repeat(4,1fr);padding:6px 0 max(8px,env(safe-area-inset-bottom,0px));backdrop-filter:blur(8px)}
+.tabbar a,.tabbar button{background:none;border:0;color:var(--mut);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent}
+.tabbar .ti{font-size:20px;line-height:1}
+.tabbar .on{color:var(--blu-l);font-weight:700}
+#app.con-tabs{padding-bottom:96px}
+.menu-btn{background:none;border:1px solid var(--brd);border-radius:10px;color:var(--mut);font-size:18px;width:40px;height:40px;cursor:pointer}
+.menu-pop{position:absolute;right:0;top:46px;z-index:30;background:var(--surf);border:1px solid var(--brd);border-radius:12px;min-width:200px;box-shadow:0 10px 30px rgba(0,0,0,.4);overflow:hidden}
+.menu-pop button,.menu-pop a{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--brd);color:var(--txt);font:inherit;font-size:15px;padding:12px 14px;cursor:pointer;text-decoration:none}
+.menu-pop :first-child{border-top:0}
+.ult-pr{font-size:13px;line-height:1.5;margin:2px 0 8px}
+.ult-pr b{color:var(--blu-l);font-weight:600}
+.ult-k{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.ult-k div{background:var(--bg);border-radius:8px;text-align:center;padding:6px 2px}
+.ult-k b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.ult-k span{font-size:10px;color:var(--mut)}
 .back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--mut);font-size:14px;cursor:pointer;padding:0;margin-bottom:16px;-webkit-tap-highlight-color:transparent;}
 .badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
 .b-grn{background:var(--grn-s);color:var(--grn-l);}
@@ -88,6 +106,17 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .t-chip{display:inline-block;padding:4px 10px;background:var(--bg);border-radius:8px;font-size:13px;font-variant-numeric:tabular-nums;margin:3px;}
 .sep{border:none;border-top:1px solid var(--brd);margin:16px 0;}
 /* ── En curso ── */
+.sw-marca{display:block;font-size:11px;font-weight:700;color:var(--amb);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.lleg-marca{font-size:11px;font-weight:700;color:var(--amb)}
+.ciclo-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px}
+.ciclo-cd{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--brd);border-radius:12px;padding:8px 12px;margin-bottom:10px}
+.ciclo-cd b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--amb)}
+.quien summary{cursor:pointer;font-weight:600;font-size:14px}
+.nota-r{font-size:12px;font-weight:500;color:var(--blu-l);font-style:italic}
+.nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
+.nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.nado-clk b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
+.nado-clk.parado b{color:var(--mut)}
 .ec-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
 .salida-card{background:var(--surf);border:1px solid var(--brd);border-radius:16px;padding:12px;margin-bottom:18px;}
 .salida-next{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
@@ -217,14 +246,14 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 <script>
 'use strict';
 // ── Constants ────────────────────────────────────────────────
-const ESTILOS = ['libre','braza','mariposa','espalda'];
 const DISTS   = [50,100,200,400];
 const EMO     = {libre:'🏊',braza:'🐸',mariposa:'🦋',espalda:'🔄'};
-const COLS    = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','entrenadores'];
+const COLS    = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','planes','entrenadores'];
+const COLS_OPCIONALES = ['planes'];   // si las reglas aún no la permiten, la app sigue sin ella
 
 // ── State ────────────────────────────────────────────────────
 let _db = null, _dbReady = false, _initN = 0, _initTimer = null;
-const S = {equipos:[],nadadores:[],sesiones:[],grupos:[],gnads:[],resultados:[],plantillas:[],entrenadores:[]};
+const S = {equipos:[],nadadores:[],sesiones:[],grupos:[],gnads:[],resultados:[],plantillas:[],planes:[],entrenadores:[]};
 let route = {screen:'home'};
 let SA = null;   // active session timing state
 let PS = null;   // preparar screen state
@@ -264,7 +293,7 @@ function pantallaMensaje(titulo, texto, extra) {
 }
 function renderLogin() {
   pantallaMensaje('Cronómetro Natación', 'Entra con la cuenta de Google que el club tiene dada de alta.',
-    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>`);
+    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>${FIRMA_HTML}`);
 }
 async function loginGoogle() {
   const prov = new firebase.auth.GoogleAuthProvider();
@@ -296,19 +325,6 @@ function sinAcceso() {
     `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
 }
 // Campos que se pintan sin plantilla de texto libre: se normalizan al leer
-function limpiarDoc(col, d) {
-  if (col==='sesiones' || col==='plantillas' || col==='resultados') {
-    d.estilo = ESTILOS.includes(d.estilo) ? d.estilo : null;
-    const n = Number(d.dist); d.dist = Number.isFinite(n) && n > 0 ? n : null;
-  }
-  if (col==='resultados') {   // serie y salida se muestran tal cual: siempre enteros positivos
-    for (const k of ['ronda','salida']) { const n = Number(d[k]); d[k] = Number.isInteger(n) && n > 0 ? n : 1; }
-    d.ms = Number(d.ms) || 0;
-  }
-  if (col==='sesiones') { d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null; }
-  if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
-  return d;
-}
 // Entrenamiento de simulación (datos de prueba): se marca para borrarlo sin tocar los reales
 const esSim = s => !!s && (s.sim === true || String(s.id||'').startsWith('sim_'));
 const SIM_TAG = '<span class="sim-tag">Simulación</span>';
@@ -391,7 +407,7 @@ function conectarColecciones() {
       else if (canRerender()) render();
     }, err => {
       console.warn(col, err.code);
-      if (err.code === 'permission-denied') { clearTimeout(_initTimer); sinAcceso(); return; }
+      if (err.code === 'permission-denied' && !COLS_OPCIONALES.includes(col)) { clearTimeout(_initTimer); sinAcceso(); return; }
       if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
     }));
   }
@@ -430,6 +446,32 @@ const DB = {
     S.sesiones.push({id:ref.id,...data});
     await ref.set(data).catch(console.error);
     return ref.id;
+  },
+  guardarPresentes(sesId, presentes) {
+    const s = S.sesiones.find(s=>s.id===sesId); if (s) s.presentes = presentes;
+    _db.collection('sesiones').doc(sesId).update({presentes}).catch(console.error);
+  },
+  guardarNota(resId, nota) {
+    const r = S.resultados.find(x=>x.id===resId); if (r) r.nota = nota;
+    _db.collection('resultados').doc(resId).update({nota}).catch(console.error);
+  },
+  async guardarPlan(id, data) {
+    if (id) { const p = S.planes.find(x=>x.id===id); if (p) Object.assign(p, data); await _db.collection('planes').doc(id).update(data).catch(console.error); return id; }
+    const ref = _db.collection('planes').doc(); S.planes.push({id:ref.id, ...data});
+    await ref.set(data).catch(console.error); return ref.id;
+  },
+  async borrarPlan(id) {
+    S.planes = S.planes.filter(p=>p.id!==id); render();
+    await _db.collection('planes').doc(id).delete().catch(console.error);
+  },
+  guardarPlanId(sesId, planId) {
+    const s = S.sesiones.find(s=>s.id===sesId); if (s) s.planId = planId;
+    _db.collection('sesiones').doc(sesId).update({planId}).catch(console.error);
+  },
+  // Tiempo nadando: tramos por serie (solo el campo nado, para no pisar sim ni otros)
+  guardarNado(id, nado) {
+    const s = S.sesiones.find(s=>s.id===id); if (s) s.nado = nado;
+    _db.collection('sesiones').doc(id).update({nado}).catch(console.error);
   },
   async finalizarSesion(id) {
     const fin = Date.now();
@@ -575,6 +617,7 @@ ${dots}
 // ── Navigation ───────────────────────────────────────────────
 function nav(r) {
   if (_clk) { clearInterval(_clk); _clk = null; }
+  if (!['preparar','en-curso'].includes(r.screen)) soltarWakeLock();
   route = r;
   render();
 }
@@ -582,10 +625,11 @@ function navPreparar(eqId) {
   // Start with one empty lane, coaches fill it from club search
   PS = {eqId, estilo:null, dist:null, notas:'',
         sinGrupo:[], grupos:[{key:'calle1', nombre:'Calle 1', nads:[]}],
-        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false,
+        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false, ciclo:null, cicloTxt:'', auto:autoGuardado(), extras:new Set(),
         oferta: plantillaUsable()};
   boardReset();
   route = {screen:'preparar', eqId};
+  pedirWakeLock();
   render();
 }
 // Plantilla anterior con los nadadores que aún existen
@@ -618,6 +662,19 @@ function startClock() {
     document.querySelectorAll('.live-clk[data-t0]').forEach(el => {
       el.textContent = fmtTime(now - Number(el.dataset.t0));
     });
+    if (SA.ciclo && SA.nSalida > 0 && quedanPorSalir()) {
+      const e = cicloEstado(SA.tUltSalida, SA.ciclo, now, true);
+      const cd = document.getElementById('live-ciclo');
+      if (cd) cd.textContent = fmtNado(Math.max(0, Math.ceil(e.restaMs/1000)*1000));
+      if (e.aviso && SA.avisado !== SA.nSalida) { SA.avisado = SA.nSalida; pitido(120, 880); }
+      if (e.toca && SA.cicloSonado !== SA.nSalida) {
+        SA.cicloSonado = SA.nSalida; pitido(500, 660);
+        try { navigator.vibrate && navigator.vibrate(200); } catch {}
+        if (SA.auto) salidaTanda(SA.tUltSalida + SA.ciclo*1000, true);
+      }
+    }
+    const nd = document.getElementById('live-nado');
+    if (nd) { nd.textContent = fmtNado(msNadando(SA.nado, now)); nd.parentElement.classList.toggle('parado', !SA.nado.some(x=>x.fin==null)); }
     // Pasa a "Llegados" las filas que ya llevan un rato marcadas
     if (SA.recientes.some(r => now - r.tLleg > RECIENTE_MS)) {
       SA.recientes = SA.recientes.filter(r => now - r.tLleg <= RECIENTE_MS);
@@ -634,7 +691,7 @@ async function pedirWakeLock() {
 }
 function soltarWakeLock() { try { if (_wake) _wake.release(); } catch {} _wake = null; }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && route.screen === 'en-curso') pedirWakeLock();
+  if (document.visibilityState === 'visible' && ['en-curso','preparar'].includes(route.screen)) pedirWakeLock();
 });
 
 // ── Preparar actions ─────────────────────────────────────────
@@ -679,6 +736,11 @@ function moverNadGrupo(key, pi, dir) {
   [g.nads[pi],g.nads[j]] = [g.nads[j],g.nads[pi]];
   render();
 }
+function eqMasFrecuente(calles) {
+  const cnt = {};
+  calles.flatMap(g=>g.nads).forEach(n => { const nad = S.nadadores.find(x=>x.id===n.id); if (nad) cnt[nad.eqId] = (cnt[nad.eqId]||0)+1; });
+  return Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0] || null;
+}
 async function iniciarSesion() {
   if (!PS) return;
   const {estilo, dist, notas, grupos} = PS;
@@ -686,15 +748,7 @@ async function iniciarSesion() {
   const callesConNads = grupos.filter(g=>g.nads.length>0);
   if (callesConNads.length===0) return;
   // Desde la página principal no hay equipo: se usa el más frecuente entre los nadadores
-  let eqId = PS.eqId;
-  if (!eqId) {
-    const cnt = {};
-    callesConNads.flatMap(g=>g.nads).forEach(n => {
-      const nad = S.nadadores.find(x=>x.id===n.id);
-      if (nad) cnt[nad.eqId] = (cnt[nad.eqId]||0)+1;
-    });
-    eqId = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0] || null;
-  }
+  const eqId = PS.eqId || eqMasFrecuente(callesConNads);
   const parciales = PS.parciales && Number(dist) > 50;
   DB.guardarPlantilla(callesConNads.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})), estilo, dist, parciales);
   const sesId = await DB.crearSesion(eqId, estilo, dist, notas, parciales);
@@ -704,6 +758,10 @@ async function iniciarSesion() {
     for (let p=0; p<g.nads.length; p++) await DB.asignarNad(gId, g.nads[p].id, p);
   }
   buildSA(sesId);
+  SA.ciclo = PS && PS.ciclo || null; SA.cicloTxt = PS && PS.cicloTxt || ''; SA.auto = !!(PS && PS.auto);
+  DB.guardarPresentes(sesId, [...new Set([...callesConNads.flatMap(g=>g.nads.map(n=>n.id)), ...(PS.extras||[])])]);
+  const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
+  if (plan) { SA.plan = plan; SA.planIdx = 0; DB.guardarPlanId(sesId, plan.id); }
   route = {screen:'en-curso', sesId};
   startClock();
   pedirWakeLock();
@@ -730,6 +788,7 @@ function buildSA(sesId) {
     parciales: !!(ses && ses.parciales),
     tramos: ses && ses.parciales && dist > 50 ? Math.round(dist/50) : 1, // toques por nadador
     nuevaSerie: null,  // formulario de la siguiente serie con otro estilo
+    nado: ses && Array.isArray(ses.nado) ? ses.nado : [],   // tiempo nadando: {r, ini, fin} por serie
     ronda: 1,
     nSalida: 0,
     tUltSalida: 0,
@@ -762,11 +821,12 @@ function rondaTerminada() { return SA.agua.length===0 && !quedanPorSalir() && SA
 function ordenFila(a, b) { return a.salida-b.salida || a.laneIdx-b.laneIdx; }
 
 // ── En-curso actions ─────────────────────────────────────────
-function salidaTanda(t) {
+function salidaTanda(t, auto) {
   if (!SA || !quedanPorSalir()) return;
-  if (t - SA.tUltSalida < 800) return; // evita doble toque accidental
+  if (!auto && t - SA.tUltSalida < 800) return; // evita doble toque accidental
   const salen = SA.grupos.filter(g => g.next < g.nads.length && !SA.noSale.has(g.gId));
   if (!salen.length) return;
+  if (SA.nSalida === 0) { SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
   SA.tUltSalida = t;
   SA.nSalida++;
   SA.finArmed = false;
@@ -789,14 +849,19 @@ function llegoNad(key, t) {
   const a = SA.agua.splice(i,1)[0];
   const ms = t - a.t0;
   const extra = {ronda:SA.ronda, salida:a.salida, estilo:SA.estilo||null, dist:SA.dist||null};
+  if (a.nota) extra.nota = a.nota;
   if (SA.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, SA.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
   const rec = {...a, ms, resId, tLleg: Date.now()};
+  // Marca en el momento: mejora su mejor entreno o su marca de competición (25 m)
+  rec.marca = SA.estilo && SA.dist ? marcaDe(comparaciones(a.nId, SA.estilo, SA.dist, ms, resId, Date.now())) : null;
   SA.llegados.push(rec);
   SA.recientes.push(rec);
-  try { navigator.vibrate && navigator.vibrate(35); } catch {}
+  if (rondaTerminada()) { SA.nado = cerrarTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
+  try { navigator.vibrate && navigator.vibrate(rec.marca ? [60,40,60] : 35); } catch {}
   render();
 }
+const MARCA_TXT = {comp:'🏅 ¡marca de comp.!', entreno:'🏅 mejor entreno'};
 // Toque en el botón del nadador: parcial cada 50 m o llegada en el último tramo
 function marcaNad(key, t) {
   if (!SA) return;
@@ -914,6 +979,7 @@ function deshacerLlegada(key) {
   SA.agua.push(a);
   SA.agua.sort(ordenFila);
   SA.tLayout = Date.now();
+  if (SA.nado.some(x=>x.r===SA.ronda && x.fin!=null)) { SA.nado = reabrirTramo(SA.nado, SA.ronda); DB.guardarNado(SA.sesId, SA.nado); }
   render();
 }
 function repetirSerie(cfg) {
@@ -921,10 +987,12 @@ function repetirSerie(cfg) {
   if (cfg) {   // nueva serie con otro estilo/distancia
     SA.estilo = cfg.estilo; SA.dist = Number(cfg.dist) || 0; SA.parciales = !!cfg.parciales;
     SA.tramos = SA.parciales && SA.dist > 50 ? Math.round(SA.dist/50) : 1;
+    SA.ciclo = cfg.ciclo || null; SA.cicloTxt = cfg.cicloTxt || (cfg.ciclo ? fmtNado(cfg.ciclo*1000) : ''); SA.auto = !!cfg.auto;
   }
   SA.nuevaSerie = null;
   SA.ronda++;
   SA.nSalida = 0;
+  SA.avisado = SA.cicloSonado = null;   // el aviso y la salida del ciclo van por serie
   SA.agua = []; SA.llegados = []; SA.recientes = [];
   SA.vista = 'rapidos';
   SA.noSale.clear();
@@ -1034,6 +1102,7 @@ async function exportar(sesId) {
   const {ses, series} = d;
   let txt = `C.N. AXARQUÍA · RESUMEN DE ENTRENAMIENTO\n${'─'.repeat(40)}\n`;
   txt += `Fecha: ${fmtDate(ses.fecha)} ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''}\n`;
+  if (ses.nado && ses.nado.length) txt += `Tiempo nadando: ${fmtNado(msNadando(ses.nado, Date.now()))}\n`;
   txt += `Grupo: ${eqNombre(ses.eqId)}${ses.coach?`\nEntrenador: ${ses.coach}`:''}\n`;
   txt += `Series: ${series.length} · Nadadores: ${d.nads.length} · Tiempos: ${d.nTiempos}\n`;
   if (d.nads.length) txt += `Nadadores: ${d.nads.join(', ')}\n`;
@@ -1041,7 +1110,7 @@ async function exportar(sesId) {
   series.forEach(x => {
     txt += `\nSERIE ${x.ronda} · ${comboTexto(x.estilo, x.dist).toUpperCase()}\n`;
     x.res.forEach((r,i) => {
-      txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}\n`;
+      txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}${r.nota?` · Nota: ${r.nota}`:''}\n`;
       if (r.parciales && r.parciales.length>1) txt += `   Parciales 50 m: ${fmtTramos(r.parciales)}\n`;
       const ct = comparaTexto(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha));
       if (ct) txt += `   Comparado con su ${ct}\n`;
@@ -1093,6 +1162,7 @@ async function generarPDF(sesId, btn) {
       const t = doc.splitTextToSize(String(v), W-M*2-30); doc.text(t, M+30, y); y += 5.5*t.length; };
     linea('Fecha', `${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''}${d.min?` (${d.min} min)`:''}`);
     linea('Grupo', eqNombre(ses.eqId));
+    if (ses.nado && ses.nado.length) linea('Tiempo nadando', fmtNado(msNadando(ses.nado, Date.now())));
     if (ses.coach) linea('Entrenador', ses.coach);
     linea('Resumen', `${series.length} ${series.length===1?'serie':'series'} · ${d.nads.length} nadadores · ${d.nTiempos} tiempos`);
     if (d.combos.length) linea('Estilos', d.combos.join(' · '));
@@ -1109,7 +1179,7 @@ async function generarPDF(sesId, btn) {
         startY: y + 2, margin: {left:M, right:M},
         head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), 'Mejor competición (25 m)', 'Mejor entreno']],
         body: x.res.map((r,i) => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha);
-          return [i+1, nombreDe(r.nId), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
+          return [i+1, nombreDe(r.nId) + (r.nota ? `\nNota: ${r.nota}` : ''), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
             ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[]),
             c.comp ? `${fmtCs(c.comp.cs)} (${difTxt(c.difComp)})\n${origenComp(c.comp)} · ${fmtFechaIso(c.comp.fecha)}` : '—',
             c.ent ? `${fmtTime(c.ent.ms)} (${difTxt(c.difEnt)})\n${fmtDateShort(c.ent.fecha)}` : '—']; }),
@@ -1157,8 +1227,20 @@ function render() {
   renderPantalla(app);
   if (pos!=null) { const el = document.getElementById('board-search'); if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} } }
 }
+const FIRMA_HTML = '<div class="firma">Desarrollado por <a href="https://github.com/andresvazquez11" target="_blank" rel="noopener">@andresvazquez11</a></div>';
+const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
+function renderTabs(activa) {
+  const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
+  return `<nav class="tabbar">${t('home','⏱','Entrenar')}${t('historial','📋','Historial')}${t('nadadores','🏊','Nadadores')}<a href="../temporada.html#mi"><span class="ti">🌐</span>Web club</a></nav>`;
+}
 function renderPantalla(app) {
   if (!coachName) { app.innerHTML = renderBienvenida(); return; }
+  pintarPantalla(app);
+  const tab = TAB_DE[route.screen];
+  app.classList.toggle('con-tabs', !!tab);
+  if (tab) app.insertAdjacentHTML('beforeend', FIRMA_HTML + renderTabs(tab));
+}
+function pintarPantalla(app) {
   switch(route.screen) {
     case 'home':       app.innerHTML = renderHome(); break;
     case 'equipo':     app.innerHTML = renderEquipo(); break;
@@ -1167,49 +1249,140 @@ function renderPantalla(app) {
     case 'resultados': app.innerHTML = renderResultados(route.sesId,'home','← Inicio'); break;
     case 'historial':     app.innerHTML = renderHistorial(); break;
     case 'hist-det':      app.innerHTML = renderResultados(route.sesId,'historial','← Historial'); break;
-    case 'evolucion':     app.innerHTML = renderEvolucion(); break;
+    case 'evolucion':
+    case 'nadadores':     app.innerHTML = renderNadadores(); break;
     case 'evolucion-nad': app.innerHTML = renderEvolucionNad(); break;
     case 'entrenadores':  app.innerHTML = renderEntrenadores(); break;
     default:              app.innerHTML = renderHome();
   }
 }
 
-// ── Screen: Home ─────────────────────────────────────────────
+// ── Screen: Entrenar (inicio) ────────────────────────────────
+let MENU_ABIERTO = false;
+// Último entrenamiento del entrenador con tiempos: lo que se hizo, para decidir si repetir o cambiar
+function ultimoEntreno() {
+  const ses = [...mySes()].sort((a,b)=>b.fecha-a.fecha).find(s => S.resultados.some(r=>r.sesId===s.id));
+  if (!ses) return null;
+  const res = S.resultados.filter(r=>r.sesId===ses.id).map(r => ({...r, ...resCombo(r)}));
+  const mejor = mejorDelDia(res);
+  const mejoran = new Set(res.filter(r => r.estilo && r.dist &&
+    marcaDe(comparaciones(r.nId, r.estilo, r.dist, r.ms, r.id, ses.fecha))).map(r=>r.nId)).size;
+  return {ses, series: seriesDe(ses.id), nads: new Set(res.map(r=>r.nId)).size, nTiempos: res.length, mejor, mejoran};
+}
+const pruebasSeries = series => series.map(x=>`<b>Serie ${x.ronda}</b> · ${esc(comboTexto(x.estilo, x.dist))}`).join(' — ');
+function renderMenu() {
+  if (!MENU_ABIERTO) return '';
+  return `<div class="menu-pop">
+    ${soyAdmin()?`<button data-action="entrenadores">👥 Entrenadores${solicitudesPendientes().length?` (${solicitudesPendientes().length})`:''}</button>`:''}
+    <button data-action="cambiar-nombre">✎ Cambiar nombre</button>
+    <button data-action="logout">Salir</button>
+  </div>`;
+}
 function renderHome() {
+  const u = ultimoEntreno();
+  const hoy = new Date().toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'});
+  const pend = soyAdmin() ? solicitudesPendientes().length : 0;
+  const p = plantillaUsable();
+  const tarjeta = u ? `
+    <span class="label">Último entrenamiento</span>
+    <div class="card" style="cursor:pointer" data-action="hist-det" data-ses="${esc(u.ses.id)}">
+      <div class="row" style="margin-bottom:4px"><b style="flex:1">${esc(eqNombre(u.ses.eqId))}${esSim(u.ses)?SIM_TAG:''}</b><span class="muted" style="font-size:12px">${esc(fechaLarga(u.ses.fecha))}</span></div>
+      <div class="ult-pr">${pruebasSeries(u.series)}</div>
+      <div class="ult-k">
+        <div><b>${u.series.length}</b><span>${u.series.length===1?'serie':'series'}</span></div>
+        <div><b>${u.nads}</b><span>nadadores</span></div>
+        <div><b>${u.nTiempos}</b><span>tiempos</span></div>
+        <div><b>${u.ses.nado&&u.ses.nado.length?fmtNado(msNadando(u.ses.nado, Date.now())):'—'}</b><span>nadando</span></div>
+      </div>
+      ${u.mejor?`<div class="row" style="font-size:14px"><span style="flex:1">🏅 Mejor del día: ${esc(nombreDe(u.mejor.nId))} <span class="muted">· ${esc(comboTexto(u.mejor.estilo,u.mejor.dist))}</span></span><b style="color:var(--amb);font-variant-numeric:tabular-nums">${fmtTime(u.mejor.ms)}</b></div>`:''}
+      ${u.mejoran?`<div style="font-size:14px;color:var(--grn-l)">⬆ ${u.mejoran} ${u.mejoran===1?'mejora su marca':'mejoran su marca'}</div>`:''}
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn btn-surf btn-inline" style="flex:1" data-action="repetir-entreno" data-ses="${esc(u.ses.id)}">↻ Repetir este entreno</button>
+        <span class="muted" style="font-size:13px;color:var(--blu-l)">Ver resumen ›</span>
+      </div>
+    </div>` : '<div class="center-msg"><p>Todavía no hay entrenamientos. Empieza el primero arriba.</p></div>';
+  return `
+    <div class="row mb16" style="position:relative;align-items:flex-start">
+      <div style="flex:1">
+        <div class="h1" style="margin-bottom:0">Hola, ${esc(coachName)}</div>
+        <div class="muted" style="font-size:13px">${esc(hoy.charAt(0).toUpperCase()+hoy.slice(1))}</div>
+      </div>
+      <button class="menu-btn" data-action="menu" aria-label="Menú">⋯</button>
+      ${renderMenu()}
+    </div>
+    ${pend ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${pend} ${pend===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
+    <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
+    ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:10px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
+    ${renderPreparados()}
+    ${tarjeta}`;
+}
+function renderPreparados() {
+  const ps = misPlanes();
+  return `<div class="row" style="margin:6px 0 8px"><span class="label" style="flex:1;margin:0">Entrenos preparados</span>
+      <button class="btn btn-surf btn-sm btn-inline" data-action="plan-nuevo">📝 Preparar</button></div>
+    ${ps.map(p=>`<div class="card row" style="gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700">${esc(p.nombre)}</div>
+        <div class="muted" style="font-size:12px">${esc(p.eqId?eqNombre(p.eqId):'')} · ${p.series.map(x=>esc(comboTexto(x.estilo,x.dist))+(x.ciclo?` c/${esc(fmtNado(x.ciclo*1000))}`:'')).join(' · ')}</div>
+      </div>
+      <button class="btn-icon" data-action="plan-editar" data-id="${esc(p.id)}" aria-label="Editar">✎</button>
+      <button class="btn-icon" data-action="plan-borrar" data-id="${esc(p.id)}" style="color:var(--red)" aria-label="Borrar">✕</button>
+      <button class="btn btn-green btn-sm btn-inline" data-action="plan-empezar" data-id="${esc(p.id)}">▶</button>
+    </div>`).join('') || '<div class="muted" style="font-size:13px;margin-bottom:14px">Prepara en casa las series y las calles; en la piscina solo pulsas ▶.</div>'}`;
+}
+// Repetir: las mismas calles y la prueba de la primera serie de ese entrenamiento
+function repetirEntreno(sesId) {
+  const ses = S.sesiones.find(s=>s.id===sesId); if (!ses) return;
+  const grupos = S.grupos.filter(g=>g.sesId===sesId).sort((a,b)=>a.ord-b.ord);
+  navPreparar(ses.eqId);
+  const calles = grupos.map((g,i) => ({key:'calle'+i+'-'+Date.now(), nombre:g.nombre,
+    nads: S.gnads.filter(x=>x.gId===g.id).sort((a,b)=>(a.pos||0)-(b.pos||0))
+      .map(x=>S.nadadores.find(n=>n.id===x.nId)).filter(Boolean).map(n=>({id:n.id, n:n.n}))})).filter(c=>c.nads.length);
+  if (calles.length) PS.grupos = calles;
+  const s1 = seriesDe(sesId)[0];
+  if (s1 && s1.estilo) { PS.estilo = s1.estilo; PS.dist = Number(s1.dist); }
+  PS.parciales = !!ses.parciales;
+  PS.oferta = null;
+  render();
+}
+
+// ── Screen: Nadadores ────────────────────────────────────────
+let NAD_CAT = (() => { try { return localStorage.getItem('crono_cat'); } catch { return null; } })();
+function renderNadadores() {
   const clubEqs = S.equipos.filter(e=>e.shared===true).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  const personalEqs = S.equipos.filter(e=>e.coach===coachName).sort((a,b)=>b.ts-a.ts);
-  const clubRows = clubEqs.map(e=>`
-    <div class="card row" style="cursor:pointer" data-action="go-equipo" data-eq="${esc(e.id)}">
-      <span style="flex:1;font-weight:600;font-size:15px">${esc(e.nombre)}</span>
-      <span class="muted" style="font-size:13px;margin-right:6px">${S.nadadores.filter(n=>n.eqId===e.id).length} nad.</span>
-      <span style="font-size:10px;color:var(--mut);border:1px solid var(--brd);border-radius:5px;padding:2px 6px">Club</span>
-    </div>`).join('');
-  const personalRows = personalEqs.map(e=>`
-    <div class="card row" style="cursor:pointer" data-action="go-equipo" data-eq="${esc(e.id)}">
-      <span style="flex:1;font-weight:600;font-size:15px">${esc(e.nombre)}</span>
+  const propios = S.equipos.filter(e=>e.coach===coachName).sort((a,b)=>b.ts-a.ts);
+  const todos = [...clubEqs, ...propios];
+  const eq = todos.find(e=>e.id===NAD_CAT) || clubEqs[0] || propios[0];
+  const chips = todos.map(e=>`<span class="pill${eq&&e.id===eq.id?' sel':''}" data-action="nad-cat" data-eq="${esc(e.id)}">${esc(e.nombre)}</span>`).join('');
+  const nads = eq ? S.nadadores.filter(n=>n.eqId===eq.id).sort((a,b)=>a.n.localeCompare(b.n)) : [];
+  const filas = nads.map(nad => {
+    const res = S.resultados.filter(r=>r.nId===nad.id);
+    const sesCount = new Set(res.map(r=>r.sesId)).size;
+    const trend = res.length ? calcTrend(getSwimmerSessions(nad.id, null)) : null;
+    return `
+      <div class="card row" style="cursor:pointer;${res.length?'':'opacity:.55'}" data-action="evolucion-nad" data-nid="${esc(nad.id)}">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${esc(nad.n)}</div>
+          <div class="muted" style="font-size:12px">${sesCount ? `${sesCount} entreno${sesCount!==1?'s':''}` : 'Sin tiempos'}</div>
+        </div>
+        ${res.length?`<div style="text-align:right;min-width:60px"><div style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(Math.min(...res.map(r=>r.ms)))}</div>${trend?`<div style="font-size:15px;color:${trend.color}">${trend.dir}</div>`:''}</div>`:''}
+        <span class="muted">›</span>
+      </div>`;
+  }).join('');
+  const propiosRows = propios.map(e=>`
+    <div class="card row">
+      <span style="flex:1;font-weight:600">${esc(e.nombre)}</span>
       <span class="muted" style="font-size:13px">${S.nadadores.filter(n=>n.eqId===e.id).length} nad.</span>
-      <button class="btn-icon" data-action="del-equipo" data-eq="${esc(e.id)}" style="color:var(--red)">✕</button>
+      <button class="btn-icon" data-action="go-equipo" data-eq="${esc(e.id)}" aria-label="Editar">✎</button>
+      <button class="btn-icon" data-action="del-equipo" data-eq="${esc(e.id)}" style="color:var(--red)" aria-label="Borrar">✕</button>
     </div>`).join('');
   return `
-    <div class="row mb16">
-      <div style="flex:1">
-        <div class="h1" style="margin-bottom:2px">🏊 Equipos</div>
-        <div style="font-size:13px;color:var(--mut)">Entrenador: <span style="color:var(--blu-l);font-weight:600">${esc(coachName)}</span> <button class="btn-icon" data-action="cambiar-nombre" style="font-size:12px;color:var(--mut);padding:0 4px">✎</button></div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <button class="btn btn-surf btn-sm btn-inline" data-action="historial">📋 Historial</button>
-        <button class="btn btn-surf btn-sm btn-inline" data-action="evolucion">📊 Evolución</button>
-        <a class="btn btn-surf btn-sm btn-inline" href="../temporada.html#mi" style="text-decoration:none">📈 Estadísticas</a>
-        ${soyAdmin()?'<button class="btn btn-surf btn-sm btn-inline" data-action="entrenadores">👥 Entrenadores</button>':''}
-        <button class="btn-icon" data-action="logout" style="font-size:12px;color:var(--mut)">Salir</button>
-      </div>
-    </div>
-    ${soyAdmin() && solicitudesPendientes().length ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${solicitudesPendientes().length} ${solicitudesPendientes().length===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
-    <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Iniciar sesión</button>
-    ${(() => { const p = plantillaUsable(); return p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:18px">Última: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores · ${fmtDate(p.ts)}</div>` : '<div style="height:14px"></div>'; })()}
-    ${clubEqs.length>0?`<span class="label">🏟 C.N. Axarquía</span>${clubRows}<div style="height:4px"></div>`:''}
-    ${personalEqs.length>0?`<span class="label ${clubEqs.length>0?'mt8':''}">Mis grupos</span>${personalRows}`:(clubEqs.length===0?'<div class="center-msg"><p>Sin equipos todavía</p></div>':'')}
-    <div class="row mt16">
+    <div class="h1">🏊 Nadadores</div>
+    <div class="wrap mb16">${chips}</div>
+    ${filas || '<div class="center-msg"><p>Sin nadadores en este grupo</p></div>'}
+    <span class="label mt24">Mis grupos propios</span>
+    ${propiosRows}
+    <div class="row mt8">
       <input class="input" id="eq-input" placeholder="Nuevo grupo propio..." style="flex:1">
       <button class="btn btn-green btn-sm btn-inline" data-action="crear-equipo">+ Crear</button>
     </div>`;
@@ -1447,6 +1620,111 @@ document.addEventListener('pointercancel', () => dragEnd(false));
 document.addEventListener('touchmove', e => { if (DRAG && DRAG.started) e.preventDefault(); }, {passive:false});
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.b-card')) e.preventDefault(); });
 
+// ── Salidas por ciclo ────────────────────────────────────────
+const autoGuardado = () => { try { return localStorage.getItem('crono_auto') === '1'; } catch { return false; } };
+function planNombre() { const el = document.getElementById('plan-nombre'); if (el && PS && PS.plan) PS.plan.nombre = el.value; }
+function guardarAuto(v) { try { localStorage.setItem('crono_auto', v ? '1' : '0'); } catch {} }
+let _ac = null;   // audio: se crea con un toque del entrenador (los móviles no suenan sin él)
+function desbloquearAudio() {
+  try { if (!_ac) { const C = window.AudioContext || window.webkitAudioContext; if (C) _ac = new C(); } if (_ac && _ac.state === 'suspended') _ac.resume(); } catch {}
+}
+function pitido(ms, hz) {
+  try {
+    if (!_ac) return;
+    const o = _ac.createOscillator(), g = _ac.createGain(), t = _ac.currentTime;
+    o.frequency.value = hz; o.connect(g); g.connect(_ac.destination);
+    g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.001, t + ms/1000);
+    o.start(t); o.stop(t + ms/1000);
+  } catch {}
+}
+// Campo de ciclo + interruptor de salida automática (t: 'ps' preparar, 'ns' nueva serie)
+function cicloHTML(o, t) {
+  return `<div class="ciclo-row">
+    <label style="flex:1"><span class="label" style="margin-bottom:4px">Ciclo de salida</span>
+      <input class="input" data-ciclo="${t}" inputmode="numeric" placeholder="Sin ciclo · ej. 1:10" value="${esc(o.cicloTxt||'')}"></label>
+    <div class="toggle-row${o.ciclo?'':' dis'}" style="margin:0;flex:1" ${o.ciclo?`data-action="ciclo-auto" data-t="${t}"`:''}>
+      <div style="flex:1;font-weight:600;font-size:14px">Salida automática</div><div class="sw${o.ciclo&&o.auto?' on':''}"></div></div>
+  </div>`;
+}
+const cicloObj = t => t === 'ps' ? PS : t.startsWith('plan-') ? (PS && PS.plan && PS.plan.series[Number(t.slice(5))]) : (SA && SA.nuevaSerie);
+
+// ── Planes: entrenos preparados en casa (calles + lista de series) ──
+function misPlanes() { return S.planes.filter(p=>p.coach===coachName).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
+const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, cicloTxt:'', auto:autoGuardado()});
+// Abre preparar en modo plan: el mismo tablero de calles y, en lugar de estilo/distancia, la lista de series
+function abrirPlan(id) {
+  const p = id ? S.planes.find(x=>x.id===id) : null;
+  navPreparar(p ? p.eqId : null);
+  PS.oferta = null;
+  PS.plan = {id: p ? p.id : null, nombre: p ? p.nombre : '',
+    series: p && p.series.length ? p.series.map(x=>({...x, cicloTxt: x.ciclo ? fmtNado(x.ciclo*1000) : ''})) : [serieVacia()]};
+  if (p) {
+    const calles = p.calles.map((c,i)=>({key:'calle'+i+'-'+Date.now(), nombre:c.nombre,
+      nads: c.nIds.map(id=>S.nadadores.find(n=>n.id===id)).filter(Boolean).map(n=>({id:n.id, n:n.n}))}));
+    if (calles.length) PS.grupos = calles;
+  }
+  render();
+}
+function renderSeriesPlan() {
+  const ss = PS.plan.series;
+  return ss.map((x,i)=>`
+    <div class="card plan-serie">
+      <div class="row" style="margin-bottom:8px">
+        <b style="flex:1">Serie ${i+1}</b>
+        ${i>0?`<button class="btn-icon" data-action="plan-mover" data-i="${i}" data-dir="-1" aria-label="Subir">↑</button>`:''}
+        ${i<ss.length-1?`<button class="btn-icon" data-action="plan-mover" data-i="${i}" data-dir="1" aria-label="Bajar">↓</button>`:''}
+        ${ss.length>1?`<button class="btn-icon" data-action="plan-quitar" data-i="${i}" style="color:var(--red)" aria-label="Quitar">✕</button>`:''}
+      </div>
+      <div class="picker-row p4" style="margin-bottom:6px">${ESTILOS.map(e=>`<button class="pick-btn${x.estilo===e?' on':''}" data-action="plan-estilo" data-i="${i}" data-val="${e}">${EMO[e]} ${e}</button>`).join('')}</div>
+      <div class="picker-row p4" style="margin-bottom:8px">${DISTS.map(d=>`<button class="pick-btn${Number(x.dist)===d?' on':''}" data-action="plan-dist" data-i="${i}" data-val="${d}">${d}m</button>`).join('')}</div>
+      ${(() => { const ok = Number(x.dist) > 50; return `<div class="toggle-row${ok?'':' dis'}" ${ok?`data-action="plan-parc" data-i="${i}"`:''}><div style="flex:1;font-weight:600;font-size:14px">⏱ Parciales cada 50 m</div><div class="sw${ok&&x.parciales?' on':''}"></div></div>`; })()}
+      ${cicloHTML(x, 'plan-'+i)}
+    </div>`).join('') + `<button class="btn btn-surf mb16" data-action="plan-add">➕ Añadir serie</button>`;
+}
+async function guardarPlanPS() {
+  const p = PS.plan, calles = PS.grupos.filter(g=>g.nads.length);
+  const nombre = (document.getElementById('plan-nombre')||{}).value || p.nombre;
+  if (!calles.length) { alert('Pon al menos un nadador en una calle.'); return; }
+  const data = {coach: coachName, ts: Date.now(), nombre: String(nombre||'').trim().slice(0,200) || 'Entreno',
+    eqId: PS.eqId || eqMasFrecuente(calles), calles: calles.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})),
+    series: p.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!(x.ciclo && x.auto)}))};
+  await DB.guardarPlan(p.id, data);
+  PS = null; nav({screen:'home'});
+}
+// Empieza un entreno preparado: sus calles y su serie 1; al acabar cada serie se ofrece la siguiente
+async function empezarPlan(id) {
+  const p = S.planes.find(x=>x.id===id); if (!p || !p.series.length) return;
+  navPreparar(p.eqId);
+  PS.oferta = null;
+  const calles = p.calles.map((c,i)=>({key:'calle'+i+'-'+Date.now(), nombre:c.nombre,
+    nads: c.nIds.map(n=>S.nadadores.find(x=>x.id===n)).filter(Boolean).map(n=>({id:n.id, n:n.n}))})).filter(c=>c.nads.length);
+  if (!calles.length) { alert('Los nadadores de este entreno ya no están en la lista.'); return; }
+  PS.grupos = calles;
+  const s1 = p.series[0];
+  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, cicloTxt:s1.ciclo?fmtNado(s1.ciclo*1000):'', auto:s1.auto, planId:p.id});
+  await iniciarSesion();
+}
+
+// Asistencia: quien está en una calle cuenta como presente; aquí se marca a quien vino sin nadar
+function renderQuienMas() {
+  const enCalle = new Set(PS.grupos.flatMap(g=>g.nads.map(n=>n.id)));
+  const eqId = PS.eqId || eqMasFrecuente(PS.grupos.filter(g=>g.nads.length));
+  const otros = S.nadadores.filter(n=>n.eqId===eqId && !enCalle.has(n.id)).sort((a,b)=>a.n.localeCompare(b.n));
+  if (!otros.length) return '';
+  const n = otros.filter(x=>PS.extras.has(x.id)).length;
+  return `<details class="card quien"${PS.quienAbierto?' open':''}><summary data-action="quien-toggle">¿Quién más vino? <span class="muted">(no nada${n?` · ${n} marcados`:''})</span></summary>
+    <div class="wrap" style="margin-top:8px">${otros.map(x=>`<span class="pill${PS.extras.has(x.id)?' sel':''}" data-action="presente" data-nid="${esc(x.id)}">${esc(x.n)}</span>`).join('')}</div></details>`;
+}
+let ASIST_ABIERTA = null;   // la lista de asistencia del resumen sigue abierta mientras se marca
+function renderAsistencia(ses) {
+  const conTiempo = new Set(S.resultados.filter(r=>r.sesId===ses.id).map(r=>r.nId));
+  const pres = new Set(Array.isArray(ses.presentes) ? ses.presentes : conTiempo);
+  const grupo = S.nadadores.filter(n=>n.eqId===ses.eqId || pres.has(n.id)).sort((a,b)=>a.n.localeCompare(b.n));
+  if (!grupo.length) return '';
+  return `<details class="card mt8 quien"${ASIST_ABIERTA===ses.id?' open':''}><summary data-action="asist-toggle" data-ses="${esc(ses.id)}">Asistencia: <b>${pres.size}</b> ${pres.size===1?'presente':'presentes'} <span class="muted">· toca para cambiar</span></summary>
+    <div class="wrap" style="margin-top:8px">${grupo.map(x=>`<span class="pill${pres.has(x.id)?' sel':''}" data-action="res-presente" data-ses="${esc(ses.id)}" data-nid="${esc(x.id)}">${esc(x.n)}</span>`).join('')}</div></details>`;
+}
+
 // ── Screen: Preparar ─────────────────────────────────────────
 function renderPreparar() {
   if (!PS) return '';
@@ -1468,6 +1746,16 @@ function renderPreparar() {
         <button class="btn btn-surf" style="flex:1;min-height:48px" data-action="descartar-plantilla">Empezar de cero</button>
       </div>
     </div>` : '';
+  if (PS.plan) return `
+    <button class="back-btn" data-action="plan-cancelar">← Entrenar</button>
+    <div class="h1">${PS.plan.id?'Editar entreno preparado':'Preparar entreno'}</div>
+    <span class="label">Nombre</span>
+    <input class="input mb16" id="plan-nombre" placeholder="Ej.: Martes técnica espalda" value="${esc(PS.plan.nombre)}">
+    <span class="label">Series (${PS.plan.series.length})</span>
+    ${renderSeriesPlan()}
+    <span class="label">Calles (${PS.grupos.length})</span>
+    ${renderBoard(boardPS, {extraLanes:`<button class="b-add-lane" data-action="nueva-calle">➕ Añadir calle</button>`})}
+    <button class="salida-btn mt16" style="${canStart?'':'opacity:.4'}" data-action="plan-guardar" ${canStart?'':'disabled'}>💾 Guardar entreno preparado</button>`;
   return `
     <button class="back-btn" data-action="equipo-back">← ${esc(eq?eq.nombre:'Inicio')}</button>
     <div class="h1">Preparar sesión</div>
@@ -1480,6 +1768,8 @@ function renderPreparar() {
       <div style="flex:1"><div style="font-weight:600">⏱ Tiempos parciales cada 50 m</div>
       <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
       <div class="sw${on?' on':''}"></div></div>`; })()}
+    ${cicloHTML(PS, 'ps')}
+    ${renderQuienMas()}
     <input class="input mb16" id="notas-input" placeholder="Notas opcionales..." value="${esc(PS.notas)}">
     <span class="label">Calles (${PS.grupos.length})</span>
     ${renderBoard(boardPS, {extraLanes:`<button class="b-add-lane" data-action="nueva-calle">➕ Añadir calle</button>`})}
@@ -1503,7 +1793,9 @@ function renderEnCurso() {
         <div class="muted" style="font-size:13px">${esc(eq)} · ${SA.llegados.length}/${totalNads} llegados</div>
       </div>
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
-    </div>`;
+    </div>
+    ${'wakeLock' in navigator ? '' : '<div class="muted" style="font-size:11px;margin:-6px 0 8px">Este móvil no permite mantener la pantalla encendida: súbele el tiempo de bloqueo en Ajustes.</div>'}
+    <div class="nado-clk${SA.nado.some(x=>x.fin==null)?'':' parado'}"><span class="muted">Tiempo nadando</span><b id="live-nado">${fmtNado(msNadando(SA.nado, now))}</b></div>`;
 
   // Ronda terminada → resumen
   if (rondaTerminada()) return html + renderResumenRonda();
@@ -1522,7 +1814,12 @@ function renderEnCurso() {
         <div class="salida-next">
           ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
         </div>
-        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale</div>
+        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale · mantén pulsado un nadador para anotar</div>
+        ${SA.ciclo ? `<div class="ciclo-cd">
+          <div style="flex:1"><div class="muted" style="font-size:12px">Ciclo ${esc(fmtNado(SA.ciclo*1000))} · ${SA.auto?'salida automática':'manual'}</div>
+            ${SA.nSalida>0?`<b id="live-ciclo">${fmtNado(Math.max(0, Math.ceil(cicloEstado(SA.tUltSalida, SA.ciclo, now, true).restaMs/1000)*1000))}</b>`:'<span style="font-size:13px">La cuenta empieza con la primera SALIDA</span>'}</div>
+          <button class="btn btn-surf btn-sm btn-inline" data-action="ciclo-sa">${SA.auto?'⏸ Pausar ciclo':'▶ Automática'}</button>
+        </div>` : ''}
         <button class="salida-btn" data-action="salida-tanda" ${salen?'':'disabled'}>🚀 SALIDA${salen<pendientes.length&&salen?` (${salen})`:''}</button>
       </div>`;
   } else {
@@ -1552,9 +1849,9 @@ function renderEnCurso() {
   if (lleg.length) {
     html += `<div class="sec-hdr" style="margin-top:16px"><span class="label">Llegados ✓ (${lleg.length})</span></div>
       <div class="lleg-list">
-      ${lleg.map(l=>`<div class="lleg-row" style="--lc:${l.color}">
+      ${lleg.map(l=>`<div class="lleg-row" data-key="${esc(l.key)}" style="--lc:${l.color}">
           ${laneTag(l.lane, l.color)}
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}</span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}${l.nota?' 📝':''}${l.marca?` <span class="lleg-marca">${MARCA_TXT[l.marca]}</span>`:''}</span>
           <span class="t">${fmtTime(l.ms)}</span>
           <button class="lleg-undo" data-action="deshacer" data-key="${esc(l.key)}" aria-label="Deshacer">↶</button>
         </div>`).join('')}
@@ -1568,9 +1865,10 @@ function renderSwCard(f, done, now) {
   const conParc = SA.tramos > 1;
   const dots = conParc ? `<span class="sw-dots">${Array.from({length:SA.tramos},(_,i)=>`<i class="${i<f.parc.length?'on':''}${i<f.parc.length&&f.parc[i]==null?' skip':''}"></i>`).join('')}</span>` : '';
   if (done) {
-    return `<div class="sw-card done">
-      <span class="sw-nm">${esc(f.n)}</span>
+    return `<div class="sw-card done" data-key="${esc(f.key)}">
+      <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
+      ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
       <button class="sw-undo" data-action="deshacer" data-key="${esc(f.key)}">↶ Deshacer</button>
     </div>`;
@@ -1579,7 +1877,7 @@ function renderSwCard(f, done, now) {
   const ultimo = conParc && f.parc.length ? f.parc[f.parc.length-1] : null;
   return `<button class="sw-card${esParcial?' parcial':''}" data-action="llego" data-key="${esc(f.key)}">
       <span class="sw-meta">S${f.salida}${dots}</span>
-      <span class="sw-nm">${esc(f.n)}</span>
+      <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk live-clk" data-t0="${f.t0}">${fmtTime(now-f.t0)}</span>
       ${ultimo!=null?`<span class="sw-last">${f.parc.length*50}m ${fmtTime(ultimo)}</span>`:''}
       <span class="sw-act">${esParcial?`<small>parcial</small>${(f.parc.length+1)*50} m`:'LLEGÓ'}</span>
@@ -1647,6 +1945,9 @@ function renderResumenRonda() {
       <button class="${SA.vista==='calle'?'on':''}" data-action="vista" data-v="calle">🏊 Por calle</button>
     </div>
     ${cuerpo}
+    ${!SA.nuevaSerie && SA.plan ? (SA.plan.series[SA.planIdx+1]
+      ? `<button class="btn btn-green mt16" style="min-height:60px;font-size:18px" data-action="plan-siguiente">▶ Siguiente serie: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].ciclo?` · c/${esc(fmtNado(SA.plan.series[SA.planIdx+1].ciclo*1000))}`:''}</button>`
+      : `<div class="card mt16" style="text-align:center;color:var(--grn-l);font-weight:700">✓ Plan terminado (${SA.plan.series.length} series)</div>`) : ''}
     ${SA.nuevaSerie ? renderNuevaSerie() : `
     <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir igual · serie ${SA.ronda+1}</button>
     <button class="btn btn-surf mt8" style="min-height:52px;font-size:16px" data-action="ns-abrir">➕ Nueva serie con otro estilo</button>`}
@@ -1662,6 +1963,7 @@ function renderNuevaSerie() {
     <div class="picker-row p4">${DISTS.map(d=>`<button class="pick-btn${Number(f.dist)===d?' on':''}" data-action="ns-dist" data-val="${d}">${d}m</button>`).join('')}</div>
     <div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="ns-parc"':''}>
       <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>
+    ${cicloHTML(f, 'ns')}
     <div class="row">
       <button class="btn btn-blue" style="flex:2;min-height:52px" data-action="ns-empezar" ${f.estilo&&f.dist?'':'disabled style="opacity:.4"'}>▶ Empezar serie ${SA.ronda+1}</button>
       <button class="btn btn-surf" style="flex:1;min-height:52px" data-action="ns-cancelar">Cancelar</button>
@@ -1696,7 +1998,7 @@ function renderResultados(sesId, backAction, backLabel) {
       ${x.res.map((r,i)=>`
         <div class="result-row">
           <div class="rpos${i===0?' gold':''}">${i+1}</div>
-          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha))}</div>
+          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha))}</div>
           <div style="text-align:right">
             <div class="rtime">${fmtTime(r.ms)}</div>
             ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}
@@ -1706,12 +2008,13 @@ function renderResultados(sesId, backAction, backLabel) {
   return `
     <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}</div>
     <div class="muted mb16" style="font-size:13px">${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''} · ${esc(eqNombre(ses.eqId))}${ses.coach?` · ${esc(ses.coach)}`:''}</div>
-    <div class="picker-row" style="grid-template-columns:repeat(${d.min?4:3},1fr);margin-bottom:12px">
-      ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${d.min?stat(d.min,'minutos'):''}
+    <div class="picker-row" style="grid-template-columns:repeat(${3+(d.min?1:0)+(ses.nado&&ses.nado.length?1:0)},1fr);margin-bottom:12px">
+      ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${ses.nado&&ses.nado.length?stat(fmtNado(msNadando(ses.nado, Date.now())),'nadando'):''}${d.min?stat(d.min,'minutos'):''}
     </div>
     ${d.combos.length?`<div class="muted" style="font-size:13px;margin-bottom:6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
     ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
     ${ses.notas?`<div class="card mt8" style="font-size:13px">${esc(ses.notas)}</div>`:''}
+    ${renderAsistencia(ses)}
     ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
     <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
     <div class="row mt8">
@@ -1721,67 +2024,60 @@ function renderResultados(sesId, backAction, backLabel) {
 }
 
 // ── Screen: Historial ────────────────────────────────────────
+// Filtro por estilo y distancia (recordado en el móvil): con filtro se ven solo esas series
+let HIST_F = (() => { try { const f = JSON.parse(localStorage.getItem('crono_hist')||'null'); return f && typeof f === 'object' ? {estilo: ESTILOS.includes(f.estilo)?f.estilo:null, dist: DISTS.includes(f.dist)?f.dist:null} : {estilo:null, dist:null}; } catch { return {estilo:null, dist:null}; } })();
+function guardarHistF() { try { localStorage.setItem('crono_hist', JSON.stringify(HIST_F)); } catch {} }
+function duracionSes(s) {
+  if (s.nado && s.nado.length) return `${fmtNado(msNadando(s.nado, Date.now()))} nadando`;
+  return s.fin ? `${Math.max(1, Math.round((s.fin - s.fecha)/60000))} min` : '';
+}
 function renderHistorial() {
-  const rows = [...mySes()].sort((a,b)=>b.fecha-a.fecha).map(s => {
-    const em = s.estilo?(EMO[s.estilo]||'🏊'):'🏊';
-    const ser = seriesDe(s.id);
-    const combos = [...new Set(ser.map(x=>comboTexto(x.estilo, x.dist)))];
-    const det = ser.length ? `${ser.length} ${ser.length===1?'serie':'series'} · ${esc(combos.join(', '))}` : (s.estilo&&s.dist?`${esc(s.estilo)} ${esc(s.dist)}m`:'Sin tiempos');
-    return `
+  const f = HIST_F, filtrado = !!(f.estilo || f.dist);
+  const chips = `
+    <div class="wrap" style="margin-bottom:6px">${ESTILOS.map(e=>`<span class="pill${f.estilo===e?' sel':''}" data-action="hist-estilo" data-val="${e}">${EMO[e]} ${e}</span>`).join('')}</div>
+    <div class="wrap mb16">${DISTS.map(d=>`<span class="pill${f.dist===d?' sel':''}" data-action="hist-dist" data-val="${d}">${d} m</span>`).join('')}</div>`;
+  let cuerpo;
+  if (!filtrado) {
+    cuerpo = porMes(mySes()).map(m => `<span class="label mt16">${esc(m.titulo)}</span>` + m.sesiones.map(s => {
+      const ser = seriesDe(s.id), dur = duracionSes(s);
+      const det = ser.length ? ser.map(x=>`S${x.ronda} ${comboTexto(x.estilo, x.dist)}`).join(' · ') : (s.estilo&&s.dist?comboTexto(s.estilo, s.dist):'Sin tiempos');
+      return `
       <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}">
-        <div style="font-size:22px">${em}</div>
-        <div style="flex:1">
-          <div style="font-weight:600">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}</div>
-          <div class="muted" style="font-size:13px">${det} · ${fmtDate(s.fecha)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700">${esc(fechaLarga(s.fecha))}</div>
+          <div style="font-size:14px">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}</div>
+          <div class="muted" style="font-size:13px">${esc(det)}${dur?` · ${esc(dur)}`:''}</div>
         </div>
         <div class="muted" style="font-size:20px">›</div>
-      </div>`;
-  }).join('');
+      </div>`; }).join('')).join('');
+  } else {
+    cuerpo = seriesFiltradas(mySes(), S.resultados, f).map(x => `
+      <div class="card">
+        <div class="row" style="cursor:pointer;margin-bottom:6px" data-action="hist-det" data-ses="${esc(x.ses.id)}">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700">${esc(fechaLarga(x.ses.fecha))}</div>
+            <div class="muted" style="font-size:13px">${esc(eqNombre(x.ses.eqId))} · Serie ${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${esSim(x.ses)?SIM_TAG:''}</div>
+          </div>
+          <span class="muted" style="font-size:13px;color:var(--blu-l)">Entreno ›</span>
+        </div>
+        ${x.res.map((r,i) => { const mk = x.estilo && x.dist ? marcaDe(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, x.ses.fecha)) : null;
+          return `<div class="row" style="padding:5px 0;border-top:1px solid var(--brd);font-size:14px">
+            <span class="muted" style="width:22px">${i+1}</span><span style="flex:1">${esc(nombreDe(r.nId))}${mk?` <span title="${mk==='comp'?'Marca de competición':'Mejor entreno'}">🏅</span>`:''}</span>
+            <b style="font-variant-numeric:tabular-nums">${fmtTime(r.ms)}</b></div>`; }).join('')}
+      </div>`).join('');
+  }
+  const vacio = filtrado ? 'Ninguna serie con este filtro' : 'Sin sesiones todavía';
   return `
-    <button class="back-btn" data-action="home">← Inicio</button>
     <div class="h1">📋 Historial</div>
-    ${rows||'<div class="center-msg"><p>Sin sesiones todavía</p></div>'}`;
+    ${chips}
+    ${cuerpo||`<div class="center-msg"><p>${vacio}</p></div>`}`;
 }
 
 // ── Screen: Evolución ────────────────────────────────────────
-function renderEvolucion() {
-  const eqs = myEqs();
-  let html = '';
-  eqs.forEach(eq => {
-    const nads = S.nadadores.filter(n=>n.eqId===eq.id).sort((a,b)=>a.n.localeCompare(b.n));
-    if (!nads.length) return;
-    html += `<span class="label">${esc(eq.nombre)}</span>`;
-    nads.forEach(nad => {
-      const res = S.resultados.filter(r=>r.nId===nad.id);
-      if (!res.length) {
-        html += `<div class="card row" style="opacity:.45"><span style="flex:1;font-weight:500">${esc(nad.n)}</span><span class="muted" style="font-size:12px">Sin tiempos</span></div>`;
-        return;
-      }
-      const best = Math.min(...res.map(r=>r.ms));
-      const sesCount = new Set(res.map(r=>r.sesId)).size;
-      const trend = calcTrend(getSwimmerSessions(nad.id, null));
-      html += `
-        <div class="card row" style="cursor:pointer" data-action="evolucion-nad" data-nid="${esc(nad.id)}">
-          <div style="flex:1">
-            <div style="font-weight:600">${esc(nad.n)}</div>
-            <div class="muted" style="font-size:12px">${sesCount} sesión${sesCount!==1?'es':''}</div>
-          </div>
-          <div style="text-align:right;min-width:60px">
-            <div style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(best)}</div>
-            ${trend?`<div style="font-size:15px;color:${trend.color}">${trend.dir}</div>`:''}
-          </div>
-        </div>`;
-    });
-  });
-  return `
-    <button class="back-btn" data-action="home">← Inicio</button>
-    <div class="h1">📊 Evolución</div>
-    ${html||'<div class="center-msg"><h2>Sin datos</h2><p>Realizá sesiones para ver estadísticas</p></div>'}`;
-}
 function renderEvolucionNad() {
   const {nId} = route;
   const nad = S.nadadores.find(n=>n.id===nId);
-  if (!nad) { nav({screen:'evolucion'}); return ''; }
+  if (!nad) { nav({screen:'nadadores'}); return ''; }
   const eq = S.equipos.find(e=>e.id===nad.eqId);
   // Combos con datos
   const combosMap = {};
@@ -1829,10 +2125,10 @@ function renderEvolucionNad() {
     </div>`;
   }).join('');
   return `
-    <button class="back-btn" data-action="evolucion">← Evolución</button>
+    <button class="back-btn" data-action="tab" data-to="nadadores">← Nadadores</button>
     <div class="h1">${esc(nad.n)}</div>
     <div class="muted mb16" style="font-size:13px">${eq?esc(eq.nombre):''} · ${sessions.length} sesión${sessions.length!==1?'es':''}</div>
-    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../temporada.html#nadador/${encodeURIComponent(nad.rfen)}">📈 Ver ficha de competición</a>`:''}
+    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../temporada.html#nadador/${encodeURIComponent(nad.rfen)}/entrenos">📈 Ficha completa en la web del club</a>`:''}
     ${filterPills}
     ${statsHtml}
     ${sessions.length>=2?`<div class="card mb16" style="padding:10px 10px 4px">${svgChart(sessions)}</div>`:sessions.length===1?'<div class="muted" style="text-align:center;padding:12px;font-size:13px">Necesitás 2 sesiones para ver el gráfico</div>':''}
@@ -1936,6 +2232,37 @@ document.getElementById('app').addEventListener('pointerdown', function(e) {
   const b = e.target.closest('.salida-btn,.llego-btn');
   _press = b ? {id:b.dataset.action+'|'+(b.dataset.key||''), t:Date.now()} : null;
 }, true);
+// Nota rápida: mantener pulsada la tarjeta (en el agua) o la fila (llegado) sin moverse.
+// En el agua hace falta más tiempo, para que un LLEGÓ algo largo nunca se convierta en nota.
+let _lp = null, _notaPend = null;
+document.getElementById('app').addEventListener('pointerdown', function(e) {
+  const el = e.target.closest('.sw-card[data-key],.lleg-row[data-key]');
+  if (!el || !SA) return;
+  const enAgua = el.classList.contains('sw-card') && !el.classList.contains('done');
+  _lp = {x:e.clientX, y:e.clientY, key:el.dataset.key, timer:setTimeout(() => {
+    _notaPend = _lp && _lp.key; _ignoreClickUntil = Date.now() + 60000;
+    try { navigator.vibrate && navigator.vibrate(15); } catch {}
+  }, enAgua ? 800 : 600)};
+});
+document.getElementById('app').addEventListener('pointermove', function(e) {
+  if (_lp && Math.hypot(e.clientX-_lp.x, e.clientY-_lp.y) > 10) { clearTimeout(_lp.timer); _lp = null; }
+});
+function finPulsacion() {
+  if (_lp) { clearTimeout(_lp.timer); _lp = null; }
+  if (_notaPend) { const k = _notaPend; _notaPend = null; _ignoreClickUntil = Date.now() + 400; setTimeout(() => pedirNota(k), 0); }
+}
+document.getElementById('app').addEventListener('pointerup', finPulsacion);
+document.getElementById('app').addEventListener('pointercancel', finPulsacion);
+function pedirNota(key) {
+  if (!SA) return;
+  const x = SA.agua.find(a=>a.key===key) || SA.llegados.find(l=>l.key===key);
+  if (!x) return;
+  const txt = prompt(`Nota para ${x.n}`, x.nota || '');
+  if (txt === null) return;
+  x.nota = txt.trim().slice(0, 200) || null;
+  if (x.resId) DB.guardarNota(x.resId, x.nota);   // ya llegó; si no, se guarda al llegar
+  render();
+}
 function tiempoToque(btn) {
   const id = btn.dataset.action+'|'+(btn.dataset.key||'');
   return (_press && _press.id===id && Date.now()-_press.t < 1500) ? _press.t : Date.now();
@@ -1943,10 +2270,37 @@ function tiempoToque(btn) {
 document.getElementById('app').addEventListener('click', async function(e) {
   if (Date.now() < _ignoreClickUntil) return; // clic que sigue a un arrastre
   const btn = e.target.closest('[data-action]');
-  if (!btn) return;
+  if (!btn) { if (MENU_ABIERTO) { MENU_ABIERTO = false; render(); } return; }
   e.stopPropagation();
   const act = btn.dataset.action;
+  if (act !== 'menu') MENU_ABIERTO = false;
   switch(act) {
+    case 'menu':         MENU_ABIERTO = !MENU_ABIERTO; render(); break;
+    case 'tab':          nav({screen: btn.dataset.to}); window.scrollTo(0,0); break;
+    case 'nad-cat':      NAD_CAT = btn.dataset.eq; try { localStorage.setItem('crono_cat', NAD_CAT); } catch {} render(); break;
+    case 'repetir-entreno': repetirEntreno(btn.dataset.ses); break;
+    case 'quien-toggle': if (PS) PS.quienAbierto = !e.target.closest('details').open; break;
+    case 'presente':     { saveNotas(); if (PS) { const id = btn.dataset.nid; PS.extras.has(id) ? PS.extras.delete(id) : PS.extras.add(id); PS.quienAbierto = true; render(); } break; }
+    case 'res-presente': { const ses = S.sesiones.find(x=>x.id===btn.dataset.ses); if (!ses) break;
+      const pres = new Set(Array.isArray(ses.presentes) ? ses.presentes : S.resultados.filter(r=>r.sesId===ses.id).map(r=>r.nId));
+      pres.has(btn.dataset.nid) ? pres.delete(btn.dataset.nid) : pres.add(btn.dataset.nid);
+      ASIST_ABIERTA = ses.id; DB.guardarPresentes(ses.id, [...pres]); render(); break; }
+    case 'asist-toggle': ASIST_ABIERTA = e.target.closest('details').open ? null : btn.dataset.ses; break;
+    case 'plan-nuevo':   abrirPlan(null); break;
+    case 'plan-editar':  abrirPlan(btn.dataset.id); break;
+    case 'plan-borrar':  { const p = S.planes.find(x=>x.id===btn.dataset.id); if (p && confirm(`¿Borrar el entreno preparado «${p.nombre}»?`)) await DB.borrarPlan(p.id); break; }
+    case 'plan-empezar': desbloquearAudio(); await empezarPlan(btn.dataset.id); break;
+    case 'plan-cancelar': PS = null; nav({screen:'home'}); break;
+    case 'plan-guardar': await guardarPlanPS(); break;
+    case 'plan-add':     planNombre(); PS.plan.series.push({...serieVacia(), ...(([u]) => u ? {estilo:u.estilo, dist:u.dist} : {})(PS.plan.series.slice(-1))}); render(); break;
+    case 'plan-quitar':  planNombre(); PS.plan.series.splice(Number(btn.dataset.i), 1); render(); break;
+    case 'plan-mover':   { planNombre(); const i = Number(btn.dataset.i), j = i + Number(btn.dataset.dir), ss = PS.plan.series; [ss[i], ss[j]] = [ss[j], ss[i]]; render(); break; }
+    case 'plan-estilo':  planNombre(); PS.plan.series[Number(btn.dataset.i)].estilo = btn.dataset.val; render(); break;
+    case 'plan-dist':    { planNombre(); const x = PS.plan.series[Number(btn.dataset.i)]; x.dist = Number(btn.dataset.val); if (x.dist <= 50) x.parciales = false; render(); break; }
+    case 'plan-parc':    { planNombre(); const x = PS.plan.series[Number(btn.dataset.i)]; x.parciales = !x.parciales; render(); break; }
+    case 'plan-siguiente': if (SA && SA.plan && SA.plan.series[SA.planIdx+1]) { SA.planIdx++; repetirSerie(SA.plan.series[SA.planIdx]); } break;
+    case 'hist-estilo':  HIST_F.estilo = HIST_F.estilo===btn.dataset.val ? null : btn.dataset.val; guardarHistF(); render(); break;
+    case 'hist-dist':    { const d = Number(btn.dataset.val); HIST_F.dist = HIST_F.dist===d ? null : d; guardarHistF(); render(); break; }
     case 'set-coach': {
       const inp = document.getElementById('coach-input');
       const v = inp?inp.value.trim():'';
@@ -1966,7 +2320,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'acceso-entrenador': await cambiarAcceso(btn.dataset.email, btn.dataset.accion); break;
     case 'historial':    nav({screen:'historial'}); break;
     case 'hist-det':      nav({screen:'hist-det', sesId:btn.dataset.ses}); break;
-    case 'evolucion':     nav({screen:'evolucion'}); break;
+    case 'evolucion':     nav({screen:'nadadores'}); break;
     case 'evolucion-nad': nav({screen:'evolucion-nad', nId:btn.dataset.nid, filter:null}); break;
     case 'evo-filter': {
       const fStr=btn.dataset.f;
@@ -2004,7 +2358,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'mover-grupo':  saveNotas(); moverGrupo(parseInt(btn.dataset.idx), parseInt(btn.dataset.dir)); break;
     case 'eliminar-grupo': saveNotas(); if(PS){PS.grupos.splice(parseInt(btn.dataset.idx),1);render();} break;
     case 'nueva-calle':  saveNotas(); if(PS){const n=PS.grupos.length+1;PS.grupos.push({key:'calle'+Date.now()+'-'+Math.random().toString(36).slice(2,6),nombre:`Calle ${n}`,nads:[]});render();} break;
-    case 'iniciar-sesion': saveNotas(); await iniciarSesion(); break;
+    case 'iniciar-sesion': saveNotas(); desbloquearAudio(); await iniciarSesion(); break;
     case 'set-club-cat': saveNotas(); if(PS){PS.clubCat=btn.dataset.cat||null;render();} break;
     case 'add-nad-to-grupo': saveNotas(); {
       if (!PS) break;
@@ -2020,7 +2374,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
       break;
     }
     case 'mover-nad-grupo': moverNadGrupo(btn.dataset.gkey, +btn.dataset.pi, +btn.dataset.dir); break;
-    case 'salida-tanda':    salidaTanda(tiempoToque(btn)); break;
+    case 'salida-tanda':    desbloquearAudio(); salidaTanda(tiempoToque(btn)); break;
     case 'llego': {
       const t = tiempoToque(btn);
       // Si la lista cambió entre el toque y el soltar, el dedo apuntaba a otra fila: ignorar
@@ -2050,7 +2404,9 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
-    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales}; render(); } break;
+    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, cicloTxt:SA.cicloTxt, auto:SA.auto}; render(); } break;
+    case 'ciclo-auto':      { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && o.ciclo) { o.auto = !o.auto; guardarAuto(o.auto); render(); } break; }
+    case 'ciclo-sa':        if (SA) { SA.auto = !SA.auto; guardarAuto(SA.auto); render(); } break;
     case 'ns-cancelar':     if (SA) { SA.nuevaSerie = null; render(); } break;
     case 'ns-estilo':       if (SA && SA.nuevaSerie) { SA.nuevaSerie.estilo = btn.dataset.val; render(); } break;
     case 'ns-dist':         if (SA && SA.nuevaSerie) { SA.nuevaSerie.dist = Number(btn.dataset.val); render(); } break;
@@ -2098,6 +2454,14 @@ document.getElementById('app').addEventListener('input', function(e) {
     render();
     const el = document.getElementById('gs-'+gkey);
     if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} }
+  }
+  // Ciclo de salida: se guarda al escribir, sin redibujar (no se pierde el foco)
+  if (e.target.dataset.ciclo) {
+    const o = cicloObj(e.target.dataset.ciclo);
+    if (o) { const antes = !!o.ciclo; o.cicloTxt = e.target.value; o.ciclo = parseCiclo(e.target.value);
+      const sw = e.target.closest('.ciclo-row').querySelector('.toggle-row');
+      if (sw && antes !== !!o.ciclo) { sw.classList.toggle('dis', !o.ciclo); if (o.ciclo) { sw.dataset.action = 'ciclo-auto'; sw.dataset.t = e.target.dataset.ciclo; } else delete sw.dataset.action;
+        sw.querySelector('.sw').classList.toggle('on', !!(o.ciclo && o.auto)); } }
   }
   // Campo de notas
   if (e.target.id==='notas-input' && PS) {

@@ -46,15 +46,16 @@
 </main>
 <script>
 'use strict';
-const COLS = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas'];
+const COLS = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','planes'];
 const ESTILOS = ['libre','braza','mariposa','espalda'];
 // Campos admitidos por colección; el resto se descarta
 const CAMPOS = {
   equipos:['nombre','ts','coach','shared'], nadadores:['eqId','n','rfen'],
-  sesiones:['eqId','fecha','estilo','dist','notas','fin','coach','parciales'],
+  sesiones:['eqId','fecha','estilo','dist','notas','fin','coach','parciales','nado','presentes','planId'],
   grupos:['sesId','nombre','ord'], gnads:['gId','nId','pos'],
-  resultados:['sesId','nId','gId','ms','modo','ronda','salida','parciales','estilo','dist'],
-  plantillas:['coach','ts','estilo','dist','parciales','calles']
+  resultados:['sesId','nId','gId','ms','modo','ronda','salida','parciales','estilo','dist','nota'],
+  plantillas:['coach','ts','estilo','dist','parciales','calles'],
+  planes:['coach','ts','nombre','eqId','calles','series']
 };
 const ID_OK = /^[A-Za-z0-9_-]{1,64}$/;
 function validar(col, d) {
@@ -65,7 +66,7 @@ function validar(col, d) {
   if ('dist' in out) { const n = Number(out.dist); out.dist = Number.isFinite(n) && n > 0 ? n : null; }
   if ('ms' in out && !Number.isFinite(out.ms)) return null;
   if ('rfen' in out && !/^\d{3,12}$/.test(String(out.rfen))) delete out.rfen;
-  for (const k of ['nombre','n','coach','notas']) if (k in out && out[k] != null) out[k] = String(out[k]).slice(0, 200);
+  for (const k of ['nombre','n','coach','notas','nota']) if (k in out && out[k] != null) out[k] = String(out[k]).slice(0, 200);
   return {id:d.id, data:out};
 }
 const $ = id => document.getElementById(id);
@@ -112,7 +113,7 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
     $('btn-borrar-sim').disabled = true;
     try {
       const leer = async c => (await db.collection(c).get()).docs;
-      const [ses, grupos, gnads, res, plant] = await Promise.all(['sesiones', 'grupos', 'gnads', 'resultados', 'plantillas'].map(leer));
+      const [ses, grupos, gnads, res, plant, planes] = await Promise.all(['sesiones', 'grupos', 'gnads', 'resultados', 'plantillas', 'planes'].map(leer));
       const simSes = new Set(ses.filter(esSim).map(d => d.id));
       const delGr = grupos.filter(d => d.id.startsWith('sim_') || simSes.has(d.data().sesId));
       const grIds = new Set(delGr.map(d => d.id));
@@ -121,6 +122,7 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
         gnads: gnads.filter(d => d.id.startsWith('sim_') || grIds.has(d.data().gId)),
         grupos: delGr,
         plantillas: plant.filter(d => d.id.startsWith('sim_')),
+        planes: planes.filter(d => d.id.startsWith('sim_')),
         sesiones: ses.filter(d => simSes.has(d.id)),
       };
       const quedan = ses.length - simSes.size;
