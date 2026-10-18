@@ -53,6 +53,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .input:focus{border-color:var(--blu);}
 .input::placeholder{color:var(--mut);}
 .pill{display:inline-flex;align-items:center;padding:7px 14px;border-radius:20px;font-size:14px;cursor:pointer;background:var(--surf);border:1px solid var(--brd);color:var(--mut);user-select:none;transition:all .12s;-webkit-tap-highlight-color:transparent;}
+.sim-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;color:#f59e0b;border:1px solid #f59e0b;vertical-align:middle}
 .pill.sel{background:var(--blu);border-color:var(--blu);color:#fff;font-weight:600;}
 .pill-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:12px;font-size:13px;cursor:pointer;background:var(--bg);color:var(--mut);border:1px solid var(--brd);}
 .picker-row{display:grid;gap:8px;margin-bottom:16px;}
@@ -308,6 +309,9 @@ function limpiarDoc(col, d) {
   if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
   return d;
 }
+// Entrenamiento de simulación (datos de prueba): se marca para borrarlo sin tocar los reales
+const esSim = s => !!s && (s.sim === true || String(s.id||'').startsWith('sim_'));
+const SIM_TAG = '<span class="sim-tag">Simulación</span>';
 function miEmail() { return _user && _user.email ? _user.email.toLowerCase() : null; }
 function soyAdmin() { const e = S.entrenadores.find(x=>x.id===miEmail()); return !!(e && e.admin); }
 
@@ -1700,7 +1704,7 @@ function renderResultados(sesId, backAction, backLabel) {
         </div>`).join('')}`;
   }).join('');
   return `
-    <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento</div>
+    <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}</div>
     <div class="muted mb16" style="font-size:13px">${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''} · ${esc(eqNombre(ses.eqId))}${ses.coach?` · ${esc(ses.coach)}`:''}</div>
     <div class="picker-row" style="grid-template-columns:repeat(${d.min?4:3},1fr);margin-bottom:12px">
       ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${d.min?stat(d.min,'minutos'):''}
@@ -1727,7 +1731,7 @@ function renderHistorial() {
       <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}">
         <div style="font-size:22px">${em}</div>
         <div style="flex:1">
-          <div style="font-weight:600">${esc(eqNombre(s.eqId))}</div>
+          <div style="font-weight:600">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}</div>
           <div class="muted" style="font-size:13px">${det} · ${fmtDate(s.fecha)}</div>
         </div>
         <div class="muted" style="font-size:20px">›</div>

@@ -36,11 +36,11 @@
     <button id="btn-importar" disabled style="margin-top:10px">Importar</button>
   </div>
   <div class="card" id="paso-borrar" hidden>
-    <b>Dejar los entrenamientos a cero</b>
-    <p class="muted">Borra para siempre. No toca nadadores, equipos ni entrenadores.</p>
-    <p><button id="btn-borrar-sim" style="background:#b45309">Borrar solo la simulación (sim_…)</button></p>
-    <p style="margin-top:10px"><input id="confirmar" placeholder="Escribe BORRAR" autocomplete="off" style="min-height:40px;border-radius:10px;border:1px solid #334155;background:#0b1222;color:#e2e8f0;padding:0 10px">
-      <button id="btn-borrar-todo" style="background:#dc2626" disabled>Borrar TODOS los entrenamientos</button></p>
+    <b>Entrenamientos de simulación</b>
+    <p class="muted">Los entrenamientos marcados «Simulación» son datos de prueba. Al borrar la simulación se eliminan solo esos, con sus tiempos y calles; los entrenamientos reales, los nadadores, los equipos y los entrenadores no se tocan.</p>
+    <p><button id="btn-ver-sin-marcar" style="background:#334155">Ver entrenamientos sin marcar</button></p>
+    <div id="lista-sin-marcar" hidden style="margin:8px 0"></div>
+    <p style="margin-top:10px"><button id="btn-borrar-sim" style="background:#b45309">Borrar la simulación</button></p>
   </div>
   <pre id="log" hidden></pre>
 </main>
@@ -84,25 +84,58 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
     $('paso-archivo').hidden = !u;
     $('paso-borrar').hidden = !u;
   });
-  // Borrado de entrenamientos (sesiones, tiempos, calles, plantillas): solo la simulación o todo
-  const ENTRENOS = ['resultados', 'gnads', 'grupos', 'sesiones', 'plantillas'];
-  async function borrar(filtro, etiqueta) {
-    $('btn-borrar-sim').disabled = $('btn-borrar-todo').disabled = true;
+  // Simulación: un entrenamiento lo es si su id empieza por sim_ o lleva sim:true.
+  // Sus tiempos (resultados), calles (grupos) y nadadores por calle (gnads) se borran con él, por su sesId/gId.
+  const esSim = d => d.id.startsWith('sim_') || d.data().sim === true;
+  const fecha = ts => ts ? new Date(ts).toLocaleString('es-ES', {dateStyle: 'medium', timeStyle: 'short'}) : '¿?';
+  const escH = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  $('btn-ver-sin-marcar').onclick = async () => {
+    const caja = $('lista-sin-marcar'); caja.hidden = false; caja.textContent = 'Cargando…';
     try {
-      for (const c of ENTRENOS) {
-        const docs = (await db.collection(c).get()).docs.filter(d => filtro(d.id));
+      const [ses, res] = await Promise.all([db.collection('sesiones').get(), db.collection('resultados').get()]);
+      const nT = {}; res.docs.forEach(d => { const k = d.data().sesId; nT[k] = (nT[k] || 0) + 1; });
+      const sin = ses.docs.filter(d => !esSim(d)).sort((a, b) => (b.data().fecha || 0) - (a.data().fecha || 0));
+      if (!sin.length) { caja.innerHTML = '<p class="muted">Todos los entrenamientos están marcados como simulación.</p>'; return; }
+      caja.innerHTML = `<p class="muted">Marca solo los que sean de prueba. Los reales déjalos sin marcar.</p>
+        ${sin.map(d => `<label style="display:block;padding:6px 0"><input type="checkbox" value="${escH(d.id)}"> ${escH(fecha(d.data().fecha))} · ${escH(d.data().coach || 'sin entrenador')} · ${nT[d.id] || 0} tiempos</label>`).join('')}
+        <button id="btn-marcar" style="background:#b45309;margin-top:6px">Marcar los elegidos como simulación</button>`;
+      $('btn-marcar').onclick = async () => {
+        const ids = [...caja.querySelectorAll('input:checked')].map(i => i.value);
+        if (!ids.length) return alert('No has elegido ninguno.');
+        const batch = db.batch(); ids.forEach(id => batch.update(db.collection('sesiones').doc(id), {sim: true}));
+        try { await batch.commit(); log(`✓ ${ids.length} entrenamientos marcados como simulación`); $('btn-ver-sin-marcar').onclick(); }
+        catch (err) { log('✗ Error: ' + err.message); }
+      };
+    } catch (err) { caja.textContent = 'Error: ' + err.message; }
+  };
+  $('btn-borrar-sim').onclick = async () => {
+    $('btn-borrar-sim').disabled = true;
+    try {
+      const leer = async c => (await db.collection(c).get()).docs;
+      const [ses, grupos, gnads, res, plant] = await Promise.all(['sesiones', 'grupos', 'gnads', 'resultados', 'plantillas'].map(leer));
+      const simSes = new Set(ses.filter(esSim).map(d => d.id));
+      const delGr = grupos.filter(d => d.id.startsWith('sim_') || simSes.has(d.data().sesId));
+      const grIds = new Set(delGr.map(d => d.id));
+      const borrarDe = {
+        resultados: res.filter(d => d.id.startsWith('sim_') || simSes.has(d.data().sesId)),
+        gnads: gnads.filter(d => d.id.startsWith('sim_') || grIds.has(d.data().gId)),
+        grupos: delGr,
+        plantillas: plant.filter(d => d.id.startsWith('sim_')),
+        sesiones: ses.filter(d => simSes.has(d.id)),
+      };
+      const quedan = ses.length - simSes.size;
+      const resumen = Object.entries(borrarDe).map(([c, l]) => `${c}: ${l.length}`).join(', ');
+      if (!confirm(`Se borrarán para siempre ${simSes.size} entrenamientos de simulación (${resumen}).\nSe quedan ${quedan} entrenamientos reales sin tocar.\n¿Borrar?`)) { log('Borrado cancelado.'); return; }
+      for (const [c, docs] of Object.entries(borrarDe)) {
         for (let i = 0; i < docs.length; i += 400) {
           const batch = db.batch(); docs.slice(i, i + 400).forEach(d => batch.delete(d.ref)); await batch.commit();
         }
         log(`✓ ${c}: ${docs.length} borrados`);
       }
-      log(`Borrado terminado (${etiqueta}).`);
+      log(`Simulación borrada. Quedan ${quedan} entrenamientos reales.`);
     } catch (err) { log('✗ Error: ' + err.message); }
-    $('btn-borrar-sim').disabled = false; $('confirmar').value = '';
-  }
-  $('confirmar').oninput = () => { $('btn-borrar-todo').disabled = $('confirmar').value.trim() !== 'BORRAR'; };
-  $('btn-borrar-sim').onclick = () => borrar(id => id.startsWith('sim_'), 'simulación');
-  $('btn-borrar-todo').onclick = () => { if ($('confirmar').value.trim() === 'BORRAR') borrar(() => true, 'todos los entrenamientos'); };
+    finally { $('btn-borrar-sim').disabled = false; }
+  };
   function seleccion() {
     if (!datos) return null;
     const sinDemo = $('sin-demo').checked;

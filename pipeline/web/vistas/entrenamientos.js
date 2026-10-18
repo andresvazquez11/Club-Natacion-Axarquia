@@ -17,6 +17,8 @@ function entNavModo() {
 const entPrueba = (estilo, dist) => `${dist} ${estilo.charAt(0).toUpperCase()}${estilo.slice(1)}`;
 const entCs = ms => Math.round(ms / 10);            // el cronómetro guarda milésimas; la web usa centésimas
 const entEntero = v => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : 1; };   // serie/salida: nunca texto libre
+/* Entrenamiento de simulación (datos de prueba): se marca para borrarlo sin tocar los reales */
+const entEsSim = s => !!s && (s.sim === true || String(s.id || '').startsWith('sim_'));
 const entDia = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /* Une los datos del cronómetro: cada tiempo con su sesión, su prueba y el nadador de la web (por licencia RFEN).
@@ -30,7 +32,7 @@ function entTiempos(D, sw) {
     const dist = Number(r.estilo ? r.dist : s.dist) || null;
     const n = nad.get(r.nId) || {};
     const web = n.rfen && Object.hasOwn(sw, String(n.rfen)) ? sw[String(n.rfen)] : null;
-    return {id: r.id, sesId: r.sesId, fecha: Number(s.fecha) || 0, dia: entDia(Number(s.fecha) || 0), coach: s.coach || '', ronda: entEntero(r.ronda),
+    return {id: r.id, sesId: r.sesId, fecha: Number(s.fecha) || 0, dia: entDia(Number(s.fecha) || 0), coach: s.coach || '', sim: entEsSim(s), ronda: entEntero(r.ronda),
       estilo, dist, ev: estilo && dist ? entPrueba(estilo, dist) : null, cs: entCs(r.ms), parciales: r.parciales || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
@@ -48,7 +50,7 @@ function entFiltrar(T, f, ahora = Date.now()) {
 /* Resumen de un conjunto de tiempos: totales, entrenamientos, pruebas y nadadores */
 function entResumen(T) {
   const sesiones = new Map();
-  T.forEach(t => { const x = sesiones.get(t.sesId) || {sesId: t.sesId, fecha: t.fecha, coach: t.coach, tiempos: [], series: new Set(), pruebas: new Set(), nads: new Set()};
+  T.forEach(t => { const x = sesiones.get(t.sesId) || {sesId: t.sesId, fecha: t.fecha, coach: t.coach, sim: t.sim, tiempos: [], series: new Set(), pruebas: new Set(), nads: new Set()};
     x.tiempos.push(t); x.series.add(t.ronda); if (t.ev) x.pruebas.add(t.ev); x.nads.add(t.nId); sesiones.set(t.sesId, x); });
   const pruebas = new Map();
   T.filter(t => t.ev).forEach(t => { const p = pruebas.get(t.ev) || {ev: t.ev, estilo: t.estilo, dist: t.dist, n: 0, nads: new Map()};
@@ -314,7 +316,7 @@ function pintarEntrenamientos(host, f) {
     ? '<div class="vacio">Todavía no hay entrenamientos. Aparecerán aquí en cuanto los entrenadores tomen tiempos con el cronómetro.</div>'
     : !F.length ? '<div class="vacio">Sin tiempos con estos filtros.</div>' : '';
   const ents = R.entrenamientos.map(e => `
-    <details class="ent-ses"><summary><b>${dfmt(entDia(e.fecha))}</b> <span class="muted">${esc(e.coach)}</span>
+    <details class="ent-ses"><summary><b>${dfmt(entDia(e.fecha))}</b> <span class="muted">${esc(e.coach)}</span>${e.sim ? '<span class="tag ent-sim">Simulación</span>' : ''}
       <span class="ent-ses-r">${e.pruebas.map(ev => `${franja(ev)}${esc(ev)}`).join(' ') || 'Sin prueba'} · ${e.nads} nad. · ${e.tiempos.length} tiempos</span></summary>
       <table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Tiempo</th></tr>
       ${[...e.tiempos].sort((a, b) => a.ronda - b.ronda || a.cs - b.cs).map(t => `<tr${t.rfen ? ` class="click" data-href="#nadador/${t.rfen}/entrenos"` : ''}>
@@ -368,6 +370,7 @@ function pintarEntrenamientos(host, f) {
       <td class="num">${m.sesiones}</td><td class="num"><b>${m.tiempos}</b></td></tr>`).join('');
 
   host.innerHTML = `
+    ${(n => n ? `<div class="ent-aviso-sim"><b>Datos de simulación.</b> ${n} de ${R.entrenamientos.length} entrenamientos son de prueba (marcados «Simulación») y se borrarán antes de empezar con datos reales. Lo que toméis vosotros no se toca.</div>` : '')(R.entrenamientos.filter(e => e.sim).length)}
     ${filtros}
     ${vacio || `
     <div class="kpis" style="margin:4px 0 14px">
@@ -409,7 +412,9 @@ function pintarEntrenosNadador(app, s, p) {
     const filas = ev ? entEvolucion(T, T[0].nId, ev) : [];
     const mejor = filas.length ? Math.min(...filas.map(t => t.cs)) : null;
     const comp = ev ? entMejorCompeticion(s, ev) : null;
+    const nSim = R.entrenamientos.filter(e => e.sim).length;
     host.innerHTML = `
+      ${nSim ? `<div class="ent-aviso-sim"><b>Datos de simulación.</b> ${nSim} de ${R.entrenamientos.length} entrenamientos son de prueba y se borrarán antes de empezar con datos reales.</div>` : ''}
       <div class="kpis" style="margin-bottom:12px">
         <div class="kpi hl"><b>${R.entrenamientos.length}</b><span>entrenamientos</span></div>
         <div class="kpi"><b>${R.tiempos}</b><span>tiempos</span></div>
@@ -428,7 +433,7 @@ function pintarEntrenosNadador(app, s, p) {
         </div>
         ${filas.length >= 2 ? evoChart(filas.map(t => [t.dia, t.cs, '', 'Entrenamiento']), null) : '<p class="empty">Con dos días de tiempos en esta prueba se verá su evolución.</p>'}
         <table class="rt" style="margin-top:8px"><tr><th>Fecha</th><th class="num">Tiempo</th><th>Parciales 50 m</th></tr>
-          ${[...T.filter(t => t.ev === ev)].reverse().map(t => `<tr><td>${dfmt(t.dia)}${entCompararHTML(entComparar(T, t))}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
+          ${[...T.filter(t => t.ev === ev)].reverse().map(t => `<tr><td>${dfmt(t.dia)}${t.sim ? ' <span class="tag ent-sim">Simulación</span>' : ''}${entCompararHTML(entComparar(T, t))}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
             <td class="tiny">${t.parciales && t.parciales.length > 1 ? t.parciales.map((v, i, a) => v == null || (i && a[i - 1] == null) ? '—' : fmt(entCs(i ? v - a[i - 1] : v))).join(' · ') : ''}</td></tr>`).join('')}</table>
       </div>` : ''}`;
     onChips(host, 'ev', v => { location.hash = fichaHref(s, 'entrenos') + '?ev=' + encodeURIComponent(v); });

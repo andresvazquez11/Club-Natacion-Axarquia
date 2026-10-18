@@ -1,7 +1,7 @@
 // Service worker: deja la app abrible sin conexión en la piscina.
 // Los datos los guarda Firestore en el propio móvil; aquí solo se guarda la "carcasa".
 // Al publicar cambios, sube la versión para que los móviles se actualicen.
-const VERSION = 'crono-v5';
+const VERSION = 'crono-v6';
 const CARCASA = [
   './', 'index.html', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'nadadores.json'

@@ -132,3 +132,13 @@ test('entDispersion: por día, más rápido, mediana y más lento', () => {
   assert.equal(X.puntos.length, 3);
   assert.deepEqual(X.dias.map(d => [d.n, d.min, d.mediana, d.max]), [[2, 2987, 3055, 3123], [1, 3050, 3050, 3050]]);
 });
+
+test('entTiempos: marca los tiempos de simulación (campo sim o id sim_) y entResumen lo pasa al entrenamiento', () => {
+  const D2 = structuredClone(D);
+  D2.sesiones[0].sim = true;
+  D2.sesiones.push({ id: 'sim_s9', fecha: DIA + 9 * 864e5, coach: 'Sim', estilo: 'libre', dist: 50 });
+  D2.resultados.push({ id: 'sim_r9', sesId: 'sim_s9', nId: 'a', ms: 30000, ronda: 1 });
+  const T = ev('entTiempos', D2, SW);
+  assert.deepEqual(T.map(t => [t.id, t.sim]), [['r1', true], ['r2', true], ['r3', true], ['r4', false], ['sim_r9', true]]);
+  assert.deepEqual(ev('entResumen', T).entrenamientos.map(e => [e.sesId, e.sim]), [['sim_s9', true], ['s2', false], ['s1', true]]);
+});
