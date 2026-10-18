@@ -48,8 +48,9 @@ test('leerModo migra valores antiguos y tolera errores', () => {
   assert.equal(evalIn(nuevo({ ls: new Map([['cna_modo', 'agua']]) }), 'leerModo()'), 'acuatico');
   assert.equal(evalIn(nuevo({ ls: new Map([['cna_modo', 'normal']]) }), 'leerModo()'), 'clara');
   assert.equal(evalIn(nuevo({ ls: new Map([['cna_modo', 'acuatico']]) }), 'leerModo()'), 'acuatico');
-  assert.equal(evalIn(nuevo({ ls: new Map() }), 'leerModo()'), 'clara');
-  assert.equal(evalIn(nuevo({ ls: null }), 'leerModo()'), 'clara');
+  assert.equal(evalIn(nuevo({ ls: new Map() }), 'leerModo()'), 'acuatico');      // sin elegir: acuático
+  assert.equal(evalIn(nuevo({ ls: null }), 'leerModo()'), 'acuatico');
+  assert.equal(evalIn(nuevo({ ls: new Map([['cna_modo', 'clara']]) }), 'leerModo()'), 'clara');
 });
 
 test('guardarModo guarda y no revienta sin localStorage', () => {

@@ -68,8 +68,8 @@ const MODO_LS = 'cna_modo';
 function leerModo() {
   try {
     const v = localStorage.getItem(MODO_LS);
-    return v === 'acuatico' || v === 'agua' ? 'acuatico' : 'clara';
-  } catch (e) { return 'clara'; }
+    return v === 'clara' || v === 'normal' ? 'clara' : 'acuatico';     // acuático por defecto; «Claro» si se eligió
+  } catch (e) { return 'acuatico'; }
 }
 function guardarModo(m) { try { localStorage.setItem(MODO_LS, m); } catch (e) {} }
 const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
