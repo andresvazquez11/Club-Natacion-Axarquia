@@ -18,13 +18,15 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    # La llave de Firebase solo llega a los pasos propios que la usan (nunca al paso del correo, que es código de terceros)
     env:
-      FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
       EVENTO: ${{ github.event_name }}
       AVISO_IDS: /tmp/avisos.json
       AVISO_CUERPO: /tmp/avisos.txt
     steps:
       - id: llave
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
         run: |
           if [ -z "$FIREBASE_SA" ]; then echo "Falta el secreto FIREBASE_SA: no se revisa nada."; echo "hay=no" >> "$GITHUB_OUTPUT"; else echo "hay=si" >> "$GITHUB_OUTPUT"; fi
 
@@ -43,6 +45,8 @@ jobs:
 
       - id: buscar
         if: steps.llave.outputs.hay == 'si'
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
         run: |
           python .github/scripts/avisar_solicitudes.py buscar
           if [ -s "$AVISO_CUERPO" ]; then
@@ -54,7 +58,7 @@ jobs:
 
       - name: Correo de aviso
         if: steps.buscar.outputs.hay == 'si'
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
@@ -67,4 +71,6 @@ jobs:
 
       - name: Marcar como avisadas
         if: steps.buscar.outputs.hay == 'si'
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
         run: python .github/scripts/avisar_solicitudes.py marcar
