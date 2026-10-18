@@ -1,18 +1,20 @@
 name: Actualizar informe temporada 26-27
 
-# ACTUALIZACIÓN SEMANAL A PRUEBA DE FALLOS
+# ACTUALIZACIÓN SEMANAL, LOS JUEVES, A PRUEBA DE FALLOS
 # El cron de GitHub no es fiable (en la web de coches llegó a saltarse días
-# enteros). Por eso no dependemos de UN disparo semanal: GitHub revisa 3 veces
-# al día y el job solo actualiza si la última actualización AUTOMÁTICA tiene
-# más de 6 días y medio (las manuales no cuentan, así cada semana llega al menos
-# un correo «automática» que demuestra que el sistema funciona). Si un disparo se
-# pierde, el siguiente lo recupera (la hora exacta da igual).
+# enteros). Por eso no dependemos de UN disparo: GitHub revisa 3 veces al día
+# de jueves a sábado y el job solo actualiza si esta semana (desde el jueves a
+# las 00:00, hora de Madrid) todavía no hubo una actualización AUTOMÁTICA. Lo
+# normal es que salga el jueves; si ese día falla, la recupera el viernes o el sábado.
+# Las manuales no cuentan, así cada semana llega un correo «automática» que
+# demuestra que el sistema funciona. Las dos (automática y manual) descargan
+# siempre los datos nuevos de la RFEN.
 # El asunto del correo y el commit dicen si fue automática o MANUAL (como en la web de coches).
 on:
-  schedule:
-    - cron: '23 5 * * *'
-    - cron: '41 11 * * *'
-    - cron: '7 18 * * *'
+  schedule:                   # horas en UTC (Madrid = UTC+1 en invierno, +2 en verano): jueves, viernes y sábado
+    - cron: '23 5 * * 4,5,6'
+    - cron: '41 11 * * 4,5,6'
+    - cron: '7 18 * * 4,5,6'
   workflow_dispatch:          # botón "Run workflow" → actualiza al momento
 
 
@@ -42,12 +44,13 @@ jobs:
           ULTIMO=$(gh api "repos/${{ github.repository }}/commits?author=41898282%2Bgithub-actions%5Bbot%5D%40users.noreply.github.com&per_page=100" \
                    --jq '[.[] | select(.commit.message | startswith("Actualizar informe temporada 26-27 (automática)"))][0].commit.committer.date // ""' \
                    2>/dev/null || echo "")
-          if [ -n "$ULTIMO" ]; then
-            DIFF=$(( $(date -u +%s) - $(date -u -d "$ULTIMO" +%s) ))
-            if [ "$DIFF" -lt 561600 ]; then   # 6,5 días
-              echo "Última actualización automática $ULTIMO (hace $((DIFF/3600)) h) — todavía no toca."
-              echo "correr=no" >> "$GITHUB_OUTPUT"; exit 0
-            fi
+          # jueves de esta semana a las 00:00 en Madrid (si hoy es jueves, hoy)
+          N=$(( ($(TZ=Europe/Madrid date +%u) + 3) % 7 ))      # días desde el jueves (jueves 0, viernes 1 … miércoles 6)
+          DIA=$(TZ=Europe/Madrid date -d "$(TZ=Europe/Madrid date +%F) -$N days" +%F)
+          JUEVES=$(TZ=Europe/Madrid date -d "$DIA 00:00" +%s)
+          if [ -n "$ULTIMO" ] && [ "$(date -u -d "$ULTIMO" +%s)" -ge "$JUEVES" ]; then
+            echo "Esta semana ya hubo actualización automática ($ULTIMO, semana desde el jueves $DIA) — no toca."
+            echo "correr=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "Toca la actualización automática (última: ${ULTIMO:-nunca})."; echo "correr=si" >> "$GITHUB_OUTPUT"
 
@@ -90,7 +93,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # la automática deja SIEMPRE su commit (aunque no cambie nada): es la marca que usa «check» para contar la semana
+          # la automática deja SIEMPRE su commit (aunque no cambie nada): es la marca que usa «check» para saber que esta semana ya se hizo
           VACIO=""; [ "$TIPO" = "automática" ] && VACIO="--allow-empty"
           git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json
           git commit $VACIO -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
