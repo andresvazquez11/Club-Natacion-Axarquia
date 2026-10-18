@@ -1080,10 +1080,14 @@ function mejorPrevia(nId, excluirId) {
 }
 
 // ── Compartir o descargar un archivo ─────────────────────────
-async function compartirArchivo(blob, fname, tipo) {
+// ¿Este aparato sabe compartir archivos (menú de WhatsApp, correo…)? Los navegadores de ordenador también suelen saber.
+function puedeCompartirArchivos() {
+  try { return !!(navigator.canShare && navigator.canShare({files:[new File([''], 'x.pdf', {type:'application/pdf'})]})); } catch { return false; }
+}
+// descargar: true → siempre se guarda el archivo (carpeta Descargas en el ordenador); false → menú de compartir si lo hay
+async function compartirArchivo(blob, fname, tipo, descargar) {
   const file = new File([blob], fname, {type:tipo});
-  // En el móvil abre el menú de compartir (WhatsApp, correo…); si no, descarga el archivo
-  if (navigator.canShare && navigator.canShare({files:[file]})) {
+  if (!descargar && navigator.canShare && navigator.canShare({files:[file]})) {
     try { await navigator.share({files:[file], title:fname}); return; }
     catch (e) { if (e.name==='AbortError') return; }
   }
@@ -1142,11 +1146,11 @@ async function logoDataURL() {
     return await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); });
   } catch { return null; }
 }
-async function generarPDF(sesId, btn) {
+async function generarPDF(sesId, btn, compartir) {
   const d = datosEntrenamiento(sesId);
   if (!d) return;
   const txtBtn = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Generando PDF…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando PDF…'; }   // compartir: menú de compartir; si no, se descarga
   try {
     for (const [src, sri] of LIB_PDF) await cargarScript(src, sri);
     const {ses, series} = d;
@@ -1202,7 +1206,7 @@ async function generarPDF(sesId, btn) {
       doc.text(`Cronómetro CNA · ${fmtDate(Date.now())}`, M, H-8);
       doc.text(`${i} / ${n}`, W-M, H-8, {align:'right'});
     }
-    await compartirArchivo(doc.output('blob'), nombreArchivo(ses, 'pdf'), 'application/pdf');
+    await compartirArchivo(doc.output('blob'), nombreArchivo(ses, 'pdf'), 'application/pdf', !compartir);
   } catch (e) {
     alert(e.message || 'No se pudo generar el PDF');
   } finally {
@@ -2026,6 +2030,7 @@ function renderResultados(sesId, backAction, backLabel) {
     ${renderAsistencia(ses)}
     ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
     <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
+    ${puedeCompartirArchivos() ? `<button class="btn btn-blue mt8" style="min-height:50px;font-size:16px" data-action="pdf-compartir" data-ses="${esc(sesId)}">📤 Compartir PDF (WhatsApp, correo…)</button>` : ''}
     <div class="row mt8">
       <button class="btn btn-surf btn-inline" style="flex:1" data-action="exportar" data-ses="${esc(sesId)}">📤 Texto</button>
       <button class="btn btn-surf btn-inline" style="flex:1" data-action="${backAction}">${backLabel}</button>
@@ -2422,6 +2427,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ns-parc':         if (SA && SA.nuevaSerie) { SA.nuevaSerie.parciales = !SA.nuevaSerie.parciales; render(); } break;
     case 'ns-empezar':      if (SA && SA.nuevaSerie && SA.nuevaSerie.estilo && SA.nuevaSerie.dist) repetirSerie(SA.nuevaSerie); break;
     case 'pdf':             await generarPDF(btn.dataset.ses||route.sesId, btn); break;
+    case 'pdf-compartir':   await generarPDF(btn.dataset.ses||route.sesId, btn, true); break;
     case 'finalizar-sesion': await finalizarSesion(); break;
     case 'exportar':     await exportar(btn.dataset.ses||route.sesId); break;
   }
