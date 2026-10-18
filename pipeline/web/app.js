@@ -131,7 +131,7 @@ function route() {
 
   if (sec === 'club') {
     vistaClub(app, Object.assign({cat: r.parts[1], tab: r.parts[2]}, params));
-    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${noContar() || DATA.estrella_fija ? ' · <a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : ''}</p>`);
+    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${noContar() || DATA.estrella_fija ? ' · <a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : ''}${FIRMA}</p>`);
   }
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
@@ -162,7 +162,7 @@ function arrancar() {
   marcarContador();
   // en los dispositivos de Andrés (no cuentan), un enlace a sus estadísticas de visitas
   const visitas = noContar() || DATA.estrella_fija ? '<a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : '';
-  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${visitas}Actualizado ${DATA.fecha}<br>Datos: RFEN`;
+  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${visitas}Actualizado ${DATA.fecha}<br>Datos: RFEN${FIRMA}`;
   window.addEventListener('hashchange', route);
   route();
 }

@@ -69,6 +69,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .grupo-name{font-weight:700;color:var(--blu-l);}
 .gclock{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);margin:4px 0 10px;}
 .arr-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--brd);}
+.firma{text-align:center;font-size:12px;color:var(--mut);margin:28px 0 4px}
+.firma a{color:var(--blu-l);text-decoration:none;font-weight:600}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(15,23,42,.97);border-top:1px solid var(--brd);display:grid;grid-template-columns:repeat(4,1fr);padding:6px 0 max(8px,env(safe-area-inset-bottom,0px));backdrop-filter:blur(8px)}
 .tabbar a,.tabbar button{background:none;border:0;color:var(--mut);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent}
 .tabbar .ti{font-size:20px;line-height:1}
@@ -291,7 +293,7 @@ function pantallaMensaje(titulo, texto, extra) {
 }
 function renderLogin() {
   pantallaMensaje('Cronómetro Natación', 'Entra con la cuenta de Google que el club tiene dada de alta.',
-    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>`);
+    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>${FIRMA_HTML}`);
 }
 async function loginGoogle() {
   const prov = new firebase.auth.GoogleAuthProvider();
@@ -1225,6 +1227,7 @@ function render() {
   renderPantalla(app);
   if (pos!=null) { const el = document.getElementById('board-search'); if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} } }
 }
+const FIRMA_HTML = '<div class="firma">Desarrollado por <a href="https://github.com/andresvazquez11" target="_blank" rel="noopener">@andresvazquez11</a></div>';
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
   const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
@@ -1235,7 +1238,7 @@ function renderPantalla(app) {
   pintarPantalla(app);
   const tab = TAB_DE[route.screen];
   app.classList.toggle('con-tabs', !!tab);
-  if (tab) app.insertAdjacentHTML('beforeend', renderTabs(tab));
+  if (tab) app.insertAdjacentHTML('beforeend', FIRMA_HTML + renderTabs(tab));
 }
 function pintarPantalla(app) {
   switch(route.screen) {
