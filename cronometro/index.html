@@ -990,6 +990,7 @@ function repetirSerie(cfg) {
   SA.nuevaSerie = null;
   SA.ronda++;
   SA.nSalida = 0;
+  SA.avisado = SA.cicloSonado = null;   // el aviso y la salida del ciclo van por serie
   SA.agua = []; SA.llegados = []; SA.recientes = [];
   SA.vista = 'rapidos';
   SA.noSale.clear();
