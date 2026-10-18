@@ -73,3 +73,30 @@ test('objetivos sin claves pero con relevos en su categoría va a relevos', () =
   assert.equal(x('#nadador/7/objetivos').sub, 'andalucia');     // con claves: Andalucía
   assert.equal(x('#nadador/8/objetivos').sub, 'espana');        // Alevín: España
 });
+
+const nav = (pila, h) => { ctx.__p = pila; ctx.__h = h; return JSON.parse(evalIn(ctx, 'JSON.stringify(apuntarNav(__p, __h))')); };
+
+test('apuntarNav: cada pantalla nueva se apunta; un filtro dentro de la misma la sustituye', () => {
+  let p = nav([], '#club');
+  p = nav(p, '#mi');
+  p = nav(p, '#mi/marcas');
+  p = nav(p, '#mi/marcas?ev=50%20Libre');
+  assert.deepEqual(p, ['#club', '#mi', '#mi/marcas?ev=50%20Libre']);
+});
+
+test('apuntarNav: volver a la pantalla anterior la quita (sin ir y venir entre dos)', () => {
+  let p = ['#club', '#mi', '#mi/marcas', '#mi/evolucion'];
+  p = nav(p, '#mi/marcas?ev=50%20Libre');        // «Volver a Marcas»
+  assert.deepEqual(p, ['#club', '#mi', '#mi/marcas?ev=50%20Libre']);
+  assert.equal(evalIn(ctx, `anteriorNav(${JSON.stringify(p)})`), '#mi');
+});
+
+const visita = (h, ben = null) => { ctx.__h = h; ctx.__b = ben; ctx.__s = SW; return JSON.parse(evalIn(ctx, 'JSON.stringify(seccionVisita(__h, __b, __s))')); };
+
+test('seccionVisita: secciones sin ids ni filtros, para el contador', () => {
+  assert.deepEqual(visita('#mi/marcas?ev=50%20Libre', BEN), { path: 'mi-nadador/marcas', title: 'Mi nadador · Marcas' });
+  assert.deepEqual(visita('#nadador/8/club', BEN), { path: 'otro-nadador/club', title: 'Ficha de otro nadador · En el club' });
+  assert.deepEqual(visita('#club/ALE/records?g=F'), { path: 'club/records', title: 'Club · Récords' });
+  assert.deepEqual(visita('#club'), { path: 'club/portada', title: 'Club · Portada' });
+  assert.equal(visita('#rankings?ev=50%20Braza').path, 'rankings');
+});

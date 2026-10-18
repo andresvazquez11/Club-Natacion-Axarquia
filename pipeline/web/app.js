@@ -33,6 +33,72 @@ function resolverRuta(hash, ben, sw) {
   if (['club', 'campeonatos', 'rankings', 'comparar', 'entrenamientos'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
   return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
 }
+/* Camino recorrido (para «Volver a …» dentro del nadador). Una entrada por pantalla: cambiar un filtro o una prueba
+   dentro de la misma pantalla sustituye su entrada; volver a la pantalla anterior la quita. Pura: devuelve la pila nueva. */
+const rutaSinFiltros = h => String(h || '').split('?')[0];
+function apuntarNav(pila, h) {
+  const p = pila.slice(), n = p.length;
+  if (n && rutaSinFiltros(p[n - 1]) === rutaSinFiltros(h)) p[n - 1] = h;
+  else if (n > 1 && rutaSinFiltros(p[n - 2]) === rutaSinFiltros(h)) { p.pop(); p[p.length - 1] = h; }
+  else p.push(h);
+  return p.slice(-40);
+}
+const anteriorNav = pila => pila.length > 1 ? pila[pila.length - 2] : null;
+/* nombre corto de una pantalla para el botón «Volver a …» */
+function nombrePantalla(h, ben, sw) {
+  const r = resolverRuta(h, ben, sw);
+  if (r.sec === 'nadador') {
+    const s = sw[r.id];
+    if (r.sub === 'resumen') return s ? esc(String(s.n).split(' ')[0]) : 'el nadador';
+    const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
+    return a ? a[1] : 'la pantalla anterior';
+  }
+  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
+}
+/* ── Contador de visitas por sección (GoatCounter) ──
+   Cada pantalla se apunta como «sección», sin ids de nadador ni filtros, para ver qué partes se usan más.
+   No cuenta: la página personal de Andrés (estrella fija) ni los dispositivos marcados con ?no-contar
+   (se guarda skipgc, que es lo que respeta GoatCounter; ?contar lo quita). */
+const NOM_SECC = {marcas: 'Marcas', evolucion: 'Evolución', ranking: 'Rankings', espana: 'Cto. España', andalucia: 'Cto. Andalucía',
+  relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen'};
+function seccionVisita(h, ben, sw) {
+  const r = resolverRuta(h, ben, sw);
+  if (r.sec === 'nadador') {
+    const mio = ben && r.id === String(ben.id), sub = r.sub || 'resumen';
+    return {path: `${mio ? 'mi-nadador' : 'otro-nadador'}/${sub}`, title: `${mio ? 'Mi nadador' : 'Ficha de otro nadador'} · ${NOM_SECC[sub] || sub}`};
+  }
+  if (r.sec === 'club') {
+    const tab = ['nadadores', 'relevos', 'records', 'historia'].includes(r.parts[2]) ? r.parts[2] : 'portada';
+    return {path: `club/${tab}`, title: `Club · ${{portada: 'Portada', nadadores: 'Nadadores', relevos: 'Relevos', records: 'Récords', historia: 'Historia'}[tab]}`};
+  }
+  const T = {campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', elegir: 'Elegir nadador'};
+  return {path: r.sec, title: T[r.sec] || r.sec};
+}
+const noContar = () => { try { return localStorage.getItem('skipgc') === 't'; } catch (e) { return false; } };
+let visitaPendiente = null, ultimaVisita = null;
+function contarVisita(h) {
+  if (DATA.estrella_fija || noContar() || /^(localhost|127\.|file)/.test(location.hostname || 'file')) return;
+  const v = seccionVisita(h, BEN, SW);
+  if (v.path === ultimaVisita) return;               // filtros dentro de la misma sección: no es otra visita
+  ultimaVisita = v.path;
+  const base = location.pathname.replace(/\.html$/, '');
+  const d = {path: `${base}/${v.path}`, title: v.title, referrer: document.referrer};
+  if (window.goatcounter && window.goatcounter.count) window.goatcounter.count(d); else visitaPendiente = d;
+}
+function contarPendiente() { if (visitaPendiente && window.goatcounter && window.goatcounter.count) { window.goatcounter.count(visitaPendiente); visitaPendiente = null; } }
+/* ?no-contar / ?contar en la dirección: marca o desmarca este dispositivo (un aviso lo confirma) */
+function marcarContador() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('no-contar') && !q.has('contar')) return;
+  const no = q.has('no-contar');
+  try { if (no) localStorage.setItem('skipgc', 't'); else localStorage.removeItem('skipgc'); } catch (e) {}
+  history.replaceState(null, '', location.pathname + location.hash);
+  const a = document.createElement('div'); a.className = 'aviso-contador';
+  a.textContent = no ? 'Listo: las visitas desde este dispositivo ya no se cuentan.' : 'Las visitas desde este dispositivo vuelven a contarse.';
+  document.body.appendChild(a); setTimeout(() => a.remove(), 4000);
+}
+
+let pilaNav = [];
 let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
 let hashAnterior = null;    // pantalla desde la que se llegó a la actual (no cambia al tocar filtros dentro de ella)
@@ -59,11 +125,13 @@ function route() {
   if (!esFicha) volverA = null;
   if (lastHash) scrollPos[lastHash] = window.scrollY;   // recordar por dónde iba en la pantalla que deja
   lastHash = location.hash || '#club';
+  pilaNav = apuntarNav(pilaNav, lastHash);
+  contarVisita(lastHash);
   lastFicha = esFicha ? r.id : null;
 
   if (sec === 'club') {
     vistaClub(app, Object.assign({cat: r.parts[1], tab: r.parts[2]}, params));
-    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a></p>`);
+    app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${noContar() || DATA.estrella_fija ? ' · <a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : ''}</p>`);
   }
   else if (sec === 'campeonatos') vistaCampeonatos(app, params);
   else if (sec === 'rankings') vistaRankings(app, params);
@@ -91,7 +159,10 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
   bindBuscador('q-cab');
   entNavModo();
-  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN`;
+  marcarContador();
+  // en los dispositivos de Andrés (no cuentan), un enlace a sus estadísticas de visitas
+  const visitas = noContar() || DATA.estrella_fija ? '<a class="manual-l" href="https://andresvazquez11.goatcounter.com" target="_blank" rel="noopener">Ver visitas</a>' : '';
+  document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${visitas}Actualizado ${DATA.fecha}<br>Datos: RFEN`;
   window.addEventListener('hashchange', route);
   route();
 }

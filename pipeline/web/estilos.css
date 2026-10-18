@@ -533,6 +533,8 @@ html.clara .chart text[fill="#ffd60a"]{fill:var(--hl)}
 .comp-n{display:flex;flex-direction:column;gap:1px;min-width:0}
 .comp table{margin:6px 0 2px}
 .cmp-l{cursor:pointer}.cmp-l:hover{color:var(--link)}
+button.cmp-l{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left}
+li.click{cursor:pointer}.mm .niveles span[data-rkf]{cursor:pointer}
 td.click{cursor:pointer}
 .tag.click{cursor:pointer}
 .edad{display:inline-block;font-size:.66rem;font-weight:800;color:var(--sun-ink);background:var(--sun);border-radius:99px;padding:0 6px;margin-left:2px;vertical-align:middle;white-space:nowrap}
@@ -578,3 +580,7 @@ html.acuatico .seg{background:var(--solid)}
 .ent-l-banda{width:14px;height:10px;background:var(--link);opacity:.15}
 .ent-estilos{white-space:nowrap;font-size:.72rem}
 .ent-estilos span{margin-right:3px}
+
+/* aviso al marcar/desmarcar el contador de visitas en este dispositivo */
+.aviso-contador{position:fixed;left:50%;top:calc(var(--cab-h) + 10px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);
+  background:var(--ink);color:var(--bg, #fff);padding:10px 14px;border-radius:12px;font-size:.85rem;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2)}

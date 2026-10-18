@@ -105,7 +105,18 @@ function openEvo(id, evName, back) {
   const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0;
   document.body.style.overflow = 'hidden';
 }
-function closeEvo() { statBack = null; document.getElementById('modal').classList.remove('open'); document.body.style.overflow = ''; }
+function closeEvo() { statBack = null; pilaVentana = []; ventanaActual = null; document.getElementById('modal').classList.remove('open'); document.body.style.overflow = ''; }
+/* Ventanas encadenadas (detalle → ranking → competición): la que se abre desde otra ventana lleva «‹ Volver» a la anterior.
+   abrirVentana(pinta): pinta() escribe la ventana; se guarda para poder volver a pintarla. */
+let pilaVentana = [], ventanaActual = null;
+function abrirVentana(pinta) {
+  if (document.getElementById('modal').classList.contains('open') && ventanaActual) pilaVentana.push(ventanaActual);
+  else pilaVentana = [];
+  ventanaActual = pinta; pinta();
+}
+function ventanaAtras() { const f = pilaVentana.pop(); if (!f) return closeEvo(); ventanaActual = f; f(); }
+const ventanaVolverBtn = () => pilaVentana.length ? '<button class="close" style="float:left;margin-right:8px" onclick="ventanaAtras()">‹ Volver</button>' : '';
+const abrirModal = () => { const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0; document.body.style.overflow = 'hidden'; return m; };
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-evo]');
   if (b) { const back = b.closest('#modal') ? statBack : null; const [id, ...n] = b.dataset.evo.split('|'); openEvo(id, n.join('|'), back); }
@@ -139,7 +150,7 @@ function abrirCompeticion(s, fecha, comp, foco) {
         <td>${x[7] ? posB(x[7]) + `<span class="of">de ${x[8]}</span>` : '<span class="muted">—</span>'}</td>
         <td class="num">${x[6] || '—'} <span class="of">pts</span></td></tr>`).join('')).join('');
     const pods = sel.filter(x => x[7] && x[7] <= 3).length, pbs = sel.filter(esPb).length;
-    document.querySelector('#modal .box').innerHTML = `<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+    document.querySelector('#modal .box').innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">${esc(nombre)}</h1>
       <p class="muted small" style="margin:2px 0 10px">${esc(lugar)} · ${esc(s.n)}</p>
       <div class="kpis" style="margin-bottom:10px"><div class="kpi hl"><b>${sel.length}</b><span>pruebas nadadas</span></div>
@@ -150,13 +161,21 @@ function abrirCompeticion(s, fecha, comp, foco) {
     m.querySelectorAll('tr.click[data-ir]').forEach(tr => tr.onclick = () => { closeEvo(); location.hash = `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(tr.dataset.ir)}`; });
   };
   (typeof cargarHistorial === 'function' ? cargarHistorial() : Promise.reject())
-    .then(H => { const T = H.temps[String(s.id)] || {}; const L = Object.values(T).flatMap(t => t.m || []); pinta(L.length ? L : marcasActuales(s)); })
-    .catch(() => pinta(marcasActuales(s)));
+    .then(H => { const T = H.temps[String(s.id)] || {}; const L = Object.values(T).flatMap(t => t.m || []); return L.length ? L : marcasActuales(s); })
+    .catch(() => marcasActuales(s))
+    .then(L => abrirVentana(() => pinta(L)));
 }
+/* un puesto de ranking (España, Andalucía o Málaga) abre ese ranking: data-rkf="id|prueba|nivel|ámbito" */
+const rkfAttr = (s, ev, lv, sk = 'y') => `data-rkf="${s.id}|${esc(ev)}|${lv}|${sk}" title="Ver el ranking de ${NIVEL_NOM[lv]}"`;
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-rkf]'); if (!b) return;
+  const [id, e, lv, sk] = b.dataset.rkf.split('|'), s = SW[id]; if (!s) return;
+  ev.stopPropagation(); ev.preventDefault(); abrirRankingFicha(s, e, lv, sk || 'y');
+}, true);
 /* atributos para que una marca abra su competición */
 const cmpAttr = (s, fecha, comp, ev) => fecha ? `data-cmp="${esc(fecha)}|${esc(comp || '')}|${esc(ev || '')}" data-sid="${s.id}"` : '';
 document.addEventListener('click', ev => {
-  const b = ev.target.closest('[data-cmp]'); if (!b || ev.target.closest('a')) return;
+  const b = ev.target.closest('[data-cmp]'); if (!b || ev.target.closest('a') || ev.target.closest('[data-rkf]')) return;
   const [f, c, e] = b.dataset.cmp.split('|'), s = SW[b.dataset.sid]; if (!s) return;
   ev.stopPropagation(); abrirCompeticion(s, f, c, e);
 }, true);

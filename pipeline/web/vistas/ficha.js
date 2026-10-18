@@ -202,7 +202,7 @@ function tabPruebas(s, sk, p) {
           <div class="kv"><span>Fecha</span><b class="cmp-l" ${cmpAttr(s, e.date, e.comp, e.e)}>${dtag(e.date)} ${esc(e.comp)} <span class="sun">›</span></b></div>
           ${e.cpos ? `<div class="kv"><span>Puesto en esa competición</span><b>${posB(e.cpos[0])} de ${e.cpos[1]}</b></div>` : ''}
           ${mej > 0 ? `<div class="kv"><span>Mejora en la temporada</span><b class="good">−${secs(mej)} s</b></div>` : ''}
-          <div class="kv"><span>Ranking (${scopeLbl(s, sk)})</span><b>${LV.map(([lv, l]) => r[lv] ? `${l} ${r[lv][0]}º/${r[lv][1]}` : '').filter(Boolean).join(' · ')}</b></div>
+          <div class="kv"><span>Ranking (${scopeLbl(s, sk)})</span><b>${LV.map(([lv, l]) => r[lv] ? `<button type="button" class="cmp-l" ${rkfAttr(s, e.e, lv, sk)}>${l} ${r[lv][0]}º/${r[lv][1]} <span class="sun">›</span></button>` : '').filter(Boolean).join(' · ')}</b></div>
           ${m ? `<div class="kv"><span>Marca real</span><b>${fmt(e.cs)} en ${e.pool}${m[2] !== e.pool ? ` · equivalente de ${fmt(m[1])} en ${m[2]}` : ''}</b></div>` : ''}
           <div class="pr-acc"><a class="chip" href="#comparar?ids=${s.id}&ev=${encodeURIComponent(e.e)}">${ico('balanza')}Comparar esta prueba</a>
             <a class="chip" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">${ico('barras')}Rivales y ranking</a>
@@ -216,7 +216,7 @@ function tabRankingFicha(s, sk, ev) {
   if (!e) return '<p class="empty">Sin marcas.</p>';
   const txt = LV.map(([lv, lbl]) => { const r = e.rk[sk] && e.rk[sk][lv]; if (!r) return '';
     const nb = e.nb[sk][lv], i = nb.findIndex(x => x[0] === s.n && x[6] === s.y), a = nb[i - 1], b = nb[i + 1];
-    return `<li><i class="ins-i">${nivelHTML(lv)}</i><b class="lv-${lv}">${lbl}</b>: ${r[0]}º de ${r[1]}${r[0] == 1
+    return `<li class="click" ${rkfAttr(s, e.e, lv, sk)}><i class="ins-i">${nivelHTML(lv)}</i><b class="lv-${lv}">${lbl}</b>: <b class="sun">${r[0]}º de ${r[1]} ›</b>${r[0] == 1
       ? (b ? ` · le sigue ${esc(b[0])} (${club(b[1])}) a ${secs(b[3] - e.cs)} s` : '')
       : ` · a ${secs(r[2])} s del líder · delante: ${esc(a[0])} (${club(a[1])}) a ${secs(e.cs - a[3])} s`}</li>`; }).join('');
   return `<div class="card"><div class="bar-row"><p class="small muted">Comparando con: <b>${scopeLbl(s, sk)}</b></p>${segScope(s, sk)}</div>
@@ -302,6 +302,25 @@ function segScope(s, sk) {
   return `<div class="seg" data-sk><button data-v="y" class="${sk === 'y' ? 'on' : ''}">Nacidos en ${s.y}</button><button data-v="c" class="${sk === 'c' ? 'on' : ''}">${esc(s.catl)} completa</button></div>`;
 }
 
+/* competición de una marca de un nadador del club (para abrirla desde una línea de ranking) */
+const compDe = (o, ev, cs, pool) => { const e = o.ev.find(y => y.e === ev), x = e && e.h.find(y => y[1] === cs && (!pool || y[2] === pool)); return x ? x[3] : ''; };
+
+/* Ventana con el ranking de una prueba en un nivel (lo que resume la ficha: «8º de España»): los 10 primeros y los que tiene
+   alrededor. Cada línea se despliega; en la suya y en las de sus compañeros, «Ver competición» abre esa competición. */
+function abrirRankingFicha(s, evName, lv, sk = 'y') {
+  const e = s.ev.find(x => x.e === evName); if (!e) return;
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">Ranking de ${NIVEL_NOM[lv]}</h1>
+      <p class="muted small" style="margin:2px 0 10px">${franja(e.e)}<b>${e.e}</b> · ${scopeLbl(s, sk)} · ${esc(s.n)}: <b>${fmt(e.cs)}</b> <span class="of">${e.pool}</span></p>
+      ${rivalLista(s, e, sk, lv, `${nivelHTML(lv)} ${NIVEL_NOM[lv]}`)}
+      <p class="tiny muted" style="margin-top:8px">Pulsa una línea para ver la fecha y la diferencia. En la de ${nombreCorto(s)} y en las de sus compañeros del club, «Ver competición» abre la competición en la que se hizo esa marca.</p>
+      <p style="margin-top:10px"><a class="btn ghost" href="#rankings?g=${s.g}&sc=${sk === 'y' ? s.y : s.cat}&ev=${encodeURIComponent(e.e)}&lv=${lv}">Ver el ranking completo ›</a></p>`;
+    abrirModal(); rkBind(box);
+  });
+}
+
 function rivalLista(s, e, sk, lv, lbl) {
   const L = DATA.lists[scopeKey(s, sk) + '|' + e.e], r = e.rk[sk] && e.rk[sk][lv];
   if (!L || !r) return `<div class="card"><h3 class="lv-${lv}">${lbl}</h3><p class="muted small">No aplica.</p></div>`;
@@ -311,7 +330,8 @@ function rivalLista(s, e, sk, lv, lbl) {
       pos: posB(x[5]), nom: esc(x[0]), sub: `${club(x[1])} · ${x[6]}`, marca: fmt(x[3]),
       cls: me ? 'me yo' + (s.benicio ? ' mio' : '') : x[7] ? 'me' : '',
       det: [['Fecha', dtag(x[8])], ...(me ? [] : [['Dif.', `<b class="${d < 0 ? 'bad' : 'good'}">${gapS(d)}</b>`]])],
-      acc: x[7] && cs && !me ? [['Ver ficha', `href="${fichaHref(cs)}"`]] : [],
+      acc: me ? [['Ver competición', cmpAttr(s, e.date, e.comp, e.e)]]
+        : x[7] && cs ? [['Ver competición', cmpAttr(cs, x[8], compDe(cs, e.e, x[3], x[9]), e.e)], ['Ver ficha', `href="${fichaHref(cs)}"`]] : [],
     }); };
   let h = L[lv].filter(x => x[5] <= 10).map(row);
   if (r[0] > 10) h.push(rkSep(), ...e.nb[sk][lv].filter(x => x[5] > 10).map(row));
@@ -406,9 +426,9 @@ function logrosHTML(s) {
   const L = (DATA.destacados || []).filter(x => x.id === s.id).sort((a, b) => a.pos - b.pos).map(x =>
     `<button class="bdg-b" ${x.pos <= 3 ? 'data-kd="cto"' : cmpAttr(s, x.date, x.comp, x.ev)} title="${esc(x.comp)} · ${dfmt(x.date)}">${badgeCto(x.lv, x.pos, x.ev)}</button>`);
   s.ev.forEach(e => { const r = e.rk.y || {};
-    if (r.es && r.es[0] <= 10) L.push(`<button class="bdg-b" data-kd="es10">${badgeRanking('es', r.es[0], e.e)}</button>`);
-    else if (r.ma && r.ma[0] == 1) L.push(`<button class="bdg-b" data-kd="ma1">${badgeRanking('ma', 1, e.e)}</button>`);
-    if (r.an && r.an[0] <= 8) L.push(`<button class="bdg-b" data-kd="an8">${badgeRanking('an', r.an[0], e.e)}</button>`); });
+    if (r.es && r.es[0] <= 10) L.push(`<button class="bdg-b" ${rkfAttr(s, e.e, 'es')}>${badgeRanking('es', r.es[0], e.e)}</button>`);
+    else if (r.ma && r.ma[0] == 1) L.push(`<button class="bdg-b" ${rkfAttr(s, e.e, 'ma')}>${badgeRanking('ma', 1, e.e)}</button>`);
+    if (r.an && r.an[0] <= 8) L.push(`<button class="bdg-b" ${rkfAttr(s, e.e, 'an')}>${badgeRanking('an', r.an[0], e.e)}</button>`); });
   return L.length ? `<div class="logros">${L.join('')}</div>` : '';
 }
 
@@ -418,7 +438,7 @@ function mejorMomentoHTML(s) {
   if (!m) return '';
   const rk = m.rk || {}, TOP = {es: 10, an: 8, ma: 1};
   const niv = ['es', 'an', 'ma'].filter(lv => rk[lv]).map(lv =>
-    `<span class="${rk[lv][0] <= TOP[lv] ? 'top' : ''}">${nivelHTML(lv)}${rk[lv][0]}º ${NIVEL_NOM[lv]}</span>`).join('');
+    `<span class="${rk[lv][0] <= TOP[lv] ? 'top' : ''}" ${rkfAttr(s, m.e, lv)}>${nivelHTML(lv)}${rk[lv][0]}º ${NIVEL_NOM[lv]} ›</span>`).join('');
   return `<button class="card mm" data-kd="pts">
     <span class="h">${ico('crono')}Su mejor momento<span class="mm-ver">Sus pruebas ›</span></span>
     <span class="mm-t"><span class="num-xl">${fmt(m.cs)}</span>${m.mejora > 0 ? `<span class="mejora" title="mejor que su marca anterior">${ico('tendencia')}${secs(m.mejora)} s</span>` : ''}</span>
@@ -493,7 +513,17 @@ function vistaFicha(app, s, sub, params) {
   if (est) est.onclick = () => elegirEstrella(s.id);
 }
 
-/* Sub-pantallas de los accesos: «‹ Nombre», título y el contenido de cada una */
+/* «Volver» de las sub-pantallas: a la pantalla de la que se llegó (Marcas, Rankings, otra ficha…), no siempre al resumen.
+   Sin camino anterior (enlace directo): al resumen del nadador, o a «En el club» desde el detalle de una prueba. */
+function volverSubHTML(s, sub, p) {
+  const ant = anteriorNav(pilaNav);
+  if (ant && rutaSinFiltros(ant) !== rutaSinFiltros(location.hash))
+    return `<a class="volver" href="${esc(ant)}">${ico('flecha-atras')}Volver a ${nombrePantalla(ant, BEN, SW)}</a>`;
+  return sub === 'club' && p.ev ? `<a class="volver" href="${fichaHref(s, 'club')}">${ico('flecha-atras')}En el club</a>`
+    : `<a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>`;
+}
+
+/* Sub-pantallas de los accesos: «‹ Volver», título y el contenido de cada una */
 function vistaSub(app, s, sub, p) {
   const sk = s.cat ? (p.sk || 'y') : 'y';
   const href = q => fichaHref(s, sub) + (q ? '?' + q : '');
@@ -511,8 +541,7 @@ function vistaSub(app, s, sub, p) {
     : `<div class="card"><div id="hist-host"><p class="empty">Cargando el historial…</p></div></div><div id="an-host">${analisisCompletoHTML(s)}</div>`;   // evolucion
 
   app.innerHTML = `
-    ${sub === 'club' && p.ev ? `<a class="volver" href="${fichaHref(s, 'club')}">${ico('flecha-atras')}En el club</a>`
-      : `<a class="volver" href="${fichaHref(s)}">${ico('flecha-atras')}${esc(s.n)}</a>`}
+    ${volverSubHTML(s, sub, p)}
     <div class="card sub-cab"><span class="ante">${esc(s.n)}</span><h1>${tit}</h1></div>
     <section style="margin-top:12px">${body}</section>`;
 
@@ -541,7 +570,7 @@ function abrirKpiFicha(s, k) {
   const ir = ev => `${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(ev)}`;
   const filaEv = (e, extra) => `<tr class="click" ${cmpAttr(s, e.date, e.comp, e.e)}><td><b>${e.e}</b> <span class="of">${e.pool}</span><div>${dtag(e.date)} ${edadTag(e.date, s.y)} <span class="tiny muted">${esc(e.comp || '')}</span></div></td>
       <td class="num"><b class="sun">${fmt(e.cs)}</b><div class="tiny muted">${e.pts} pts</div></td><td class="num">${extra || ''}</td></tr>`;
-  const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? posB(r[0], r[1]) : '—'; };
+  const pos = (e, lv) => { const r = (e.rk.y || {})[lv]; return r ? `<button type="button" class="cmp-l" ${rkfAttr(s, e.e, lv)}>${posB(r[0], r[1])} <span class="sun">›</span></button>` : '—'; };
   const nadadas = []; s.ev.forEach(e => e.h.forEach(x => nadadas.push([e, x])));
   const filaNado = ([e, x]) => `<tr class="click" ${cmpAttr(s, x[0], x[3], e.e)}><td>${dtag(x[0])} ${edadTag(x[0], s.y)} <b>${e.e}</b> <span class="of">${x[2]}</span><div class="tiny muted">${esc(x[3] || '')} · ${esc(x[4] || '')}</div></td>
       <td class="num"><b>${fmt(x[1])}</b></td><td class="num">${posB(x[6])}<span class="of">de ${x[7]}</span></td></tr>`;
@@ -574,9 +603,12 @@ function abrirKpiFicha(s, k) {
     const L = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 3);
     tit = 'Sus 3 mejores pruebas (puntos)'; cuerpo = `<table class="rt">${L.map(e => filaEv(e)).join('')}</table>`;
   }
-  document.querySelector('#modal .box').innerHTML = `<button class="close" onclick="closeEvo()">Cerrar ✕</button>
-    <h1 style="font-size:1.25rem;font-weight:900">${esc(s.n)}</h1><p class="sun" style="font-weight:800;margin:2px 0 12px">${tit}</p>${cuerpo}
-    <p class="tiny muted" style="margin-top:10px">Pulsa una fila para ver toda esa competición: todas las pruebas que nadó, con tiempos y puestos.</p>`;
-  const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0; document.body.style.overflow = 'hidden';
-  m.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { closeEvo(); location.hash = el.dataset.goto; });
+  const conRanking = /data-rkf/.test(cuerpo);
+  abrirVentana(() => {
+    document.querySelector('#modal .box').innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.25rem;font-weight:900">${esc(s.n)}</h1><p class="sun" style="font-weight:800;margin:2px 0 12px">${tit}</p>${cuerpo}
+      <p class="tiny muted" style="margin-top:10px">Pulsa una fila para ver toda esa competición: todas las pruebas que nadó, con tiempos y puestos.${conRanking ? ' Pulsa el puesto para ver ese ranking.' : ''}</p>`;
+    const m = abrirModal();
+    m.querySelectorAll('[data-goto]').forEach(el => el.onclick = () => { closeEvo(); location.hash = el.dataset.goto; });
+  });
 }
