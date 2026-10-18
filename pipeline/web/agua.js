@@ -42,29 +42,31 @@ function pintarAgua() {
     '<div class="agua-hondo"></div>';
 }
 
-/* Toque en el agua (solo modo acuático): cada toque abre dos ondas y unas gotitas que salpican hacia fuera.
-   Capa por encima de todo pero sin recibir toques (pointer-events: none), se borra sola al terminar.
-   Sin efecto con prefers-reduced-motion ni en «Agua clara». */
-const SALPICA_MAX = 6;
-function salpicar(x, y) {
-  const capa = document.createElement('div');
-  capa.className = 'toque'; capa.setAttribute('aria-hidden', 'true');
-  capa.style.left = x + 'px'; capa.style.top = y + 'px';
-  let h = '<i class="brillo"></i><i class="onda"></i><i class="onda o2"></i>';
-  const n = 7;
-  for (let i = 0; i < n; i++) {
-    const ang = -Math.PI / 2 + (i - (n - 1) / 2) * 0.42 + (Math.random() - .5) * .3;   // abanico hacia arriba
-    const r = 34 + Math.random() * 26, dx = Math.cos(ang) * r, dy = Math.sin(ang) * r + 22;  // y caen un poco
-    h += `<i class="gota" style="--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;--s:${(.8 + Math.random() * .7).toFixed(2)};animation-delay:${(Math.random() * 60) | 0}ms"></i>`;
-  }
-  capa.innerHTML = h;
-  document.body.appendChild(capa);
-  const viejas = document.querySelectorAll('.toque');
-  if (viejas.length > SALPICA_MAX) viejas[0].remove();
-  setTimeout(() => capa.remove(), 1000);
+/* Toque en el agua (solo modo acuático): el agua del fondo se agita y se calma sola en ~1,6 s.
+   Se anima la refracción de los azulejos (#agua-refr): más desplazamiento y un ligero cambio del oleaje,
+   con una oscilación que se apaga. No hay nada encima del contenido. Sin efecto con prefers-reduced-motion. */
+const AGUA_BASE = {escala: 14, fx: 0.018, fy: 0.026};
+let aguaOla = null;
+function agitarAgua() {
+  const disp = document.querySelector('#agua-refr feDisplacementMap'), turb = document.querySelector('#agua-refr feTurbulence');
+  if (!disp || !turb) return;
+  const t0 = performance.now(), dur = 1600, fase = Math.random() * Math.PI;
+  if (aguaOla) cancelAnimationFrame(aguaOla);
+  const paso = ahora => {
+    const k = Math.min(1, (ahora - t0) / dur);
+    const env = k < .12 ? k / .12 : Math.pow(1 - (k - .12) / .88, 2);        // sube rápido y se apaga despacio
+    const osc = Math.sin(fase + k * Math.PI * 6);
+    disp.setAttribute('scale', (AGUA_BASE.escala + env * (22 + 10 * osc)).toFixed(1));
+    turb.setAttribute('baseFrequency', `${(AGUA_BASE.fx + env * .006 * osc).toFixed(4)} ${(AGUA_BASE.fy - env * .006 * osc).toFixed(4)}`);
+    if (k < 1) aguaOla = requestAnimationFrame(paso);
+    else { disp.setAttribute('scale', AGUA_BASE.escala); turb.setAttribute('baseFrequency', `${AGUA_BASE.fx} ${AGUA_BASE.fy}`); aguaOla = null; }
+  };
+  aguaOla = requestAnimationFrame(paso);
+  const luz = document.querySelector('.agua .agua-luz');
+  if (luz) { luz.classList.remove('agitada'); void luz.getBoundingClientRect(); luz.classList.add('agitada'); }
 }
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('pointerdown', e => {
   if (!e.isPrimary || !document.documentElement.classList.contains('acuatico')) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  salpicar(e.clientX, e.clientY);
+  agitarAgua();
 }, {passive: true});
