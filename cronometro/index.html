@@ -615,6 +615,7 @@ ${dots}
 // ── Navigation ───────────────────────────────────────────────
 function nav(r) {
   if (_clk) { clearInterval(_clk); _clk = null; }
+  if (!['preparar','en-curso'].includes(r.screen)) soltarWakeLock();
   route = r;
   render();
 }
@@ -626,6 +627,7 @@ function navPreparar(eqId) {
         oferta: plantillaUsable()};
   boardReset();
   route = {screen:'preparar', eqId};
+  pedirWakeLock();
   render();
 }
 // Plantilla anterior con los nadadores que aún existen
@@ -687,7 +689,7 @@ async function pedirWakeLock() {
 }
 function soltarWakeLock() { try { if (_wake) _wake.release(); } catch {} _wake = null; }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && route.screen === 'en-curso') pedirWakeLock();
+  if (document.visibilityState === 'visible' && ['en-curso','preparar'].includes(route.screen)) pedirWakeLock();
 });
 
 // ── Preparar actions ─────────────────────────────────────────
@@ -1788,6 +1790,7 @@ function renderEnCurso() {
       </div>
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
     </div>
+    ${'wakeLock' in navigator ? '' : '<div class="muted" style="font-size:11px;margin:-6px 0 8px">Este móvil no permite mantener la pantalla encendida: súbele el tiempo de bloqueo en Ajustes.</div>'}
     <div class="nado-clk${SA.nado.some(x=>x.fin==null)?'':' parado'}"><span class="muted">Tiempo nadando</span><b id="live-nado">${fmtNado(msNadando(SA.nado, now))}</b></div>`;
 
   // Ronda terminada → resumen
