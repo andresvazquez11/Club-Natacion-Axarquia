@@ -104,6 +104,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .t-chip{display:inline-block;padding:4px 10px;background:var(--bg);border-radius:8px;font-size:13px;font-variant-numeric:tabular-nums;margin:3px;}
 .sep{border:none;border-top:1px solid var(--brd);margin:16px 0;}
 /* ── En curso ── */
+.sw-marca{display:block;font-size:11px;font-weight:700;color:var(--amb);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.lleg-marca{font-size:11px;font-weight:700;color:var(--amb)}
 .nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
 .nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
 .nado-clk b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
@@ -807,12 +809,15 @@ function llegoNad(key, t) {
   if (SA.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, SA.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
   const rec = {...a, ms, resId, tLleg: Date.now()};
+  // Marca en el momento: mejora su mejor entreno o su marca de competición (25 m)
+  rec.marca = SA.estilo && SA.dist ? marcaDe(comparaciones(a.nId, SA.estilo, SA.dist, ms, resId, Date.now())) : null;
   SA.llegados.push(rec);
   SA.recientes.push(rec);
   if (rondaTerminada()) { SA.nado = cerrarTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
-  try { navigator.vibrate && navigator.vibrate(35); } catch {}
+  try { navigator.vibrate && navigator.vibrate(rec.marca ? [60,40,60] : 35); } catch {}
   render();
 }
+const MARCA_TXT = {comp:'🏅 ¡marca de comp.!', entreno:'🏅 mejor entreno'};
 // Toque en el botón del nadador: parcial cada 50 m o llegada en el último tramo
 function marcaNad(key, t) {
   if (!SA) return;
@@ -1661,7 +1666,7 @@ function renderEnCurso() {
       <div class="lleg-list">
       ${lleg.map(l=>`<div class="lleg-row" style="--lc:${l.color}">
           ${laneTag(l.lane, l.color)}
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}</span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}${l.marca?` <span class="lleg-marca">${MARCA_TXT[l.marca]}</span>`:''}</span>
           <span class="t">${fmtTime(l.ms)}</span>
           <button class="lleg-undo" data-action="deshacer" data-key="${esc(l.key)}" aria-label="Deshacer">↶</button>
         </div>`).join('')}
@@ -1678,6 +1683,7 @@ function renderSwCard(f, done, now) {
     return `<div class="sw-card done">
       <span class="sw-nm">${esc(f.n)}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
+      ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
       <button class="sw-undo" data-action="deshacer" data-key="${esc(f.key)}">↶ Deshacer</button>
     </div>`;
