@@ -109,6 +109,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .ciclo-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px}
 .ciclo-cd{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--brd);border-radius:12px;padding:8px 12px;margin-bottom:10px}
 .ciclo-cd b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--amb)}
+.nota-r{font-size:12px;font-weight:500;color:var(--blu-l);font-style:italic}
 .nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
 .nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
 .nado-clk b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
@@ -442,6 +443,10 @@ const DB = {
     S.sesiones.push({id:ref.id,...data});
     await ref.set(data).catch(console.error);
     return ref.id;
+  },
+  guardarNota(resId, nota) {
+    const r = S.resultados.find(x=>x.id===resId); if (r) r.nota = nota;
+    _db.collection('resultados').doc(resId).update({nota}).catch(console.error);
   },
   async guardarPlan(id, data) {
     if (id) { const p = S.planes.find(x=>x.id===id); if (p) Object.assign(p, data); await _db.collection('planes').doc(id).update(data).catch(console.error); return id; }
@@ -834,6 +839,7 @@ function llegoNad(key, t) {
   const a = SA.agua.splice(i,1)[0];
   const ms = t - a.t0;
   const extra = {ronda:SA.ronda, salida:a.salida, estilo:SA.estilo||null, dist:SA.dist||null};
+  if (a.nota) extra.nota = a.nota;
   if (SA.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, SA.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
   const rec = {...a, ms, resId, tLleg: Date.now()};
@@ -1093,7 +1099,7 @@ async function exportar(sesId) {
   series.forEach(x => {
     txt += `\nSERIE ${x.ronda} · ${comboTexto(x.estilo, x.dist).toUpperCase()}\n`;
     x.res.forEach((r,i) => {
-      txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}\n`;
+      txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}${r.nota?` · Nota: ${r.nota}`:''}\n`;
       if (r.parciales && r.parciales.length>1) txt += `   Parciales 50 m: ${fmtTramos(r.parciales)}\n`;
       const ct = comparaTexto(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha));
       if (ct) txt += `   Comparado con su ${ct}\n`;
@@ -1162,7 +1168,7 @@ async function generarPDF(sesId, btn) {
         startY: y + 2, margin: {left:M, right:M},
         head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), 'Mejor competición (25 m)', 'Mejor entreno']],
         body: x.res.map((r,i) => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha);
-          return [i+1, nombreDe(r.nId), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
+          return [i+1, nombreDe(r.nId) + (r.nota ? `\nNota: ${r.nota}` : ''), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
             ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[]),
             c.comp ? `${fmtCs(c.comp.cs)} (${difTxt(c.difComp)})\n${origenComp(c.comp)} · ${fmtFechaIso(c.comp.fecha)}` : '—',
             c.ent ? `${fmtTime(c.ent.ms)} (${difTxt(c.difEnt)})\n${fmtDateShort(c.ent.fecha)}` : '—']; }),
@@ -1774,7 +1780,7 @@ function renderEnCurso() {
         <div class="salida-next">
           ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
         </div>
-        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale</div>
+        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale · mantén pulsado un nadador para anotar</div>
         ${SA.ciclo ? `<div class="ciclo-cd">
           <div style="flex:1"><div class="muted" style="font-size:12px">Ciclo ${esc(fmtNado(SA.ciclo*1000))} · ${SA.auto?'salida automática':'manual'}</div>
             ${SA.nSalida>0?`<b id="live-ciclo">${fmtNado(Math.max(0, Math.ceil(cicloEstado(SA.tUltSalida, SA.ciclo, now, true).restaMs/1000)*1000))}</b>`:'<span style="font-size:13px">La cuenta empieza con la primera SALIDA</span>'}</div>
@@ -1809,9 +1815,9 @@ function renderEnCurso() {
   if (lleg.length) {
     html += `<div class="sec-hdr" style="margin-top:16px"><span class="label">Llegados ✓ (${lleg.length})</span></div>
       <div class="lleg-list">
-      ${lleg.map(l=>`<div class="lleg-row" style="--lc:${l.color}">
+      ${lleg.map(l=>`<div class="lleg-row" data-key="${esc(l.key)}" style="--lc:${l.color}">
           ${laneTag(l.lane, l.color)}
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}${l.marca?` <span class="lleg-marca">${MARCA_TXT[l.marca]}</span>`:''}</span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}${l.nota?' 📝':''}${l.marca?` <span class="lleg-marca">${MARCA_TXT[l.marca]}</span>`:''}</span>
           <span class="t">${fmtTime(l.ms)}</span>
           <button class="lleg-undo" data-action="deshacer" data-key="${esc(l.key)}" aria-label="Deshacer">↶</button>
         </div>`).join('')}
@@ -1825,8 +1831,8 @@ function renderSwCard(f, done, now) {
   const conParc = SA.tramos > 1;
   const dots = conParc ? `<span class="sw-dots">${Array.from({length:SA.tramos},(_,i)=>`<i class="${i<f.parc.length?'on':''}${i<f.parc.length&&f.parc[i]==null?' skip':''}"></i>`).join('')}</span>` : '';
   if (done) {
-    return `<div class="sw-card done">
-      <span class="sw-nm">${esc(f.n)}</span>
+    return `<div class="sw-card done" data-key="${esc(f.key)}">
+      <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
       ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
@@ -1837,7 +1843,7 @@ function renderSwCard(f, done, now) {
   const ultimo = conParc && f.parc.length ? f.parc[f.parc.length-1] : null;
   return `<button class="sw-card${esParcial?' parcial':''}" data-action="llego" data-key="${esc(f.key)}">
       <span class="sw-meta">S${f.salida}${dots}</span>
-      <span class="sw-nm">${esc(f.n)}</span>
+      <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk live-clk" data-t0="${f.t0}">${fmtTime(now-f.t0)}</span>
       ${ultimo!=null?`<span class="sw-last">${f.parc.length*50}m ${fmtTime(ultimo)}</span>`:''}
       <span class="sw-act">${esParcial?`<small>parcial</small>${(f.parc.length+1)*50} m`:'LLEGÓ'}</span>
@@ -1958,7 +1964,7 @@ function renderResultados(sesId, backAction, backLabel) {
       ${x.res.map((r,i)=>`
         <div class="result-row">
           <div class="rpos${i===0?' gold':''}">${i+1}</div>
-          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha))}</div>
+          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha))}</div>
           <div style="text-align:right">
             <div class="rtime">${fmtTime(r.ms)}</div>
             ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}
@@ -2191,6 +2197,37 @@ document.getElementById('app').addEventListener('pointerdown', function(e) {
   const b = e.target.closest('.salida-btn,.llego-btn');
   _press = b ? {id:b.dataset.action+'|'+(b.dataset.key||''), t:Date.now()} : null;
 }, true);
+// Nota rápida: mantener pulsada la tarjeta (en el agua) o la fila (llegado) sin moverse.
+// En el agua hace falta más tiempo, para que un LLEGÓ algo largo nunca se convierta en nota.
+let _lp = null, _notaPend = null;
+document.getElementById('app').addEventListener('pointerdown', function(e) {
+  const el = e.target.closest('.sw-card[data-key],.lleg-row[data-key]');
+  if (!el || !SA) return;
+  const enAgua = el.classList.contains('sw-card') && !el.classList.contains('done');
+  _lp = {x:e.clientX, y:e.clientY, key:el.dataset.key, timer:setTimeout(() => {
+    _notaPend = _lp && _lp.key; _ignoreClickUntil = Date.now() + 60000;
+    try { navigator.vibrate && navigator.vibrate(15); } catch {}
+  }, enAgua ? 800 : 600)};
+});
+document.getElementById('app').addEventListener('pointermove', function(e) {
+  if (_lp && Math.hypot(e.clientX-_lp.x, e.clientY-_lp.y) > 10) { clearTimeout(_lp.timer); _lp = null; }
+});
+function finPulsacion() {
+  if (_lp) { clearTimeout(_lp.timer); _lp = null; }
+  if (_notaPend) { const k = _notaPend; _notaPend = null; _ignoreClickUntil = Date.now() + 400; setTimeout(() => pedirNota(k), 0); }
+}
+document.getElementById('app').addEventListener('pointerup', finPulsacion);
+document.getElementById('app').addEventListener('pointercancel', finPulsacion);
+function pedirNota(key) {
+  if (!SA) return;
+  const x = SA.agua.find(a=>a.key===key) || SA.llegados.find(l=>l.key===key);
+  if (!x) return;
+  const txt = prompt(`Nota para ${x.n}`, x.nota || '');
+  if (txt === null) return;
+  x.nota = txt.trim().slice(0, 200) || null;
+  if (x.resId) DB.guardarNota(x.resId, x.nota);   // ya llegó; si no, se guarda al llegar
+  render();
+}
 function tiempoToque(btn) {
   const id = btn.dataset.action+'|'+(btn.dataset.key||'');
   return (_press && _press.id===id && Date.now()-_press.t < 1500) ? _press.t : Date.now();

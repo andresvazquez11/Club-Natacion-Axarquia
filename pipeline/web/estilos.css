@@ -562,6 +562,7 @@ html.acuatico .seg{background:var(--solid)}
 .ent-ses-r{width:100%;font-size:.75rem;color:var(--ink2)}
 .ent-ses .rt{margin-top:8px}
 .ent-sim{font-size:.62rem;padding:2px 7px;background:var(--me,var(--inset));color:var(--warn);border:1px solid var(--warn)}
+.ent-nota{color:var(--ink2);font-style:italic;margin-top:2px}
 .ent-aviso-sim{font-size:.8rem;line-height:1.4;padding:10px 12px;margin:0 0 12px;border-radius:12px;border:1px dashed var(--warn);color:var(--ink)}
 .nav a.ent-on .ico{color:var(--hl)}
 .ent-cmp{margin-top:2px;line-height:1.45;font-variant-numeric:tabular-nums}

@@ -53,7 +53,7 @@ const CAMPOS = {
   equipos:['nombre','ts','coach','shared'], nadadores:['eqId','n','rfen'],
   sesiones:['eqId','fecha','estilo','dist','notas','fin','coach','parciales'],
   grupos:['sesId','nombre','ord'], gnads:['gId','nId','pos'],
-  resultados:['sesId','nId','gId','ms','modo','ronda','salida','parciales','estilo','dist'],
+  resultados:['sesId','nId','gId','ms','modo','ronda','salida','parciales','estilo','dist','nota'],
   plantillas:['coach','ts','estilo','dist','parciales','calles'],
   planes:['coach','ts','nombre','eqId','calles','series']
 };
@@ -66,7 +66,7 @@ function validar(col, d) {
   if ('dist' in out) { const n = Number(out.dist); out.dist = Number.isFinite(n) && n > 0 ? n : null; }
   if ('ms' in out && !Number.isFinite(out.ms)) return null;
   if ('rfen' in out && !/^\d{3,12}$/.test(String(out.rfen))) delete out.rfen;
-  for (const k of ['nombre','n','coach','notas']) if (k in out && out[k] != null) out[k] = String(out[k]).slice(0, 200);
+  for (const k of ['nombre','n','coach','notas','nota']) if (k in out && out[k] != null) out[k] = String(out[k]).slice(0, 200);
   return {id:d.id, data:out};
 }
 const $ = id => document.getElementById(id);

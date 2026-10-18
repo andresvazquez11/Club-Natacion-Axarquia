@@ -33,7 +33,7 @@ function entTiempos(D, sw) {
     const n = nad.get(r.nId) || {};
     const web = n.rfen && Object.hasOwn(sw, String(n.rfen)) ? sw[String(n.rfen)] : null;
     return {id: r.id, sesId: r.sesId, fecha: Number(s.fecha) || 0, dia: entDia(Number(s.fecha) || 0), coach: s.coach || '', sim: entEsSim(s), ronda: entEntero(r.ronda),
-      estilo, dist, ev: estilo && dist ? entPrueba(estilo, dist) : null, cs: entCs(r.ms), parciales: r.parciales || null,
+      estilo, dist, ev: estilo && dist ? entPrueba(estilo, dist) : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
@@ -433,7 +433,7 @@ function pintarEntrenosNadador(app, s, p) {
         </div>
         ${filas.length >= 2 ? evoChart(filas.map(t => [t.dia, t.cs, '', 'Entrenamiento']), null) : '<p class="empty">Con dos días de tiempos en esta prueba se verá su evolución.</p>'}
         <table class="rt" style="margin-top:8px"><tr><th>Fecha</th><th class="num">Tiempo</th><th>Parciales 50 m</th></tr>
-          ${[...T.filter(t => t.ev === ev)].reverse().map(t => `<tr><td>${dfmt(t.dia)}${t.sim ? ' <span class="tag ent-sim">Simulación</span>' : ''}${entCompararHTML(entComparar(T, t))}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
+          ${[...T.filter(t => t.ev === ev)].reverse().map(t => `<tr><td>${dfmt(t.dia)}${t.sim ? ' <span class="tag ent-sim">Simulación</span>' : ''}${t.nota ? `<div class="tiny ent-nota">Nota: ${esc(t.nota)}</div>` : ''}${entCompararHTML(entComparar(T, t))}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
             <td class="tiny">${t.parciales && t.parciales.length > 1 ? t.parciales.map((v, i, a) => v == null || (i && a[i - 1] == null) ? '—' : fmt(entCs(i ? v - a[i - 1] : v))).join(' · ') : ''}</td></tr>`).join('')}</table>
       </div>` : ''}`;
     onChips(host, 'ev', v => { location.hash = fichaHref(s, 'entrenos') + '?ev=' + encodeURIComponent(v); });
