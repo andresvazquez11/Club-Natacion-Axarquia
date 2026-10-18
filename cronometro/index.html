@@ -106,6 +106,9 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 /* ── En curso ── */
 .sw-marca{display:block;font-size:11px;font-weight:700;color:var(--amb);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .lleg-marca{font-size:11px;font-weight:700;color:var(--amb)}
+.ciclo-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px}
+.ciclo-cd{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--brd);border-radius:12px;padding:8px 12px;margin-bottom:10px}
+.ciclo-cd b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--amb)}
 .nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
 .nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
 .nado-clk b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
@@ -595,7 +598,7 @@ function navPreparar(eqId) {
   // Start with one empty lane, coaches fill it from club search
   PS = {eqId, estilo:null, dist:null, notas:'',
         sinGrupo:[], grupos:[{key:'calle1', nombre:'Calle 1', nads:[]}],
-        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false,
+        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false, ciclo:null, cicloTxt:'', auto:autoGuardado(),
         oferta: plantillaUsable()};
   boardReset();
   route = {screen:'preparar', eqId};
@@ -631,6 +634,17 @@ function startClock() {
     document.querySelectorAll('.live-clk[data-t0]').forEach(el => {
       el.textContent = fmtTime(now - Number(el.dataset.t0));
     });
+    if (SA.ciclo && SA.nSalida > 0 && quedanPorSalir()) {
+      const e = cicloEstado(SA.tUltSalida, SA.ciclo, now, true);
+      const cd = document.getElementById('live-ciclo');
+      if (cd) cd.textContent = fmtNado(Math.max(0, Math.ceil(e.restaMs/1000)*1000));
+      if (e.aviso && SA.avisado !== SA.nSalida) { SA.avisado = SA.nSalida; pitido(120, 880); }
+      if (e.toca && SA.cicloSonado !== SA.nSalida) {
+        SA.cicloSonado = SA.nSalida; pitido(500, 660);
+        try { navigator.vibrate && navigator.vibrate(200); } catch {}
+        if (SA.auto) salidaTanda(SA.tUltSalida + SA.ciclo*1000, true);
+      }
+    }
     const nd = document.getElementById('live-nado');
     if (nd) { nd.textContent = fmtNado(msNadando(SA.nado, now)); nd.parentElement.classList.toggle('parado', !SA.nado.some(x=>x.fin==null)); }
     // Pasa a "Llegados" las filas que ya llevan un rato marcadas
@@ -719,6 +733,7 @@ async function iniciarSesion() {
     for (let p=0; p<g.nads.length; p++) await DB.asignarNad(gId, g.nads[p].id, p);
   }
   buildSA(sesId);
+  SA.ciclo = PS && PS.ciclo || null; SA.cicloTxt = PS && PS.cicloTxt || ''; SA.auto = !!(PS && PS.auto);
   route = {screen:'en-curso', sesId};
   startClock();
   pedirWakeLock();
@@ -778,9 +793,9 @@ function rondaTerminada() { return SA.agua.length===0 && !quedanPorSalir() && SA
 function ordenFila(a, b) { return a.salida-b.salida || a.laneIdx-b.laneIdx; }
 
 // ── En-curso actions ─────────────────────────────────────────
-function salidaTanda(t) {
+function salidaTanda(t, auto) {
   if (!SA || !quedanPorSalir()) return;
-  if (t - SA.tUltSalida < 800) return; // evita doble toque accidental
+  if (!auto && t - SA.tUltSalida < 800) return; // evita doble toque accidental
   const salen = SA.grupos.filter(g => g.next < g.nads.length && !SA.noSale.has(g.gId));
   if (!salen.length) return;
   if (SA.nSalida === 0) { SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
@@ -943,6 +958,7 @@ function repetirSerie(cfg) {
   if (cfg) {   // nueva serie con otro estilo/distancia
     SA.estilo = cfg.estilo; SA.dist = Number(cfg.dist) || 0; SA.parciales = !!cfg.parciales;
     SA.tramos = SA.parciales && SA.dist > 50 ? Math.round(SA.dist/50) : 1;
+    SA.ciclo = cfg.ciclo || null; SA.cicloTxt = cfg.cicloTxt || (cfg.ciclo ? fmtNado(cfg.ciclo*1000) : ''); SA.auto = !!cfg.auto;
   }
   SA.nuevaSerie = null;
   SA.ronda++;
@@ -1558,6 +1574,33 @@ document.addEventListener('pointercancel', () => dragEnd(false));
 document.addEventListener('touchmove', e => { if (DRAG && DRAG.started) e.preventDefault(); }, {passive:false});
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.b-card')) e.preventDefault(); });
 
+// ── Salidas por ciclo ────────────────────────────────────────
+const autoGuardado = () => { try { return localStorage.getItem('crono_auto') === '1'; } catch { return false; } };
+function guardarAuto(v) { try { localStorage.setItem('crono_auto', v ? '1' : '0'); } catch {} }
+let _ac = null;   // audio: se crea con un toque del entrenador (los móviles no suenan sin él)
+function desbloquearAudio() {
+  try { if (!_ac) { const C = window.AudioContext || window.webkitAudioContext; if (C) _ac = new C(); } if (_ac && _ac.state === 'suspended') _ac.resume(); } catch {}
+}
+function pitido(ms, hz) {
+  try {
+    if (!_ac) return;
+    const o = _ac.createOscillator(), g = _ac.createGain(), t = _ac.currentTime;
+    o.frequency.value = hz; o.connect(g); g.connect(_ac.destination);
+    g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.001, t + ms/1000);
+    o.start(t); o.stop(t + ms/1000);
+  } catch {}
+}
+// Campo de ciclo + interruptor de salida automática (t: 'ps' preparar, 'ns' nueva serie)
+function cicloHTML(o, t) {
+  return `<div class="ciclo-row">
+    <label style="flex:1"><span class="label" style="margin-bottom:4px">Ciclo de salida</span>
+      <input class="input" data-ciclo="${t}" inputmode="numeric" placeholder="Sin ciclo · ej. 1:10" value="${esc(o.cicloTxt||'')}"></label>
+    <div class="toggle-row${o.ciclo?'':' dis'}" style="margin:0;flex:1" ${o.ciclo?`data-action="ciclo-auto" data-t="${t}"`:''}>
+      <div style="flex:1;font-weight:600;font-size:14px">Salida automática</div><div class="sw${o.ciclo&&o.auto?' on':''}"></div></div>
+  </div>`;
+}
+const cicloObj = t => t === 'ps' ? PS : (SA && SA.nuevaSerie);
+
 // ── Screen: Preparar ─────────────────────────────────────────
 function renderPreparar() {
   if (!PS) return '';
@@ -1591,6 +1634,7 @@ function renderPreparar() {
       <div style="flex:1"><div style="font-weight:600">⏱ Tiempos parciales cada 50 m</div>
       <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
       <div class="sw${on?' on':''}"></div></div>`; })()}
+    ${cicloHTML(PS, 'ps')}
     <input class="input mb16" id="notas-input" placeholder="Notas opcionales..." value="${esc(PS.notas)}">
     <span class="label">Calles (${PS.grupos.length})</span>
     ${renderBoard(boardPS, {extraLanes:`<button class="b-add-lane" data-action="nueva-calle">➕ Añadir calle</button>`})}
@@ -1635,6 +1679,11 @@ function renderEnCurso() {
           ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
         </div>
         <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale</div>
+        ${SA.ciclo ? `<div class="ciclo-cd">
+          <div style="flex:1"><div class="muted" style="font-size:12px">Ciclo ${esc(fmtNado(SA.ciclo*1000))} · ${SA.auto?'salida automática':'manual'}</div>
+            ${SA.nSalida>0?`<b id="live-ciclo">${fmtNado(Math.max(0, Math.ceil(cicloEstado(SA.tUltSalida, SA.ciclo, now, true).restaMs/1000)*1000))}</b>`:'<span style="font-size:13px">La cuenta empieza con la primera SALIDA</span>'}</div>
+          <button class="btn btn-surf btn-sm btn-inline" data-action="ciclo-sa">${SA.auto?'⏸ Pausar ciclo':'▶ Automática'}</button>
+        </div>` : ''}
         <button class="salida-btn" data-action="salida-tanda" ${salen?'':'disabled'}>🚀 SALIDA${salen<pendientes.length&&salen?` (${salen})`:''}</button>
       </div>`;
   } else {
@@ -1775,6 +1824,7 @@ function renderNuevaSerie() {
     <div class="picker-row p4">${DISTS.map(d=>`<button class="pick-btn${Number(f.dist)===d?' on':''}" data-action="ns-dist" data-val="${d}">${d}m</button>`).join('')}</div>
     <div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="ns-parc"':''}>
       <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>
+    ${cicloHTML(f, 'ns')}
     <div class="row">
       <button class="btn btn-blue" style="flex:2;min-height:52px" data-action="ns-empezar" ${f.estilo&&f.dist?'':'disabled style="opacity:.4"'}>▶ Empezar serie ${SA.ronda+1}</button>
       <button class="btn btn-surf" style="flex:1;min-height:52px" data-action="ns-cancelar">Cancelar</button>
@@ -2117,7 +2167,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'mover-grupo':  saveNotas(); moverGrupo(parseInt(btn.dataset.idx), parseInt(btn.dataset.dir)); break;
     case 'eliminar-grupo': saveNotas(); if(PS){PS.grupos.splice(parseInt(btn.dataset.idx),1);render();} break;
     case 'nueva-calle':  saveNotas(); if(PS){const n=PS.grupos.length+1;PS.grupos.push({key:'calle'+Date.now()+'-'+Math.random().toString(36).slice(2,6),nombre:`Calle ${n}`,nads:[]});render();} break;
-    case 'iniciar-sesion': saveNotas(); await iniciarSesion(); break;
+    case 'iniciar-sesion': saveNotas(); desbloquearAudio(); await iniciarSesion(); break;
     case 'set-club-cat': saveNotas(); if(PS){PS.clubCat=btn.dataset.cat||null;render();} break;
     case 'add-nad-to-grupo': saveNotas(); {
       if (!PS) break;
@@ -2133,7 +2183,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
       break;
     }
     case 'mover-nad-grupo': moverNadGrupo(btn.dataset.gkey, +btn.dataset.pi, +btn.dataset.dir); break;
-    case 'salida-tanda':    salidaTanda(tiempoToque(btn)); break;
+    case 'salida-tanda':    desbloquearAudio(); salidaTanda(tiempoToque(btn)); break;
     case 'llego': {
       const t = tiempoToque(btn);
       // Si la lista cambió entre el toque y el soltar, el dedo apuntaba a otra fila: ignorar
@@ -2163,7 +2213,9 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
-    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales}; render(); } break;
+    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, cicloTxt:SA.cicloTxt, auto:SA.auto}; render(); } break;
+    case 'ciclo-auto':      { saveNotas(); const o = cicloObj(btn.dataset.t); if (o && o.ciclo) { o.auto = !o.auto; guardarAuto(o.auto); render(); } break; }
+    case 'ciclo-sa':        if (SA) { SA.auto = !SA.auto; guardarAuto(SA.auto); render(); } break;
     case 'ns-cancelar':     if (SA) { SA.nuevaSerie = null; render(); } break;
     case 'ns-estilo':       if (SA && SA.nuevaSerie) { SA.nuevaSerie.estilo = btn.dataset.val; render(); } break;
     case 'ns-dist':         if (SA && SA.nuevaSerie) { SA.nuevaSerie.dist = Number(btn.dataset.val); render(); } break;
@@ -2211,6 +2263,14 @@ document.getElementById('app').addEventListener('input', function(e) {
     render();
     const el = document.getElementById('gs-'+gkey);
     if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} }
+  }
+  // Ciclo de salida: se guarda al escribir, sin redibujar (no se pierde el foco)
+  if (e.target.dataset.ciclo) {
+    const o = cicloObj(e.target.dataset.ciclo);
+    if (o) { const antes = !!o.ciclo; o.cicloTxt = e.target.value; o.ciclo = parseCiclo(e.target.value);
+      const sw = e.target.closest('.ciclo-row').querySelector('.toggle-row');
+      if (sw && antes !== !!o.ciclo) { sw.classList.toggle('dis', !o.ciclo); if (o.ciclo) { sw.dataset.action = 'ciclo-auto'; sw.dataset.t = e.target.dataset.ciclo; } else delete sw.dataset.action;
+        sw.querySelector('.sw').classList.toggle('on', !!(o.ciclo && o.auto)); } }
   }
   // Campo de notas
   if (e.target.id==='notas-input' && PS) {

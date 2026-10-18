@@ -110,3 +110,12 @@ function mejorDelDia(res) {
   const m = grupo.reduce((x, r) => r.ms < x.ms ? r : x);
   return {nId: m.nId, ms: m.ms, estilo: m.estilo, dist: Number(m.dist)};
 }
+// Ciclo de salidas escrito por el entrenador: «70» o «1:10» → segundos; vacío o inválido → sin ciclo
+function parseCiclo(txt) {
+  const t = String(txt == null ? '' : txt).trim();
+  let m = /^(\d{1,4})$/.exec(t);
+  if (m) { const n = Number(m[1]); return n > 0 ? n : null; }
+  m = /^(\d{1,2}):([0-5]\d)$/.exec(t);
+  if (m) { const n = Number(m[1]) * 60 + Number(m[2]); return n > 0 ? n : null; }
+  return null;
+}

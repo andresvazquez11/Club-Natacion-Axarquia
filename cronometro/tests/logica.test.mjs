@@ -91,3 +91,13 @@ test('mejorDelDia: el más rápido de la prueba más nadada', () => {
   assert.equal(ev('mejorDelDia', []), null);
   assert.equal(ev('mejorDelDia', [{ nId: 'a', ms: 1, estilo: null, dist: null }]), null);
 });
+
+test('parseCiclo: segundos o m:ss; vacío o inválido es sin ciclo', () => {
+  assert.equal(ev('parseCiclo', '70'), 70);
+  assert.equal(ev('parseCiclo', '1:10'), 70);
+  assert.equal(ev('parseCiclo', ' 2:05 '), 125);
+  assert.equal(ev('parseCiclo', ''), null);
+  assert.equal(ev('parseCiclo', '0'), null);
+  assert.equal(ev('parseCiclo', '1:75'), null);
+  assert.equal(ev('parseCiclo', 'abc'), null);
+});
