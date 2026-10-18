@@ -244,11 +244,12 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 // ── Constants ────────────────────────────────────────────────
 const DISTS   = [50,100,200,400];
 const EMO     = {libre:'🏊',braza:'🐸',mariposa:'🦋',espalda:'🔄'};
-const COLS    = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','entrenadores'];
+const COLS    = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','planes','entrenadores'];
+const COLS_OPCIONALES = ['planes'];   // si las reglas aún no la permiten, la app sigue sin ella
 
 // ── State ────────────────────────────────────────────────────
 let _db = null, _dbReady = false, _initN = 0, _initTimer = null;
-const S = {equipos:[],nadadores:[],sesiones:[],grupos:[],gnads:[],resultados:[],plantillas:[],entrenadores:[]};
+const S = {equipos:[],nadadores:[],sesiones:[],grupos:[],gnads:[],resultados:[],plantillas:[],planes:[],entrenadores:[]};
 let route = {screen:'home'};
 let SA = null;   // active session timing state
 let PS = null;   // preparar screen state
@@ -402,7 +403,7 @@ function conectarColecciones() {
       else if (canRerender()) render();
     }, err => {
       console.warn(col, err.code);
-      if (err.code === 'permission-denied') { clearTimeout(_initTimer); sinAcceso(); return; }
+      if (err.code === 'permission-denied' && !COLS_OPCIONALES.includes(col)) { clearTimeout(_initTimer); sinAcceso(); return; }
       if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
     }));
   }
@@ -441,6 +442,19 @@ const DB = {
     S.sesiones.push({id:ref.id,...data});
     await ref.set(data).catch(console.error);
     return ref.id;
+  },
+  async guardarPlan(id, data) {
+    if (id) { const p = S.planes.find(x=>x.id===id); if (p) Object.assign(p, data); await _db.collection('planes').doc(id).update(data).catch(console.error); return id; }
+    const ref = _db.collection('planes').doc(); S.planes.push({id:ref.id, ...data});
+    await ref.set(data).catch(console.error); return ref.id;
+  },
+  async borrarPlan(id) {
+    S.planes = S.planes.filter(p=>p.id!==id); render();
+    await _db.collection('planes').doc(id).delete().catch(console.error);
+  },
+  guardarPlanId(sesId, planId) {
+    const s = S.sesiones.find(s=>s.id===sesId); if (s) s.planId = planId;
+    _db.collection('sesiones').doc(sesId).update({planId}).catch(console.error);
   },
   // Tiempo nadando: tramos por serie (solo el campo nado, para no pisar sim ni otros)
   guardarNado(id, nado) {
@@ -708,6 +722,11 @@ function moverNadGrupo(key, pi, dir) {
   [g.nads[pi],g.nads[j]] = [g.nads[j],g.nads[pi]];
   render();
 }
+function eqMasFrecuente(calles) {
+  const cnt = {};
+  calles.flatMap(g=>g.nads).forEach(n => { const nad = S.nadadores.find(x=>x.id===n.id); if (nad) cnt[nad.eqId] = (cnt[nad.eqId]||0)+1; });
+  return Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0] || null;
+}
 async function iniciarSesion() {
   if (!PS) return;
   const {estilo, dist, notas, grupos} = PS;
@@ -715,15 +734,7 @@ async function iniciarSesion() {
   const callesConNads = grupos.filter(g=>g.nads.length>0);
   if (callesConNads.length===0) return;
   // Desde la página principal no hay equipo: se usa el más frecuente entre los nadadores
-  let eqId = PS.eqId;
-  if (!eqId) {
-    const cnt = {};
-    callesConNads.flatMap(g=>g.nads).forEach(n => {
-      const nad = S.nadadores.find(x=>x.id===n.id);
-      if (nad) cnt[nad.eqId] = (cnt[nad.eqId]||0)+1;
-    });
-    eqId = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0] || null;
-  }
+  const eqId = PS.eqId || eqMasFrecuente(callesConNads);
   const parciales = PS.parciales && Number(dist) > 50;
   DB.guardarPlantilla(callesConNads.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})), estilo, dist, parciales);
   const sesId = await DB.crearSesion(eqId, estilo, dist, notas, parciales);
@@ -734,6 +745,8 @@ async function iniciarSesion() {
   }
   buildSA(sesId);
   SA.ciclo = PS && PS.ciclo || null; SA.cicloTxt = PS && PS.cicloTxt || ''; SA.auto = !!(PS && PS.auto);
+  const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
+  if (plan) { SA.plan = plan; SA.planIdx = 0; DB.guardarPlanId(sesId, plan.id); }
   route = {screen:'en-curso', sesId};
   startClock();
   pedirWakeLock();
@@ -1281,8 +1294,23 @@ function renderHome() {
     </div>
     ${pend ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${pend} ${pend===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
     <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
-    ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:18px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
+    ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:10px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
+    ${renderPreparados()}
     ${tarjeta}`;
+}
+function renderPreparados() {
+  const ps = misPlanes();
+  return `<div class="row" style="margin:6px 0 8px"><span class="label" style="flex:1;margin:0">Entrenos preparados</span>
+      <button class="btn btn-surf btn-sm btn-inline" data-action="plan-nuevo">📝 Preparar</button></div>
+    ${ps.map(p=>`<div class="card row" style="gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700">${esc(p.nombre)}</div>
+        <div class="muted" style="font-size:12px">${esc(p.eqId?eqNombre(p.eqId):'')} · ${p.series.map(x=>esc(comboTexto(x.estilo,x.dist))+(x.ciclo?` c/${esc(fmtNado(x.ciclo*1000))}`:'')).join(' · ')}</div>
+      </div>
+      <button class="btn-icon" data-action="plan-editar" data-id="${esc(p.id)}" aria-label="Editar">✎</button>
+      <button class="btn-icon" data-action="plan-borrar" data-id="${esc(p.id)}" style="color:var(--red)" aria-label="Borrar">✕</button>
+      <button class="btn btn-green btn-sm btn-inline" data-action="plan-empezar" data-id="${esc(p.id)}">▶</button>
+    </div>`).join('') || '<div class="muted" style="font-size:13px;margin-bottom:14px">Prepara en casa las series y las calles; en la piscina solo pulsas ▶.</div>'}`;
 }
 // Repetir: las mismas calles y la prueba de la primera serie de ese entrenamiento
 function repetirEntreno(sesId) {
@@ -1576,6 +1604,7 @@ document.addEventListener('contextmenu', e => { if (e.target.closest && e.target
 
 // ── Salidas por ciclo ────────────────────────────────────────
 const autoGuardado = () => { try { return localStorage.getItem('crono_auto') === '1'; } catch { return false; } };
+function planNombre() { const el = document.getElementById('plan-nombre'); if (el && PS && PS.plan) PS.plan.nombre = el.value; }
 function guardarAuto(v) { try { localStorage.setItem('crono_auto', v ? '1' : '0'); } catch {} }
 let _ac = null;   // audio: se crea con un toque del entrenador (los móviles no suenan sin él)
 function desbloquearAudio() {
@@ -1599,7 +1628,64 @@ function cicloHTML(o, t) {
       <div style="flex:1;font-weight:600;font-size:14px">Salida automática</div><div class="sw${o.ciclo&&o.auto?' on':''}"></div></div>
   </div>`;
 }
-const cicloObj = t => t === 'ps' ? PS : (SA && SA.nuevaSerie);
+const cicloObj = t => t === 'ps' ? PS : t.startsWith('plan-') ? (PS && PS.plan && PS.plan.series[Number(t.slice(5))]) : (SA && SA.nuevaSerie);
+
+// ── Planes: entrenos preparados en casa (calles + lista de series) ──
+function misPlanes() { return S.planes.filter(p=>p.coach===coachName).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
+const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, cicloTxt:'', auto:autoGuardado()});
+// Abre preparar en modo plan: el mismo tablero de calles y, en lugar de estilo/distancia, la lista de series
+function abrirPlan(id) {
+  const p = id ? S.planes.find(x=>x.id===id) : null;
+  navPreparar(p ? p.eqId : null);
+  PS.oferta = null;
+  PS.plan = {id: p ? p.id : null, nombre: p ? p.nombre : '',
+    series: p && p.series.length ? p.series.map(x=>({...x, cicloTxt: x.ciclo ? fmtNado(x.ciclo*1000) : ''})) : [serieVacia()]};
+  if (p) {
+    const calles = p.calles.map((c,i)=>({key:'calle'+i+'-'+Date.now(), nombre:c.nombre,
+      nads: c.nIds.map(id=>S.nadadores.find(n=>n.id===id)).filter(Boolean).map(n=>({id:n.id, n:n.n}))}));
+    if (calles.length) PS.grupos = calles;
+  }
+  render();
+}
+function renderSeriesPlan() {
+  const ss = PS.plan.series;
+  return ss.map((x,i)=>`
+    <div class="card plan-serie">
+      <div class="row" style="margin-bottom:8px">
+        <b style="flex:1">Serie ${i+1}</b>
+        ${i>0?`<button class="btn-icon" data-action="plan-mover" data-i="${i}" data-dir="-1" aria-label="Subir">↑</button>`:''}
+        ${i<ss.length-1?`<button class="btn-icon" data-action="plan-mover" data-i="${i}" data-dir="1" aria-label="Bajar">↓</button>`:''}
+        ${ss.length>1?`<button class="btn-icon" data-action="plan-quitar" data-i="${i}" style="color:var(--red)" aria-label="Quitar">✕</button>`:''}
+      </div>
+      <div class="picker-row p4" style="margin-bottom:6px">${ESTILOS.map(e=>`<button class="pick-btn${x.estilo===e?' on':''}" data-action="plan-estilo" data-i="${i}" data-val="${e}">${EMO[e]} ${e}</button>`).join('')}</div>
+      <div class="picker-row p4" style="margin-bottom:8px">${DISTS.map(d=>`<button class="pick-btn${Number(x.dist)===d?' on':''}" data-action="plan-dist" data-i="${i}" data-val="${d}">${d}m</button>`).join('')}</div>
+      ${(() => { const ok = Number(x.dist) > 50; return `<div class="toggle-row${ok?'':' dis'}" ${ok?`data-action="plan-parc" data-i="${i}"`:''}><div style="flex:1;font-weight:600;font-size:14px">⏱ Parciales cada 50 m</div><div class="sw${ok&&x.parciales?' on':''}"></div></div>`; })()}
+      ${cicloHTML(x, 'plan-'+i)}
+    </div>`).join('') + `<button class="btn btn-surf mb16" data-action="plan-add">➕ Añadir serie</button>`;
+}
+async function guardarPlanPS() {
+  const p = PS.plan, calles = PS.grupos.filter(g=>g.nads.length);
+  const nombre = (document.getElementById('plan-nombre')||{}).value || p.nombre;
+  if (!calles.length) { alert('Pon al menos un nadador en una calle.'); return; }
+  const data = {coach: coachName, ts: Date.now(), nombre: String(nombre||'').trim().slice(0,200) || 'Entreno',
+    eqId: PS.eqId || eqMasFrecuente(calles), calles: calles.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})),
+    series: p.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!(x.ciclo && x.auto)}))};
+  await DB.guardarPlan(p.id, data);
+  PS = null; nav({screen:'home'});
+}
+// Empieza un entreno preparado: sus calles y su serie 1; al acabar cada serie se ofrece la siguiente
+async function empezarPlan(id) {
+  const p = S.planes.find(x=>x.id===id); if (!p || !p.series.length) return;
+  navPreparar(p.eqId);
+  PS.oferta = null;
+  const calles = p.calles.map((c,i)=>({key:'calle'+i+'-'+Date.now(), nombre:c.nombre,
+    nads: c.nIds.map(n=>S.nadadores.find(x=>x.id===n)).filter(Boolean).map(n=>({id:n.id, n:n.n}))})).filter(c=>c.nads.length);
+  if (!calles.length) { alert('Los nadadores de este entreno ya no están en la lista.'); return; }
+  PS.grupos = calles;
+  const s1 = p.series[0];
+  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, cicloTxt:s1.ciclo?fmtNado(s1.ciclo*1000):'', auto:s1.auto, planId:p.id});
+  await iniciarSesion();
+}
 
 // ── Screen: Preparar ─────────────────────────────────────────
 function renderPreparar() {
@@ -1622,6 +1708,16 @@ function renderPreparar() {
         <button class="btn btn-surf" style="flex:1;min-height:48px" data-action="descartar-plantilla">Empezar de cero</button>
       </div>
     </div>` : '';
+  if (PS.plan) return `
+    <button class="back-btn" data-action="plan-cancelar">← Entrenar</button>
+    <div class="h1">${PS.plan.id?'Editar entreno preparado':'Preparar entreno'}</div>
+    <span class="label">Nombre</span>
+    <input class="input mb16" id="plan-nombre" placeholder="Ej.: Martes técnica espalda" value="${esc(PS.plan.nombre)}">
+    <span class="label">Series (${PS.plan.series.length})</span>
+    ${renderSeriesPlan()}
+    <span class="label">Calles (${PS.grupos.length})</span>
+    ${renderBoard(boardPS, {extraLanes:`<button class="b-add-lane" data-action="nueva-calle">➕ Añadir calle</button>`})}
+    <button class="salida-btn mt16" style="${canStart?'':'opacity:.4'}" data-action="plan-guardar" ${canStart?'':'disabled'}>💾 Guardar entreno preparado</button>`;
   return `
     <button class="back-btn" data-action="equipo-back">← ${esc(eq?eq.nombre:'Inicio')}</button>
     <div class="h1">Preparar sesión</div>
@@ -1809,6 +1905,9 @@ function renderResumenRonda() {
       <button class="${SA.vista==='calle'?'on':''}" data-action="vista" data-v="calle">🏊 Por calle</button>
     </div>
     ${cuerpo}
+    ${!SA.nuevaSerie && SA.plan ? (SA.plan.series[SA.planIdx+1]
+      ? `<button class="btn btn-green mt16" style="min-height:60px;font-size:18px" data-action="plan-siguiente">▶ Siguiente serie: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].ciclo?` · c/${esc(fmtNado(SA.plan.series[SA.planIdx+1].ciclo*1000))}`:''}</button>`
+      : `<div class="card mt16" style="text-align:center;color:var(--grn-l);font-weight:700">✓ Plan terminado (${SA.plan.series.length} series)</div>`) : ''}
     ${SA.nuevaSerie ? renderNuevaSerie() : `
     <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir igual · serie ${SA.ronda+1}</button>
     <button class="btn btn-surf mt8" style="min-height:52px;font-size:16px" data-action="ns-abrir">➕ Nueva serie con otro estilo</button>`}
@@ -2108,6 +2207,19 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'tab':          nav({screen: btn.dataset.to}); window.scrollTo(0,0); break;
     case 'nad-cat':      NAD_CAT = btn.dataset.eq; try { localStorage.setItem('crono_cat', NAD_CAT); } catch {} render(); break;
     case 'repetir-entreno': repetirEntreno(btn.dataset.ses); break;
+    case 'plan-nuevo':   abrirPlan(null); break;
+    case 'plan-editar':  abrirPlan(btn.dataset.id); break;
+    case 'plan-borrar':  { const p = S.planes.find(x=>x.id===btn.dataset.id); if (p && confirm(`¿Borrar el entreno preparado «${p.nombre}»?`)) await DB.borrarPlan(p.id); break; }
+    case 'plan-empezar': desbloquearAudio(); await empezarPlan(btn.dataset.id); break;
+    case 'plan-cancelar': PS = null; nav({screen:'home'}); break;
+    case 'plan-guardar': await guardarPlanPS(); break;
+    case 'plan-add':     planNombre(); PS.plan.series.push({...serieVacia(), ...(([u]) => u ? {estilo:u.estilo, dist:u.dist} : {})(PS.plan.series.slice(-1))}); render(); break;
+    case 'plan-quitar':  planNombre(); PS.plan.series.splice(Number(btn.dataset.i), 1); render(); break;
+    case 'plan-mover':   { planNombre(); const i = Number(btn.dataset.i), j = i + Number(btn.dataset.dir), ss = PS.plan.series; [ss[i], ss[j]] = [ss[j], ss[i]]; render(); break; }
+    case 'plan-estilo':  planNombre(); PS.plan.series[Number(btn.dataset.i)].estilo = btn.dataset.val; render(); break;
+    case 'plan-dist':    { planNombre(); const x = PS.plan.series[Number(btn.dataset.i)]; x.dist = Number(btn.dataset.val); if (x.dist <= 50) x.parciales = false; render(); break; }
+    case 'plan-parc':    { planNombre(); const x = PS.plan.series[Number(btn.dataset.i)]; x.parciales = !x.parciales; render(); break; }
+    case 'plan-siguiente': if (SA && SA.plan && SA.plan.series[SA.planIdx+1]) { SA.planIdx++; repetirSerie(SA.plan.series[SA.planIdx]); } break;
     case 'hist-estilo':  HIST_F.estilo = HIST_F.estilo===btn.dataset.val ? null : btn.dataset.val; guardarHistF(); render(); break;
     case 'hist-dist':    { const d = Number(btn.dataset.val); HIST_F.dist = HIST_F.dist===d ? null : d; guardarHistF(); render(); break; }
     case 'set-coach': {
@@ -2214,7 +2326,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
     case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, cicloTxt:SA.cicloTxt, auto:SA.auto}; render(); } break;
-    case 'ciclo-auto':      { saveNotas(); const o = cicloObj(btn.dataset.t); if (o && o.ciclo) { o.auto = !o.auto; guardarAuto(o.auto); render(); } break; }
+    case 'ciclo-auto':      { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && o.ciclo) { o.auto = !o.auto; guardarAuto(o.auto); render(); } break; }
     case 'ciclo-sa':        if (SA) { SA.auto = !SA.auto; guardarAuto(SA.auto); render(); } break;
     case 'ns-cancelar':     if (SA) { SA.nuevaSerie = null; render(); } break;
     case 'ns-estilo':       if (SA && SA.nuevaSerie) { SA.nuevaSerie.estilo = btn.dataset.val; render(); } break;

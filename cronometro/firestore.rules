@@ -40,7 +40,7 @@ service cloud.firestore {
 
     match /{coleccion}/{doc} {
       allow read, write: if esEntrenador()
-        && coleccion in ['equipos', 'nadadores', 'sesiones', 'grupos', 'gnads', 'resultados', 'plantillas'];
+        && coleccion in ['equipos', 'nadadores', 'sesiones', 'grupos', 'gnads', 'resultados', 'plantillas', 'planes'];
     }
   }
 }
