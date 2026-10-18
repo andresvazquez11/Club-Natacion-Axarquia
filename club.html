@@ -597,10 +597,14 @@ html.acuatico .seg{background:var(--solid)}
 .aviso-contador{position:fixed;left:50%;top:calc(var(--cab-h) + 10px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);
   background:var(--ink);color:var(--bg, #fff);padding:10px 14px;border-radius:12px;font-size:.85rem;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2)}
 
+/* Toque en el agua (modo acuático, agua.js → agitarAgua): los reflejos de luz también se mecen un momento */
+.agua .agua-luz.agitada{animation:agua-luz 28s ease-in-out infinite alternate,agua-agita 2.6s ease-out}
+@keyframes agua-agita{0%{opacity:.38}12%{opacity:.52}100%{opacity:.38}}
+
 </style>
 </head>
 <body>
-<script>/* modo claro por defecto; acuático solo si el usuario lo eligió (antes de pintar; admite los valores antiguos) */(function(){var m='clara';try{var v=localStorage.getItem('cna_modo');if(v==='acuatico'||v==='agua')m='acuatico'}catch(e){}var c=document.documentElement.classList;c.add(m)})()</script>
+<script>/* modo acuático por defecto; claro solo si el usuario lo eligió (antes de pintar; admite los valores antiguos) */(function(){var m='acuatico';try{var v=localStorage.getItem('cna_modo');if(v==='clara'||v==='normal')m='clara'}catch(e){}document.documentElement.classList.add(m)})()</script>
 <div class="agua" aria-hidden="true"></div>
 <header class="cab" id="cab">
   <a class="brand" href="#inicio"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></a>
@@ -693,8 +697,8 @@ const MODO_LS = 'cna_modo';
 function leerModo() {
   try {
     const v = localStorage.getItem(MODO_LS);
-    return v === 'acuatico' || v === 'agua' ? 'acuatico' : 'clara';
-  } catch (e) { return 'clara'; }
+    return v === 'clara' || v === 'normal' ? 'clara' : 'acuatico';     // acuático por defecto; «Claro» si se eligió
+  } catch (e) { return 'acuatico'; }
 }
 function guardarModo(m) { try { localStorage.setItem(MODO_LS, m); } catch (e) {} }
 const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -3503,7 +3507,7 @@ function pintarEntrenosNadador(app, s, p) {
 }
 
 /* ── agua.js ── */
-/* Modo de la página: «clara» (predeterminado) o «acuatico»; se recuerda en el dispositivo (leerModo/guardarModo). */
+/* Modo de la página: «acuatico» (predeterminado) o «clara»; se recuerda en el dispositivo (leerModo/guardarModo). */
 function aplicarModo(m) {
   const c = document.documentElement.classList;
   c.toggle('clara', m === 'clara'); c.toggle('acuatico', m === 'acuatico');
@@ -3546,6 +3550,35 @@ function pintarAgua() {
     '<svg class="agua-luz" aria-hidden="true"><rect width="100%" height="100%" filter="url(#agua-caus)"/></svg>' +
     '<div class="agua-hondo"></div>';
 }
+
+/* Toque en el agua (solo modo acuático): el agua del fondo se agita y se calma sola en ~2,6 s.
+   Se anima la refracción de los azulejos (#agua-refr): más desplazamiento y un ligero cambio del oleaje,
+   con una oscilación que se apaga. No hay nada encima del contenido. Sin efecto con prefers-reduced-motion. */
+const AGUA_BASE = {escala: 14, fx: 0.018, fy: 0.026};
+let aguaOla = null;
+function agitarAgua() {
+  const disp = document.querySelector('#agua-refr feDisplacementMap'), turb = document.querySelector('#agua-refr feTurbulence');
+  if (!disp || !turb) return;
+  const t0 = performance.now(), dur = 2600, fase = Math.random() * Math.PI;
+  if (aguaOla) cancelAnimationFrame(aguaOla);
+  const paso = ahora => {
+    const k = Math.min(1, (ahora - t0) / dur);
+    const env = k < .1 ? k / .1 : Math.pow(1 - (k - .1) / .9, 2);        // sube rápido y se apaga despacio
+    const osc = Math.sin(fase + k * Math.PI * 7);
+    disp.setAttribute('scale', (AGUA_BASE.escala + env * (14 + 6 * osc)).toFixed(1));
+    turb.setAttribute('baseFrequency', `${(AGUA_BASE.fx + env * .004 * osc).toFixed(4)} ${(AGUA_BASE.fy - env * .004 * osc).toFixed(4)}`);
+    if (k < 1) aguaOla = requestAnimationFrame(paso);
+    else { disp.setAttribute('scale', AGUA_BASE.escala); turb.setAttribute('baseFrequency', `${AGUA_BASE.fx} ${AGUA_BASE.fy}`); aguaOla = null; }
+  };
+  aguaOla = requestAnimationFrame(paso);
+  const luz = document.querySelector('.agua .agua-luz');
+  if (luz) { luz.classList.remove('agitada'); void luz.getBoundingClientRect(); luz.classList.add('agitada'); }
+}
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('pointerdown', e => {
+  if (!e.isPrimary || !document.documentElement.classList.contains('acuatico')) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  agitarAgua();
+}, {passive: true});
 
 /* ── app.js ── */
 /* Enrutador. Cuatro secciones: Mi nadador (#mi, #nadador/<id>), Club, Campeonatos y Rankings (+ Comparar y «elegir nadador»).
