@@ -96,3 +96,17 @@ function marcaDe(c) {
   if (c && c.difEnt != null && c.difEnt < 0) return 'entreno';
   return null;
 }
+// Duración legible del tiempo nadando: 23:41 o 1:02:05
+function fmtNado(ms) {
+  const s = Math.max(0, Math.round(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+// Mejor del día: el tiempo más rápido de la prueba más nadada (res con estilo y dist ya resueltos)
+function mejorDelDia(res) {
+  const by = new Map();
+  res.filter(r => r.estilo && r.dist).forEach(r => { const k = r.estilo + '|' + r.dist; (by.get(k) || by.set(k, []).get(k)).push(r); });
+  const grupo = [...by.values()].sort((a, b) => b.length - a.length)[0];
+  if (!grupo) return null;
+  const m = grupo.reduce((x, r) => r.ms < x.ms ? r : x);
+  return {nId: m.nId, ms: m.ms, estilo: m.estilo, dist: Number(m.dist)};
+}

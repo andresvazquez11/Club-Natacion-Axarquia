@@ -75,3 +75,19 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
   assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true },
     { estilo: null, dist: null, parciales: false, ciclo: null, auto: false }]);
 });
+
+test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
+  assert.equal(ev('fmtNado', 1421000), '23:41');
+  assert.equal(ev('fmtNado', 5000), '0:05');
+  assert.equal(ev('fmtNado', 3725000), '1:02:05');
+});
+
+test('mejorDelDia: el más rápido de la prueba más nadada', () => {
+  const res = [
+    { nId: 'a', ms: 31000, estilo: 'libre', dist: 50 }, { nId: 'b', ms: 30500, estilo: 'libre', dist: 50 },
+    { nId: 'c', ms: 29000, estilo: 'libre', dist: 50 }, { nId: 'a', ms: 20000, estilo: 'mariposa', dist: 25 },
+  ];
+  assert.deepEqual(ev('mejorDelDia', res), { nId: 'c', ms: 29000, estilo: 'libre', dist: 50 });
+  assert.equal(ev('mejorDelDia', []), null);
+  assert.equal(ev('mejorDelDia', [{ nId: 'a', ms: 1, estilo: null, dist: null }]), null);
+});

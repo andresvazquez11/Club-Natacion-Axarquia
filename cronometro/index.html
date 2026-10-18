@@ -69,6 +69,21 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .grupo-name{font-weight:700;color:var(--blu-l);}
 .gclock{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);margin:4px 0 10px;}
 .arr-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--brd);}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(15,23,42,.97);border-top:1px solid var(--brd);display:grid;grid-template-columns:repeat(4,1fr);padding:6px 0 max(8px,env(safe-area-inset-bottom,0px));backdrop-filter:blur(8px)}
+.tabbar a,.tabbar button{background:none;border:0;color:var(--mut);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent}
+.tabbar .ti{font-size:20px;line-height:1}
+.tabbar .on{color:var(--blu-l);font-weight:700}
+#app.con-tabs{padding-bottom:96px}
+.menu-btn{background:none;border:1px solid var(--brd);border-radius:10px;color:var(--mut);font-size:18px;width:40px;height:40px;cursor:pointer}
+.menu-pop{position:absolute;right:0;top:46px;z-index:30;background:var(--surf);border:1px solid var(--brd);border-radius:12px;min-width:200px;box-shadow:0 10px 30px rgba(0,0,0,.4);overflow:hidden}
+.menu-pop button,.menu-pop a{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--brd);color:var(--txt);font:inherit;font-size:15px;padding:12px 14px;cursor:pointer;text-decoration:none}
+.menu-pop :first-child{border-top:0}
+.ult-pr{font-size:13px;line-height:1.5;margin:2px 0 8px}
+.ult-pr b{color:var(--blu-l);font-weight:600}
+.ult-k{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.ult-k div{background:var(--bg);border-radius:8px;text-align:center;padding:6px 2px}
+.ult-k b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.ult-k span{font-size:10px;color:var(--mut)}
 .back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--mut);font-size:14px;cursor:pointer;padding:0;margin-bottom:16px;-webkit-tap-highlight-color:transparent;}
 .badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
 .b-grn{background:var(--grn-s);color:var(--grn-l);}
@@ -1144,8 +1159,19 @@ function render() {
   renderPantalla(app);
   if (pos!=null) { const el = document.getElementById('board-search'); if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} } }
 }
+const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
+function renderTabs(activa) {
+  const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
+  return `<nav class="tabbar">${t('home','⏱','Entrenar')}${t('historial','📋','Historial')}${t('nadadores','🏊','Nadadores')}<a href="../temporada.html#mi"><span class="ti">🌐</span>Web club</a></nav>`;
+}
 function renderPantalla(app) {
   if (!coachName) { app.innerHTML = renderBienvenida(); return; }
+  pintarPantalla(app);
+  const tab = TAB_DE[route.screen];
+  app.classList.toggle('con-tabs', !!tab);
+  if (tab) app.insertAdjacentHTML('beforeend', renderTabs(tab));
+}
+function pintarPantalla(app) {
   switch(route.screen) {
     case 'home':       app.innerHTML = renderHome(); break;
     case 'equipo':     app.innerHTML = renderEquipo(); break;
@@ -1154,49 +1180,125 @@ function renderPantalla(app) {
     case 'resultados': app.innerHTML = renderResultados(route.sesId,'home','← Inicio'); break;
     case 'historial':     app.innerHTML = renderHistorial(); break;
     case 'hist-det':      app.innerHTML = renderResultados(route.sesId,'historial','← Historial'); break;
-    case 'evolucion':     app.innerHTML = renderEvolucion(); break;
+    case 'evolucion':
+    case 'nadadores':     app.innerHTML = renderNadadores(); break;
     case 'evolucion-nad': app.innerHTML = renderEvolucionNad(); break;
     case 'entrenadores':  app.innerHTML = renderEntrenadores(); break;
     default:              app.innerHTML = renderHome();
   }
 }
 
-// ── Screen: Home ─────────────────────────────────────────────
+// ── Screen: Entrenar (inicio) ────────────────────────────────
+let MENU_ABIERTO = false;
+// Último entrenamiento del entrenador con tiempos: lo que se hizo, para decidir si repetir o cambiar
+function ultimoEntreno() {
+  const ses = [...mySes()].sort((a,b)=>b.fecha-a.fecha).find(s => S.resultados.some(r=>r.sesId===s.id));
+  if (!ses) return null;
+  const res = S.resultados.filter(r=>r.sesId===ses.id).map(r => ({...r, ...resCombo(r)}));
+  const mejor = mejorDelDia(res);
+  const mejoran = new Set(res.filter(r => r.estilo && r.dist &&
+    marcaDe(comparaciones(r.nId, r.estilo, r.dist, r.ms, r.id, ses.fecha))).map(r=>r.nId)).size;
+  return {ses, series: seriesDe(ses.id), nads: new Set(res.map(r=>r.nId)).size, nTiempos: res.length, mejor, mejoran};
+}
+const pruebasSeries = series => series.map(x=>`<b>Serie ${x.ronda}</b> · ${esc(comboTexto(x.estilo, x.dist))}`).join(' — ');
+function renderMenu() {
+  if (!MENU_ABIERTO) return '';
+  return `<div class="menu-pop">
+    ${soyAdmin()?`<button data-action="entrenadores">👥 Entrenadores${solicitudesPendientes().length?` (${solicitudesPendientes().length})`:''}</button>`:''}
+    <button data-action="cambiar-nombre">✎ Cambiar nombre</button>
+    <button data-action="logout">Salir</button>
+  </div>`;
+}
 function renderHome() {
+  const u = ultimoEntreno();
+  const hoy = new Date().toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'});
+  const pend = soyAdmin() ? solicitudesPendientes().length : 0;
+  const p = plantillaUsable();
+  const tarjeta = u ? `
+    <span class="label">Último entrenamiento</span>
+    <div class="card" style="cursor:pointer" data-action="hist-det" data-ses="${esc(u.ses.id)}">
+      <div class="row" style="margin-bottom:4px"><b style="flex:1">${esc(eqNombre(u.ses.eqId))}${esSim(u.ses)?SIM_TAG:''}</b><span class="muted" style="font-size:12px">${esc(fechaLarga(u.ses.fecha))}</span></div>
+      <div class="ult-pr">${pruebasSeries(u.series)}</div>
+      <div class="ult-k">
+        <div><b>${u.series.length}</b><span>${u.series.length===1?'serie':'series'}</span></div>
+        <div><b>${u.nads}</b><span>nadadores</span></div>
+        <div><b>${u.nTiempos}</b><span>tiempos</span></div>
+        <div><b>${u.ses.nado&&u.ses.nado.length?fmtNado(msNadando(u.ses.nado, Date.now())):'—'}</b><span>nadando</span></div>
+      </div>
+      ${u.mejor?`<div class="row" style="font-size:14px"><span style="flex:1">🏅 Mejor del día: ${esc(nombreDe(u.mejor.nId))} <span class="muted">· ${esc(comboTexto(u.mejor.estilo,u.mejor.dist))}</span></span><b style="color:var(--amb);font-variant-numeric:tabular-nums">${fmtTime(u.mejor.ms)}</b></div>`:''}
+      ${u.mejoran?`<div style="font-size:14px;color:var(--grn-l)">⬆ ${u.mejoran} ${u.mejoran===1?'mejora su marca':'mejoran su marca'}</div>`:''}
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn btn-surf btn-inline" style="flex:1" data-action="repetir-entreno" data-ses="${esc(u.ses.id)}">↻ Repetir este entreno</button>
+        <span class="muted" style="font-size:13px;color:var(--blu-l)">Ver resumen ›</span>
+      </div>
+    </div>` : '<div class="center-msg"><p>Todavía no hay entrenamientos. Empieza el primero arriba.</p></div>';
+  return `
+    <div class="row mb16" style="position:relative;align-items:flex-start">
+      <div style="flex:1">
+        <div class="h1" style="margin-bottom:0">Hola, ${esc(coachName)}</div>
+        <div class="muted" style="font-size:13px">${esc(hoy.charAt(0).toUpperCase()+hoy.slice(1))}</div>
+      </div>
+      <button class="menu-btn" data-action="menu" aria-label="Menú">⋯</button>
+      ${renderMenu()}
+    </div>
+    ${pend ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${pend} ${pend===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
+    <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
+    ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:18px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
+    ${tarjeta}`;
+}
+// Repetir: las mismas calles y la prueba de la primera serie de ese entrenamiento
+function repetirEntreno(sesId) {
+  const ses = S.sesiones.find(s=>s.id===sesId); if (!ses) return;
+  const grupos = S.grupos.filter(g=>g.sesId===sesId).sort((a,b)=>a.ord-b.ord);
+  navPreparar(ses.eqId);
+  const calles = grupos.map((g,i) => ({key:'calle'+i+'-'+Date.now(), nombre:g.nombre,
+    nads: S.gnads.filter(x=>x.gId===g.id).sort((a,b)=>(a.pos||0)-(b.pos||0))
+      .map(x=>S.nadadores.find(n=>n.id===x.nId)).filter(Boolean).map(n=>({id:n.id, n:n.n}))})).filter(c=>c.nads.length);
+  if (calles.length) PS.grupos = calles;
+  const s1 = seriesDe(sesId)[0];
+  if (s1 && s1.estilo) { PS.estilo = s1.estilo; PS.dist = Number(s1.dist); }
+  PS.parciales = !!ses.parciales;
+  PS.oferta = null;
+  render();
+}
+
+// ── Screen: Nadadores ────────────────────────────────────────
+let NAD_CAT = (() => { try { return localStorage.getItem('crono_cat'); } catch { return null; } })();
+function renderNadadores() {
   const clubEqs = S.equipos.filter(e=>e.shared===true).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  const personalEqs = S.equipos.filter(e=>e.coach===coachName).sort((a,b)=>b.ts-a.ts);
-  const clubRows = clubEqs.map(e=>`
-    <div class="card row" style="cursor:pointer" data-action="go-equipo" data-eq="${esc(e.id)}">
-      <span style="flex:1;font-weight:600;font-size:15px">${esc(e.nombre)}</span>
-      <span class="muted" style="font-size:13px;margin-right:6px">${S.nadadores.filter(n=>n.eqId===e.id).length} nad.</span>
-      <span style="font-size:10px;color:var(--mut);border:1px solid var(--brd);border-radius:5px;padding:2px 6px">Club</span>
-    </div>`).join('');
-  const personalRows = personalEqs.map(e=>`
-    <div class="card row" style="cursor:pointer" data-action="go-equipo" data-eq="${esc(e.id)}">
-      <span style="flex:1;font-weight:600;font-size:15px">${esc(e.nombre)}</span>
+  const propios = S.equipos.filter(e=>e.coach===coachName).sort((a,b)=>b.ts-a.ts);
+  const todos = [...clubEqs, ...propios];
+  const eq = todos.find(e=>e.id===NAD_CAT) || clubEqs[0] || propios[0];
+  const chips = todos.map(e=>`<span class="pill${eq&&e.id===eq.id?' sel':''}" data-action="nad-cat" data-eq="${esc(e.id)}">${esc(e.nombre)}</span>`).join('');
+  const nads = eq ? S.nadadores.filter(n=>n.eqId===eq.id).sort((a,b)=>a.n.localeCompare(b.n)) : [];
+  const filas = nads.map(nad => {
+    const res = S.resultados.filter(r=>r.nId===nad.id);
+    const sesCount = new Set(res.map(r=>r.sesId)).size;
+    const trend = res.length ? calcTrend(getSwimmerSessions(nad.id, null)) : null;
+    return `
+      <div class="card row" style="cursor:pointer;${res.length?'':'opacity:.55'}" data-action="evolucion-nad" data-nid="${esc(nad.id)}">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${esc(nad.n)}</div>
+          <div class="muted" style="font-size:12px">${sesCount ? `${sesCount} entreno${sesCount!==1?'s':''}` : 'Sin tiempos'}</div>
+        </div>
+        ${res.length?`<div style="text-align:right;min-width:60px"><div style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(Math.min(...res.map(r=>r.ms)))}</div>${trend?`<div style="font-size:15px;color:${trend.color}">${trend.dir}</div>`:''}</div>`:''}
+        <span class="muted">›</span>
+      </div>`;
+  }).join('');
+  const propiosRows = propios.map(e=>`
+    <div class="card row">
+      <span style="flex:1;font-weight:600">${esc(e.nombre)}</span>
       <span class="muted" style="font-size:13px">${S.nadadores.filter(n=>n.eqId===e.id).length} nad.</span>
-      <button class="btn-icon" data-action="del-equipo" data-eq="${esc(e.id)}" style="color:var(--red)">✕</button>
+      <button class="btn-icon" data-action="go-equipo" data-eq="${esc(e.id)}" aria-label="Editar">✎</button>
+      <button class="btn-icon" data-action="del-equipo" data-eq="${esc(e.id)}" style="color:var(--red)" aria-label="Borrar">✕</button>
     </div>`).join('');
   return `
-    <div class="row mb16">
-      <div style="flex:1">
-        <div class="h1" style="margin-bottom:2px">🏊 Equipos</div>
-        <div style="font-size:13px;color:var(--mut)">Entrenador: <span style="color:var(--blu-l);font-weight:600">${esc(coachName)}</span> <button class="btn-icon" data-action="cambiar-nombre" style="font-size:12px;color:var(--mut);padding:0 4px">✎</button></div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <button class="btn btn-surf btn-sm btn-inline" data-action="historial">📋 Historial</button>
-        <button class="btn btn-surf btn-sm btn-inline" data-action="evolucion">📊 Evolución</button>
-        <a class="btn btn-surf btn-sm btn-inline" href="../temporada.html#mi" style="text-decoration:none">📈 Estadísticas</a>
-        ${soyAdmin()?'<button class="btn btn-surf btn-sm btn-inline" data-action="entrenadores">👥 Entrenadores</button>':''}
-        <button class="btn-icon" data-action="logout" style="font-size:12px;color:var(--mut)">Salir</button>
-      </div>
-    </div>
-    ${soyAdmin() && solicitudesPendientes().length ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${solicitudesPendientes().length} ${solicitudesPendientes().length===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
-    <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Iniciar sesión</button>
-    ${(() => { const p = plantillaUsable(); return p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:18px">Última: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores · ${fmtDate(p.ts)}</div>` : '<div style="height:14px"></div>'; })()}
-    ${clubEqs.length>0?`<span class="label">🏟 C.N. Axarquía</span>${clubRows}<div style="height:4px"></div>`:''}
-    ${personalEqs.length>0?`<span class="label ${clubEqs.length>0?'mt8':''}">Mis grupos</span>${personalRows}`:(clubEqs.length===0?'<div class="center-msg"><p>Sin equipos todavía</p></div>':'')}
-    <div class="row mt16">
+    <div class="h1">🏊 Nadadores</div>
+    <div class="wrap mb16">${chips}</div>
+    ${filas || '<div class="center-msg"><p>Sin nadadores en este grupo</p></div>'}
+    <span class="label mt24">Mis grupos propios</span>
+    ${propiosRows}
+    <div class="row mt8">
       <input class="input" id="eq-input" placeholder="Nuevo grupo propio..." style="flex:1">
       <button class="btn btn-green btn-sm btn-inline" data-action="crear-equipo">+ Crear</button>
     </div>`;
@@ -1731,44 +1833,10 @@ function renderHistorial() {
 }
 
 // ── Screen: Evolución ────────────────────────────────────────
-function renderEvolucion() {
-  const eqs = myEqs();
-  let html = '';
-  eqs.forEach(eq => {
-    const nads = S.nadadores.filter(n=>n.eqId===eq.id).sort((a,b)=>a.n.localeCompare(b.n));
-    if (!nads.length) return;
-    html += `<span class="label">${esc(eq.nombre)}</span>`;
-    nads.forEach(nad => {
-      const res = S.resultados.filter(r=>r.nId===nad.id);
-      if (!res.length) {
-        html += `<div class="card row" style="opacity:.45"><span style="flex:1;font-weight:500">${esc(nad.n)}</span><span class="muted" style="font-size:12px">Sin tiempos</span></div>`;
-        return;
-      }
-      const best = Math.min(...res.map(r=>r.ms));
-      const sesCount = new Set(res.map(r=>r.sesId)).size;
-      const trend = calcTrend(getSwimmerSessions(nad.id, null));
-      html += `
-        <div class="card row" style="cursor:pointer" data-action="evolucion-nad" data-nid="${esc(nad.id)}">
-          <div style="flex:1">
-            <div style="font-weight:600">${esc(nad.n)}</div>
-            <div class="muted" style="font-size:12px">${sesCount} sesión${sesCount!==1?'es':''}</div>
-          </div>
-          <div style="text-align:right;min-width:60px">
-            <div style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(best)}</div>
-            ${trend?`<div style="font-size:15px;color:${trend.color}">${trend.dir}</div>`:''}
-          </div>
-        </div>`;
-    });
-  });
-  return `
-    <button class="back-btn" data-action="home">← Inicio</button>
-    <div class="h1">📊 Evolución</div>
-    ${html||'<div class="center-msg"><h2>Sin datos</h2><p>Realizá sesiones para ver estadísticas</p></div>'}`;
-}
 function renderEvolucionNad() {
   const {nId} = route;
   const nad = S.nadadores.find(n=>n.id===nId);
-  if (!nad) { nav({screen:'evolucion'}); return ''; }
+  if (!nad) { nav({screen:'nadadores'}); return ''; }
   const eq = S.equipos.find(e=>e.id===nad.eqId);
   // Combos con datos
   const combosMap = {};
@@ -1816,10 +1884,10 @@ function renderEvolucionNad() {
     </div>`;
   }).join('');
   return `
-    <button class="back-btn" data-action="evolucion">← Evolución</button>
+    <button class="back-btn" data-action="tab" data-to="nadadores">← Nadadores</button>
     <div class="h1">${esc(nad.n)}</div>
     <div class="muted mb16" style="font-size:13px">${eq?esc(eq.nombre):''} · ${sessions.length} sesión${sessions.length!==1?'es':''}</div>
-    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../temporada.html#nadador/${encodeURIComponent(nad.rfen)}">📈 Ver ficha de competición</a>`:''}
+    ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../temporada.html#nadador/${encodeURIComponent(nad.rfen)}/entrenos">📈 Ficha completa en la web del club</a>`:''}
     ${filterPills}
     ${statsHtml}
     ${sessions.length>=2?`<div class="card mb16" style="padding:10px 10px 4px">${svgChart(sessions)}</div>`:sessions.length===1?'<div class="muted" style="text-align:center;padding:12px;font-size:13px">Necesitás 2 sesiones para ver el gráfico</div>':''}
@@ -1930,10 +1998,15 @@ function tiempoToque(btn) {
 document.getElementById('app').addEventListener('click', async function(e) {
   if (Date.now() < _ignoreClickUntil) return; // clic que sigue a un arrastre
   const btn = e.target.closest('[data-action]');
-  if (!btn) return;
+  if (!btn) { if (MENU_ABIERTO) { MENU_ABIERTO = false; render(); } return; }
   e.stopPropagation();
   const act = btn.dataset.action;
+  if (act !== 'menu') MENU_ABIERTO = false;
   switch(act) {
+    case 'menu':         MENU_ABIERTO = !MENU_ABIERTO; render(); break;
+    case 'tab':          nav({screen: btn.dataset.to}); window.scrollTo(0,0); break;
+    case 'nad-cat':      NAD_CAT = btn.dataset.eq; try { localStorage.setItem('crono_cat', NAD_CAT); } catch {} render(); break;
+    case 'repetir-entreno': repetirEntreno(btn.dataset.ses); break;
     case 'set-coach': {
       const inp = document.getElementById('coach-input');
       const v = inp?inp.value.trim():'';
@@ -1953,7 +2026,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'acceso-entrenador': await cambiarAcceso(btn.dataset.email, btn.dataset.accion); break;
     case 'historial':    nav({screen:'historial'}); break;
     case 'hist-det':      nav({screen:'hist-det', sesId:btn.dataset.ses}); break;
-    case 'evolucion':     nav({screen:'evolucion'}); break;
+    case 'evolucion':     nav({screen:'nadadores'}); break;
     case 'evolucion-nad': nav({screen:'evolucion-nad', nId:btn.dataset.nid, filter:null}); break;
     case 'evo-filter': {
       const fStr=btn.dataset.f;
