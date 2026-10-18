@@ -18,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
 <script src="firebase-config.js"></script>
+<script src="logica.js"></script>
 </head>
 <body>
 <style>
@@ -217,7 +218,6 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 <script>
 'use strict';
 // ── Constants ────────────────────────────────────────────────
-const ESTILOS = ['libre','braza','mariposa','espalda'];
 const DISTS   = [50,100,200,400];
 const EMO     = {libre:'🏊',braza:'🐸',mariposa:'🦋',espalda:'🔄'};
 const COLS    = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','entrenadores'];
@@ -296,19 +296,6 @@ function sinAcceso() {
     `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
 }
 // Campos que se pintan sin plantilla de texto libre: se normalizan al leer
-function limpiarDoc(col, d) {
-  if (col==='sesiones' || col==='plantillas' || col==='resultados') {
-    d.estilo = ESTILOS.includes(d.estilo) ? d.estilo : null;
-    const n = Number(d.dist); d.dist = Number.isFinite(n) && n > 0 ? n : null;
-  }
-  if (col==='resultados') {   // serie y salida se muestran tal cual: siempre enteros positivos
-    for (const k of ['ronda','salida']) { const n = Number(d[k]); d[k] = Number.isInteger(n) && n > 0 ? n : 1; }
-    d.ms = Number(d.ms) || 0;
-  }
-  if (col==='sesiones') { d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null; }
-  if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
-  return d;
-}
 // Entrenamiento de simulación (datos de prueba): se marca para borrarlo sin tocar los reales
 const esSim = s => !!s && (s.sim === true || String(s.id||'').startsWith('sim_'));
 const SIM_TAG = '<span class="sim-tag">Simulación</span>';

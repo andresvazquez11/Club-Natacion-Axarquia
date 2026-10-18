@@ -3,7 +3,7 @@
 // Al publicar cambios, sube la versión para que los móviles se actualicen.
 const VERSION = 'crono-v6';
 const CARCASA = [
-  './', 'index.html', 'firebase-config.js', 'manifest.webmanifest',
+  './', 'index.html', 'firebase-config.js', 'logica.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'nadadores.json'
 ];
 
