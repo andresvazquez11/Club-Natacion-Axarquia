@@ -218,7 +218,7 @@ const ctoTag = s => s.ctoEs ? ` <span class="cto-es" title="Ha nadado: ${esc(s.c
 /* Manual de uso (PDF publicado junto a la página) */
 const MANUAL_URL = 'manual.pdf';
 // Firma del autor: en el pie de la barra lateral y al final de la pantalla Club
-const FIRMA = '<a class="manual-l" href="https://github.com/andresvazquez11" target="_blank" rel="noopener">Desarrollado por @andresvazquez11</a>';
+const FIRMA = '<a class="firma-l" href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">Desarrollado por @andresvazquez11</a>';
 
 /* Buscador de nadadores del club: escribe un nombre y lleva a su ficha */
 const sinAc = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
