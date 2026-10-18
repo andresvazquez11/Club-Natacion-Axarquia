@@ -109,6 +109,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .ciclo-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px}
 .ciclo-cd{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--brd);border-radius:12px;padding:8px 12px;margin-bottom:10px}
 .ciclo-cd b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--amb)}
+.quien summary{cursor:pointer;font-weight:600;font-size:14px}
 .nota-r{font-size:12px;font-weight:500;color:var(--blu-l);font-style:italic}
 .nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
 .nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
@@ -444,6 +445,10 @@ const DB = {
     await ref.set(data).catch(console.error);
     return ref.id;
   },
+  guardarPresentes(sesId, presentes) {
+    const s = S.sesiones.find(s=>s.id===sesId); if (s) s.presentes = presentes;
+    _db.collection('sesiones').doc(sesId).update({presentes}).catch(console.error);
+  },
   guardarNota(resId, nota) {
     const r = S.resultados.find(x=>x.id===resId); if (r) r.nota = nota;
     _db.collection('resultados').doc(resId).update({nota}).catch(console.error);
@@ -617,7 +622,7 @@ function navPreparar(eqId) {
   // Start with one empty lane, coaches fill it from club search
   PS = {eqId, estilo:null, dist:null, notas:'',
         sinGrupo:[], grupos:[{key:'calle1', nombre:'Calle 1', nads:[]}],
-        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false, ciclo:null, cicloTxt:'', auto:autoGuardado(),
+        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false, ciclo:null, cicloTxt:'', auto:autoGuardado(), extras:new Set(),
         oferta: plantillaUsable()};
   boardReset();
   route = {screen:'preparar', eqId};
@@ -750,6 +755,7 @@ async function iniciarSesion() {
   }
   buildSA(sesId);
   SA.ciclo = PS && PS.ciclo || null; SA.cicloTxt = PS && PS.cicloTxt || ''; SA.auto = !!(PS && PS.auto);
+  DB.guardarPresentes(sesId, [...new Set([...callesConNads.flatMap(g=>g.nads.map(n=>n.id)), ...(PS.extras||[])])]);
   const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
   if (plan) { SA.plan = plan; SA.planIdx = 0; DB.guardarPlanId(sesId, plan.id); }
   route = {screen:'en-curso', sesId};
@@ -1693,6 +1699,26 @@ async function empezarPlan(id) {
   await iniciarSesion();
 }
 
+// Asistencia: quien está en una calle cuenta como presente; aquí se marca a quien vino sin nadar
+function renderQuienMas() {
+  const enCalle = new Set(PS.grupos.flatMap(g=>g.nads.map(n=>n.id)));
+  const eqId = PS.eqId || eqMasFrecuente(PS.grupos.filter(g=>g.nads.length));
+  const otros = S.nadadores.filter(n=>n.eqId===eqId && !enCalle.has(n.id)).sort((a,b)=>a.n.localeCompare(b.n));
+  if (!otros.length) return '';
+  const n = otros.filter(x=>PS.extras.has(x.id)).length;
+  return `<details class="card quien"${PS.quienAbierto?' open':''}><summary data-action="quien-toggle">¿Quién más vino? <span class="muted">(no nada${n?` · ${n} marcados`:''})</span></summary>
+    <div class="wrap" style="margin-top:8px">${otros.map(x=>`<span class="pill${PS.extras.has(x.id)?' sel':''}" data-action="presente" data-nid="${esc(x.id)}">${esc(x.n)}</span>`).join('')}</div></details>`;
+}
+let ASIST_ABIERTA = null;   // la lista de asistencia del resumen sigue abierta mientras se marca
+function renderAsistencia(ses) {
+  const conTiempo = new Set(S.resultados.filter(r=>r.sesId===ses.id).map(r=>r.nId));
+  const pres = new Set(Array.isArray(ses.presentes) ? ses.presentes : conTiempo);
+  const grupo = S.nadadores.filter(n=>n.eqId===ses.eqId || pres.has(n.id)).sort((a,b)=>a.n.localeCompare(b.n));
+  if (!grupo.length) return '';
+  return `<details class="card mt8 quien"${ASIST_ABIERTA===ses.id?' open':''}><summary data-action="asist-toggle" data-ses="${esc(ses.id)}">Asistencia: <b>${pres.size}</b> ${pres.size===1?'presente':'presentes'} <span class="muted">· toca para cambiar</span></summary>
+    <div class="wrap" style="margin-top:8px">${grupo.map(x=>`<span class="pill${pres.has(x.id)?' sel':''}" data-action="res-presente" data-ses="${esc(ses.id)}" data-nid="${esc(x.id)}">${esc(x.n)}</span>`).join('')}</div></details>`;
+}
+
 // ── Screen: Preparar ─────────────────────────────────────────
 function renderPreparar() {
   if (!PS) return '';
@@ -1737,6 +1763,7 @@ function renderPreparar() {
       <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
       <div class="sw${on?' on':''}"></div></div>`; })()}
     ${cicloHTML(PS, 'ps')}
+    ${renderQuienMas()}
     <input class="input mb16" id="notas-input" placeholder="Notas opcionales..." value="${esc(PS.notas)}">
     <span class="label">Calles (${PS.grupos.length})</span>
     ${renderBoard(boardPS, {extraLanes:`<button class="b-add-lane" data-action="nueva-calle">➕ Añadir calle</button>`})}
@@ -1980,6 +2007,7 @@ function renderResultados(sesId, backAction, backLabel) {
     ${d.combos.length?`<div class="muted" style="font-size:13px;margin-bottom:6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
     ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
     ${ses.notas?`<div class="card mt8" style="font-size:13px">${esc(ses.notas)}</div>`:''}
+    ${renderAsistencia(ses)}
     ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
     <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
     <div class="row mt8">
@@ -2244,6 +2272,13 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'tab':          nav({screen: btn.dataset.to}); window.scrollTo(0,0); break;
     case 'nad-cat':      NAD_CAT = btn.dataset.eq; try { localStorage.setItem('crono_cat', NAD_CAT); } catch {} render(); break;
     case 'repetir-entreno': repetirEntreno(btn.dataset.ses); break;
+    case 'quien-toggle': if (PS) PS.quienAbierto = !e.target.closest('details').open; break;
+    case 'presente':     { saveNotas(); if (PS) { const id = btn.dataset.nid; PS.extras.has(id) ? PS.extras.delete(id) : PS.extras.add(id); PS.quienAbierto = true; render(); } break; }
+    case 'res-presente': { const ses = S.sesiones.find(x=>x.id===btn.dataset.ses); if (!ses) break;
+      const pres = new Set(Array.isArray(ses.presentes) ? ses.presentes : S.resultados.filter(r=>r.sesId===ses.id).map(r=>r.nId));
+      pres.has(btn.dataset.nid) ? pres.delete(btn.dataset.nid) : pres.add(btn.dataset.nid);
+      ASIST_ABIERTA = ses.id; DB.guardarPresentes(ses.id, [...pres]); render(); break; }
+    case 'asist-toggle': ASIST_ABIERTA = e.target.closest('details').open ? null : btn.dataset.ses; break;
     case 'plan-nuevo':   abrirPlan(null); break;
     case 'plan-editar':  abrirPlan(btn.dataset.id); break;
     case 'plan-borrar':  { const p = S.planes.find(x=>x.id===btn.dataset.id); if (p && confirm(`¿Borrar el entreno preparado «${p.nombre}»?`)) await DB.borrarPlan(p.id); break; }

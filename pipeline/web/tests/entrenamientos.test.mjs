@@ -152,3 +152,13 @@ test('entTiempos: pasa la nota del tiempo, recortada a 200 (el escape se hace al
   assert.equal(T.find(t => t.id === 'r4').nota.length, 200);
   assert.equal(T.find(t => t.id === 'r1').nota, null);
 });
+
+test('entGrupo: cuenta como asistencia estar en «presentes» aunque no haya tiempos', () => {
+  const T = ev('entTiempos', D, SW);
+  const sin = ev('entGrupo', T, D.sesiones);
+  assert.deepEqual(sin.nadadores.find(m => m.nId === 'b').sesiones, 1);
+  const ses = structuredClone(D.sesiones); ses[1].presentes = ['a', 'b'];
+  const con = ev('entGrupo', T, ses);
+  const b = con.nadadores.find(m => m.nId === 'b');
+  assert.equal(b.sesiones, 2); assert.equal(Math.round(b.asistencia), 100);
+});

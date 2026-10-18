@@ -103,11 +103,13 @@ const entPct = v => v == null ? '—' : `<b class="${v <= 0 ? 'good' : 'bad'}">$
 const entPctMejora = v => v == null ? '—' : v > 0 ? `<b class="good">${v.toFixed(1)}%</b>` : '0%';
 
 /* Resumen del grupo: entrenamientos del grupo y, por nadador, a cuántos vino, cuántos tiempos tiene y qué estilos entrenó */
-function entGrupo(T) {
+function entGrupo(T, sesiones = []) {
   const ses = new Set(T.map(t => t.sesId));
   const m = new Map();
   T.forEach(t => { const x = m.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, cat: t.cat, ses: new Set(), tiempos: 0, estilos: new Set()};
     x.ses.add(t.sesId); x.tiempos++; if (t.estilo) x.estilos.add(t.estilo); m.set(t.nId, x); });
+  // Quien vino aunque no nadara (lista «presentes» del cronómetro) también cuenta como asistencia
+  sesiones.forEach(s => { if (ses.has(s.id) && Array.isArray(s.presentes)) s.presentes.forEach(id => { const x = m.get(id); if (x) x.ses.add(s.id); }); });
   return {sesiones: ses.size, nadadores: [...m.values()].map(x => ({nId: x.nId, n: x.n, rfen: x.rfen, cat: x.cat, sesiones: x.ses.size,
       asistencia: ses.size ? x.ses.size / ses.size * 100 : 0, tiempos: x.tiempos, estilos: ENT_ESTILOS.filter(e => x.estilos.has(e))}))
     .sort((a, b) => b.sesiones - a.sesiones || b.tiempos - a.tiempos || a.n.localeCompare(b.n))};
@@ -330,7 +332,7 @@ function pintarEntrenamientos(host, f) {
         <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${entPctMejora(st.mejoraPct)}</td><td class="num">${entPct(st.tendencia)}</td><td class="num">${(c => c ? fmt(c.cs) : '—')(m.rfen && Object.hasOwn(SW, m.rfen) ? entMejorCompeticion(SW[m.rfen], pr.ev) : null)}</td></tr>`; }).join('')}</table></div>
     </div>`).join('');
   // El grupo (la categoría elegida o todo el club): asistencia, estilos y dispersión de tiempos
-  const G = entGrupo(F), catNom = f.cat === 'all' ? 'Todo el club' : ((DATA.cats.find(c => c.key === f.cat) || {}).label || f.cat);
+  const G = entGrupo(F, (ENT.datos && ENT.datos.sesiones) || []), catNom = f.cat === 'all' ? 'Todo el club' : ((DATA.cats.find(c => c.key === f.cat) || {}).label || f.cat);
   const gev = R.pruebas.some(x => x.ev === f.gev) ? f.gev : (R.pruebas[0] || {}).ev;
   const DG = gev ? entDispersion(F, gev) : null, ultimo = DG && DG.dias[DG.dias.length - 1], primero = DG && DG.dias[0];
   const grupo = `
