@@ -36,8 +36,10 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "Lanzado a mano — se actualiza ya."; echo "correr=si" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          # última actualización AUTOMÁTICA (las manuales no reinician la cuenta semanal)
-          ULTIMO=$(gh api "repos/${{ github.repository }}/commits?path=temporada.html&per_page=100" \
+          # última actualización AUTOMÁTICA (las manuales no reinician la cuenta semanal).
+          # Se buscan los commits del robot (github-actions[bot]) SIN filtrar por archivo: si los datos no cambiaron,
+          # la automática no toca temporada.html y antes no se encontraba («nunca») → actualizaba 3 veces al día.
+          ULTIMO=$(gh api "repos/${{ github.repository }}/commits?author=41898282%2Bgithub-actions%5Bbot%5D%40users.noreply.github.com&per_page=100" \
                    --jq '[.[] | select(.commit.message | startswith("Actualizar informe temporada 26-27 (automática)"))][0].commit.committer.date // ""' \
                    2>/dev/null || echo "")
           if [ -n "$ULTIMO" ]; then
@@ -88,8 +90,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # la automática deja SIEMPRE su commit (aunque no cambie nada): es la marca que usa «check» para contar la semana
+          VACIO=""; [ "$TIPO" = "automática" ] && VACIO="--allow-empty"
           git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json
-          git commit -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
+          git commit $VACIO -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
           for i in 1 2 3; do
             git push origin main && exit 0
             # si otra actualización (o un cambio de código) llegó antes: rehacer sobre la versión más reciente
@@ -97,7 +101,7 @@ jobs:
             git reset --hard origin/main
             CNA_BASE=pipeline/base_2526.json.gz CNA_NEW=raw_2627 CNA_OUT=temporada.html CNA_SUMMARY=resumen.txt python pipeline/generar.py
             git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json
-            git commit -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || exit 0
+            git commit $VACIO -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || exit 0
           done
           exit 1
 
