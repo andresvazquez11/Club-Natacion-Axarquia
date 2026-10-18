@@ -70,6 +70,9 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .gclock{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l);margin:4px 0 10px;}
 .arr-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--brd);}
 .firma{text-align:center;font-size:10.5px;color:var(--mut);margin:24px 0 2px;opacity:.85}
+.manual-card{display:flex;align-items:center;gap:12px;margin:18px 0 0;padding:12px 14px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;color:var(--txt);text-decoration:none}
+.manual-card .mi{font-size:24px}.manual-card b{display:block;font-size:15px}.manual-card small{display:block;color:var(--mut);font-size:12px;line-height:1.35}
+.manual-link{display:inline-block;margin-top:14px;color:var(--blu-l);font-size:14px;font-weight:600;text-decoration:none}
 .firma a{color:var(--mut);text-decoration:none;font-weight:600}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(15,23,42,.97);border-top:1px solid var(--brd);display:grid;grid-template-columns:repeat(4,1fr);padding:6px 0 max(8px,env(safe-area-inset-bottom,0px));backdrop-filter:blur(8px)}
 .tabbar a,.tabbar button{background:none;border:0;color:var(--mut);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent}
@@ -293,7 +296,7 @@ function pantallaMensaje(titulo, texto, extra) {
 }
 function renderLogin() {
   pantallaMensaje('Cronómetro Natación', 'Entra con la cuenta de Google que el club tiene dada de alta.',
-    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>${FIRMA_HTML}`);
+    `<button class="btn btn-green" style="max-width:320px;margin:0 auto" data-action="login-google">Entrar con Google</button>${MANUAL_LINK}${FIRMA_HTML}`);
 }
 async function loginGoogle() {
   const prov = new firebase.auth.GoogleAuthProvider();
@@ -358,7 +361,7 @@ async function dbInit() {
 function esperarAprobacion() {
   pantallaMensaje('Solicitud enviada',
     `Has pedido acceso con <b>${esc(_user.email)}</b>. El administrador del club tiene que aprobarlo; en cuanto lo haga, el cronómetro se abrirá solo.`,
-    `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
+    `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>${MANUAL_LINK}`);
   const off = _db.collection('entrenadores').doc(miEmail()).onSnapshot(snap => {
     const d = snap.exists ? snap.data() : {};
     if (d.bloqueado === true) { off(); sinAcceso(); }
@@ -1227,6 +1230,9 @@ function render() {
   renderPantalla(app);
   if (pos!=null) { const el = document.getElementById('board-search'); if (el) { el.focus(); try { el.setSelectionRange(pos,pos); } catch {} } }
 }
+// Manual de uso del cronómetro (PDF junto a la app): en la entrada, en el inicio y en el menú ⋯
+const MANUAL_URL = 'manual.pdf';
+const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 const FIRMA_HTML = '<div class="firma">Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>';
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
@@ -1273,6 +1279,7 @@ const pruebasSeries = series => series.map(x=>`<b>Serie ${x.ronda}</b> · ${esc(
 function renderMenu() {
   if (!MENU_ABIERTO) return '';
   return `<div class="menu-pop">
+    <a href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a>
     ${soyAdmin()?`<button data-action="entrenadores">👥 Entrenadores${solicitudesPendientes().length?` (${solicitudesPendientes().length})`:''}</button>`:''}
     <button data-action="cambiar-nombre">✎ Cambiar nombre</button>
     <button data-action="logout">Salir</button>
@@ -1314,7 +1321,9 @@ function renderHome() {
     <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
     ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:10px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
     ${renderPreparados()}
-    ${tarjeta}`;
+    ${tarjeta}
+    <a class="manual-card" href="${MANUAL_URL}" target="_blank" rel="noopener"><span class="mi">📘</span>
+      <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>`;
 }
 function renderPreparados() {
   const ps = misPlanes();

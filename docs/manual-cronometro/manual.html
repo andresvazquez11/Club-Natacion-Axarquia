@@ -1,0 +1,346 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Manual del cronómetro · C.N. Axarquía</title>
+<style>
+@page{size:A4;margin:13mm 14mm 15mm}
+*{box-sizing:border-box}
+body{font-family:-apple-system,"Helvetica Neue",Arial,sans-serif;color:#0f1d2b;font-size:10.2pt;line-height:1.45;margin:0}
+h1,h2,h3{color:#0f1d2b;margin:0}
+h2{font-size:18pt;padding:2px 0 7px;border-bottom:3px solid #22c55e;margin-bottom:10px;break-after:avoid}
+h2 .n{color:#2563eb;margin-right:6px}
+h3{font-size:12pt;margin:10px 0 5px;color:#2563eb;break-after:avoid}
+p{margin:0 0 6px}
+ul,ol{margin:0 0 7px;padding-left:18px} li{margin-bottom:2px}
+b{color:#0f1d2b}
+.sec{break-before:page}
+.sub{margin-top:14px;padding-top:8px;border-top:1px dashed #c7d2e0}
+.fila{display:flex;gap:14px;align-items:flex-start;margin:4px 0 10px;break-inside:avoid}
+.fila .tx{flex:1;min-width:0}
+.cap{flex:0 0 52mm;text-align:center}
+.cap img{width:100%;max-height:108mm;object-fit:cover;object-position:top;border-radius:9px;box-shadow:0 2px 9px rgba(15,23,42,.35);display:block;background:#0f172a}
+.cap img+img{margin-top:7px}
+.cap.alto img{max-height:140mm}
+.cap small{display:block;color:#475569;font-size:7.8pt;margin-top:3px;line-height:1.3}
+.duo{display:flex;gap:12px;justify-content:center;margin:6px 0 10px;break-inside:avoid}
+.duo .cap{flex:0 0 52mm}
+.tira{width:100%;border-radius:8px;box-shadow:0 2px 9px rgba(15,23,42,.25);display:block;margin:4px 0}
+.paso{display:flex;gap:9px;margin:0 0 7px}
+.paso .n{flex:0 0 22px;height:22px;border-radius:50%;background:#22c55e;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:9.5pt}
+.ruta{display:inline-block;background:#eef4ff;color:#0f1d2b;border:1px solid #c7d7f5;border-radius:6px;padding:1px 7px;font-size:8.8pt;font-weight:700;margin-bottom:6px}
+.nota{background:#fff8d6;border-left:4px solid #f59e0b;padding:6px 10px;border-radius:4px;margin:7px 0;font-size:9.3pt;break-inside:avoid}
+.info{background:#eef4ff;border-left:4px solid #2563eb;padding:6px 10px;border-radius:4px;margin:7px 0;font-size:9.3pt;break-inside:avoid}
+.ok{background:#e9fbef;border-left:4px solid #22c55e;padding:6px 10px;border-radius:4px;margin:7px 0;font-size:9.3pt;break-inside:avoid}
+table.g{width:100%;border-collapse:collapse;font-size:9.2pt;margin:5px 0 9px}
+table.g th{background:#0f172a;color:#fff;text-align:left;padding:4px 7px}
+table.g td{border-bottom:1px solid #dbe3ee;padding:4px 7px;vertical-align:top}
+table.g tr{break-inside:avoid}
+.portada{height:268mm;margin:-13mm -14mm 0;padding:26mm 20mm 0;background:linear-gradient(170deg,#0f172a 0%,#13233d 55%,#1d3b66 100%);color:#fff;position:relative}
+.portada h1{color:#fff;font-size:32pt;line-height:1.08;margin:8px 0 10px}
+.portada .k{color:#22c55e;font-weight:800;letter-spacing:1px;font-size:11pt}
+.portada p{font-size:12.3pt;color:#dbe7ff;max-width:108mm}
+.portada .url{max-width:104mm;word-break:break-all;margin-top:14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:10px 14px;display:inline-block;font-size:11pt}
+.portada .url b{color:#fff}
+.portada .tel{position:absolute;right:18mm;bottom:20mm;width:62mm;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.portada .pie{position:absolute;left:20mm;bottom:22mm;font-size:9.5pt;color:#b8c6e0;max-width:90mm}
+.indice{columns:2;column-gap:18px;font-size:10.4pt}
+.indice div{break-inside:avoid;margin-bottom:4px}
+.indice span{color:#2563eb;font-weight:800;margin-right:6px}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 10px}
+.caja{border:1px solid #dbe3ee;border-radius:10px;padding:8px 10px;break-inside:avoid}
+.caja h4{margin:0 0 4px;font-size:10.5pt}
+.caja.crono{background:#0f172a;color:#e5edf8;border-color:#0f172a}.caja.crono h4,.caja.crono b{color:#fff}
+.caja.web{background:#e9f9fd;border-color:#b9e3ee}
+.mini{font-size:8.8pt;color:#475569}
+</style></head><body>
+
+<div class="portada">
+  <div class="k">CLUB NATACIÓN AXARQUÍA · PARA ENTRENADORES</div>
+  <h1>Manual del cronómetro de entrenamientos</h1>
+  <p>Cómo tomar los tiempos de todo el grupo desde el móvil, qué te enseña la app en cada serie y cómo esos tiempos aparecen en la web de estadísticas del club.</p>
+  <div class="url">Dirección de la app:<br><b>andresvazquez11.github.io/Club-Natacion-Axarquia/cronometro/</b></div>
+  <p style="margin-top:14px;font-size:11pt">Este manual se abre desde la propia app: «📘 Manual de uso» en la pantalla de entrada, en el inicio y en el menú ⋯.</p>
+  <img class="tel" src="z/inicio.jpg" alt="">
+  <div class="pie">Las capturas usan nadadores, entrenadora y tiempos <b style="color:#fff">ficticios</b>, solo como ejemplo.</div>
+</div>
+
+<div class="sec">
+<h2>Contenido</h2>
+<div class="indice">
+  <div><span>1</span>Qué es y qué puedes hacer</div>
+  <div><span>2</span>Primer acceso</div>
+  <div><span>3</span>La pantalla Entrenar</div>
+  <div><span>4</span>Preparar la sesión y las calles</div>
+  <div><span>5</span>Durante la serie: salidas y llegadas</div>
+  <div><span>6</span>Al terminar cada serie</div>
+  <div><span>7</span>Entrenos preparados en casa</div>
+  <div><span>8</span>Resumen, PDF e historial</div>
+  <div><span>9</span>Nadadores y su evolución</div>
+  <div><span>10</span>La conexión con la web del club</div>
+  <div><span>11</span>Administrador: entrenadores y nadadores</div>
+  <div><span>12</span>Trucos y preguntas frecuentes</div>
+</div>
+
+<h3 style="margin-top:16px">1 · Qué es y qué puedes hacer</h3>
+<p>Es un cronómetro pensado para un entrenador solo en el borde de la piscina con varias calles a la vez. En lugar de un crono por nadador, das <b>una salida común</b> por tanda y tocas a <b>cada nadador cuando llega</b>. La app guarda cada tiempo con su nadador, su serie, su prueba y su calle.</p>
+<ul>
+  <li><b>Varias calles a la vez</b>, con salidas escalonadas (el 1º de cada calle, luego el 2º…) y ciclos de salida con aviso sonoro o salida automática.</li>
+  <li><b>Parciales cada 50 m</b> en pruebas de 100 m o más.</li>
+  <li>Al llegar, cada tiempo se compara con <b>su mejor entreno</b> y con <b>su mejor marca de competición</b> (de la federación): sabes al momento quién ha mejorado.</li>
+  <li><b>Notas rápidas</b> por nadador, <b>asistencia</b> y <b>tiempo nadando</b> de la sesión.</li>
+  <li><b>Entrenos preparados en casa</b>: en la piscina solo pulsas ▶.</li>
+  <li><b>Resumen en PDF</b>, historial por meses y la <b>evolución</b> de cada nadador con gráfico.</li>
+  <li>Todo se ve también en la <b>web de estadísticas</b> (modo entrenador): el grupo, la asistencia, comparativas y la ficha de cada nadador con sus entrenos junto a sus marcas de competición.</li>
+</ul>
+<div class="info"><b>Solo para entrenadores.</b> Se entra con una cuenta de Google y el administrador del club tiene que aprobarla. Los tiempos de entrenamiento no son públicos: no los ven las familias ni nadie sin acceso.</div>
+</div>
+
+<div class="sec">
+<h2><span class="n">2</span>Primer acceso</h2>
+<div class="fila"><div class="tx">
+  <div class="paso"><div class="n">1</div><div><b>Abre la app</b> en el navegador del móvil: <b>andresvazquez11.github.io/Club-Natacion-Axarquia/cronometro/</b>. También hay un botón <b>Crono</b> en la cabecera de la web del club cuando estás en modo entrenador.</div></div>
+  <div class="paso"><div class="n">2</div><div><b>Instálala</b> como una app: en iPhone (Safari) botón compartir → «Añadir a pantalla de inicio»; en Android (Chrome) menú ⋮ → «Añadir a pantalla de inicio». Aparece el icono «Crono CNA».</div></div>
+  <div class="paso"><div class="n">3</div><div>Pulsa <b>Entrar con Google</b> y elige tu cuenta.</div></div>
+  <div class="paso"><div class="n">4</div><div>La primera vez verás <b>Solicitud enviada</b>: el administrador recibe tu petición. En cuanto la apruebe, la app se abre sola (no hace falta recargar).</div></div>
+  <div class="paso"><div class="n">5</div><div>Escribe <b>tu nombre</b> (el que verán tus compañeros en los entrenamientos) y pulsa <b>Empezar</b>. Se puede cambiar luego en el menú ⋯.</div></div>
+  <div class="nota">Si ves <b>Cuenta sin acceso</b>, el administrador no la ha aprobado o la ha retirado. Habla con él, o pulsa «Usar otra cuenta» si entraste con la equivocada.</div>
+</div><div class="cap"><img src="z/login.jpg" alt=""><small>Entrada</small><img src="z/solicitud.jpg" alt=""><small>Esperando aprobación</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">3</span>La pantalla Entrenar</h2>
+<div class="fila"><div class="tx">
+  <p>Es la pantalla de inicio. De arriba a abajo:</p>
+  <ul>
+    <li><b>Hola, [tu nombre]</b> y la fecha. El botón <b>⋯</b> abre el menú: Manual de uso, Cambiar nombre, Salir (y Entrenadores si eres administrador).</li>
+    <li><b>▶ Nuevo entrenamiento</b>: empieza una sesión. Debajo te recuerda las <b>calles de la última vez</b>.</li>
+    <li><b>Entrenos preparados</b>: los que dejaste listos en casa (apartado 7). <b>▶</b> los empieza, ✎ los edita, ✕ los borra.</li>
+    <li><b>Último entrenamiento</b>: series, nadadores, tiempos, tiempo nadando, el <b>mejor del día</b> y cuántos <b>mejoran su marca</b>. «↻ Repetir este entreno» lo vuelve a preparar con las mismas calles; «Ver resumen ›» abre el resumen completo.</li>
+    <li><b>Manual de uso</b>: este documento.</li>
+  </ul>
+  <h3>La barra de abajo</h3>
+  <table class="g">
+    <tr><th>Botón</th><th>Qué hay</th></tr>
+    <tr><td><b>⏱ Entrenar</b></td><td>Esta pantalla.</td></tr>
+    <tr><td><b>📋 Historial</b></td><td>Todos tus entrenamientos por meses (apartado 8).</td></tr>
+    <tr><td><b>🏊 Nadadores</b></td><td>Los grupos del club y la evolución de cada nadador (apartado 9).</td></tr>
+    <tr><td><b>🌐 Web club</b></td><td>Abre la web de estadísticas del club (apartado 10).</td></tr>
+  </table>
+</div><div class="cap alto"><img src="z/inicio.jpg" alt=""><small>Inicio</small></div></div>
+<div class="duo"><div class="cap"><img src="z/menu.jpg" alt=""><small>Menú ⋯</small></div><div class="cap"><img src="z/nombre.jpg" alt=""><small>Tu nombre, la primera vez</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">4</span>Preparar la sesión y las calles</h2>
+<span class="ruta">Entrenar → ▶ Nuevo entrenamiento</span>
+<div class="fila"><div class="tx">
+  <h3>¿Mismas calles que la última vez?</h3>
+  <p>Si ya entrenaste antes, la app te ofrece repetir la misma distribución de calles. <b>✓ Usar mismas calles</b> la carga; <b>Empezar de cero</b> la ignora.</p>
+  <h3>La prueba de la serie</h3>
+  <ul>
+    <li><b>Estilo</b> (libre, braza, mariposa, espalda) y <b>distancia</b> (50, 100, 200, 400 m). Con ellos la app compara cada tiempo con los anteriores y con su marca de competición.</li>
+    <li><b>Tiempos parciales cada 50 m</b> (en 100 m o más): en cada largo de 50 tocas la tarjeta del nadador; el último toque es la llegada.</li>
+    <li><b>Ciclo de salida</b> (opcional, por ejemplo <b>1:00</b>): marca cada cuánto sale el siguiente de cada calle. Con <b>Salida automática</b> la app da la salida sola al cumplirse el ciclo; sin ella, te avisa con pitidos y tú pulsas SALIDA.</li>
+    <li><b>¿Quién más vino?</b>: marca a los que vinieron pero no nadan (lesionados, enfermos…). Quien está en una calle ya cuenta como presente.</li>
+    <li><b>Notas</b> de la sesión (opcional).</li>
+  </ul>
+</div><div class="cap"><img src="z/preparar_oferta.jpg" alt=""><small>Oferta de las mismas calles</small></div></div>
+<div class="fila sub"><div class="tx">
+  <h3>El tablero de calles</h3>
+  <p>Cada calle tiene su color y sus nadadores en orden de salida (①, ②, ③…).</p>
+  <ul>
+    <li><b>Mover a alguien</b>: mantén pulsada su tarjeta y arrástrala a otra calle o a otro puesto; o tócala y luego toca la calle de destino.</li>
+    <li><b>Añadir nadadores</b>: debajo del tablero tienes la lista del club con buscador y filtro por categoría.</li>
+    <li><b>➕ Añadir calle</b> y ✕ para quitar una calle.</li>
+  </ul>
+  <p>Cuando esté listo, <b>▶ Iniciar sesión</b>. La pantalla se queda encendida mientras preparas y cronometras.</p>
+</div><div class="cap alto"><img src="z/preparar.jpg" alt=""><small>Prueba, ciclo y calles</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">5</span>Durante la serie: salidas y llegadas</h2>
+<div class="fila"><div class="tx">
+  <h3>Arriba, siempre visible</h3>
+  <p>La prueba y el número de serie, cuántos han llegado (por ejemplo «7/8 llegados»), el botón <b>Terminar</b> (hay que tocarlo dos veces, para no cerrar sin querer) y el <b>tiempo nadando</b> de la sesión: suma el tiempo de agua de cada serie, de la primera salida a la última llegada.</p>
+  <h3>La salida</h3>
+  <ul>
+    <li><b>Próxima salida</b> muestra quién sale ahora en cada calle.</li>
+    <li>Si alguien no sale en esta tanda, <b>toca su nombre</b> («no sale»).</li>
+    <li>Pulsa <b>🚀 SALIDA</b>: arrancan a la vez los de todas las calles. La hora se toma al <b>apoyar el dedo</b>, no al soltarlo.</li>
+    <li>Vuelve a pulsar SALIDA para la siguiente tanda (el 2º de cada calle…).</li>
+    <li>Con <b>ciclo</b>, ves la <b>cuenta atrás</b> hasta la próxima salida y oyes pitidos en los últimos 5 segundos; «▶ Automática / ⏸ Pausar ciclo» cambia el modo en cualquier momento.</li>
+    <li><b>✎ Calles</b>: cambia calles o añade nadadores en mitad de la sesión (solo afecta a los que esperan).</li>
+  </ul>
+</div><div class="cap"><img src="z/salida.jpg" alt=""><small>Antes de la primera salida</small></div></div>
+<div class="fila sub"><div class="tx">
+  <h3>En el agua</h3>
+  <p>Una <b>columna por calle</b>, con su color. Cada nadador es una tarjeta grande con su crono en marcha: <b>tócala cuando llegue (LLEGÓ)</b>. Al llegar alguien solo se mueve su columna, así no se te descoloca el resto bajo el dedo.</p>
+  <ul>
+    <li>Con <b>parciales</b>, cada toque marca 50 m (los puntitos indican cuántos van) y la tarjeta enseña el último parcial; <b>🏁 Llegó</b> cierra directamente si te saltaste un parcial; <b>↶</b> deshace el último.</li>
+    <li>¿Te equivocaste? <b>↶ Deshacer</b> devuelve al nadador al agua.</li>
+    <li><b>Nota rápida</b>: <b>mantén pulsada</b> la tarjeta (o su fila en Llegados) y escribe, por ejemplo, «viraje lento». La verás en el resumen, en el PDF y en la web.</li>
+    <li>Si mejora, al llegar aparece <b>🏅 ¡marca de comp.!</b> o <b>🏅 mejor entreno</b>.</li>
+  </ul>
+  <p>Debajo, <b>Llegados ✓</b> con calle, nombre y tiempo, el último arriba.</p>
+</div><div class="cap"><img src="z/en_el_agua.jpg" alt=""><small>Tres calles nadando</small></div></div>
+<div class="duo"><div class="cap"><img src="z/llegadas.jpg" alt=""><small>Llegando: Marcos bate su marca</small></div><div class="cap"><img src="z/parciales.jpg" alt=""><small>100 m con parciales cada 50</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">6</span>Al terminar cada serie</h2>
+<div class="fila"><div class="tx">
+  <p>Cuando llega el último, aparece el <b>resumen de la serie</b>:</p>
+  <ul>
+    <li><b>⚡ Más rápidos</b> (con la diferencia con el primero) o <b>🏊 Por calle</b> (en orden de salida).</li>
+    <li>Debajo de cada nombre, la comparación con su <b>mejor marca de competición</b> (en piscina de 25 m; si la hizo en 50 m se convierte) y con su <b>mejor entreno</b> en esa prueba: en verde y con «−», lo que ha mejorado; con «+», lo que le falta.</li>
+    <li>Etiquetas <b>MEJOR ENTRENO</b> y <b>MEJORA SU MARCA</b>.</li>
+    <li>Con parciales, los tiempos de cada 50.</li>
+  </ul>
+  <h3>¿Y ahora?</h3>
+  <ul>
+    <li><b>🔁 Repetir igual</b>: otra serie de la misma prueba con las mismas calles.</li>
+    <li><b>➕ Nueva serie con otro estilo</b>: eliges otra prueba, parciales y ciclo; mismas calles.</li>
+    <li>En un entreno preparado: <b>▶ Siguiente serie</b> con lo que planificaste.</li>
+    <li><b>🏁 Terminar entrenamiento</b>: cierra la sesión y abre su resumen.</li>
+  </ul>
+</div><div class="cap alto"><img src="z/serie_resumen.jpg" alt=""><small>Resumen de una serie</small></div></div>
+<div class="duo"><div class="cap"><img src="z/nueva_serie.jpg" alt=""><small>Nueva serie con otra prueba</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">7</span>Entrenos preparados en casa</h2>
+<span class="ruta">Entrenar → Entrenos preparados → 📝 Preparar</span>
+<div class="fila"><div class="tx">
+  <p>Prepara el entreno con calma el día antes y en la piscina solo pulsa <b>▶</b>.</p>
+  <div class="paso"><div class="n">1</div><div>Ponle un <b>nombre</b> (por ejemplo «Jueves · velocidad»).</div></div>
+  <div class="paso"><div class="n">2</div><div>Añade las <b>series</b>: cada una con su estilo, distancia, parciales, ciclo y salida automática. Ordénalas con ↑ ↓.</div></div>
+  <div class="paso"><div class="n">3</div><div>Arma las <b>calles</b> en el tablero, como al preparar una sesión.</div></div>
+  <div class="paso"><div class="n">4</div><div><b>💾 Guardar entreno preparado</b>.</div></div>
+  <p>En la piscina, <b>▶</b> empieza la serie 1 con esas calles. Al terminar cada serie, el botón <b>▶ Siguiente serie</b> carga la siguiente ya configurada. Al acabar todas verás «✓ Plan terminado».</p>
+  <div class="info">Puedes usar el mismo entreno preparado tantas veces como quieras. Los cambios que hagas en la piscina (calles, una serie extra) no lo modifican.</div>
+</div><div class="cap alto"><img src="z/plan.jpg" alt=""><small>Editar un entreno preparado</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">8</span>Resumen, PDF e historial</h2>
+<div class="fila"><div class="tx">
+  <h3>Resumen del entrenamiento</h3>
+  <p>Al terminar (o desde Historial): fecha y horario, grupo y entrenador; series, nadadores, tiempos, <b>tiempo nadando</b> y minutos totales; estilos y nadadores.</p>
+  <ul>
+    <li><b>Asistencia</b>: cuántos estuvieron presentes. Tócala para corregirla.</li>
+    <li>Cada <b>serie</b> con sus puestos, tiempos, diferencias, parciales, <b>notas</b> y comparación con competición y entrenos.</li>
+    <li><b>📄 Descargar resumen en PDF</b>: para guardarlo o mandarlo por WhatsApp. <b>📤 Texto</b> lo comparte como texto.</li>
+  </ul>
+  <h3>Historial</h3>
+  <p>Tus entrenamientos agrupados por <b>meses</b>, con las series de cada uno y el tiempo nadando. Toca uno para abrir su resumen.</p>
+  <p>Con los filtros de <b>estilo</b> y <b>distancia</b> (por ejemplo libre + 50 m) ves solo esas series, una debajo de otra, con 🏅 en las marcas: ideal para ver cómo evoluciona el grupo en una prueba.</p>
+</div><div class="cap alto"><img src="z/resumen_entreno.jpg" alt=""><small>Resumen del entrenamiento</small></div></div>
+<div class="duo"><div class="cap"><img src="z/historial.jpg" alt=""><small>Historial por meses</small></div><div class="cap"><img src="z/historial_filtro.jpg" alt=""><small>Solo libre 50 m</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">9</span>Nadadores y su evolución</h2>
+<span class="ruta">Barra → 🏊 Nadadores</span>
+<div class="fila"><div class="tx">
+  <p>Arriba eliges el grupo: los del <b>club</b> (Benjamín, Alevín, Infantil, Junior, Absoluto: la lista oficial, la mantiene el administrador) o tus <b>grupos propios</b> (por ejemplo un grupo de tecnificación). Cada nadador muestra cuántos entrenos tiene, su mejor tiempo y una flecha de <b>tendencia</b>.</p>
+  <p>Debajo, «Mis grupos propios»: créalos con <b>+ Crear</b>, edítalos con ✎ y añade nadadores.</p>
+  <h3>La evolución de un nadador</h3>
+  <ul>
+    <li>Filtra por prueba (por ejemplo libre 50 m).</li>
+    <li><b>Mejor</b>, <b>último</b> y <b>tendencia</b>.</li>
+    <li><b>Gráfico</b> de sus tiempos entreno a entreno (abajo = más rápido) y la lista de sesiones con «Último» y «Mejor».</li>
+    <li><b>📈 Ficha completa en la web del club</b>: abre su ficha de competición en la web, directamente en sus entrenamientos.</li>
+  </ul>
+</div><div class="cap"><img src="z/nadadores.jpg" alt=""><small>Nadadores del grupo</small></div></div>
+<div class="duo"><div class="cap"><img src="z/evolucion.jpg" alt=""><small>Evolución en libre 50 m</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">10</span>La conexión con la web del club</h2>
+<p>El cronómetro y la web de estadísticas son dos caras de lo mismo. Cada nadador del club está unido a su <b>licencia de la federación (RFEN)</b>, así que sus tiempos de entrenamiento y sus marcas de competición se encuentran solos.</p>
+<div class="dos">
+  <div class="caja crono"><h4>⏱ En el cronómetro (en la piscina)</h4>
+    <ul class="mini" style="color:#c8d5ea">
+      <li>Tomar tiempos, parciales, notas y asistencia.</li>
+      <li>Al llegar cada nadador: su mejor marca de <b>competición</b> (traída de la web) y su mejor entreno.</li>
+      <li>Resumen de serie y de entrenamiento, PDF.</li>
+      <li>Historial de tus sesiones y evolución por nadador.</li>
+    </ul></div>
+  <div class="caja web"><h4>🌐 En la web (modo entrenador)</h4>
+    <ul class="mini">
+      <li>Los entrenamientos de <b>todos los entrenadores</b> juntos, con filtros por categoría, estilo y periodo.</li>
+      <li>El <b>grupo</b>: asistencia, estilos y cómo va el grupo en cada prueba.</li>
+      <li><b>Comparar</b> hasta 4 nadadores en una prueba.</li>
+      <li>En la <b>ficha de cada nadador</b>: sus entrenos junto a sus marcas, rankings y campeonatos.</li>
+    </ul></div>
+</div>
+<h3>Entrar en el modo entrenador de la web</h3>
+<div class="fila"><div class="tx">
+  <div class="paso"><div class="n">1</div><div>En la web del club pulsa <b>Entrenador</b> en la barra (en el ordenador, «Modo entrenador» en la columna izquierda).</div></div>
+  <div class="paso"><div class="n">2</div><div><b>Entrar con Google</b> con la <b>misma cuenta</b> del cronómetro. El acceso es el mismo: si el administrador te aprobó en la app, ya puedes entrar.</div></div>
+  <div class="paso"><div class="n">3</div><div>Desde ese momento ese móvil u ordenador queda en <b>modo entrenador</b>: aparece el botón <b>Crono</b> arriba (abre el cronómetro) y en la ficha de cada nadador verás sus entrenamientos. «Salir del modo entrenador», al pie de la sección, lo desactiva.</div></div>
+  <img class="tira" src="z/web_cabecera.jpg" alt=""><img class="tira" src="z/web_barra.jpg" alt="">
+  <p class="mini">Cabecera de la web con el botón Crono · barra con el botón Entrenador.</p>
+</div><div class="cap alto"><img src="z/web_entrenos.jpg" alt=""><small>Web · Entrenamientos</small></div></div>
+</div>
+
+<div class="sec">
+<h3>Qué ves en la sección Entrenamientos de la web</h3>
+<div class="fila"><div class="tx">
+  <ul>
+    <li><b>Filtros</b>: categoría, estilo y periodo (toda la temporada, último mes, última semana).</li>
+    <li><b>Números</b>: entrenamientos con tiempos, tiempos tomados, nadadores y pruebas distintas, y un gráfico de <b>tiempos tomados por semana</b>.</li>
+    <li><b>El grupo</b>: cada nadador con sesiones a las que vino, <b>% de asistencia</b> (verde si 75 % o más), tiempos y estilos nadados; y «Cómo va el grupo en cada prueba»: la mediana del grupo y la diferencia entre el más rápido y el más lento, entreno a entreno.</li>
+    <li><b>Comparar nadadores</b>: elige prueba y hasta 4 nadadores; gráfico y tabla con mejor, media, mejora, tendencia y marca de competición.</li>
+    <li><b>Entrenamientos</b>: cada sesión con entrenador, pruebas y todos sus tiempos (con la comparación con su entreno anterior).</li>
+    <li><b>Mejores tiempos por prueba</b> y lista de <b>nadadores</b>. Pulsa un nadador para abrir su ficha.</li>
+  </ul>
+</div><div class="cap"><img src="z/web_comparar.jpg" alt=""><small>Comparar y lista de entrenamientos</small></div></div>
+<div class="fila sub"><div class="tx">
+  <h3>En la ficha de cada nadador (web)</h3>
+  <p>En modo entrenador, la ficha de cada nadador del club tiene un acceso más: <b>Entrenamientos</b>. Muestra:</p>
+  <ul>
+    <li>Entrenamientos, tiempos, pruebas y fecha del último entreno.</li>
+    <li>Por prueba: <b>media</b>, <b>mejora</b> desde el primer tiempo y <b>tendencia</b> de los últimos.</li>
+    <li><b>Mejor en entreno</b> frente a <b>mejor en competición</b> (25 m), lado a lado.</li>
+    <li>Gráfico de su evolución y tabla con fecha, tiempo, parciales y <b>notas</b> del entrenador.</li>
+  </ul>
+  <p>Y desde ahí sigue a mano todo lo demás de la web: sus marcas, rankings, mínimas, relevos y su puesto en el club.</p>
+  <div class="ok"><b>En la práctica:</b> en la piscina tomas los tiempos con el cronómetro; en casa, en la web, ves el grupo entero, comparas y lo cruzas con la competición. No hay que pasar nada a mano: lo que guardas en la app aparece en la web al momento.</div>
+</div><div class="cap"><img src="z/web_sesion.jpg" alt=""><small>Una sesión con todos sus tiempos</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">11</span>Administrador: entrenadores y nadadores</h2>
+<span class="ruta">Menú ⋯ → 👥 Entrenadores (solo administradores)</span>
+<div class="fila"><div class="tx">
+  <p>Cuando alguien pide acceso, en el inicio aparece <b>🔔 1 solicitud de acceso</b>.</p>
+  <ul>
+    <li><b>Solicitudes de acceso</b>: <b>Aprobar</b> o <b>Rechazar</b>. Al aprobar, a esa persona se le abre la app sola.</li>
+    <li><b>Con acceso</b>: quién puede entrar, con su alta y último acceso; <b>Quitar acceso</b> lo retira al momento (en la app y en la web).</li>
+    <li><b>Sin acceso</b>: los retirados o rechazados; <b>Dar acceso</b> los vuelve a admitir.</li>
+  </ul>
+  <h3>Sincronizar con Estadísticas</h3>
+  <p>Trae de la web los <b>nadadores nuevos</b> y los <b>cambios de categoría</b> y une cada nadador a su licencia RFEN (y por tanto a su ficha). No borra a nadie. Úsalo al empezar la temporada o cuando entren nadadores nuevos.</p>
+</div><div class="cap alto"><img src="z/entrenadores.jpg" alt=""><small>Gestión de entrenadores</small></div></div>
+</div>
+
+<div class="sec">
+<h2><span class="n">12</span>Trucos y preguntas frecuentes</h2>
+<h3>En la piscina hay poca cobertura</h3>
+<p>La app sigue funcionando: guarda los tiempos en el móvil y los sube en cuanto vuelve la conexión. Ábrela una vez con conexión antes de entrar a la piscina.</p>
+<h3>No suenan los pitidos del ciclo</h3>
+<p>Los móviles no dejan sonar una web hasta que la tocas: el sonido se activa al pulsar «Iniciar sesión» o «SALIDA». Comprueba también el volumen y el modo silencio.</p>
+<h3>La pantalla se apaga</h3>
+<p>La app la mantiene encendida mientras preparas y cronometras. Si tu móvil no lo permite, verás un aviso: sube el tiempo de bloqueo en los Ajustes.</p>
+<h3>Me he equivocado al tocar</h3>
+<p><b>↶ Deshacer</b> en la tarjeta o en la fila de Llegados devuelve al nadador al agua (con parciales, ↶ deshace el último toque). Si alguien no salió, toca su nombre antes de la SALIDA.</p>
+<h3>Un nadador no está en la lista</h3>
+<p>Los grupos del club los mantiene el administrador con «Sincronizar con Estadísticas». Mientras tanto puedes crear un grupo propio y añadirlo tú.</p>
+<h3>¿Por qué no sale su marca de competición?</h3>
+<p>Solo aparece si el nadador está unido a su licencia RFEN y tiene marca en esa prueba en la federación. Las marcas de 50 m se convierten a su equivalente en 25 m (los entrenos son en piscina corta).</p>
+<h3>¿Quién ve los tiempos de entrenamiento?</h3>
+<p>Solo los entrenadores aprobados, en la app y en el modo entrenador de la web. Las familias ven la web pública (competición) pero no los entrenamientos.</p>
+<h3>Veo «Simulación» en algunos entrenamientos</h3>
+<p>Son datos de prueba marcados para borrarlos antes de empezar con datos reales. Lo que toméis vosotros no se toca.</p>
+<h3>¿Varios entrenadores a la vez?</h3>
+<p>Sí. Cada uno ve sus sesiones en su historial; en la web se ven todas juntas, con el nombre de quien las tomó.</p>
+</div>
+</body></html>

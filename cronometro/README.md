@@ -17,6 +17,7 @@ Vive dentro de la web de estadísticas del club (carpeta `cronometro/` de este r
 | `firebase-config.js` | Configuración del proyecto de Firebase (no es secreta) |
 | `firestore.rules` | Reglas de seguridad: quién puede leer y escribir |
 | `manifest.webmanifest`, `sw.js`, `icons/` | Lo necesario para instalarla en el móvil y usarla sin conexión |
+| `manual.pdf` | Manual de uso para entrenadores (se abre desde la entrada, el inicio y el menú ⋯ de la app). Se genera con `node docs/manual-cronometro/capturas.mjs <carpeta> <URL>` (capturas con datos ficticios, sin tocar Firebase) |
 | `importar.html` | Herramienta para cargar los datos exportados del cronómetro anterior |
 | `nadadores.json` | Lista ligera del club (licencia RFEN, nombre, categoría). Por ahora es una copia fija; la actualización diaria desde `pipeline/generar.py` está pendiente |
 
