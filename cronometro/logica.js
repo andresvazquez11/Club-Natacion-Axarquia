@@ -2,6 +2,14 @@
    y se prueba con node --test (cronometro/tests). */
 
 const ESTILOS = ['libre','braza','mariposa','espalda'];
+// Estilos propios del club (colección «estilos»: id = slug, p. ej. «piernas»): los crean los entrenadores
+const ESTILO_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const estiloOk = e => typeof e === 'string' && (ESTILOS.includes(e) || (e.length >= 2 && e.length <= 30 && ESTILO_RE.test(e)));
+function slugEstilo(nombre) {
+  const s = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/, '');
+  return s.length >= 2 && !ESTILOS.includes(s) ? s : null;
+}
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const idOk = v => typeof v === 'string' && ID_RE.test(v);
 const numOk = v => { const n = Number(v); return v !== null && v !== '' && Number.isFinite(n) ? n : null; };
@@ -10,7 +18,7 @@ const txtCorto = v => { const t = v == null ? '' : String(v).trim(); return t ? 
 // Normaliza lo que llega de Firestore antes de usarlo: nada de texto donde va un número, ni HTML en ids
 function limpiarDoc(col, d) {
   if (col==='sesiones' || col==='plantillas' || col==='resultados') {
-    d.estilo = ESTILOS.includes(d.estilo) ? d.estilo : null;
+    d.estilo = estiloOk(d.estilo) ? d.estilo : null;
     const n = Number(d.dist); d.dist = Number.isFinite(n) && n > 0 ? n : null;
   }
   if (col==='resultados') {   // serie y salida se muestran tal cual: siempre enteros positivos
@@ -33,10 +41,11 @@ function limpiarDoc(col, d) {
       .map(c => ({nombre: txtCorto(c.nombre) || 'Calle', nIds: (Array.isArray(c.nIds) ? c.nIds : []).filter(idOk)}));
     d.series = (Array.isArray(d.series) ? d.series : []).filter(x => x && typeof x === 'object').map(x => {
       const dist = Number(x.dist), ciclo = Math.round(Number(x.ciclo));
-      return {estilo: ESTILOS.includes(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
+      return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
               parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true};
     });
   }
+  if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
   if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
   return d;
 }

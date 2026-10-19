@@ -70,7 +70,7 @@ test('limpiarDoc: nota recortada, tramos y presentes válidos, sim intacto', () 
 test('limpiarDoc: planes con calles y series normalizadas', () => {
   const p = ev('limpiarDoc', 'planes', { nombre: 'Martes', eqId: 'eqA',
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
-    series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: 'nado', dist: 'x', ciclo: -3 }] });
+    series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
   assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true },
     { estilo: null, dist: null, parciales: false, ciclo: null, auto: false }]);
@@ -100,4 +100,28 @@ test('parseCiclo: segundos o m:ss; vacío o inválido es sin ciclo', () => {
   assert.equal(ev('parseCiclo', '0'), null);
   assert.equal(ev('parseCiclo', '1:75'), null);
   assert.equal(ev('parseCiclo', 'abc'), null);
+});
+
+test('slugEstilo: nombre del entrenador → id sin acentos ni símbolos; nada si coincide con uno de los 4', () => {
+  assert.equal(ev('slugEstilo', 'Piernas'), 'piernas');
+  assert.equal(ev('slugEstilo', '  Técnica Crol! '), 'tecnica-crol');
+  assert.equal(ev('slugEstilo', 'Espalda'), null);
+  assert.equal(ev('slugEstilo', 'x'), null);
+  assert.equal(ev('slugEstilo', '<script>'), 'script');
+});
+
+test('estiloOk: los 4 de siempre y los propios con forma de id; nunca HTML', () => {
+  assert.equal(ev('estiloOk', 'libre'), true);
+  assert.equal(ev('estiloOk', 'piernas'), true);
+  assert.equal(ev('estiloOk', 'tecnica-crol'), true);
+  assert.equal(ev('estiloOk', '<b>x</b>'), false);
+  assert.equal(ev('estiloOk', null), false);
+});
+
+test('limpiarDoc: acepta estilos propios en tiempos, sesiones y planes; estilos con nombre recortado', () => {
+  assert.equal(ev('limpiarDoc', 'resultados', { estilo: 'piernas', dist: 50 }).estilo, 'piernas');
+  assert.equal(ev('limpiarDoc', 'sesiones', { estilo: '<img>', dist: 50 }).estilo, null);
+  assert.equal(ev('limpiarDoc', 'planes', { series: [{ estilo: 'piernas', dist: 50 }] }).series[0].estilo, 'piernas');
+  const e = ev('limpiarDoc', 'estilos', { nombre: '  Piernas con tabla ' + 'x'.repeat(40), ts: '5' });
+  assert.equal(e.nombre.length, 30); assert.equal(e.ts, 5);
 });

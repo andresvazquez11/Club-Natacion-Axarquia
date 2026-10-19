@@ -38,6 +38,12 @@ service cloud.firestore {
       allow delete: if esAdmin();
     }
 
+    // Estilos propios (p. ej. «piernas»): cualquier entrenador los crea; solo el administrador los borra
+    match /estilos/{id} {
+      allow read, create, update: if esEntrenador();
+      allow delete: if esAdmin();
+    }
+
     match /{coleccion}/{doc} {
       allow read, write: if esEntrenador()
         && coleccion in ['equipos', 'nadadores', 'sesiones', 'grupos', 'gnads', 'resultados', 'plantillas', 'planes'];

@@ -15,6 +15,14 @@ function entNavModo() {
 
 /* Nombre de la prueba como en la web ('libre', 50 → '50 Libre') */
 const entPrueba = (estilo, dist) => `${dist} ${estilo.charAt(0).toUpperCase()}${estilo.slice(1)}`;
+/* Estilos propios que crean los entrenadores en el cronómetro (colección «estilos», id tipo «piernas») */
+const entEstiloOk = e => typeof e === 'string' && (ENT_ESTILOS.includes(e) || (e.length >= 2 && e.length <= 30 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(e)));
+const entOrden = e => { const i = ENT_ESTILOS.indexOf(e); return i < 0 ? 99 : i; };
+let ENT_NOMBRES = {};   // id de estilo propio → nombre que le puso el entrenador
+const entEstiloNombre = e => ENT_ESTILOS.includes(e) ? e.charAt(0).toUpperCase() + e.slice(1)
+  : (n => n.charAt(0).toUpperCase() + n.slice(1))(String(ENT_NOMBRES[e] || e.replace(/-/g, ' ')));
+/* Estilos que aparecen en unos tiempos: primero los 4 de siempre, luego los propios */
+const entEstilosDe = T => [...new Set(T.map(t => t.estilo).filter(Boolean))].sort((a, b) => entOrden(a) - entOrden(b) || a.localeCompare(b));
 const entCs = ms => Math.round(ms / 10);            // el cronómetro guarda milésimas; la web usa centésimas
 const entEntero = v => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : 1; };   // serie/salida: nunca texto libre
 /* Entrenamiento de simulación (datos de prueba): se marca para borrarlo sin tocar los reales */
@@ -26,14 +34,15 @@ const entDia = ts => { const d = new Date(ts); return `${d.getFullYear()}-${Stri
 function entTiempos(D, sw) {
   const ses = new Map(D.sesiones.map(s => [s.id, s]));
   const nad = new Map(D.nadadores.map(n => [n.id, n]));
+  (D.estilos || []).forEach(e => { if (entEstiloOk(e.id) && e.nombre) ENT_NOMBRES[e.id] = String(e.nombre).slice(0, 30); });
   return D.resultados.map(r => {
     const s = ses.get(r.sesId); if (!s) return null;
-    const estilo = ENT_ESTILOS.includes(r.estilo) ? r.estilo : ENT_ESTILOS.includes(s.estilo) ? s.estilo : null;
+    const estilo = entEstiloOk(r.estilo) ? r.estilo : entEstiloOk(s.estilo) ? s.estilo : null;
     const dist = Number(r.estilo ? r.dist : s.dist) || null;
     const n = nad.get(r.nId) || {};
     const web = n.rfen && Object.hasOwn(sw, String(n.rfen)) ? sw[String(n.rfen)] : null;
     return {id: r.id, sesId: r.sesId, fecha: Number(s.fecha) || 0, dia: entDia(Number(s.fecha) || 0), coach: s.coach || '', sim: entEsSim(s), ronda: entEntero(r.ronda),
-      estilo, dist, ev: estilo && dist ? entPrueba(estilo, dist) : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
+      estilo, dist, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
@@ -60,7 +69,7 @@ function entResumen(T) {
   const nads = new Map();
   T.forEach(t => { const m = nads.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, cat: t.cat, tiempos: 0, sesiones: new Set(), pruebas: new Set()};
     m.tiempos++; m.sesiones.add(t.sesId); if (t.ev) m.pruebas.add(t.ev); nads.set(t.nId, m); });
-  const ordenP = (a, b) => ENT_ESTILOS.indexOf(a.estilo) - ENT_ESTILOS.indexOf(b.estilo) || a.dist - b.dist;
+  const ordenP = (a, b) => entOrden(a.estilo) - entOrden(b.estilo) || a.estilo.localeCompare(b.estilo) || a.dist - b.dist;
   return {
     tiempos: T.length,
     entrenamientos: [...sesiones.values()].sort((a, b) => b.fecha - a.fecha)
@@ -111,7 +120,7 @@ function entGrupo(T, sesiones = []) {
   // Quien vino aunque no nadara (lista «presentes» del cronómetro) también cuenta como asistencia
   sesiones.forEach(s => { if (ses.has(s.id) && Array.isArray(s.presentes)) s.presentes.forEach(id => { const x = m.get(id); if (x) x.ses.add(s.id); }); });
   return {sesiones: ses.size, nadadores: [...m.values()].map(x => ({nId: x.nId, n: x.n, rfen: x.rfen, cat: x.cat, sesiones: x.ses.size,
-      asistencia: ses.size ? x.ses.size / ses.size * 100 : 0, tiempos: x.tiempos, estilos: ENT_ESTILOS.filter(e => x.estilos.has(e))}))
+      asistencia: ses.size ? x.ses.size / ses.size * 100 : 0, tiempos: x.tiempos, estilos: [...x.estilos].sort((a, b) => entOrden(a) - entOrden(b) || a.localeCompare(b))}))
     .sort((a, b) => b.sesiones - a.sesiones || b.tiempos - a.tiempos || a.n.localeCompare(b.n))};
 }
 /* Dispersión del grupo en una prueba: por día, el tiempo más rápido, la mediana y el más lento, y todos los puntos */
@@ -242,7 +251,8 @@ async function entCargar(forzar) {
   if (!f || f.bloqueado === true || (f.aprobado !== true && f.admin !== true)) { ENT.estado = 'denegado'; entMarcarLocal(false); return; }
   const leer = c => db.collection(c).get().then(q => q.docs.map(d => Object.assign({id: d.id}, d.data())));
   const [sesiones, resultados, nadadores] = await Promise.all(['sesiones', 'resultados', 'nadadores'].map(leer));
-  ENT.datos = {sesiones, resultados, nadadores};
+  const estilos = await leer('estilos').catch(() => []);   // estilos propios: si las reglas aún no la permiten, sin ellos
+  ENT.datos = {sesiones, resultados, nadadores, estilos};
   ENT.T = entTiempos(ENT.datos, SW);
   ENT.cargado = Date.now(); ENT.estado = 'listo';
   entMarcarLocal(true);
@@ -311,7 +321,7 @@ function pintarEntrenamientos(host, f) {
   const filtros = `
     <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', [['all', 'Todas', cuenta({cat: 'all'})], ...cats.map(c => [c.key, c.label, cuenta({cat: c.key})])], f.cat)}</div>
     <div class="grid g2" style="gap:6px 12px">
-      <div class="flt"><span class="flt-l">Estilo</span>${chipsHTML('estilo', [['all', 'Todos'], ...ENT_ESTILOS.map(e => [e, `${franja(e)}${e.charAt(0).toUpperCase() + e.slice(1)}`])], f.estilo)}</div>
+      <div class="flt"><span class="flt-l">Estilo</span>${chipsHTML('estilo', [['all', 'Todos'], ...[...new Set([...ENT_ESTILOS, ...entEstilosDe(T)])].map(e => [e, `${franja(e)}${esc(entEstiloNombre(e))}`])], f.estilo)}</div>
       <div class="flt"><span class="flt-l">Periodo</span>${chipsHTML('dias', [['all', 'Toda la temporada'], ['30', 'Último mes'], ['7', 'Última semana']], f.dias)}</div>
     </div>`;
   const vacio = !T.length
@@ -341,8 +351,8 @@ function pintarEntrenamientos(host, f) {
       ${G.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
         <td style="max-width:0;width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b></td>
         <td class="num">${m.sesiones} de ${G.sesiones}</td><td class="num"><b class="${m.asistencia >= 75 ? 'good' : m.asistencia < 50 ? 'bad' : ''}">${Math.round(m.asistencia)}%</b></td>
-        <td class="num">${m.tiempos}</td><td class="ent-estilos">${m.estilos.map(e => `<span title="${e}">${franja(e)}</span>`).join('')}</td></tr>`).join('')}</table></div>
-      <div class="ent-leyenda" style="margin-bottom:4px">${ENT_ESTILOS.map(e => `<span>${franja(e)}${e.charAt(0).toUpperCase() + e.slice(1)}</span>`).join('')}</div>
+        <td class="num">${m.tiempos}</td><td class="ent-estilos">${m.estilos.map(e => `<span title="${esc(entEstiloNombre(e))}">${franja(e)}</span>`).join('')}</td></tr>`).join('')}</table></div>
+      <div class="ent-leyenda" style="margin-bottom:4px">${[...new Set([...ENT_ESTILOS, ...entEstilosDe(F)])].map(e => `<span>${franja(e)}${esc(entEstiloNombre(e))}</span>`).join('')}</div>
       ${gev ? `<div class="h h-sub">${ico('tendencia')}Cómo va el grupo en cada prueba</div>
         ${chipsHTML('gev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.n]), gev)}
         ${entGraficoDispersion(DG, gev)}

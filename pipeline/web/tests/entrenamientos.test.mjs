@@ -162,3 +162,17 @@ test('entGrupo: cuenta como asistencia estar en «presentes» aunque no haya tie
   const b = con.nadadores.find(m => m.nId === 'b');
   assert.equal(b.sesiones, 2); assert.equal(Math.round(b.asistencia), 100);
 });
+
+test('entTiempos: estilos propios del club («piernas») con su nombre; nunca HTML como estilo', () => {
+  const D2 = structuredClone(D);
+  D2.estilos = [{ id: 'piernas', nombre: 'Piernas con tabla' }];
+  D2.resultados.push({ id: 'rp', sesId: 's1', nId: 'a', ms: 45000, ronda: 3, estilo: 'piernas', dist: 50 });
+  D2.resultados.push({ id: 'rx', sesId: 's1', nId: 'b', ms: 45000, ronda: 3, estilo: '<b>x</b>', dist: 50 });
+  const T = ev('entTiempos', D2, SW);
+  const p = T.find(t => t.id === 'rp');
+  assert.equal(p.estilo, 'piernas'); assert.equal(p.ev, '50 Piernas con tabla');
+  assert.equal(T.find(t => t.id === 'rx').estilo, 'libre');          // estilo inválido: el de la sesión
+  const R = ev('entResumen', T);
+  assert.equal(R.pruebas[R.pruebas.length - 1].ev, '50 Piernas con tabla');   // los propios, después de los 4
+  assert.deepEqual(ev('entEstilosDe', T), ['libre', 'espalda', 'piernas']);
+});
