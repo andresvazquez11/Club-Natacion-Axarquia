@@ -176,3 +176,35 @@ test('entTiempos: estilos propios del club («piernas») con su nombre; nunca HT
   assert.equal(R.pruebas[R.pruebas.length - 1].ev, '50 Piernas con tabla');   // los propios, después de los 4
   assert.deepEqual(ev('entEstilosDe', T), ['libre', 'espalda', 'piernas']);
 });
+
+test('entFiltrar: por semana (lunes) y por día', () => {
+  const T = ev('entTiempos', D, SW);
+  const lunes = ev('entLunes', DIA);
+  assert.deepEqual(ev('entFiltrar', T, { sem: lunes }).map(t => t.id).sort(), ['r1', 'r2', 'r3']);
+  assert.deepEqual(ev('entFiltrar', T, { dia: T.find(t => t.id === 'r4').dia }).map(t => t.id), ['r4']);
+});
+
+test('entTabla y entCompararSeries: nadadores × series de un entrenamiento', () => {
+  const T = ev('entTiempos', D, SW).filter(t => t.sesId === 's1');
+  const tb = ev('entTabla', T);
+  assert.deepEqual(tb.series.map(s => [s.ronda, s.ev]), [[1, '50 Libre'], [2, '100 Espalda']]);
+  assert.deepEqual(tb.filas.map(f => [f.n, Object.keys(f.t)]), [['Ana Web', ['1', '2']], ['Beto', ['1']]]);
+  assert.deepEqual(ev('entCompararSeries', tb, 1, 2).map(x => [x.n, x.a, x.b, x.dif]), [['Ana Web', 3123, 8800, 5677]]);
+});
+
+test('entUltimoEntrenoPrevio: el más reciente de otro entrenamiento, no el mejor', () => {
+  const T = ev('entTiempos', { ...D, sesiones: [...D.sesiones, { id: 's3', fecha: DIA + 14 * 864e5 }],
+    resultados: [...D.resultados, { id: 'r6', sesId: 's3', nId: 'a', ms: 32000, ronda: 1, estilo: 'libre', dist: 50 }] }, SW);
+  ctx.__T = T;
+  const ult = JSON.parse(evalIn(ctx, 'JSON.stringify(entUltimoEntrenoPrevio(__T, __T.find(t => t.id === "r6")))'));
+  assert.equal(ult.id, 'r4');
+});
+
+test('entGraficoSeries: una línea por nadador que nadó las series elegidas; aviso si no hay series', () => {
+  const T = ev('entTiempos', D, SW).filter(t => t.sesId === 's1');
+  ctx.__tb = evalIn(ctx, 'entTabla')(T);
+  const svg = evalIn(ctx, 'entGraficoSeries(__tb, [1, 2], null)');
+  assert.equal((svg.match(/<polyline/g) || []).length, 1);     // solo Ana nadó las dos series
+  assert.equal((svg.match(/<circle/g) || []).length, 3);
+  assert.match(evalIn(ctx, 'entGraficoSeries(__tb, [], null)'), /Elige al menos una serie/);
+});

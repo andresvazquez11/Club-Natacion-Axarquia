@@ -224,6 +224,28 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sw-extra{display:flex;gap:4px;margin:0 4px;}
 .sw-mini{flex:1;min-width:0;min-height:36px;padding:0 2px;border:1px solid var(--brd);border-radius:9px;background:var(--bg);color:var(--mut);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .sw-mini.fin{color:var(--txt);}
+/* Sitio fijo: todas las tarjetas de la pizarra miden lo mismo, así nada se desplaza al llegar alguien */
+.lanes-grid .sw-card{height:134px;min-height:0;}
+.sw-card.espera{border-style:dashed;border-color:color-mix(in srgb,var(--lc) 45%,transparent);background:var(--bg);cursor:default;opacity:.75;}
+.sw-card.espera:active{filter:none;transform:none;}
+.sw-card.espera .sw-act{background:transparent;color:var(--mut);}
+.sw-card.comp{box-shadow:0 0 0 2px var(--amb) inset;}
+.sw-card.prev{border-style:dotted;}
+.sw-prev{display:inline-block;padding:0 5px;border-radius:5px;background:var(--amb);color:#111;font-size:10px;font-weight:800;}
+.sw-undo-mini{margin-left:auto;background:rgba(0,0,0,.3);border:1px solid var(--brd);color:var(--txt);border-radius:7px;width:30px;height:22px;font-size:13px;cursor:pointer;touch-action:manipulation;}
+.sw-extra.sp{height:36px;}
+.comp-tag{display:inline-block;padding:2px 8px;border-radius:7px;background:#2a1c0c;color:var(--amb);font-size:11px;font-weight:800;vertical-align:middle;}
+.ini-tag{display:inline-block;padding:2px 7px;border-radius:7px;background:var(--bg);color:var(--mut);font-size:11px;font-weight:700;vertical-align:middle;}
+.rank-box{margin-top:4px;padding:6px 8px;border-radius:9px;background:#2a1c0c;border:1px solid #6b4a12;font-size:12px;line-height:1.5;color:var(--txt);white-space:normal;}
+.rank-box b{color:var(--amb);}
+.cmp-tab{margin-top:4px;font-size:12px;font-weight:500;color:var(--mut);white-space:normal;font-variant-numeric:tabular-nums;line-height:1.4;}
+.cmp-i{padding:2px 0;}
+.cmp-tab .k{color:var(--mut);}
+.cmp-tab .t{color:var(--txt);font-weight:700;}
+.cmp-tab small{font-size:11px;}
+.cmp-tab b{font-weight:800;white-space:nowrap;}
+.ver{font-size:10.5px;color:var(--mut);opacity:.8;}
+.click-row{cursor:pointer;}
 .lleg-row{border-left:5px solid var(--lc,var(--brd));}
 .toggle-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;margin-bottom:16px;cursor:pointer;touch-action:manipulation;}
 .toggle-row.dis{opacity:.5;cursor:default;}
@@ -275,13 +297,16 @@ function saveCoach(name) {
   try { localStorage.setItem('coach_name', name); } catch {}
 }
 // Per-coach filtered views
-function myEqs()    { return S.equipos.filter(e=>e.coach===coachName||e.shared===true); }
+// Lo propio (entrenos, grupos, planes, calles) es de la cuenta de Google con la que se entra (coachEmail).
+// Lo creado antes de guardar el correo se sigue reconociendo por el nombre del entrenador.
+function esMio(x) { return !!x && (x.coachEmail ? x.coachEmail === miEmail() : x.coach === coachName); }
+function myEqs()    { return S.equipos.filter(e=>esMio(e)||e.shared===true); }
 function myEqIds()  { return new Set(myEqs().map(e=>e.id)); }
 function myNads()   { const ids=myEqIds(); return S.nadadores.filter(n=>ids.has(n.eqId)); }
-function myPersonalEqIds() { return new Set(S.equipos.filter(e=>e.coach===coachName).map(e=>e.id)); }
+function myPersonalEqIds() { return new Set(S.equipos.filter(esMio).map(e=>e.id)); }
 function mySes()    {
   const personalIds = myPersonalEqIds();
-  return S.sesiones.filter(s=>s.coach===coachName||(!s.coach&&personalIds.has(s.eqId)));
+  return S.sesiones.filter(s=>s.coachEmail ? s.coachEmail===miEmail() : (s.coach===coachName||(!s.coach&&personalIds.has(s.eqId))));
 }
 
 // ── Conexión: Firebase (login con Google + Firestore) ───────
@@ -393,16 +418,22 @@ async function registrarEntrenador(u) {
 }
 // Mejores marcas de competición del club (las publica cada día la web de estadísticas en nadadores.json)
 let MARCAS = {};   // licencia RFEN → {'50 Libre': {'25m': [centésimas, fecha, competición]}}
+let NADINFO = {};  // licencia RFEN → {g: 'M'|'F', y: año}: para compararle con los de su sexo y año
 function cargarMarcas() {
   fetch('nadadores.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).then(d => {
     if (!d || !Array.isArray(d.nadadores)) return;
-    MARCAS = {};
-    d.nadadores.forEach(n => { if (/^\d{3,12}$/.test(String(n.id)) && n.mm && typeof n.mm === 'object') MARCAS[String(n.id)] = n.mm; });
+    MARCAS = {}; NADINFO = {};
+    d.nadadores.forEach(n => {
+      if (!/^\d{3,12}$/.test(String(n.id))) return;
+      if (n.mm && typeof n.mm === 'object') MARCAS[String(n.id)] = n.mm;
+      if ((n.g === 'M' || n.g === 'F') && Number.isInteger(n.y)) NADINFO[String(n.id)] = {g: n.g, y: n.y};
+    });
     if (canRerender() || (SA && rondaTerminada())) render();
   }).catch(() => {});
 }
 function conectarColecciones() {
   cargarMarcas();
+  cargarRankings();
   document.getElementById('app').innerHTML = '<div class="center-msg"><h2>Cargando...</h2></div>';
   _dbReady = false; _initN = 0;
   _initTimer = setTimeout(() => { if (!_dbReady) { _dbReady = true; render(); } }, 6000);
@@ -422,9 +453,9 @@ function conectarColecciones() {
 // ── DB Mutations ─────────────────────────────────────────────
 const DB = {
   async crearEquipo(nombre) {
-    const ts = Date.now(), ref = _db.collection('equipos').doc();
-    S.equipos.unshift({id:ref.id,nombre,ts,coach:coachName}); render();
-    await ref.set({nombre,ts,coach:coachName}).catch(console.error);
+    const ts = Date.now(), ref = _db.collection('equipos').doc(), coachEmail = miEmail();
+    S.equipos.unshift({id:ref.id,nombre,ts,coach:coachName,coachEmail}); render();
+    await ref.set({nombre,ts,coach:coachName,coachEmail}).catch(console.error);
     return ref.id;
   },
   async borrarEquipo(id) {
@@ -445,10 +476,10 @@ const DB = {
     S.nadadores = S.nadadores.filter(n=>n.id!==id); render();
     await _db.collection('nadadores').doc(id).delete().catch(console.error);
   },
-  async crearSesion(eqId, estilo, dist, notas, parciales) {
+  async crearSesion(eqId, estilo, dist, notas, parciales, inicio, comp) {
     const fecha = Date.now(), ref = _db.collection('sesiones').doc();
     const coach = coachName;
-    const data = {eqId,fecha,estilo,dist,notas:notas||null,fin:null,coach,parciales:!!parciales};
+    const data = {eqId,fecha,estilo,dist,notas:notas||null,fin:null,coach,coachEmail:miEmail(),parciales:!!parciales,inicio:inicio||'agua',comp:!!comp};
     S.sesiones.push({id:ref.id,...data});
     await ref.set(data).catch(console.error);
     return ref.id;
@@ -458,7 +489,7 @@ const DB = {
     _db.collection('sesiones').doc(sesId).update({presentes}).catch(console.error);
   },
   async crearEstilo(id, nombre) {
-    const data = {nombre, ts: Date.now(), coach: coachName};
+    const data = {nombre, ts: Date.now(), coach: coachName, coachEmail: miEmail()};
     S.estilos.push({id, ...data});
     await _db.collection('estilos').doc(id).set(data).catch(e => alert('No se pudo guardar el estilo: ' + e.message));
   },
@@ -520,7 +551,7 @@ const DB = {
   },
   // Última distribución de calles del entrenador (una por entrenador)
   guardarPlantilla(calles, estilo, dist, parciales) {
-    const data = {coach:coachName, ts:Date.now(), estilo:estilo||null, dist:dist||null, parciales:!!parciales, calles};
+    const data = {coach:coachName, coachEmail:miEmail(), ts:Date.now(), estilo:estilo||null, dist:dist||null, parciales:!!parciales, calles};
     const prev = miPlantilla();
     if (prev) {
       Object.assign(prev, data);
@@ -533,7 +564,7 @@ const DB = {
   }
 };
 function miPlantilla() {
-  return S.plantillas.filter(p=>p.coach===coachName).sort((a,b)=>b.ts-a.ts)[0] || null;
+  return S.plantillas.filter(esMio).sort((a,b)=>b.ts-a.ts)[0] || null;
 }
 function plantillaDesdeSA() {
   return SA.grupos.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.nId)}));
@@ -640,7 +671,7 @@ function navPreparar(eqId) {
   // Start with one empty lane, coaches fill it from club search
   PS = {eqId, estilo:null, dist:null, notas:'',
         sinGrupo:[], grupos:[{key:'calle1', nombre:'Calle 1', nads:[]}],
-        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false, ciclo:null, auto:false, extras:new Set(),
+        sel:new Set(), grupoSearch:{}, clubCat:null, parciales:false, ciclo:null, auto:false, inicio:'agua', comp:false, extras:new Set(),
         oferta: plantillaUsable()};
   boardReset();
   route = {screen:'preparar', eqId};
@@ -690,12 +721,6 @@ function startClock() {
     }
     const nd = document.getElementById('live-nado');
     if (nd) { nd.textContent = fmtNado(msNadando(SA.nado, now)); nd.parentElement.classList.toggle('parado', !SA.nado.some(x=>x.fin==null)); }
-    // Pasa a "Llegados" las filas que ya llevan un rato marcadas
-    if (SA.recientes.some(r => now - r.tLleg > RECIENTE_MS)) {
-      SA.recientes = SA.recientes.filter(r => now - r.tLleg <= RECIENTE_MS);
-      SA.tLayout = now;
-      render();
-    }
   }, 100);
 }
 
@@ -766,7 +791,7 @@ async function iniciarSesion() {
   const eqId = PS.eqId || eqMasFrecuente(callesConNads);
   const parciales = PS.parciales && Number(dist) > 50;
   DB.guardarPlantilla(callesConNads.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})), estilo, dist, parciales);
-  const sesId = await DB.crearSesion(eqId, estilo, dist, notas, parciales);
+  const sesId = await DB.crearSesion(eqId, estilo, dist, notas, parciales, inicioDe(PS), PS.comp);
   for (let i=0; i<callesConNads.length; i++) {
     const g = callesConNads[i];
     const gId = await DB.crearGrupo(sesId, g.nombre, i);
@@ -774,6 +799,7 @@ async function iniciarSesion() {
   }
   buildSA(sesId);
   SA.ciclo = cicloDe(PS); SA.auto = !!SA.ciclo;
+  SA.comp = !!PS.comp; SA.inicio = inicioDe(PS);
   DB.guardarPresentes(sesId, [...new Set([...callesConNads.flatMap(g=>g.nads.map(n=>n.id)), ...(PS.extras||[])])]);
   const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
   if (plan) { SA.plan = plan; SA.planIdx = 0; DB.guardarPlanId(sesId, plan.id); }
@@ -791,7 +817,8 @@ const LANE_COLORS = ['#ef4444','#3b82f6','#eab308','#22c55e','#a855f7','#f97316'
 const LANE_TXT    = ['#fff',   '#fff',   '#111',   '#06210f','#fff',   '#111',   '#04232a','#fff'];
 function laneTxt(color) { const i = LANE_COLORS.indexOf(color); return i<0 ? '#111' : LANE_TXT[i]; }
 function laneTag(label, color) { return `<span class="lane-tag" style="background:${color};color:${laneTxt(color)}">${esc(label)}</span>`; }
-const RECIENTE_MS = 1600; // la fila llegada se queda en su sitio este tiempo antes de bajar
+// Cada nadador tiene un sitio fijo en su calle durante toda la serie (en espera → nadando → llegó):
+// nada se mueve ni desaparece bajo el dedo, así no se marca por error a otro nadador.
 function buildSA(sesId) {
   const gs = S.grupos.filter(g=>g.sesId===sesId).sort((a,b)=>a.ord-b.ord);
   const ses = S.sesiones.find(s=>s.id===sesId);
@@ -802,6 +829,7 @@ function buildSA(sesId) {
     estilo: ses ? ses.estilo : null,
     parciales: !!(ses && ses.parciales),
     tramos: ses && ses.parciales && dist > 50 ? Math.round(dist/50) : 1, // toques por nadador
+    comp: !!(ses && ses.comp), inicio: inicioDe(ses),   // modo competición y salida desde el agua o la plataforma
     nuevaSerie: null,  // formulario de la siguiente serie con otro estilo
     nado: ses && Array.isArray(ses.nado) ? ses.nado : [],   // tiempo nadando: {r, ini, fin} por serie
     ronda: 1,
@@ -814,9 +842,9 @@ function buildSA(sesId) {
     noSale: new Set(), // calles cuyo nadador no sale en la próxima SALIDA
     editando: false,
     buscar: null,      // {gId, q} buscador de la calle en edición
-    agua: [],       // nadando ahora
+    agua: [],       // nadando ahora (también los de la serie anterior que aún no han llegado)
     llegados: [],   // ya llegados en esta ronda
-    recientes: [],  // llegados que aún se muestran en su sitio (evita saltos bajo el dedo)
+    prevLleg: [],   // de la serie anterior que llegaron cuando esta ya había empezado
     grupos: gs.map((g, idx) => {
       const gnds = S.gnads.filter(gn=>gn.gId===g.id).sort((a,b)=>(a.pos||0)-(b.pos||0));
       const nads = gnds.map(gn => {
@@ -841,17 +869,23 @@ function salidaTanda(t, auto) {
   if (!auto && t - SA.tUltSalida < 800) return; // evita doble toque accidental
   const salen = SA.grupos.filter(g => g.next < g.nads.length && !SA.noSale.has(g.gId));
   if (!salen.length) return;
-  if (SA.nSalida === 0) { SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
+  if (SA.nSalida === 0) {
+    // La serie anterior deja de contar como «nadando» al empezar esta (aunque alguien siga en el agua): sin solapes
+    SA.nado = SA.nado.map(x => x.fin == null && x.r !== SA.ronda ? {...x, fin: t} : x);
+    SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado);
+  }
   SA.tUltSalida = t;
   SA.nSalida++;
   SA.finArmed = false;
   SA.noSale.clear(); // el que no salió sigue primero en su calle para la siguiente
   salen.forEach(g => {
     const nad = g.nads[g.next++];
+    // Cada nadador lleva su serie y su prueba: si la siguiente serie empieza antes de que llegue, su tiempo no se mezcla
     SA.agua.push({
       key: `k${++SA.seq}`,
       gId: g.gId, laneIdx: g.idx, lane: laneShort(g), color: g.color,
-      nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0
+      nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0,
+      ronda: SA.ronda, estilo: SA.estilo, dist: SA.dist, tramos: SA.tramos, comp: !!SA.comp, inicio: SA.inicio || 'agua'
     });
   });
   SA.agua.sort(ordenFila);
@@ -863,16 +897,20 @@ function llegoNad(key, t) {
   if (i<0) return;
   const a = SA.agua.splice(i,1)[0];
   const ms = t - a.t0;
-  const extra = {ronda:SA.ronda, salida:a.salida, estilo:SA.estilo||null, dist:SA.dist||null};
+  const extra = {ronda:a.ronda, salida:a.salida, estilo:a.estilo||null, dist:a.dist||null, inicio:a.inicio||'agua', ts:a.t0};
+  if (a.comp) extra.comp = true;
   if (a.nota) extra.nota = a.nota;
-  if (SA.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, SA.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
+  if (a.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, a.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
   const rec = {...a, ms, resId, tLleg: Date.now()};
   // Marca en el momento: mejora su mejor entreno o su marca de competición (25 m)
-  rec.marca = SA.estilo && SA.dist ? marcaDe(comparaciones(a.nId, SA.estilo, SA.dist, ms, resId, Date.now())) : null;
-  SA.llegados.push(rec);
-  SA.recientes.push(rec);
-  if (rondaTerminada()) { SA.nado = cerrarTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
+  rec.marca = a.estilo && a.dist ? marcaDe(comparaciones(a.nId, a.estilo, a.dist, ms, resId, Date.now())) : null;
+  (a.ronda === SA.ronda ? SA.llegados : SA.prevLleg).push(rec);
+  // El último en llegar de su serie cierra el tiempo nadando de esa serie (si sigue abierto)
+  const abierto = SA.nado.some(x => x.r === a.ronda && x.fin == null);
+  if (abierto && !SA.agua.some(x => x.ronda === a.ronda) && (a.ronda !== SA.ronda || !quedanPorSalir())) {
+    SA.nado = cerrarTramo(SA.nado, a.ronda, t); DB.guardarNado(SA.sesId, SA.nado);
+  }
   try { navigator.vibrate && navigator.vibrate(rec.marca ? [60,40,60] : 35); } catch {}
   render();
 }
@@ -885,7 +923,7 @@ function marcaNad(key, t) {
   // Un tramo de 50 m dura bastante más de 4 s: un segundo toque tan rápido es accidental
   if (a.tUlt && t - a.tUlt < 4000) return;
   a.tUlt = t;
-  if (a.parc.length < SA.tramos-1) {
+  if (a.parc.length < a.tramos-1) {
     a.parc.push(t - a.t0);
     try { navigator.vibrate && navigator.vibrate(20); } catch {}
     render();
@@ -944,9 +982,75 @@ function seriesDe(sesId) {
   const by = {};
   S.resultados.filter(r=>r.sesId===sesId).forEach(r => {
     const c = resCombo(r), k = r.ronda || 1;
-    (by[k] = by[k] || {ronda:k, estilo:c.estilo, dist:c.dist, res:[]}).res.push(r);
+    const x = (by[k] = by[k] || {ronda:k, estilo:c.estilo, dist:c.dist, res:[], comp:false, inicio:null, t0:null});
+    x.res.push(r);
+    if (r.comp) x.comp = true;
+    if (r.inicio && !x.inicio) x.inicio = r.inicio;
+    if (r.ts && (!x.t0 || r.ts < x.t0)) x.t0 = r.ts;   // hora de la primera salida de la serie
   });
+  Object.values(by).forEach(x => { x.hora = x.t0 ? fmtHora(x.t0) : null; });
   return Object.values(by).sort((a,b)=>a.ronda-b.ronda).map(x => (x.res.sort((a,b)=>a.ms-b.ms), x));
+}
+// Un entrenamiento como tabla: {filas: [{nId, n, t: {ronda: tiempo}}] por nombre, mejor: {ronda: ms más rápido}}
+function tablaEntreno(series) {
+  const filas = new Map(), mejor = {};
+  series.forEach(x => x.res.forEach(r => {
+    const f = filas.get(r.nId) || {nId: r.nId, n: nombreDe(r.nId), t: {}};
+    if (!f.t[x.ronda] || r.ms < f.t[x.ronda].ms) f.t[x.ronda] = r;
+    filas.set(r.nId, f);
+    if (mejor[x.ronda] == null || r.ms < mejor[x.ronda]) mejor[x.ronda] = r.ms;
+  }));
+  return {filas: [...filas.values()].sort((a, b) => a.n.localeCompare(b.n)), mejor};
+}
+// ── Gráfica del entreno: una línea por nadador a lo largo de las series elegidas (series de progreso) ──
+const GRAF_COL = ['#60a5fa','#f87171','#fbbf24','#34d399','#c084fc','#fb923c','#22d3ee','#f472b6','#a3e635','#e2e8f0','#93c5fd','#fca5a5'];
+let GRAF = null;   // {sesId, sel: Set de series, foco: nId resaltado}
+function grafEstado(sesId, series) {
+  if (!GRAF || GRAF.sesId !== sesId) {
+    // Por defecto: todas las series de la prueba más repetida (las de progreso suelen ser iguales)
+    const cuenta = {}; series.forEach(x => { const k = x.estilo+'|'+x.dist; cuenta[k] = (cuenta[k]||0) + 1; });
+    const top = Object.keys(cuenta).sort((a,b)=>cuenta[b]-cuenta[a])[0];
+    GRAF = {sesId, sel: new Set(series.filter(x => x.estilo+'|'+x.dist === top).map(x => x.ronda)), foco: null};
+  }
+  return GRAF;
+}
+function renderGrafica(sesId, series) {
+  if (series.length < 1) return '';
+  const g = grafEstado(sesId, series), tb = tablaEntreno(series);
+  const elegidas = series.filter(x => g.sel.has(x.ronda));
+  const chips = series.map(x => `<button class="pill${g.sel.has(x.ronda)?' sel':''}" style="font-family:inherit" data-action="graf-serie" data-r="${x.ronda}">S${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}</button>`).join('');
+  const filas = tb.filas.filter(f => elegidas.some(x => f.t[x.ronda]));
+  let svg = '<div class="muted" style="text-align:center;padding:16px;font-size:13px">Elige al menos una serie</div>';
+  if (elegidas.length && filas.length) {
+    const W = 340, H = 220, P = {l: 44, r: 12, t: 12, b: 26};
+    const vals = filas.flatMap(f => elegidas.map(x => f.t[x.ronda] && f.t[x.ronda].ms).filter(Boolean));
+    const mn = Math.min(...vals), mx = Math.max(...vals), pad = Math.max((mx-mn)*.1, 300), lo = mn - pad, hi = mx + pad;
+    const X = i => elegidas.length === 1 ? (P.l + W - P.r)/2 : P.l + i * (W - P.l - P.r) / (elegidas.length - 1);
+    const Y = ms => P.t + (hi - ms) / (hi - lo) * (H - P.t - P.b);   // más rápido abajo, como en la web
+    let s = '';
+    for (let k = 0; k <= 3; k++) { const ms = lo + (hi-lo)*k/3, y = Y(ms).toFixed(1);
+      s += `<line x1="${P.l}" x2="${W-P.r}" y1="${y}" y2="${y}" stroke="#334155" stroke-width=".5" stroke-dasharray="3,3"/><text x="${P.l-4}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${fmtTime(ms)}</text>`; }
+    elegidas.forEach((x, i) => { s += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#94a3b8">S${x.ronda}</text>`; });
+    filas.forEach((f, k) => {
+      const col = GRAF_COL[k % GRAF_COL.length], op = g.foco && g.foco !== f.nId ? .15 : 1, w = g.foco === f.nId ? 3.5 : 2;
+      const pts = elegidas.map((x, i) => f.t[x.ronda] ? [X(i), Y(f.t[x.ronda].ms)] : null);
+      // la línea se corta donde no nadó esa serie
+      let tramo = [];
+      const linea = () => { if (tramo.length > 1) s += `<polyline points="${tramo.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" stroke-linejoin="round"/>`; tramo = []; };
+      pts.forEach(p => { if (p) tramo.push(p); else linea(); }); linea();
+      pts.forEach(p => { if (p) s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${g.foco===f.nId?4.5:3}" fill="${col}" opacity="${op}"/>`; });
+    });
+    svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">${s}</svg>`;
+  }
+  const leyenda = filas.map((f, k) => `<button class="pill${g.foco===f.nId?' sel':''}" style="font-family:inherit;gap:6px${g.foco && g.foco!==f.nId?';opacity:.5':''}" data-action="graf-foco" data-nid="${esc(f.nId)}"><i style="width:10px;height:10px;border-radius:50%;background:${GRAF_COL[k % GRAF_COL.length]};display:inline-block"></i>${esc(f.n.split(' ')[0])} ${esc((f.n.split(' ')[1]||'').charAt(0))}.</button>`).join('');
+  return `<div class="card mt8">
+    <div style="font-weight:700;margin-bottom:4px">📈 Gráfica del entreno</div>
+    <div class="muted" style="font-size:12px;margin-bottom:8px">Elige las series a comparar (por ejemplo S1, S2 y S3) para ver cómo progresa cada nadador. Más abajo = más rápido.</div>
+    <div class="wrap" style="margin-bottom:8px">${chips}</div>
+    ${svg}
+    <div class="wrap" style="margin-top:8px;gap:6px">${leyenda}</div>
+    ${filas.length ? '<div class="muted" style="font-size:11px;margin-top:4px">Toca un nadador para resaltarlo.</div>' : ''}
+  </div>`;
 }
 function calleDe(r) { const g = S.grupos.find(g=>g.id===r.gId); return g ? g.nombre : ''; }
 function nombreDe(nId) { const n = S.nadadores.find(n=>n.id===nId); return n ? n.n : '?'; }
@@ -980,40 +1084,99 @@ function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta) {
   });
   return best;
 }
-// {comp, entreno, difComp (s), difEnt (s)}: diferencias negativas = mejora
-function comparaciones(nId, estilo, dist, ms, resId, hasta) {
+// Su último entreno anterior en la misma prueba (otro entrenamiento, antes de este): el más reciente, no el mejor
+function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId) {
+  let ult = null;
+  S.resultados.forEach(r => {
+    if (r.nId!==nId || r.id===excluirId || (sesId && r.sesId===sesId)) return;
+    const c = resCombo(r); if (c.estilo!==estilo || c.dist!==Number(dist)) return;
+    const ses = S.sesiones.find(x=>x.id===r.sesId); const f = ses ? ses.fecha : 0;
+    if (hasta && f > hasta) return;
+    if (!ult || f > ult.fecha || (f === ult.fecha && (r.ronda||1) > ult.ronda)) ult = {ms:r.ms, fecha:f, ronda:r.ronda||1};
+  });
+  return ult;
+}
+// {comp, ent, ult, difComp, difEnt, difUlt} en segundos: diferencias negativas = hoy más rápido
+function comparaciones(nId, estilo, dist, ms, resId, hasta, sesId) {
   const comp = mejorCompeticion(nId, estilo, dist), ent = mejorEntrenoPrevio(nId, estilo, dist, resId, hasta);
-  return {comp, ent, difComp: comp ? (ms - comp.cs*10)/1000 : null, difEnt: ent ? (ms - ent.ms)/1000 : null};
+  const ult = ultimoEntrenoPrevio(nId, estilo, dist, resId, hasta, sesId);
+  return {comp, ent, ult, difComp: comp ? (ms - comp.cs*10)/1000 : null, difEnt: ent ? (ms - ent.ms)/1000 : null,
+          difUlt: ult ? (ms - ult.ms)/1000 : null};
 }
 const difTxt = d => d==null ? '' : (d <= 0 ? '-' : '+') + Math.abs(d).toFixed(1);   // guion normal: el PDF no tiene el signo −
+const difPalabra = d => d==null ? '' : Math.abs(d) < 0.05 ? 'igual' : d < 0 ? 'más rápido' : 'más lento';
+// Tabla pequeña y explícita: qué tiempo es cada uno, de cuándo, y si hoy fue más rápido o más lento
 function comparaHTML(c) {
-  const dif = d => `<b class="${d<=0?'cmp-mej':'cmp-peor'}">${difTxt(d)}</b>`;
+  const fila = (k, t, f, d) => `<div class="cmp-i"><span class="k">${k}</span> <span class="t">${t}</span> <small>(${f})</small>
+    → hoy <b class="${d<=0?'cmp-mej':'cmp-peor'}">${difTxt(d)} s ${difPalabra(d)}</b></div>`;
   const out = [];
-  if (c.comp) out.push(`Competición ${fmtCs(c.comp.cs)} <span class="cmp-f">${origenComp(c.comp)} · ${fmtFechaIso(c.comp.fecha)}</span> ${dif(c.difComp)}`);
-  if (c.ent) out.push(`Entreno ${fmtTime(c.ent.ms)} <span class="cmp-f">${fmtDateShort(c.ent.fecha)}</span> ${dif(c.difEnt)}`);
-  return out.length ? `<div class="sum-cmp">${out.join('<br>')}</div>` : '';
+  if (c.comp) out.push(fila('🏆 Mejor competición', fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} · ${origenComp(c.comp)}`, c.difComp));
+  if (c.ent) out.push(fila('⭐ Mejor entreno', fmtTime(c.ent.ms), fmtDateShort(c.ent.fecha), c.difEnt));
+  if (c.ult && !(c.ent && c.ult.ms === c.ent.ms && c.ult.fecha === c.ent.fecha)) out.push(fila('↺ Último entreno', fmtTime(c.ult.ms), `${fmtDateShort(c.ult.fecha)} · serie ${c.ult.ronda}`, c.difUlt));
+  return out.length ? `<div class="cmp-tab">${out.join('')}</div>` : '';
 }
 function comparaTexto(c) {
   const out = [];
-  if (c.comp) out.push(`mejor competición en 25 m ${fmtCs(c.comp.cs)} (${origenComp(c.comp)}, ${fmtFechaIso(c.comp.fecha)}) ${difTxt(c.difComp)}`);
-  if (c.ent) out.push(`mejor entreno ${fmtTime(c.ent.ms)} (${fmtDateShort(c.ent.fecha)}) ${difTxt(c.difEnt)}`);
+  if (c.comp) out.push(`su mejor competición (25 m) ${fmtCs(c.comp.cs)} del ${fmtFechaIso(c.comp.fecha)} (${origenComp(c.comp)}): ${difTxt(c.difComp)} s ${difPalabra(c.difComp)}`);
+  if (c.ent) out.push(`su mejor entreno ${fmtTime(c.ent.ms)} del ${fmtDateShort(c.ent.fecha)}: ${difTxt(c.difEnt)} s ${difPalabra(c.difEnt)}`);
+  if (c.ult) out.push(`su último entreno ${fmtTime(c.ult.ms)} del ${fmtDateShort(c.ult.fecha)}: ${difTxt(c.difUlt)} s ${difPalabra(c.difUlt)}`);
   return out.join(' · ');
 }
+
+// ── Modo competición: puesto que tendría el tiempo entre sus compañeros del club y en el ranking ──
+let RANK = null, RANK_FECHA = null;   // rankings.json: 'sexo|año|prueba' → [España, Andalucía, Málaga] (diferencias)
+const _rankCache = new Map();
+function cargarRankings() {
+  fetch('rankings.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d || !d.r || typeof d.r !== 'object') return;
+    RANK = d; RANK_FECHA = String(d.fecha || ''); _rankCache.clear();
+    if (canRerender() || (SA && rondaTerminada())) render();
+  }).catch(() => {});
+}
+function listaRank(clave, j) {
+  const k = clave + '#' + j;
+  if (!_rankCache.has(k)) _rankCache.set(k, decodRank(((RANK && RANK.r[clave]) || [])[j]));
+  return _rankCache.get(k);
+}
+const NIVELES_RANK = ['España', 'Andalucía', 'Málaga'];
+function rankingDe(nId, estilo, dist, ms) {
+  const n = S.nadadores.find(x=>x.id===nId), info = n && n.rfen ? NADINFO[n.rfen] : null;
+  if (!info || !ESTILOS.includes(estilo) || !dist) return null;
+  const ev = evNombre(estilo, dist), cs = Math.round(ms/10), clave = `${info.g}|${info.y}|${ev}`;
+  // Compañeros del club del mismo sexo y año con marca en esa prueba (su mejor en 25 m)
+  const club = Object.entries(NADINFO).filter(([id, x]) => id !== n.rfen && x.g === info.g && x.y === info.y)
+    .map(([id]) => { const m = (MARCAS[id] || {})[ev]; return Array.isArray(m) ? Number(m[0]) : 0; }).filter(v => v > 0).sort((a, b) => a - b);
+  const out = {grupo: `${info.g === 'F' ? 'chicas' : 'chicos'} ${info.y}`, ev, club: club.length ? puestoEn(club, cs) : null, niveles: []};
+  if (RANK && RANK.r[clave]) {
+    const propia = ((RANK.p || {})[n.rfen] || {})[ev];   // su propia marca está en la lista: no es un rival
+    NIVELES_RANK.forEach((nom, j) => { const L = listaRank(clave, j); if (L.length) out.niveles.push({nom, ...puestoEn(L, cs, propia)}); });
+  }
+  return out;
+}
+// [{k: 'Málaga', v: '5º de 37'}], del ámbito más cercano al más amplio
+const rankPartes = r => [...(r.club ? [{k: 'Club', v: `${r.club.pos}º de ${r.club.de}`}] : []),
+  ...[...r.niveles].reverse().map(x => ({k: x.nom, v: `${x.pos}º de ${x.de}`}))];
+function rankingHTML(r) {
+  if (!r) return '';
+  if (!r.club && !r.niveles.length) return `<div class="rank-box">🏆 Sin ranking para ${esc(r.ev)} (${esc(r.grupo)}) todavía.</div>`;
+  return `<div class="rank-box">🏆 Con este tiempo quedaría: ${rankPartes(r).map(p => `<b>${esc(p.k)}</b> ${esc(p.v)}`).join(' · ')}
+    <div class="muted" style="font-size:11px">Entre ${esc(r.grupo)} · ${esc(r.ev)} · mejores marcas de los últimos 12 meses${RANK_FECHA ? ` (al ${esc(fmtFechaIso(RANK_FECHA))})` : ''}. Orientativo: es un tiempo de entreno.</div></div>`;
+}
+const rankingTexto = r => r && (r.club || r.niveles.length) ? `Con este tiempo quedaría (${r.grupo}): ${rankPartes(r).map(p => `${p.k} ${p.v}`).join(' · ')}` : '';
 function deshacerLlegada(key) {
   if (!SA) return;
-  const i = SA.llegados.findIndex(l=>l.key===key);
+  const lista = SA.llegados.some(l=>l.key===key) ? SA.llegados : SA.prevLleg;
+  const i = lista.findIndex(l=>l.key===key);
   if (i<0) return;
-  if (Date.now() - SA.llegados[i].tLleg < 1000) return; // doble toque sobre LLEGÓ
-  const l = SA.llegados.splice(i,1)[0];
-  SA.recientes = SA.recientes.filter(r=>r.key!==key);
+  if (Date.now() - lista[i].tLleg < 1000) return; // doble toque sobre LLEGÓ
+  const l = lista.splice(i,1)[0];
   DB.borrarRes(l.resId);
-  const {ms, resId, tLleg, ...a} = l;
+  const {ms, resId, tLleg, marca, ...a} = l;
   a.tUlt = 0;
   while (a.parc.length && a.parc[a.parc.length-1]==null) a.parc.pop();
   SA.agua.push(a);
   SA.agua.sort(ordenFila);
-  SA.tLayout = Date.now();
-  if (SA.nado.some(x=>x.r===SA.ronda && x.fin!=null)) { SA.nado = reabrirTramo(SA.nado, SA.ronda); DB.guardarNado(SA.sesId, SA.nado); }
+  if (a.ronda===SA.ronda && SA.nado.some(x=>x.r===SA.ronda && x.fin!=null)) { SA.nado = reabrirTramo(SA.nado, SA.ronda); DB.guardarNado(SA.sesId, SA.nado); }
   render();
 }
 function repetirSerie(cfg) {
@@ -1022,12 +1185,14 @@ function repetirSerie(cfg) {
     SA.estilo = cfg.estilo; SA.dist = Number(cfg.dist) || 0; SA.parciales = !!cfg.parciales;
     SA.tramos = SA.parciales && SA.dist > 50 ? Math.round(SA.dist/50) : 1;
     SA.ciclo = cicloDe(cfg); SA.auto = !!SA.ciclo;
+    SA.comp = !!cfg.comp; SA.inicio = inicioDe(cfg);
   }
   SA.nuevaSerie = null;
   SA.ronda++;
   SA.nSalida = 0;
   SA.avisado = SA.cicloSonado = null;   // el aviso y la salida del ciclo van por serie
-  SA.agua = []; SA.llegados = []; SA.recientes = [];
+  // Los que aún nadan la serie anterior siguen en el agua con su propio cronómetro (no hace falta esperarles)
+  SA.llegados = []; SA.prevLleg = [];
   SA.vista = 'rapidos';
   SA.noSale.clear();
   SA.grupos.forEach(g => { g.next = 0; });
@@ -1146,12 +1311,14 @@ async function exportar(sesId) {
   if (d.nads.length) txt += `Nadadores: ${d.nads.join(', ')}\n`;
   if (ses.notas) txt += `Notas: ${ses.notas}\n`;
   series.forEach(x => {
-    txt += `\nSERIE ${x.ronda} · ${comboTexto(x.estilo, x.dist).toUpperCase()}\n`;
+    txt += `\nSERIE ${x.ronda} · ${comboTexto(x.estilo, x.dist).toUpperCase()}${x.hora?` · ${x.hora}`:''}${x.comp?' · MODO COMPETICIÓN':x.inicio==='plataforma'?' · desde plataforma':''}\n`;
     x.res.forEach((r,i) => {
       txt += `${i+1}. ${nombreDe(r.nId)} — ${fmtTime(r.ms)}${calleDe(r)?` (${calleDe(r)})`:''}${r.nota?` · Nota: ${r.nota}`:''}\n`;
       if (r.parciales && r.parciales.length>1) txt += `   Parciales 50 m: ${fmtTramos(r.parciales)}\n`;
-      const ct = comparaTexto(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha));
-      if (ct) txt += `   Comparado con su ${ct}\n`;
+      const ct = comparaTexto(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id));
+      if (ct) txt += `   Hoy frente a ${ct}\n`;
+      const rk = r.comp ? rankingTexto(rankingDe(r.nId, x.estilo, x.dist, r.ms)) : '';
+      if (rk) txt += `   ${rk}\n`;
     });
   });
   await compartirArchivo(txt, nombreArchivo(ses, 'txt'), 'text/plain');
@@ -1207,25 +1374,54 @@ async function generarPDF(sesId, btn, compartir) {
     if (d.nads.length) linea('Nadadores', d.nads.join(', '));
     if (ses.notas) linea('Notas', ses.notas);
     y += 3;
+    // Resumen: un nadador por fila y su tiempo en cada serie (en verde, el más rápido de la serie). Si hay muchas series, en bloques de 8
+    const tb = tablaEntreno(series);
+    if (series.length) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...AZUL);
+      doc.text('Resumen: tiempos de cada nadador en cada serie', M, y);
+      for (let i = 0; i < series.length; i += 8) {
+        const cols = series.slice(i, i + 8);
+        doc.autoTable({
+          startY: y + 2, margin: {left:M, right:M},
+          head: [['Nadador', ...cols.map(x => `S${x.ronda}\n${comboTexto(x.estilo, x.dist)}${x.hora?`\n${x.hora}`:''}${x.comp?'\nCompetición':''}`)]],
+          body: tb.filas.map(f => [f.n, ...cols.map(x => f.t[x.ronda] ? fmtTime(f.t[x.ronda].ms) : '—')]),
+          theme: 'grid', styles: {fontSize: 8.5, cellPadding: 1.4, halign: 'center'},
+          headStyles: {fillColor: AZUL, textColor: 255, fontSize: 7.5},
+          columnStyles: {0: {halign: 'left', fontStyle: 'bold'}},
+          didParseCell: h => { if (h.section !== 'body' || !h.column.index) return;
+            const x = cols[h.column.index - 1], f = tb.filas[h.row.index];
+            if (f && f.t[x.ronda] && f.t[x.ronda].ms === tb.mejor[x.ronda]) { h.cell.styles.textColor = [10,122,67]; h.cell.styles.fontStyle = 'bold'; } },
+        });
+        y = doc.lastAutoTable.finalY + 4;
+      }
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...GRIS);
+      doc.text('En verde, el más rápido de cada serie. Detalle de cada serie en las páginas siguientes.', M, y + 1);
+      doc.addPage(); y = 18;
+      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(...AZUL);
+      doc.text('Detalle por serie', M, y); y += 8;
+    }
     series.forEach(x => {
       if (y > H - 40) { doc.addPage(); y = 18; }
       doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...AZUL);
-      doc.text(`Serie ${x.ronda} · ${comboTexto(x.estilo, x.dist)}`, M, y);
+      doc.text(`Serie ${x.ronda} · ${comboTexto(x.estilo, x.dist)}${x.hora?` · ${x.hora}`:''}${x.comp?' · Modo competición (plataforma)':x.inicio==='plataforma'?' · desde plataforma':''}`, M, y);
       const conParc = x.res.some(r => r.parciales && r.parciales.length > 1);
       const best = x.res[0] ? x.res[0].ms : 0;
+      const dif = (d, t, f) => `${t} · ${f}\nhoy ${difTxt(d)} s ${difPalabra(d)}`;
       doc.autoTable({
         startY: y + 2, margin: {left:M, right:M},
-        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), 'Mejor competición (25 m)', 'Mejor entreno']],
-        body: x.res.map((r,i) => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha);
-          return [i+1, nombreDe(r.nId) + (r.nota ? `\nNota: ${r.nota}` : ''), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
+        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), 'Su mejor competición (25 m)', 'Su mejor entreno', 'Su último entreno']],
+        body: x.res.map((r,i) => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id);
+          const rk = r.comp ? rankingTexto(rankingDe(r.nId, x.estilo, x.dist, r.ms)) : '';
+          return [i+1, nombreDe(r.nId) + (r.nota ? `\nNota: ${r.nota}` : '') + (rk ? `\n${rk}` : ''), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
             ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[]),
-            c.comp ? `${fmtCs(c.comp.cs)} (${difTxt(c.difComp)})\n${origenComp(c.comp)} · ${fmtFechaIso(c.comp.fecha)}` : '—',
-            c.ent ? `${fmtTime(c.ent.ms)} (${difTxt(c.difEnt)})\n${fmtDateShort(c.ent.fecha)}` : '—']; }),
-        theme: 'striped', styles: {fontSize: 8.5, cellPadding: 1.6},
+            c.comp ? dif(c.difComp, fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} (${origenComp(c.comp)})`) : '—',
+            c.ent ? dif(c.difEnt, fmtTime(c.ent.ms), fmtDateShort(c.ent.fecha)) : '—',
+            c.ult ? dif(c.difUlt, fmtTime(c.ult.ms), fmtDateShort(c.ult.fecha)) : '—']; }),
+        theme: 'striped', styles: {fontSize: 8, cellPadding: 1.5},
         headStyles: {fillColor: AZUL, textColor: 255},
         columnStyles: {0:{cellWidth:7}, 3:{fontStyle:'bold'}},
         didParseCell: h => { if (h.section!=='body') return; const t = String(h.cell.raw||'');
-          if (h.column.index >= h.table.columns.length-2 && /\(-/.test(t)) h.cell.styles.textColor = [10,122,67]; },
+          if (h.column.index >= h.table.columns.length-3 && /hoy -/.test(t)) h.cell.styles.textColor = [10,122,67]; },
       });
       doc.setFontSize(10);
       y = doc.lastAutoTable.finalY + 10;
@@ -1268,7 +1464,9 @@ function render() {
 // Manual de uso del cronómetro (PDF junto a la app): en la entrada, en el inicio y en el menú ⋯
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
-const FIRMA_HTML = '<div class="firma">Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>';
+// Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
+const APP_VERSION = 'v14';
+const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
   const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
@@ -1294,6 +1492,7 @@ function pintarPantalla(app) {
     case 'nadadores':     app.innerHTML = renderNadadores(); break;
     case 'evolucion-nad': app.innerHTML = renderEvolucionNad(); break;
     case 'entrenadores':  app.innerHTML = renderEntrenadores(); break;
+    case 'limpieza':      app.innerHTML = renderLimpieza(); break;
     default:              app.innerHTML = renderHome();
   }
 }
@@ -1347,7 +1546,7 @@ function renderHome() {
     <div class="row mb16" style="position:relative;align-items:flex-start">
       <div style="flex:1">
         <div class="h1" style="margin-bottom:0">Hola, ${esc(coachName)}</div>
-        <div class="muted" style="font-size:13px">${esc(hoy.charAt(0).toUpperCase()+hoy.slice(1))}</div>
+        <div class="muted" style="font-size:13px">${esc(hoy.charAt(0).toUpperCase()+hoy.slice(1))} <span class="ver">· ${APP_VERSION}</span></div>
       </div>
       <button class="menu-btn" data-action="menu" aria-label="Menú">⋯</button>
       ${renderMenu()}
@@ -1355,10 +1554,36 @@ function renderHome() {
     ${pend ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${pend} ${pend===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
     <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
     ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:10px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
+    ${renderNovedades()}
     ${renderPreparados()}
     ${tarjeta}
     <a class="manual-card" href="${MANUAL_URL}" target="_blank" rel="noopener"><span class="mi">📘</span>
       <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>`;
+}
+// ── Novedades de esta versión: se ven en el inicio hasta NOVEDADES_HASTA y luego desaparecen solas (después, borrar este bloque) ──
+const NOVEDADES_HASTA = new Date(2026, 9, 23).getTime();   // hasta el jueves 22 de octubre incluido
+const NOVEDADES = [
+  ['🧱', 'Nadie desaparece de su calle', 'cada nadador tiene un sitio fijo toda la serie (en espera → nadando → llegó). Así no se marca por error a otro.'],
+  ['⏭', 'Siguiente serie sin esperar al último', 'cuando todos han salido, «Empezar ya la serie siguiente». Los que siguen nadando no se paran y su tiempo cuenta en su serie.'],
+  ['🌊', 'Salida desde el agua o desde la plataforma', 'se elige en cada serie.'],
+  ['🏆', 'Modo competición', 'salen desde la plataforma a por su mejor tiempo; cada tiempo dice en qué puesto quedaría en el club, Málaga, Andalucía y España.'],
+  ['📊', 'Comparaciones más claras', '«Mejor competición 36.43 → hoy −0.2 s más rápido», también con su mejor y su último entreno.'],
+  ['📈', 'Gráfica del entreno', 'en el resumen, elige S1, S2, S3… y mira cómo progresa cada nadador.'],
+  ['📄', 'PDF con tabla resumen', 'al principio, cada nadador con su tiempo en cada serie; después el detalle.'],
+  ['🕒', 'Horario', 'hora del entreno y de cada serie, también en la ficha de cada nadador.'],
+  ['👆', 'Del tiempo a la ficha', 'toca un nadador en el resumen o el historial para ver todos sus tiempos.'],
+  ['🔐', 'Tus entrenos van con tu cuenta de Google', 'cada entrenador ve los suyos aunque cambie de nombre.'],
+  ['🛠', 'Arreglado', 'el cronómetro podía quedarse sin responder un rato tras mantener pulsada una tarjeta.'],
+];
+function renderNovedades() {
+  if (Date.now() >= NOVEDADES_HASTA) return '';
+  return `<details class="card mb16" open style="border-color:var(--blu);background:var(--blu-s)">
+    <summary style="cursor:pointer;font-weight:800;font-size:16px">✨ Novedades de la versión ${APP_VERSION}</summary>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px">
+      ${NOVEDADES.map(([i, t, d]) => `<div style="display:flex;gap:9px;font-size:13.5px;line-height:1.4"><span style="flex:none">${i}</span><span><b>${t}</b>: <span class="muted">${d}</span></span></div>`).join('')}
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:8px">Este aviso desaparece solo en unos días. El manual tiene todos los detalles.</div>
+  </details>`;
 }
 function renderPreparados() {
   const ps = misPlanes();
@@ -1394,7 +1619,7 @@ function repetirEntreno(sesId) {
 let NAD_CAT = (() => { try { return localStorage.getItem('crono_cat'); } catch { return null; } })();
 function renderNadadores() {
   const clubEqs = S.equipos.filter(e=>e.shared===true).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  const propios = S.equipos.filter(e=>e.coach===coachName).sort((a,b)=>b.ts-a.ts);
+  const propios = S.equipos.filter(esMio).sort((a,b)=>b.ts-a.ts);
   const todos = [...clubEqs, ...propios];
   const eq = todos.find(e=>e.id===NAD_CAT) || clubEqs[0] || propios[0];
   const chips = todos.map(e=>`<span class="pill${eq&&e.id===eq.id?' sel':''}" data-action="nad-cat" data-eq="${esc(e.id)}">${esc(e.nombre)}</span>`).join('');
@@ -1691,11 +1916,24 @@ function cicloHTML(o, t) {
   </div>`;
 }
 const cicloDe = o => o && o.auto ? (o.ciclo || CICLO_DEF) : null;
+// Cómo salen (agua / plataforma) y modo competición, en el mismo sitio que el ciclo (t: 'ps', 'ns' o 'plan-N')
+function inicioHTML(o, t) {
+  const ini = inicioDe(o);
+  return `<div class="seg" style="margin-bottom:8px">
+      <button class="${ini==='agua'?'on':''}" data-action="inicio" data-t="${t}" data-v="agua"${o.comp?' disabled style="opacity:.4"':''}>🌊 Desde el agua</button>
+      <button class="${ini==='plataforma'?'on':''}" data-action="inicio" data-t="${t}" data-v="plataforma">🧱 Desde plataforma</button></div>
+    <div class="toggle-row" data-action="comp-toggle" data-t="${t}"${o.comp?' style="border-color:var(--amb);background:#2a1c0c"':''}>
+      <div style="flex:1"><div style="font-weight:600">🏆 Modo competición</div>
+        <div class="muted" style="font-size:12px">Salen desde la plataforma a hacer su mejor tiempo. Cada tiempo se compara con sus compañeros del club y con el ranking de Málaga, Andalucía y España.</div></div>
+      <div class="sw${o.comp?' on':''}"></div></div>`;
+}
+const INI_TXT = {agua:'🌊 desde el agua', plataforma:'🧱 desde plataforma'};
+const iniTag = o => o && o.comp ? '<span class="comp-tag">🏆 Competición</span>' : o && o.inicio === 'plataforma' ? `<span class="ini-tag">${INI_TXT.plataforma}</span>` : '';
 const cicloObj = t => t === 'ps' ? PS : t.startsWith('plan-') ? (PS && PS.plan && PS.plan.series[Number(t.slice(5))]) : (SA && SA.nuevaSerie);
 
 // ── Planes: entrenos preparados en casa (calles + lista de series) ──
-function misPlanes() { return S.planes.filter(p=>p.coach===coachName).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
-const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, auto:false});
+function misPlanes() { return S.planes.filter(esMio).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
+const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, auto:false, inicio:'agua', comp:false});
 // Abre preparar en modo plan: el mismo tablero de calles y, en lugar de estilo/distancia, la lista de series
 function abrirPlan(id) {
   const p = id ? S.planes.find(x=>x.id===id) : null;
@@ -1724,15 +1962,17 @@ function renderSeriesPlan() {
       <div class="picker-row p4" style="margin-bottom:8px">${DISTS.map(d=>`<button class="pick-btn${Number(x.dist)===d?' on':''}" data-action="plan-dist" data-i="${i}" data-val="${d}">${d}m</button>`).join('')}</div>
       ${(() => { const ok = Number(x.dist) > 50; return `<div class="toggle-row${ok?'':' dis'}" ${ok?`data-action="plan-parc" data-i="${i}"`:''}><div style="flex:1;font-weight:600;font-size:14px">⏱ Parciales cada 50 m</div><div class="sw${ok&&x.parciales?' on':''}"></div></div>`; })()}
       ${cicloHTML(x, 'plan-'+i)}
+      ${inicioHTML(x, 'plan-'+i)}
     </div>`).join('') + `<button class="btn btn-surf mb16" data-action="plan-add">➕ Añadir serie</button>`;
 }
 async function guardarPlanPS() {
   const p = PS.plan, calles = PS.grupos.filter(g=>g.nads.length);
   const nombre = (document.getElementById('plan-nombre')||{}).value || p.nombre;
   if (!calles.length) { alert('Pon al menos un nadador en una calle.'); return; }
-  const data = {coach: coachName, ts: Date.now(), nombre: String(nombre||'').trim().slice(0,200) || 'Entreno',
+  const data = {coach: coachName, coachEmail: miEmail(), ts: Date.now(), nombre: String(nombre||'').trim().slice(0,200) || 'Entreno',
     eqId: PS.eqId || eqMasFrecuente(calles), calles: calles.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})),
-    series: p.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:cicloDe(x), auto:!!x.auto}))};
+    series: p.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:cicloDe(x), auto:!!x.auto,
+      inicio:inicioDe(x), comp:!!x.comp}))};
   await DB.guardarPlan(p.id, data);
   PS = null; nav({screen:'home'});
 }
@@ -1746,7 +1986,7 @@ async function empezarPlan(id) {
   if (!calles.length) { alert('Los nadadores de este entreno ya no están en la lista.'); return; }
   PS.grupos = calles;
   const s1 = p.series[0];
-  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, auto:s1.auto, planId:p.id});
+  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, auto:s1.auto, inicio:inicioDe(s1), comp:!!s1.comp, planId:p.id});
   await iniciarSesion();
 }
 
@@ -1814,6 +2054,7 @@ function renderPreparar() {
       <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
       <div class="sw${on?' on':''}"></div></div>`; })()}
     ${cicloHTML(PS, 'ps')}
+    ${inicioHTML(PS, 'ps')}
     ${renderQuienMas()}
     <input class="input mb16" id="notas-input" placeholder="Notas opcionales..." value="${esc(PS.notas)}">
     <span class="label">Calles (${PS.grupos.length})</span>
@@ -1834,7 +2075,7 @@ function renderEnCurso() {
   let html = `
     <div class="ec-top">
       <div style="flex:1;min-width:0">
-        <div style="font-size:17px;font-weight:700">${titulo} · <span style="color:var(--blu-l)">Serie ${SA.ronda}</span></div>
+        <div style="font-size:17px;font-weight:700">${titulo} · <span style="color:var(--blu-l)">Serie ${SA.ronda}</span> ${iniTag(SA)}</div>
         <div class="muted" style="font-size:13px">${esc(eq)} · ${SA.llegados.length}/${totalNads} llegados</div>
       </div>
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
@@ -1868,60 +2109,72 @@ function renderEnCurso() {
         <button class="salida-btn" data-action="salida-tanda" ${salen?'':'disabled'}>🚀 SALIDA${salen<pendientes.length&&salen?` (${salen})`:''}</button>
       </div>`;
   } else {
-    html += `<div class="salida-card muted" style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="flex:1">Todos han salido · esperando llegadas</span><button class="edit-link" data-action="edit-abrir">✎ Calles</button></div>`;
+    // Todos han salido: la siguiente serie puede empezar aunque alguno siga nadando (descanso de 2 min, el último aún no llegó)
+    const quedan = SA.agua.length;
+    const sig = SA.plan && SA.plan.series[SA.planIdx+1];
+    html += `<div class="salida-card">
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:${quedan?10:0}px"><span class="muted" style="flex:1">Todos han salido · ${quedan?`${quedan} ${quedan===1?'nadador sigue':'nadadores siguen'} en el agua`:'esperando llegadas'}</span><button class="edit-link" data-action="edit-abrir">✎ Calles</button></div>
+      ${!quedan ? '' : SA.nuevaSerie ? renderNuevaSerie() : `
+        <button class="btn btn-blue" style="min-height:52px;font-size:16px" data-action="serie-ya">⏭ Empezar ya la serie ${SA.ronda+1}${sig?`: ${esc(comboTexto(sig.estilo, sig.dist))}`:' (igual)'}</button>
+        <div class="row mt8" style="gap:8px">
+          <button class="btn btn-surf btn-sm" style="flex:1" data-action="ns-abrir">➕ Otra prueba</button>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:6px">Los que siguen nadando no se paran: su tiempo cuenta para la serie ${SA.ronda}.</div>`}
+    </div>`;
   }
 
-  // En el agua: una columna fija por calle, con su color. Cuando alguien llega
-  // solo se mueve su columna; las demás calles no saltan bajo el dedo.
-  const recientesKeys = new Set(SA.recientes.map(r=>r.key));
-  const enAgua = SA.agua.length + SA.recientes.length;
-  if (enAgua) {
-    const cols = Math.min(SA.grupos.length, 4);
-    html += `<div class="sec-hdr"><span class="label">En el agua (${SA.agua.length})</span>${SA.tramos>1?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
-      <div class="lanes-grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
-      ${SA.grupos.map(g => {
-        const fs = [...SA.agua, ...SA.recientes].filter(f=>f.gId===g.gId).sort((a,b)=>a.salida-b.salida);
-        return `<div class="lane-col" style="--lc:${g.color};--lt:${laneTxt(g.color)}">
-          <div class="lane-head">${esc(laneShort(g))}</div>
-          ${fs.map(f => renderSwCard(f, recientesKeys.has(f.key), now)).join('') || '<div class="lane-empty">—</div>'}
-        </div>`;
-      }).join('')}
+  // Pizarra de calles: una columna fija por calle y un sitio fijo por nadador durante toda la serie.
+  // Arriba los que aún nadan (o acaban de llegar) de la serie anterior, luego los que salieron y los que esperan.
+  const cols = Math.min(SA.grupos.length, 4);
+  const nAgua = SA.agua.filter(f=>f.ronda===SA.ronda).length;
+  html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.tramos>1?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
+    <div class="lanes-grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
+    ${SA.grupos.map(g => {
+      const deEsta = f => f.gId===g.gId;
+      const previos = [...SA.agua.filter(f=>deEsta(f) && f.ronda!==SA.ronda), ...SA.prevLleg.filter(deEsta)].sort((a,b)=>a.ronda-b.ronda||a.salida-b.salida);
+      const salidos = [...SA.agua.filter(f=>deEsta(f) && f.ronda===SA.ronda), ...SA.llegados.filter(deEsta)].sort((a,b)=>a.salida-b.salida);
+      const espera = g.nads.slice(g.next);
+      const tarjetas = [...previos.map(f=>renderSwCard(f, now)), ...salidos.map(f=>renderSwCard(f, now)),
+        ...espera.map((n,i)=>renderEsperaCard(n, i===0 && SA.noSale.has(g.gId)))];
+      return `<div class="lane-col" style="--lc:${g.color};--lt:${laneTxt(g.color)}">
+        <div class="lane-head">${esc(laneShort(g))}</div>
+        ${tarjetas.join('') || '<div class="lane-empty">—</div>'}
       </div>`;
-  }
-
-  // Llegados: compactos, el último arriba
-  const lleg = SA.llegados.filter(l=>!recientesKeys.has(l.key)).sort((a,b)=>b.tLleg-a.tLleg);
-  if (lleg.length) {
-    html += `<div class="sec-hdr" style="margin-top:16px"><span class="label">Llegados ✓ (${lleg.length})</span></div>
-      <div class="lleg-list">
-      ${lleg.map(l=>`<div class="lleg-row" data-key="${esc(l.key)}" style="--lc:${l.color}">
-          ${laneTag(l.lane, l.color)}
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.n)}${l.nota?' 📝':''}${l.marca?` <span class="lleg-marca">${MARCA_TXT[l.marca]}</span>`:''}</span>
-          <span class="t">${fmtTime(l.ms)}</span>
-          <button class="lleg-undo" data-action="deshacer" data-key="${esc(l.key)}" aria-label="Deshacer">↶</button>
-        </div>`).join('')}
-      </div>`;
-  }
+    }).join('')}
+    </div>`;
   return html;
 }
 
-// Tarjeta de un nadador en el agua: toda la tarjeta es el botón
-function renderSwCard(f, done, now) {
-  const conParc = SA.tramos > 1;
-  const dots = conParc ? `<span class="sw-dots">${Array.from({length:SA.tramos},(_,i)=>`<i class="${i<f.parc.length?'on':''}${i<f.parc.length&&f.parc[i]==null?' skip':''}"></i>`).join('')}</span>` : '';
+// Nadador que aún no ha salido: no es un botón (tocarlo no hace nada), solo ocupa su sitio
+// Con parciales, debajo de cada tarjeta hay una fila de botones: las que no la tienen dejan el mismo hueco
+const HUECO_EXTRA = '<div class="sw-extra sp"></div>';
+function renderEsperaCard(n, noSale) {
+  return `<div class="sw-card espera">
+    <span class="sw-meta">${noSale?'no sale':'en espera'}</span>
+    <span class="sw-nm">${esc(n.n)}</span>
+    <span class="sw-act">⏳</span>
+  </div>${SA.tramos > 1 ? HUECO_EXTRA : ''}`;
+}
+// Tarjeta de un nadador que salió: en el agua toda la tarjeta es el botón; al llegar se queda en su sitio con su tiempo
+function renderSwCard(f, now) {
+  const done = f.ms != null;
+  const conParc = f.tramos > 1;
+  const otra = f.ronda !== SA.ronda ? `<span class="sw-prev">Serie ${f.ronda}</span>` : '';
+  const cls = (f.comp?' comp':'') + (otra?' prev':'');
+  const dots = conParc ? `<span class="sw-dots">${Array.from({length:f.tramos},(_,i)=>`<i class="${i<f.parc.length?'on':''}${i<f.parc.length&&f.parc[i]==null?' skip':''}"></i>`).join('')}</span>` : '';
   if (done) {
-    return `<div class="sw-card done" data-key="${esc(f.key)}">
+    return `<div class="sw-card done${cls}" data-key="${esc(f.key)}">
+      <span class="sw-meta">${otra||`S${f.salida}`}<button class="sw-undo-mini" data-action="deshacer" data-key="${esc(f.key)}" aria-label="Deshacer llegada">↶</button></span>
       <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
       ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
-      <button class="sw-undo" data-action="deshacer" data-key="${esc(f.key)}">↶ Deshacer</button>
-    </div>`;
+    </div>${conParc ? HUECO_EXTRA : ''}`;
   }
-  const esParcial = conParc && f.parc.length < SA.tramos-1;
+  const esParcial = conParc && f.parc.length < f.tramos-1;
   const ultimo = conParc && f.parc.length ? f.parc[f.parc.length-1] : null;
-  return `<button class="sw-card${esParcial?' parcial':''}" data-action="llego" data-key="${esc(f.key)}">
-      <span class="sw-meta">S${f.salida}${dots}</span>
+  return `<button class="sw-card${esParcial?' parcial':''}${cls}" data-action="llego" data-key="${esc(f.key)}">
+      <span class="sw-meta">${otra||`S${f.salida}`}${dots}</span>
       <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk live-clk" data-t0="${f.t0}">${fmtTime(now-f.t0)}</span>
       ${ultimo!=null?`<span class="sw-last">${f.parc.length*50}m ${fmtTime(ultimo)}</span>`:''}
@@ -1951,13 +2204,13 @@ function renderResumenRonda() {
     const prev = mejorPrevia(l.nId, l.resId);
     return prev!=null && l.ms < prev ? '<span class="pb">MEJOR ENTRENO</span>' : '';
   };
-  const cmpDe = l => comparaciones(l.nId, SA.estilo, SA.dist, l.ms, l.resId, Date.now());
+  const cmpDe = l => comparaciones(l.nId, SA.estilo, SA.dist, l.ms, l.resId, Date.now(), SA.sesId);
   const cmpBadge = l => { const c = cmpDe(l); return c.difComp!=null && c.difComp < 0 ? '<span class="pb pb-comp">MEJORA SU MARCA</span>' : ''; };
   const fila = (l, pos, gap) => `
-    <div class="sum-row" style="--lc:${l.color}">
+    <div class="sum-row" style="--lc:${l.color}${l.comp?';border:1px solid var(--amb)':''}">
       ${pos!=null?`<div class="rpos${pos===1?' gold':''}">${pos}</div>`:''}
       ${laneTag(l.lane, l.color)}
-      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}${comparaHTML(cmpDe(l))}</div>
+      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}${comparaHTML(cmpDe(l))}${l.comp ? rankingHTML(rankingDe(l.nId, SA.estilo, SA.dist, l.ms)) : ''}</div>
       <div style="text-align:right">
         <div class="sum-time">${fmtTime(l.ms)}</div>
         ${gap?`<div class="sum-gap">${gap}</div>`:''}
@@ -1982,7 +2235,7 @@ function renderResumenRonda() {
   return `
     <div class="card" style="text-align:center;padding:14px">
       <div style="font-size:28px">🏁</div>
-      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)}</div>
+      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)} ${iniTag(SA)}</div>
       <div class="muted" style="font-size:13px">${lleg.length} nadadores · mejor ${fmtTime(best)}</div>
     </div>
     <div class="seg">
@@ -2009,6 +2262,7 @@ function renderNuevaSerie() {
     <div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="ns-parc"':''}>
       <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>
     ${cicloHTML(f, 'ns')}
+    ${inicioHTML(f, 'ns')}
     <div class="row">
       <button class="btn btn-blue" style="flex:2;min-height:52px" data-action="ns-empezar" ${f.estilo&&f.dist?'':'disabled style="opacity:.4"'}>▶ Empezar serie ${SA.ronda+1}</button>
       <button class="btn btn-surf" style="flex:1;min-height:52px" data-action="ns-cancelar">Cancelar</button>
@@ -2039,11 +2293,11 @@ function renderResultados(sesId, backAction, backLabel) {
       <div style="font-weight:800;font-size:20px">${v}</div><div class="muted" style="font-size:11px">${t}</div></div>`;
   const bloques = series.map(x => {
     const best = x.res[0] ? x.res[0].ms : 0;
-    return `<span class="label mt16">Serie ${x.ronda} · ${comboLabel(x.estilo, x.dist)}</span>
+    return `<span class="label mt16">Serie ${x.ronda} · ${comboLabel(x.estilo, x.dist)}${x.hora?` · ${esc(x.hora)}`:''} ${iniTag(x)}</span>
       ${x.res.map((r,i)=>`
-        <div class="result-row">
+        <div class="result-row click-row"${r.comp?' style="border:1px solid var(--amb)"':''} data-action="evolucion-nad" data-nid="${esc(r.nId)}">
           <div class="rpos${i===0?' gold':''}">${i+1}</div>
-          <div class="rname">${esc(nombreDe(r.nId))}<div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha))}</div>
+          <div class="rname">${esc(nombreDe(r.nId))} <span class="muted" style="font-size:12px">›</span><div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id))}${r.comp ? rankingHTML(rankingDe(r.nId, x.estilo, x.dist, r.ms)) : ''}</div>
           <div style="text-align:right">
             <div class="rtime">${fmtTime(r.ms)}</div>
             ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}
@@ -2060,6 +2314,7 @@ function renderResultados(sesId, backAction, backLabel) {
     ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
     ${ses.notas?`<div class="card mt8" style="font-size:13px">${esc(ses.notas)}</div>`:''}
     ${renderAsistencia(ses)}
+    ${renderGrafica(ses.id, series)}
     ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
     <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
     ${puedeCompartirArchivos() ? `<button class="btn btn-blue mt8" style="min-height:50px;font-size:16px" data-action="pdf-compartir" data-ses="${esc(sesId)}">📤 Compartir PDF (WhatsApp, correo…)</button>` : ''}
@@ -2102,12 +2357,12 @@ function renderHistorial() {
         <div class="row" style="cursor:pointer;margin-bottom:6px" data-action="hist-det" data-ses="${esc(x.ses.id)}">
           <div style="flex:1;min-width:0">
             <div style="font-weight:700">${esc(fechaLarga(x.ses.fecha))}</div>
-            <div class="muted" style="font-size:13px">${esc(eqNombre(x.ses.eqId))} · Serie ${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${esSim(x.ses)?SIM_TAG:''}</div>
+            <div class="muted" style="font-size:13px">${esc(eqNombre(x.ses.eqId))} · Serie ${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${esSim(x.ses)?SIM_TAG:''} ${iniTag(x.res[0])}</div>
           </div>
           <span class="muted" style="font-size:13px;color:var(--blu-l)">Entreno ›</span>
         </div>
         ${x.res.map((r,i) => { const mk = x.estilo && x.dist ? marcaDe(comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, x.ses.fecha)) : null;
-          return `<div class="row" style="padding:5px 0;border-top:1px solid var(--brd);font-size:14px">
+          return `<div class="row click-row" style="padding:5px 0;border-top:1px solid var(--brd);font-size:14px" data-action="evolucion-nad" data-nid="${esc(r.nId)}">
             <span class="muted" style="width:22px">${i+1}</span><span style="flex:1">${esc(nombreDe(r.nId))}${mk?` <span title="${mk==='comp'?'Marca de competición':'Mejor entreno'}">🏅</span>`:''}</span>
             <b style="font-variant-numeric:tabular-nums">${fmtTime(r.ms)}</b></div>`; }).join('')}
       </div>`).join('');
@@ -2158,27 +2413,38 @@ function renderEvolucionNad() {
         <div style="font-weight:700;font-size:20px;color:${trend?trend.color:'#94a3b8'}">${trend?trend.dir:'–'}</div>
       </div>
     </div>` : '';
-  const sesRows = [...sessions].reverse().slice(0,12).map((s,i) => {
-    const isLast=i===0, isBest=s.ms===bestMs&&!isLast;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--brd)">
-      <div style="flex:1">
-        <span style="font-size:13px">${fmtDateShort(s.fecha)}</span>
-        ${s.estilo?`<span class="muted" style="font-size:12px"> · ${comboLabel(s.estilo, s.dist)}</span>`:''}
+  // Cada tiempo por separado: fecha, hora y serie (en un mismo entreno puede haber varias series de la misma prueba)
+  const tiempos = tiemposNadador(nId, filter);
+  const ultimoId = tiempos.length ? tiempos[0].r.id : null;
+  const sesRows = tiempos.slice(0,30).map(x => {
+    const isLast = x.r.id===ultimoId, isBest = x.r.ms===bestMs && !isLast;
+    return `<div class="click-row" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--brd)" data-action="hist-det" data-ses="${esc(x.ses.id)}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px"><b>${fmtDateShort(x.ses.fecha)}</b> · ${fmtHora(x.r.ts || x.ses.fecha)} · <b>Serie ${x.r.ronda||1}</b> ${iniTag(x.r)}</div>
+        ${x.estilo?`<div class="muted" style="font-size:12px">${comboLabel(x.estilo, x.dist)}${x.r.nota?` · 📝 ${esc(x.r.nota)}`:''}</div>`:''}
       </div>
       ${isLast?'<span class="badge b-blu">Último</span>':''}
       ${isBest?'<span class="badge b-amb">Mejor</span>':''}
-      <span style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(s.ms)}</span>
+      <span style="font-weight:700;font-variant-numeric:tabular-nums;color:var(--grn-l)">${fmtTime(x.r.ms)}</span>
     </div>`;
   }).join('');
+  const back = route.desde ? `<button class="back-btn" data-action="volver">← Volver</button>` : `<button class="back-btn" data-action="tab" data-to="nadadores">← Nadadores</button>`;
   return `
-    <button class="back-btn" data-action="tab" data-to="nadadores">← Nadadores</button>
+    ${back}
     <div class="h1">${esc(nad.n)}</div>
     <div class="muted mb16" style="font-size:13px">${eq?esc(eq.nombre):''} · ${sessions.length} sesión${sessions.length!==1?'es':''}</div>
     ${nad.rfen?`<a class="btn btn-surf mb16" style="text-decoration:none" href="../club.html#nadador/${encodeURIComponent(nad.rfen)}/entrenos">📈 Ficha completa en la web del club</a>`:''}
     ${filterPills}
     ${statsHtml}
     ${sessions.length>=2?`<div class="card mb16" style="padding:10px 10px 4px">${svgChart(sessions)}</div>`:sessions.length===1?'<div class="muted" style="text-align:center;padding:12px;font-size:13px">Necesitás 2 sesiones para ver el gráfico</div>':''}
-    ${sesRows?`<span class="label mt16">Sesiones</span>${sesRows}`:''}`;
+    ${sesRows?`<span class="label mt16">Tiempos (${tiempos.length}) · toca uno para ver ese entreno</span>${sesRows}`:''}`;
+}
+// Tiempos de un nadador en mis entrenos, del más reciente al más antiguo: [{r, ses, estilo, dist}]
+function tiemposNadador(nId, filter) {
+  const ses = new Map(mySes().map(s=>[s.id, s]));
+  return S.resultados.filter(r => r.nId===nId && ses.has(r.sesId)).map(r => ({r, ses: ses.get(r.sesId), ...resCombo(r)}))
+    .filter(x => !filter || (x.estilo===filter.estilo && x.dist===Number(filter.dist)))
+    .sort((a,b) => b.ses.fecha-a.ses.fecha || (b.r.ronda||1)-(a.r.ronda||1) || (b.r.ts||0)-(a.r.ts||0));
 }
 
 // ── Screen: Entrenadores (solo administradores) ──────────────
@@ -2222,7 +2488,64 @@ function renderEntrenadores() {
     <span class="label mt16">Estilos propios del club (${S.estilos.length})</span>
     ${S.estilos.length ? S.estilos.map(e=>`<div class="card row"><span style="flex:1">⭐ <b>${esc(e.nombre)}</b> <span class="muted" style="font-size:12px">· ${esc(e.coach||'')}</span></span>
       <button class="btn btn-red-line btn-sm btn-inline" data-action="estilo-borrar" data-id="${esc(e.id)}">Borrar</button></div>`).join('')
-      : '<div class="muted" style="font-size:13px">Los entrenadores los crean con «➕ Otro» al elegir el estilo.</div>'}`;
+      : '<div class="muted" style="font-size:13px">Los entrenadores los crean con «➕ Otro» al elegir el estilo.</div>'}
+    <span class="label mt16">Limpieza</span>
+    <div class="card">
+      <div class="muted" style="font-size:13px;margin-bottom:10px">Borra los entrenamientos de simulación y los de prueba (con sus tiempos). Antes de borrar ves la lista y eliges cuáles.</div>
+      <button class="btn btn-red-line" data-action="limpieza">🧹 Borrar simulaciones y tiempos de prueba</button>
+    </div>`;
+}
+
+// ── Limpieza (solo administrador): simulaciones y entrenos de prueba ──
+// Se proponen marcados los de simulación y los del administrador (sus pruebas); el resto se puede marcar a mano.
+let LIMP = null;   // {sel: Set de sesiones, estado}
+const esDePrueba = s => esSim(s) || (s.coachEmail ? s.coachEmail === miEmail() : /^andr[eé]s\b/i.test(String(s.coach||'')));
+function abrirLimpieza() {
+  LIMP = {sel: new Set(S.sesiones.filter(esDePrueba).map(s=>s.id)), estado: null};
+  nav({screen:'limpieza'}); window.scrollTo(0,0);
+}
+function renderLimpieza() {
+  if (!soyAdmin()) { nav({screen:'home'}); return ''; }
+  if (!LIMP) LIMP = {sel: new Set(S.sesiones.filter(esDePrueba).map(s=>s.id)), estado: null};
+  const lista = [...S.sesiones].sort((a,b)=>b.fecha-a.fecha);
+  const nRes = id => S.resultados.filter(r=>r.sesId===id).length;
+  const nSel = [...LIMP.sel].filter(id=>S.sesiones.some(s=>s.id===id)).length, nTiempos = [...LIMP.sel].reduce((t,id)=>t+nRes(id),0);
+  const fila = s => `<label class="card row" style="cursor:pointer;gap:10px${LIMP.sel.has(s.id)?';border-color:var(--red)':''}">
+      <input type="checkbox" data-limp="${esc(s.id)}" ${LIMP.sel.has(s.id)?'checked':''} style="width:22px;height:22px">
+      <span style="flex:1;min-width:0"><b>${esc(fechaLarga(s.fecha))}</b>${esSim(s)?SIM_TAG:''}
+        <span class="muted" style="display:block;font-size:12px">${esc(s.coach||'—')}${s.coachEmail?` · ${esc(s.coachEmail)}`:''} · ${esc(eqNombre(s.eqId))} · ${nRes(s.id)} tiempos</span></span></label>`;
+  const prop = lista.filter(esDePrueba), resto = lista.filter(s=>!esDePrueba(s));
+  return `
+    <button class="back-btn" data-action="entrenadores">← Entrenadores</button>
+    <div class="h1">🧹 Limpieza</div>
+    <div class="muted mb16" style="font-size:13px">Marcados: los de simulación y los tuyos de prueba. Revisa la lista: lo que se borra no se puede recuperar.</div>
+    ${LIMP.estado?`<div class="card" style="font-size:14px">${esc(LIMP.estado)}</div>`:''}
+    <span class="label">Simulaciones y pruebas (${prop.length})</span>
+    ${prop.map(fila).join('') || '<div class="muted mb16" style="font-size:13px">No queda ninguna.</div>'}
+    ${resto.length?`<details class="card quien"><summary>Otros entrenamientos (${resto.length}) · por si alguno también es de prueba</summary><div style="margin-top:8px">${resto.map(fila).join('')}</div></details>`:''}
+    <button class="btn mt16" style="background:var(--red);color:#fff;min-height:54px" data-action="limpieza-borrar" ${nSel?'':'disabled style="opacity:.4"'}>Borrar ${nSel} ${nSel===1?'entrenamiento':'entrenamientos'} (${nTiempos} tiempos)</button>`;
+}
+async function borrarLimpieza() {
+  const ids = [...LIMP.sel].filter(id=>S.sesiones.some(s=>s.id===id));
+  if (!ids.length) return;
+  const nT = S.resultados.filter(r=>ids.includes(r.sesId)).length;
+  if (!confirm(`¿Borrar ${ids.length} entrenamientos y sus ${nT} tiempos? No se puede deshacer.`)) return;
+  let hechos = 0;
+  for (const sesId of ids) {
+    LIMP.estado = `Borrando… ${hechos} de ${ids.length}`; render();
+    const gIds = S.grupos.filter(g=>g.sesId===sesId).map(g=>g.id);
+    const refs = [
+      ...S.resultados.filter(r=>r.sesId===sesId).map(r=>['resultados', r.id]),
+      ...S.gnads.filter(x=>gIds.includes(x.gId)).map(x=>['gnads', x.id]),
+      ...gIds.map(id=>['grupos', id]),
+    ];
+    try {
+      for (let i=0; i<refs.length; i+=20) await Promise.all(refs.slice(i, i+20).map(([c, id]) => _db.collection(c).doc(id).delete()));
+      await _db.collection('sesiones').doc(sesId).delete();   // la sesión, al final: si algo falla, sigue en la lista
+      LIMP.sel.delete(sesId); hechos++;
+    } catch (e) { LIMP.estado = `Error al borrar: ${e.message}. Borrados ${hechos} de ${ids.length}.`; render(); return; }
+  }
+  LIMP.estado = `Listo: ${hechos} entrenamientos borrados.`; render();
 }
 // ── Sincronizar nadadores con la web de estadísticas ─────────
 // nadadores.json lo genera cada día el proceso de la web (licencia RFEN, nombre, categoría).
@@ -2284,25 +2607,30 @@ document.getElementById('app').addEventListener('pointerdown', function(e) {
 }, true);
 // Nota rápida: mantener pulsada la tarjeta (en el agua) o la fila (llegado) sin moverse.
 // En el agua hace falta más tiempo, para que un LLEGÓ algo largo nunca se convierta en nota.
+// Antes se bloqueaban todos los toques 60 s hasta soltar el dedo; si la pantalla se redibujaba bajo el dedo
+// (salida automática, otra llegada…) el «soltar» no llegaba a #app y el cronómetro quedaba sin responder.
+// Ahora el soltar se escucha en todo el documento y el bloqueo dura como mucho 2 s.
 let _lp = null, _notaPend = null;
 document.getElementById('app').addEventListener('pointerdown', function(e) {
   const el = e.target.closest('.sw-card[data-key],.lleg-row[data-key]');
   if (!el || !SA) return;
   const enAgua = el.classList.contains('sw-card') && !el.classList.contains('done');
   _lp = {x:e.clientX, y:e.clientY, key:el.dataset.key, timer:setTimeout(() => {
-    _notaPend = _lp && _lp.key; _ignoreClickUntil = Date.now() + 60000;
+    _notaPend = _lp && _lp.key; _ignoreClickUntil = Date.now() + 2000;
     try { navigator.vibrate && navigator.vibrate(15); } catch {}
   }, enAgua ? 800 : 600)};
 });
-document.getElementById('app').addEventListener('pointermove', function(e) {
+document.addEventListener('pointermove', function(e) {
   if (_lp && Math.hypot(e.clientX-_lp.x, e.clientY-_lp.y) > 10) { clearTimeout(_lp.timer); _lp = null; }
-});
+}, true);
 function finPulsacion() {
   if (_lp) { clearTimeout(_lp.timer); _lp = null; }
   if (_notaPend) { const k = _notaPend; _notaPend = null; _ignoreClickUntil = Date.now() + 400; setTimeout(() => pedirNota(k), 0); }
 }
-document.getElementById('app').addEventListener('pointerup', finPulsacion);
-document.getElementById('app').addEventListener('pointercancel', finPulsacion);
+document.addEventListener('pointerup', finPulsacion, true);
+document.addEventListener('pointercancel', finPulsacion, true);
+document.addEventListener('touchend', finPulsacion, true);
+document.addEventListener('touchcancel', finPulsacion, true);
 function pedirNota(key) {
   if (!SA) return;
   const x = SA.agua.find(a=>a.key===key) || SA.llegados.find(l=>l.key===key);
@@ -2368,12 +2696,18 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'login-google': await loginGoogle(); break;
     case 'logout':       await logout(); break;
     case 'entrenadores': nav({screen:'entrenadores'}); break;
+    case 'limpieza':     abrirLimpieza(); break;
+    case 'graf-serie':   if (GRAF) { const r = Number(btn.dataset.r); GRAF.sel.has(r) ? GRAF.sel.delete(r) : GRAF.sel.add(r); render(); } break;
+    case 'graf-foco':    if (GRAF) { GRAF.foco = GRAF.foco === btn.dataset.nid ? null : btn.dataset.nid; render(); } break;
+    case 'limpieza-borrar': await borrarLimpieza(); break;
     case 'sync-nadadores': await sincronizarNadadores(); break;
     case 'acceso-entrenador': await cambiarAcceso(btn.dataset.email, btn.dataset.accion); break;
     case 'historial':    nav({screen:'historial'}); break;
     case 'hist-det':      nav({screen:'hist-det', sesId:btn.dataset.ses}); break;
     case 'evolucion':     nav({screen:'nadadores'}); break;
-    case 'evolucion-nad': nav({screen:'evolucion-nad', nId:btn.dataset.nid, filter:null}); break;
+    case 'evolucion-nad': { if (route.screen==='en-curso') break;   // nunca salir de un entreno en marcha
+      const desde = ['nadadores','evolucion-nad'].includes(route.screen) ? null : {...route};
+      nav({screen:'evolucion-nad', nId:btn.dataset.nid, filter:null, desde}); window.scrollTo(0,0); break; }
     case 'evo-filter': {
       const fStr=btn.dataset.f;
       if (!fStr) { route.filter=null; }
@@ -2456,7 +2790,12 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
-    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, auto:!!SA.ciclo}; render(); } break;
+    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, auto:!!SA.ciclo, inicio:SA.inicio, comp:SA.comp}; render(); } break;
+    // Siguiente serie sin esperar a los que aún nadan: la del plan si hay, si no la misma
+    case 'serie-ya':        if (SA) { if (SA.plan && SA.plan.series[SA.planIdx+1]) { SA.planIdx++; repetirSerie(SA.plan.series[SA.planIdx]); } else repetirSerie(); } break;
+    case 'inicio':          { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && !o.comp) { o.inicio = btn.dataset.v === 'plataforma' ? 'plataforma' : 'agua'; render(); } break; }
+    case 'comp-toggle':     { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.comp = !o.comp; if (o.comp) o.inicio = 'plataforma'; render(); } break; }
+    case 'volver':          nav(route.desde || {screen:'nadadores'}); window.scrollTo(0,0); break;
     case 'ciclo-auto':      { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.auto = !o.auto; o.ciclo = o.auto ? CICLO_DEF : null; render(); } break; }
     case 'ciclo-sa':        if (SA && SA.ciclo) { SA.auto = !SA.auto; if (SA.auto) SA.tUltSalida = Date.now(); render(); } break;   // al reanudar, el ciclo cuenta desde ahora
     case 'ns-cancelar':     if (SA) { SA.nuevaSerie = null; render(); } break;
@@ -2487,6 +2826,7 @@ document.getElementById('app').addEventListener('keydown', async function(e) {
 });
 
 document.getElementById('app').addEventListener('change', function(e) {
+  if (e.target.dataset.limp && LIMP) { e.target.checked ? LIMP.sel.add(e.target.dataset.limp) : LIMP.sel.delete(e.target.dataset.limp); render(); return; }
   if (e.target.dataset.action==='ed-calle' && e.target.value) {
     editCambiarCalle(e.target.dataset.gid, +e.target.dataset.i, e.target.value);
   }

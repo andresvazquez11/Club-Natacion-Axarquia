@@ -10,6 +10,8 @@ function slugEstilo(nombre) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/, '');
   return s.length >= 2 && !ESTILOS.includes(s) ? s : null;
 }
+// Cómo sale el nadador: desde dentro del agua (lo normal en entreno) o desde la plataforma (obligatorio en modo competición)
+const INICIOS = ['agua','plataforma'];
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const idOk = v => typeof v === 'string' && ID_RE.test(v);
 const numOk = v => { const n = Number(v); return v !== null && v !== '' && Number.isFinite(n) ? n : null; };
@@ -25,6 +27,9 @@ function limpiarDoc(col, d) {
     for (const k of ['ronda','salida']) { const n = Number(d[k]); d[k] = Number.isInteger(n) && n > 0 ? n : 1; }
     d.ms = Number(d.ms) || 0;
     if ('nota' in d) d.nota = txtCorto(d.nota);
+    d.inicio = INICIOS.includes(d.inicio) ? d.inicio : null;
+    d.comp = d.comp === true;
+    d.ts = Number(d.ts) > 0 ? Number(d.ts) : null;   // hora de su salida
   }
   if (col==='sesiones') {
     d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null;
@@ -41,8 +46,10 @@ function limpiarDoc(col, d) {
       .map(c => ({nombre: txtCorto(c.nombre) || 'Calle', nIds: (Array.isArray(c.nIds) ? c.nIds : []).filter(idOk)}));
     d.series = (Array.isArray(d.series) ? d.series : []).filter(x => x && typeof x === 'object').map(x => {
       const dist = Number(x.dist), ciclo = Math.round(Number(x.ciclo));
+      const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
-              parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true};
+              parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
+              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp};
     });
   }
   if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
@@ -128,3 +135,22 @@ function parseCiclo(txt) {
   if (m) { const n = Number(m[1]) * 60 + Number(m[2]); return n > 0 ? n : null; }
   return null;
 }
+
+// ── Modo competición: en qué puesto quedaría un tiempo ──
+// rankings.json (lo publica la web): por «sexo|año|prueba», tres listas [España, Andalucía, Málaga] con la mejor
+// marca de cada nadador en los últimos 12 meses, en centésimas, ordenadas y guardadas como diferencias.
+function decodRank(deltas) {
+  let v = 0;
+  return (Array.isArray(deltas) ? deltas : []).map(d => (v += Number(d) || 0));
+}
+// Puesto que tendría `cs` en una lista ordenada (empatar cuenta como ir delante) y de cuántos.
+// excluir: la marca del propio nadador, que ya está en la lista y no es un rival.
+function puestoEn(lista, cs, excluir) {
+  const L = [...lista];
+  if (excluir != null) { const i = L.indexOf(excluir); if (i >= 0) L.splice(i, 1); }
+  let lo = 0, hi = L.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (L[m] < cs) lo = m + 1; else hi = m; }
+  return {pos: lo + 1, de: L.length + 1};
+}
+// Sale de dentro del agua o de la plataforma: el modo competición siempre es desde la plataforma
+const inicioDe = o => o && o.comp ? 'plataforma' : (o && INICIOS.includes(o.inicio) ? o.inicio : 'agua');
