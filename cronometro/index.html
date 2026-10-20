@@ -344,6 +344,7 @@ async function logout() {
   _unsubs.forEach(u => { try { u(); } catch {} });
   _unsubs = [];
   Object.keys(S).forEach(k => { S[k] = []; });
+  PAPELERA = []; _rawRes = [];
   _dbReady = false; _initN = 0; _db = null; SA = null; PS = null;
   route = {screen:'home'};
   await _auth.signOut();
@@ -431,6 +432,14 @@ function cargarMarcas() {
     if (canRerender() || (SA && rondaTerminada())) render();
   }).catch(() => {});
 }
+// Papelera: entrenamientos marcados «borrado». No se ven en ninguna pantalla (ni sus tiempos), pero siguen guardados.
+let PAPELERA = [], _rawRes = [];
+const RAW_RES = () => _rawRes;
+function aplicarPapelera() {
+  const fuera = new Set(PAPELERA.map(s => s.id)), enRaw = new Set(_rawRes.map(r => r.id));
+  // los tiempos recién tomados que aún no han vuelto de la base se conservan
+  S.resultados = [..._rawRes, ...S.resultados.filter(r => !enRaw.has(r.id) && !r._raw)].filter(r => !fuera.has(r.sesId));
+}
 function conectarColecciones() {
   cargarMarcas();
   cargarRankings();
@@ -439,7 +448,10 @@ function conectarColecciones() {
   _initTimer = setTimeout(() => { if (!_dbReady) { _dbReady = true; render(); } }, 6000);
   for (const col of COLS) {
     _unsubs.push(_db.collection(col).onSnapshot(snap => {
-      S[col] = snap.docs.filter(d => d.exists).map(d => limpiarDoc(col, {id:d.id,...d.data()}));
+      const docs = snap.docs.filter(d => d.exists).map(d => limpiarDoc(col, {id:d.id,...d.data()}));
+      if (col === 'sesiones') { PAPELERA = docs.filter(s => s.borrado === true); S.sesiones = docs.filter(s => s.borrado !== true); aplicarPapelera(); }
+      else if (col === 'resultados') { docs.forEach(r => { r._raw = true; }); _rawRes = docs; aplicarPapelera(); }
+      else S[col] = docs;
       if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
       else if (canRerender()) render();
     }, err => {
@@ -1465,7 +1477,7 @@ function render() {
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 // Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
@@ -1515,6 +1527,7 @@ function renderMenu() {
   return `<div class="menu-pop">
     <a href="${MANUAL_URL}" target="_blank" rel="noopener">📘 Manual de uso</a>
     ${soyAdmin()?`<button data-action="entrenadores">👥 Entrenadores${solicitudesPendientes().length?` (${solicitudesPendientes().length})`:''}</button>`:''}
+    <button data-action="limpieza">🗑 Borrar entrenos de prueba</button>
     <button data-action="cambiar-nombre">✎ Cambiar nombre</button>
     <button data-action="logout">Salir</button>
   </div>`;
@@ -1527,7 +1540,7 @@ function renderHome() {
   const tarjeta = u ? `
     <span class="label">Último entrenamiento</span>
     <div class="card" style="cursor:pointer" data-action="hist-det" data-ses="${esc(u.ses.id)}">
-      <div class="row" style="margin-bottom:4px"><b style="flex:1">${esc(eqNombre(u.ses.eqId))}${esSim(u.ses)?SIM_TAG:''}</b><span class="muted" style="font-size:12px">${esc(fechaLarga(u.ses.fecha))}</span></div>
+      <div class="row" style="margin-bottom:4px"><b style="flex:1">${esc(eqNombre(u.ses.eqId))}${esSim(u.ses)?SIM_TAG:''}${sesEsComp(u.ses.id)?' <span class="comp-tag">🏆 Competición</span>':''}</b><span class="muted" style="font-size:12px">${esc(fechaLarga(u.ses.fecha))}</span></div>
       <div class="ult-pr">${pruebasSeries(u.series)}</div>
       <div class="ult-k">
         <div><b>${u.series.length}</b><span>${u.series.length===1?'serie':'series'}</span></div>
@@ -1573,6 +1586,8 @@ const NOVEDADES = [
   ['🕒', 'Horario', 'hora del entreno y de cada serie, también en la ficha de cada nadador.'],
   ['👆', 'Del tiempo a la ficha', 'toca un nadador en el resumen o el historial para ver todos sus tiempos.'],
   ['🔐', 'Tus entrenos van con tu cuenta de Google', 'cada entrenador ve los suyos aunque cambie de nombre.'],
+  ['🗑', 'Borrar entrenos de prueba', 'menú ⋯ → «Borrar entrenos de prueba» (o el botón al final del resumen). No se pierden: quedan en la papelera y se pueden recuperar.'],
+  ['🥇', 'Simulaciones de competición destacadas', 'en dorado en el historial, los resúmenes y la web.'],
   ['🛠', 'Arreglado', 'el cronómetro podía quedarse sin responder un rato tras mantener pulsada una tarjeta.'],
 ];
 function renderNovedades() {
@@ -2305,7 +2320,7 @@ function renderResultados(sesId, backAction, backLabel) {
         </div>`).join('')}`;
   }).join('');
   return `
-    <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}</div>
+    <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}${sesEsComp(ses.id)?' <span class="comp-tag">🏆 Competición</span>':''}</div>
     <div class="muted mb16" style="font-size:13px">${fmtDate(ses.fecha)} · ${fmtHora(ses.fecha)}${ses.fin?`–${fmtHora(ses.fin)}`:''} · ${esc(eqNombre(ses.eqId))}${ses.coach?` · ${esc(ses.coach)}`:''}</div>
     <div class="picker-row" style="grid-template-columns:repeat(${3+(d.min?1:0)+(ses.nado&&ses.nado.length?1:0)},1fr);margin-bottom:12px">
       ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${ses.nado&&ses.nado.length?stat(fmtNado(msNadando(ses.nado, Date.now())),'nadando'):''}${d.min?stat(d.min,'minutos'):''}
@@ -2321,7 +2336,8 @@ function renderResultados(sesId, backAction, backLabel) {
     <div class="row mt8">
       <button class="btn btn-surf btn-inline" style="flex:1" data-action="exportar" data-ses="${esc(sesId)}">📤 Texto</button>
       <button class="btn btn-surf btn-inline" style="flex:1" data-action="${backAction}">${backLabel}</button>
-    </div>`;
+    </div>
+    ${puedoBorrar(ses) ? `<button class="btn btn-red-line mt16" data-action="ses-papelera" data-ses="${esc(ses.id)}">🗑 Fue de prueba: mover a la papelera</button>` : ''}`;
 }
 
 // ── Screen: Historial ────────────────────────────────────────
@@ -2343,10 +2359,10 @@ function renderHistorial() {
       const ser = seriesDe(s.id), dur = duracionSes(s);
       const det = ser.length ? ser.map(x=>`S${x.ronda} ${comboTexto(x.estilo, x.dist)}`).join(' · ') : (s.estilo&&s.dist?comboTexto(s.estilo, s.dist):'Sin tiempos');
       return `
-      <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}">
+      <div class="hist-row" data-action="hist-det" data-ses="${esc(s.id)}"${sesEsComp(s.id)?' style="border-color:var(--amb);background:#2a1c0c"':''}>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700">${esc(fechaLarga(s.fecha))}</div>
-          <div style="font-size:14px">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}</div>
+          <div style="font-size:14px">${esc(eqNombre(s.eqId))}${esSim(s)?SIM_TAG:''}${sesEsComp(s.id)?' <span class="comp-tag">🏆 Competición</span>':''}</div>
           <div class="muted" style="font-size:13px">${esc(det)}${dur?` · ${esc(dur)}`:''}</div>
         </div>
         <div class="muted" style="font-size:20px">›</div>
@@ -2489,64 +2505,72 @@ function renderEntrenadores() {
     ${S.estilos.length ? S.estilos.map(e=>`<div class="card row"><span style="flex:1">⭐ <b>${esc(e.nombre)}</b> <span class="muted" style="font-size:12px">· ${esc(e.coach||'')}</span></span>
       <button class="btn btn-red-line btn-sm btn-inline" data-action="estilo-borrar" data-id="${esc(e.id)}">Borrar</button></div>`).join('')
       : '<div class="muted" style="font-size:13px">Los entrenadores los crean con «➕ Otro» al elegir el estilo.</div>'}
-    <span class="label mt16">Limpieza</span>
+    <span class="label mt16">Entrenos de prueba</span>
     <div class="card">
-      <div class="muted" style="font-size:13px;margin-bottom:10px">Borra los entrenamientos de simulación y los de prueba (con sus tiempos). Antes de borrar ves la lista y eliges cuáles.</div>
-      <button class="btn btn-red-line" data-action="limpieza">🧹 Borrar simulaciones y tiempos de prueba</button>
+      <div class="muted" style="font-size:13px;margin-bottom:10px">Mueve a la papelera las simulaciones y los entrenos de prueba de cualquier entrenador (se pueden recuperar). Cada entrenador también puede hacerlo con los suyos desde el menú ⋯.</div>
+      <button class="btn btn-red-line" data-action="limpieza">🗑 Borrar entrenos de prueba</button>
     </div>`;
 }
 
-// ── Limpieza (solo administrador): simulaciones y entrenos de prueba ──
-// Se proponen marcados los de simulación y los del administrador (sus pruebas); el resto se puede marcar a mano.
+// ── Borrar entrenos de prueba → papelera ──
+// Borrar no elimina nada: el entrenamiento se marca «borrado» y deja de verse en el cronómetro y en la web,
+// pero sus tiempos siguen guardados y se puede recuperar desde la papelera.
+// Cada entrenador ve y borra los suyos; el administrador, los de todos.
 let LIMP = null;   // {sel: Set de sesiones, estado}
-const esDePrueba = s => esSim(s) || (s.coachEmail ? s.coachEmail === miEmail() : /^andr[eé]s\b/i.test(String(s.coach||'')));
+const puedoBorrar = s => soyAdmin() || esMio(s);
+// Propuestos ya marcados: los de simulación y, para el administrador, sus propias pruebas
+const esDePrueba = s => esSim(s) || (soyAdmin() && (s.coachEmail ? s.coachEmail === miEmail() : /^andr[eé]s\b/i.test(String(s.coach||''))));
 function abrirLimpieza() {
-  LIMP = {sel: new Set(S.sesiones.filter(esDePrueba).map(s=>s.id)), estado: null};
+  LIMP = {sel: new Set(S.sesiones.filter(s=>puedoBorrar(s) && esDePrueba(s)).map(s=>s.id)), estado: null};
   nav({screen:'limpieza'}); window.scrollTo(0,0);
 }
 function renderLimpieza() {
-  if (!soyAdmin()) { nav({screen:'home'}); return ''; }
-  if (!LIMP) LIMP = {sel: new Set(S.sesiones.filter(esDePrueba).map(s=>s.id)), estado: null};
-  const lista = [...S.sesiones].sort((a,b)=>b.fecha-a.fecha);
-  const nRes = id => S.resultados.filter(r=>r.sesId===id).length;
-  const nSel = [...LIMP.sel].filter(id=>S.sesiones.some(s=>s.id===id)).length, nTiempos = [...LIMP.sel].reduce((t,id)=>t+nRes(id),0);
+  if (!LIMP) LIMP = {sel: new Set(), estado: null};
+  const lista = S.sesiones.filter(puedoBorrar).sort((a,b)=>b.fecha-a.fecha);
+  const papelera = PAPELERA.filter(puedoBorrar).sort((a,b)=>(b.borradoTs||0)-(a.borradoTs||0));
+  const nRes = id => RAW_RES().filter(r=>r.sesId===id).length;
+  const nSel = [...LIMP.sel].filter(id=>lista.some(s=>s.id===id)).length, nTiempos = [...LIMP.sel].reduce((t,id)=>t+nRes(id),0);
+  const datos = s => `<b>${esc(fechaLarga(s.fecha))}</b>${esSim(s)?SIM_TAG:''}${sesEsComp(s.id)?' <span class="comp-tag">🏆 Competición</span>':''}
+        <span class="muted" style="display:block;font-size:12px">${esc(s.coach||'—')}${s.coachEmail?` · ${esc(s.coachEmail)}`:''} · ${esc(eqNombre(s.eqId))} · ${nRes(s.id)} tiempos</span>`;
   const fila = s => `<label class="card row" style="cursor:pointer;gap:10px${LIMP.sel.has(s.id)?';border-color:var(--red)':''}">
       <input type="checkbox" data-limp="${esc(s.id)}" ${LIMP.sel.has(s.id)?'checked':''} style="width:22px;height:22px">
-      <span style="flex:1;min-width:0"><b>${esc(fechaLarga(s.fecha))}</b>${esSim(s)?SIM_TAG:''}
-        <span class="muted" style="display:block;font-size:12px">${esc(s.coach||'—')}${s.coachEmail?` · ${esc(s.coachEmail)}`:''} · ${esc(eqNombre(s.eqId))} · ${nRes(s.id)} tiempos</span></span></label>`;
+      <span style="flex:1;min-width:0">${datos(s)}</span></label>`;
   const prop = lista.filter(esDePrueba), resto = lista.filter(s=>!esDePrueba(s));
   return `
-    <button class="back-btn" data-action="entrenadores">← Entrenadores</button>
-    <div class="h1">🧹 Limpieza</div>
-    <div class="muted mb16" style="font-size:13px">Marcados: los de simulación y los tuyos de prueba. Revisa la lista: lo que se borra no se puede recuperar.</div>
+    <button class="back-btn" data-action="home">← Inicio</button>
+    <div class="h1">🗑 Borrar entrenos de prueba</div>
+    <div class="muted mb16" style="font-size:13px">Marca los entrenamientos que fueron de prueba. Dejan de verse en el cronómetro y en la web, pero no se pierden: quedan en la papelera (abajo) y se pueden recuperar.${soyAdmin()?' Como administrador ves los de todos los entrenadores.':' Solo ves los tuyos.'}</div>
     ${LIMP.estado?`<div class="card" style="font-size:14px">${esc(LIMP.estado)}</div>`:''}
-    <span class="label">Simulaciones y pruebas (${prop.length})</span>
-    ${prop.map(fila).join('') || '<div class="muted mb16" style="font-size:13px">No queda ninguna.</div>'}
-    ${resto.length?`<details class="card quien"><summary>Otros entrenamientos (${resto.length}) · por si alguno también es de prueba</summary><div style="margin-top:8px">${resto.map(fila).join('')}</div></details>`:''}
-    <button class="btn mt16" style="background:var(--red);color:#fff;min-height:54px" data-action="limpieza-borrar" ${nSel?'':'disabled style="opacity:.4"'}>Borrar ${nSel} ${nSel===1?'entrenamiento':'entrenamientos'} (${nTiempos} tiempos)</button>`;
+    ${prop.length?`<span class="label">Simulaciones y pruebas (${prop.length})</span>${prop.map(fila).join('')}`:''}
+    <span class="label${prop.length?' mt16':''}">${prop.length?'Otros entrenamientos':'Tus entrenamientos'} (${resto.length})</span>
+    ${resto.map(fila).join('') || '<div class="muted mb16" style="font-size:13px">No hay entrenamientos.</div>'}
+    <button class="btn mt16" style="background:var(--red);color:#fff;min-height:54px${nSel?'':';opacity:.4'}" data-action="limpieza-borrar" ${nSel?'':'disabled'}>🗑 Mover ${nSel} ${nSel===1?'entrenamiento':'entrenamientos'} a la papelera (${nTiempos} tiempos)</button>
+    <span class="label mt24">Papelera (${papelera.length})</span>
+    ${papelera.map(s=>`<div class="card row" style="gap:10px;opacity:.85"><span style="flex:1;min-width:0">${datos(s)}
+        <span class="muted" style="display:block;font-size:11px">Borrado ${fmtFechaHora(s.borradoTs)}${s.borradoPor?` por ${esc(s.borradoPor)}`:''}</span></span>
+      <button class="btn btn-surf btn-sm btn-inline" data-action="papelera-recuperar" data-ses="${esc(s.id)}">↩ Recuperar</button></div>`).join('')
+      || '<div class="muted" style="font-size:13px">Vacía.</div>'}`;
 }
 async function borrarLimpieza() {
-  const ids = [...LIMP.sel].filter(id=>S.sesiones.some(s=>s.id===id));
+  const ids = [...LIMP.sel].filter(id=>S.sesiones.some(s=>s.id===id && puedoBorrar(s)));
   if (!ids.length) return;
-  const nT = S.resultados.filter(r=>ids.includes(r.sesId)).length;
-  if (!confirm(`¿Borrar ${ids.length} entrenamientos y sus ${nT} tiempos? No se puede deshacer.`)) return;
-  let hechos = 0;
-  for (const sesId of ids) {
-    LIMP.estado = `Borrando… ${hechos} de ${ids.length}`; render();
-    const gIds = S.grupos.filter(g=>g.sesId===sesId).map(g=>g.id);
-    const refs = [
-      ...S.resultados.filter(r=>r.sesId===sesId).map(r=>['resultados', r.id]),
-      ...S.gnads.filter(x=>gIds.includes(x.gId)).map(x=>['gnads', x.id]),
-      ...gIds.map(id=>['grupos', id]),
-    ];
-    try {
-      for (let i=0; i<refs.length; i+=20) await Promise.all(refs.slice(i, i+20).map(([c, id]) => _db.collection(c).doc(id).delete()));
-      await _db.collection('sesiones').doc(sesId).delete();   // la sesión, al final: si algo falla, sigue en la lista
-      LIMP.sel.delete(sesId); hechos++;
-    } catch (e) { LIMP.estado = `Error al borrar: ${e.message}. Borrados ${hechos} de ${ids.length}.`; render(); return; }
-  }
-  LIMP.estado = `Listo: ${hechos} entrenamientos borrados.`; render();
+  if (!confirm(`¿Mover ${ids.length} ${ids.length===1?'entrenamiento':'entrenamientos'} a la papelera? Dejarán de verse, pero se pueden recuperar.`)) return;
+  const marca = {borrado: true, borradoTs: Date.now(), borradoPor: miEmail()};
+  try {
+    await Promise.all(ids.map(id => _db.collection('sesiones').doc(id).update(marca)));
+    ids.forEach(id => LIMP.sel.delete(id));
+    LIMP.estado = `Listo: ${ids.length} ${ids.length===1?'entrenamiento movido':'entrenamientos movidos'} a la papelera.`;
+  } catch (e) { LIMP.estado = 'No se pudo: ' + e.message; }
+  render();
 }
+async function recuperarSesion(id) {
+  const s = PAPELERA.find(x=>x.id===id); if (!s || !puedoBorrar(s)) return;
+  try { await _db.collection('sesiones').doc(id).update({borrado: false}); LIMP.estado = `Recuperado el entrenamiento del ${fechaLarga(s.fecha)}.`; }
+  catch (e) { LIMP.estado = 'No se pudo: ' + e.message; }
+  render();
+}
+// ¿Tiene alguna serie en modo competición?
+function sesEsComp(sesId) { return RAW_RES().some(r=>r.sesId===sesId && r.comp); }
 // ── Sincronizar nadadores con la web de estadísticas ─────────
 // nadadores.json lo genera cada día el proceso de la web (licencia RFEN, nombre, categoría).
 const CAT_EQUIPO = {BEN:['club_ben','Benjamín'], ALE:['club_ale','Alevín'], INF:['club_inf','Infantil'], JUN:['club_jun','Junior'], ABS:['club_abs','Absoluto']};
@@ -2700,6 +2724,8 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'graf-serie':   if (GRAF) { const r = Number(btn.dataset.r); GRAF.sel.has(r) ? GRAF.sel.delete(r) : GRAF.sel.add(r); render(); } break;
     case 'graf-foco':    if (GRAF) { GRAF.foco = GRAF.foco === btn.dataset.nid ? null : btn.dataset.nid; render(); } break;
     case 'limpieza-borrar': await borrarLimpieza(); break;
+    case 'papelera-recuperar': await recuperarSesion(btn.dataset.ses); break;
+    case 'ses-papelera': { const x = S.sesiones.find(y=>y.id===btn.dataset.ses); if (x && puedoBorrar(x) && confirm('¿Mover este entrenamiento a la papelera? Dejará de verse en el cronómetro y en la web, pero se puede recuperar desde ⋯ → Borrar entrenos de prueba.')) { await _db.collection('sesiones').doc(x.id).update({borrado:true, borradoTs:Date.now(), borradoPor:miEmail()}).catch(e=>alert(e.message)); nav({screen:'historial'}); } break; }
     case 'sync-nadadores': await sincronizarNadadores(); break;
     case 'acceso-entrenador': await cambiarAcceso(btn.dataset.email, btn.dataset.accion); break;
     case 'historial':    nav({screen:'historial'}); break;

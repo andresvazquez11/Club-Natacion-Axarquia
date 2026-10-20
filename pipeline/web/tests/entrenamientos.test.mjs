@@ -208,3 +208,20 @@ test('entGraficoSeries: una línea por nadador que nadó las series elegidas; av
   assert.equal((svg.match(/<circle/g) || []).length, 3);
   assert.match(evalIn(ctx, 'entGraficoSeries(__tb, [], null)'), /Elige al menos una serie/);
 });
+
+test('entComparativaRango: todas las series de los elegidos entre dos fechas, en orden', () => {
+  const T = ev('entTiempos', D, SW);
+  const d1 = T.find(t => t.id === 'r1').dia, d2 = T.find(t => t.id === 'r4').dia;
+  const CR = ev('entComparativaRango', T, '50 Libre', ['a', 'b'], '', '');
+  assert.deepEqual(CR.slots.map(s => [s.sesId, s.ronda]), [['s1', 1], ['s2', 1]]);
+  assert.deepEqual(CR.lineas.map(l => [l.nId, Object.keys(l.t).length]), [['a', 2], ['b', 1]]);
+  assert.deepEqual(ev('entComparativaRango', T, '50 Libre', ['a'], d2, d2).slots.map(s => s.sesId), ['s2']);
+  assert.deepEqual(ev('entComparativaRango', T, '50 Libre', ['a'], d1, d1).slots.map(s => s.sesId), ['s1']);
+});
+
+test('entGraficoSeries: con nadadores elegidos solo dibuja los suyos', () => {
+  const T = ev('entTiempos', D, SW).filter(t => t.sesId === 's1');
+  ctx.__tb = evalIn(ctx, 'entTabla')(T);
+  assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], ["b"])').match(/<circle/g) || []).length, 1);
+  assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], [])').match(/<circle/g) || []).length, 2);
+});
