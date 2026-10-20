@@ -95,7 +95,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # la automática deja SIEMPRE su commit (aunque no cambie nada): es la marca que usa «check» para saber que esta semana ya se hizo
           VACIO=""; [ "$TIPO" = "automática" ] && VACIO="--allow-empty"
-          git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json
+          git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json cronometro/rankings.json
           git commit $VACIO -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || echo "Sin cambios"
           for i in 1 2 3; do
             git push origin main && exit 0
@@ -103,7 +103,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             CNA_BASE=pipeline/base_2526.json.gz CNA_NEW=raw_2627 CNA_OUT=temporada.html CNA_SUMMARY=resumen.txt python pipeline/generar.py
-            git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json
+            git add temporada.html club.html historial.json ranking.json historico_ranking.json.gz comparar.json cronometro/nadadores.json cronometro/rankings.json
             git commit $VACIO -m "Actualizar informe temporada 26-27 (${TIPO}) — $(date '+%d/%m/%Y %H:%M')" || exit 0
           done
           exit 1

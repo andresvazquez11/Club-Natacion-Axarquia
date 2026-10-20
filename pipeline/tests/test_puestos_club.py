@@ -96,3 +96,17 @@ class TestPuestosClub(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestRankingsCronometro(unittest.TestCase):
+    def test_listas_por_ambito_ultimos_12_meses(self):
+        from datetime import date
+        hoy = date(2026, 10, 20)
+        M = [(date(2026, 3, 1), 3500, 1, '2526', '25m', 0), (date(2026, 5, 1), 3400, 1, '2526', '25m', 0),   # club (malagueño): su mejor
+             (date(2026, 4, 1), 3300, 2, '2526', '25m', 0),                                               # andaluz, no malagueño
+             (date(2026, 4, 1), 3200, 3, '2526', '25m', 0),                                               # resto de España
+             (date(2024, 1, 1), 3000, 4, '2324', '25m', 0)]                                               # hace más de un año: fuera
+        info = {1: (True, True, 'A', 'C.N. AXARQUIA'), 2: (True, False, 'B', 'X'), 3: (False, False, 'C', 'Y'), 4: (True, True, 'D', 'Z')}
+        out = G.rankings_cronometro({('F', 2015, '50 Libre'): M, ('F', 2015, '100 Estilos'): M}, info, [{'id': 1, 'g': 'F', 'y': 2015}], hoy)
+        self.assertEqual(out['r'], {'F|2015|50 Libre': [[3200, 100, 100], [3300, 100], [3400]]})   # diferencias; sin Estilos
+        self.assertEqual(out['p'], {'1': {'50 Libre': 3400}})

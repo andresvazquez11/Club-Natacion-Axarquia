@@ -451,6 +451,7 @@ def main():
     marcas, minfo = H.unir_marcas(H.cargar_marcas(MARCAS_2526), H.preparar_marcas({'2627': rows_new}, club))
     relevos = RV.calcular(marcas, minfo, club, _CATS, date.today(), lambda c: CLUB_MATCH in c.upper(), records)
     movimientos = escribir_historial(swimmers, rows_new, marcas, minfo)
+    escribir_rankings_cronometro(marcas, minfo, swimmers)
     ruta_edades = os.path.join(BASE_DIR, 'edades_base.json.gz')
     club_int = puestos_club(swimmers, hist, H.cargar(ruta_edades) if os.path.exists(ruta_edades) else {}, nombres_club(), records)
 
@@ -511,6 +512,48 @@ def escribir_nadadores_cronometro(swimmers, records):
     with open(ruta, 'w', encoding='utf-8') as f:
         json.dump({'fecha': date.today().isoformat(), 'nadadores': lista}, f, ensure_ascii=False, separators=(',', ':'))
     print(f'Cronómetro: {len(lista)} nadadores con sus marcas → {ruta} ({os.path.getsize(ruta) / 1e3:.0f} KB)')
+
+
+RANK_PRUEBAS = {f'{d} {e}' for e in ('Libre', 'Espalda', 'Braza', 'Mariposa') for d in (50, 100, 200, 400)}
+
+
+def rankings_cronometro(marcas, info, swimmers, hoy):
+    """Listas del ranking para el modo competición del cronómetro: por «sexo|año|prueba» de los nadadores del club,
+    la mejor marca de cada nadador en los últimos 365 días (centésimas, ordenadas) en España, Andalucía y Málaga,
+    guardadas como diferencias para que ocupen poco. 'p' = la marca propia de cada nadador del club (no es su rival)."""
+    from datetime import timedelta
+    cohortes = {(s['g'], s['y']) for s in swimmers}
+    club = {int(s['id']) for s in swimmers}
+    desde = hoy - timedelta(days=365)
+    delta = lambda L: [v - (L[i - 1] if i else 0) for i, v in enumerate(L)]
+    r, propias = {}, defaultdict(dict)
+    for (g, y, ev), M in marcas.items():
+        if (g, y) not in cohortes or ev not in RANK_PRUEBAS:
+            continue
+        best = {}
+        for d, cs, pid, *_ in M:
+            if desde <= d <= hoy and (pid not in best or cs < best[pid]):
+                best[pid] = cs
+        if not best:
+            continue
+        niveles = [sorted(best.values()),
+                   sorted(cs for pid, cs in best.items() if info.get(pid, (False, False))[0]),
+                   sorted(cs for pid, cs in best.items() if info.get(pid, (False, False))[1])]
+        r[f'{g}|{y}|{ev}'] = [delta(L) for L in niveles]
+        for pid, cs in best.items():
+            if int(pid) in club:
+                propias[str(pid)][ev] = cs
+    return {'fecha': hoy.isoformat(), 'r': r, 'p': propias}
+
+
+def escribir_rankings_cronometro(marcas, info, swimmers):
+    carpeta = os.path.join(os.path.dirname(os.path.abspath(CLUB_OUT)), 'cronometro')
+    if not os.path.isdir(carpeta):
+        return
+    ruta = os.path.join(carpeta, 'rankings.json')
+    with open(ruta, 'w', encoding='utf-8') as f:
+        json.dump(rankings_cronometro(marcas, info, swimmers, date.today()), f, separators=(',', ':'))
+    print(f'Cronómetro: rankings para el modo competición → {ruta} ({os.path.getsize(ruta) / 1e3:.0f} KB)')
 
 
 JS_ORDEN = ['comunes.js', 'iconos.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/club.js', 'vistas/campeonatos.js',

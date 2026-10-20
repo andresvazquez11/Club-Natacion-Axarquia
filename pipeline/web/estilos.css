@@ -566,7 +566,18 @@ html.acuatico .seg{background:var(--solid)}
 .ent-nota{color:var(--ink2);font-style:italic;margin-top:2px}
 .ent-aviso-sim{font-size:.8rem;line-height:1.4;padding:10px 12px;margin:0 0 12px;border-radius:12px;border:1px dashed var(--warn);color:var(--ink)}
 .nav a.ent-on .ico{color:var(--hl)}
-.ent-cmp{margin-top:2px;line-height:1.45;font-variant-numeric:tabular-nums}
+.ent-cmp{margin-top:3px;line-height:1.45;font-variant-numeric:tabular-nums;display:grid;grid-template-columns:auto auto 1fr;gap:1px 10px;align-items:baseline}
+.ent-cmp .k{color:var(--ink2)}
+.ent-comp{font-size:.62rem;padding:2px 7px;color:var(--warn);border:1px solid var(--warn)}
+.ent-ini{font-size:.62rem;padding:2px 7px;color:var(--ink2);border:1px solid var(--ln)}
+.ent-chart a .ent-bar{cursor:pointer}
+.ent-chart a:hover .ent-bar,.ent-chart .ent-bar.on{fill:var(--hl)}
+.ent-mat{font-variant-numeric:tabular-nums}
+.ent-mat th{white-space:nowrap;vertical-align:bottom}
+.ent-mat th .tiny{display:block;font-weight:500}
+.ent-mat td.vacia{color:var(--ink2)}
+.ent-sel{font-size:.8rem;color:var(--ink2);margin:8px 0 2px}
+.ent-x{margin-left:6px;font-size:.75rem}
 .crono-b{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 10px;border-radius:12px;flex:none;
   background:var(--surf);border:1px solid var(--hl);color:var(--ink);font-weight:700;font-size:.72rem;text-decoration:none}
 .crono-b .ico{width:16px;height:16px;color:var(--hl)}

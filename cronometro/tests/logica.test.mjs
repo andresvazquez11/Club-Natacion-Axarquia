@@ -72,8 +72,8 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
     series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
-  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true },
-    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false }]);
+  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false },
+    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false }]);
 });
 
 test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
@@ -124,4 +124,25 @@ test('limpiarDoc: acepta estilos propios en tiempos, sesiones y planes; estilos 
   assert.equal(ev('limpiarDoc', 'planes', { series: [{ estilo: 'piernas', dist: 50 }] }).series[0].estilo, 'piernas');
   const e = ev('limpiarDoc', 'estilos', { nombre: '  Piernas con tabla ' + 'x'.repeat(40), ts: '5' });
   assert.equal(e.nombre.length, 30); assert.equal(e.ts, 5);
+});
+
+test('limpiarDoc: salida desde el agua o la plataforma; el modo competición siempre desde la plataforma', () => {
+  const r = ev('limpiarDoc', 'resultados', { inicio: 'plataforma', comp: true, ts: '1700' });
+  assert.equal(r.inicio, 'plataforma'); assert.equal(r.comp, true); assert.equal(r.ts, 1700);
+  const x = ev('limpiarDoc', 'resultados', { inicio: '<b>', comp: 'si' });
+  assert.equal(x.inicio, null); assert.equal(x.comp, false); assert.equal(x.ts, null);
+  const p = ev('limpiarDoc', 'planes', { series: [{ estilo: 'libre', dist: 50, inicio: 'agua', comp: true }, { estilo: 'libre', dist: 50, inicio: 'plataforma' }] });
+  assert.deepEqual(p.series.map(s => [s.inicio, s.comp]), [['plataforma', true], ['plataforma', false]]);
+  assert.equal(ev('inicioDe', { comp: true, inicio: 'agua' }), 'plataforma');
+  assert.equal(ev('inicioDe', null), 'agua');
+});
+
+test('decodRank y puestoEn: puesto que tendría un tiempo, sin contarse a sí mismo', () => {
+  const L = ev('decodRank', [3000, 100, 100, 200]);
+  assert.deepEqual(L, [3000, 3100, 3200, 3400]);
+  assert.deepEqual(ev('puestoEn', L, 3150), { pos: 3, de: 5 });
+  assert.deepEqual(ev('puestoEn', L, 2900), { pos: 1, de: 5 });
+  assert.deepEqual(ev('puestoEn', L, 3100), { pos: 2, de: 5 });            // empatar cuenta como ir delante
+  assert.deepEqual(ev('puestoEn', L, 3150, 3200), { pos: 3, de: 4 });      // su propia marca (3200) no es un rival
+  assert.deepEqual(ev('puestoEn', [], 3000), { pos: 1, de: 1 });
 });
