@@ -88,3 +88,9 @@ test('dirCatsDe y dirEsDeSuCat: un alevín solo ve las competiciones de alevines
   assert.equal(de('XIII Campeonato Andalucía Larga Distancia', 'ALE'), false);
   assert.equal(de('Trofeo de otoño', 'ALE'), true);   // sin categoría en el nombre: se muestra
 });
+
+test('series en PDF: se avisa de que aún no hay resultados y la tarjeta ofrece «Ver las series»', () => {
+  ctx.__c3 = Object.assign({}, ctx.__c2, { estado: 'proxima', lenex: Object.assign({}, ctx.__c2.lenex, { origen: 'pdf' }) });
+  assert.match(evalIn(ctx, 'dirSeguirHTML(__c3, "6313922")'), /Series publicadas por la federación/);
+  assert.match(evalIn(ctx, 'dirTarjeta(__c3)'), /Ver las series/);
+});

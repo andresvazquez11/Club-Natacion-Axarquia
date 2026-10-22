@@ -16,6 +16,8 @@ async function dirCargar(forzar) {
   } catch (e) { /* sin conexión: lo último que hubiera */ }
   return DIR;
 }
+const dirDePdf = c => !!(c && c.lenex && c.lenex.origen === 'pdf');
+const DIR_AVISO_PDF = '<p class="small dir-aviso">Series publicadas por la federación. Los tiempos y puestos aparecerán aquí en cuanto se nade.</p>';
 const dirEnCurso = d => !!d && d.competiciones.some(c => c.estado === 'en_curso');
 
 /* ── Lectura en directo del Lenex (results.lxf = zip con un XML) ── */
@@ -150,6 +152,7 @@ function dirSeguirHTML(c, rfen) {
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}</span>
       <h1>${s ? esc(s.n) : 'Nadador'}</h1></div>
+    ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, rfen)}`;
   if (!L.length) return cab + `<div class="vacio">${s ? esc(s.n.split(' ')[0]) : 'Este nadador'} no aparece en las series publicadas de esta competición.</div>`;
   const prim = L.find(x => x.estado !== 'hecha');
@@ -161,7 +164,7 @@ function dirSeguirHTML(c, rfen) {
       : `<div class="dir-res pend">Por nadar</div>`;
     return `<div class="card dir-seg dir-seg-${x.estado}">
       <div class="dir-seg-top"><div class="dir-hora"><small>${varios && x.p.fecha ? dfmt(x.p.fecha) : 'empieza'}</small><b>${esc(x.p.hora || '--:--')}</b></div>
-        <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? ` · sesión ${esc(x.p.sesion)}` : ''}</div></div></div>
+        <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirDePdf(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
       ${est}
       <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => f.rfen === rfen)}</details>
@@ -180,10 +183,10 @@ function dirTarjeta(c) {
     <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
     <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${c.lenex && c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
-    ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : ''}</p>`
+    ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
       : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>' : '<p class="small muted" style="margin:6px 0">Las series y los resultados aparecerán aquí cuando la federación publique la web de la competición.</p>'}
-    ${docs.length ? `<div class="dir-docs">${docs.join('')}</div>` : ''}
-    ${c.lenex ? `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">Ver series y resultados</a>` : ''}
+    ${c.lenex ? `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">${dirDePdf(c) ? 'Ver las series' : 'Ver series y resultados'}</a>` : ''}
+    ${docs.length ? `<div class="dir-docs"><span class="muted">Documentos de la federación:</span>${docs.join('')}</div>` : ''}
     ${BEN && dirSusPruebas(c, String(BEN.id)).length ? `<a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(BEN.id)}">Seguir a ${esc(BEN.n.split(' ')[0])}: sus pruebas y horarios</a>` : ''}
   </div>`;
 }
@@ -205,6 +208,7 @@ function dirDetalle(c, soloNuestros) {
   };
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1></div>
+    ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, '')}
     ${resumen}
     <div class="chips" data-chips="dsolo" style="margin:10px 0"><button class="chip ${soloNuestros ? 'on' : ''}" data-v="1">Pruebas con nadadores del club</button><button class="chip ${soloNuestros ? '' : 'on'}" data-v="">Todas las pruebas</button></div>

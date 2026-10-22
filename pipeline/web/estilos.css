@@ -620,6 +620,8 @@ tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
 .dir-p summary{cursor:pointer;list-style:none;font-size:.88rem}
 .dir-p summary::-webkit-details-marker{display:none}
 .dir-f{padding:6px 0;border-top:1px solid var(--ln)}
+.dir-aviso{margin:10px 2px;padding:8px 12px;border-radius:12px;border:1px dashed var(--ln);color:var(--ink2)}
+.dir-docs .muted{margin-right:2px}
 .dir-f-acc{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:6px;font-size:.8rem}
 .dir-btn-mio{background:var(--hl);color:#1a1200;border-color:var(--hl);margin-top:6px}
 .dir-sel{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--ink2);margin:10px 0}

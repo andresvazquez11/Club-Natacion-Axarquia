@@ -45,15 +45,13 @@ def obtener(url, binario=False, intentos=3):
             ultimo = e
             time.sleep(2)
             continue
-        if binario:
-            return datos
-        txt = datos.decode('utf-8', 'replace')
+        txt = datos[:4000].decode('utf-8', 'replace') if binario else datos.decode('utf-8', 'replace')
         m = re.search(r"document\.cookie\s*=\s*'([^';]+)", txt)
-        if m and len(txt) < 4000:
+        if m and len(datos) < 4000:
             _galleta = m.group(1)
             time.sleep(3.2)
             continue
-        return txt
+        return datos if binario else txt
     raise RuntimeError(f'No se pudo descargar {url}: {ultimo}')
 
 
@@ -183,6 +181,97 @@ def leer_lenex(datos, nuestros):
             'sesiones': sesiones, 'pruebas': pruebas}
 
 
+# ── Series en PDF (lista de salida de SPLASH), para cuando aún no hay web de la competición ──
+# Cada prueba empieza con «Prueba 17 Fem., 50m Libre Benjamin 2017» y «24/10/2026 - 9:52 Lista de salida»; luego
+# «Serie 2 de 3» y una línea por calle: «4 LASIERRA FERNANDEZ, Ana Lourdes 17 C.N. Axarquia 1:03.33 25m».
+SEXO_PDF = {'fem': 'F', 'masc': 'M', 'mixto': 'X'}
+RE_PRUEBA = re.compile(r'^Prueba (\d+),? (Fem|Masc|Mixto)\.?,? (\d+(?:\s*x\s*\d+)?)m ([A-Za-zÁÉÍÓÚáéíóúÑñ]+)', re.I)
+RE_HORA = re.compile(r'^(\d{2})/(\d{2})/(\d{4}) - (\d{1,2}):(\d{2})\b')
+RE_SERIE = re.compile(r'^Serie (\d+) de (\d+)')
+RE_TIEMPO = r'(NT|\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2})'
+RE_NADADOR = re.compile(r'^(\d{1,2}) ([^,]+), (.+?) ?(\d{2}) (.+?) ' + RE_TIEMPO + r'(?: (25m|50m))?\s*$')
+RE_EQUIPO = re.compile(r'^(\d{1,2}) (.+?) ' + RE_TIEMPO + r'(?: (25m|50m))?\s*$')
+
+
+def cs_texto(t):
+    """'1:03.33' → 6333; '49.88' → 4988; 'NT' → None"""
+    m = re.match(r'(?:(\d+):)?(\d+)\.(\d{2})$', t or '')
+    return (int(m.group(1) or 0) * 60 + int(m.group(2))) * 100 + int(m.group(3)) if m else None
+
+
+def leer_series_texto(texto, grupo, nuestros):
+    """Texto de un PDF de series → [pruebas] con la misma forma que leer_lenex (sin tiempos todavía)"""
+    pruebas, actual, serie = {}, None, 0
+    for linea in (l.strip() for l in texto.splitlines()):
+        m = RE_PRUEBA.match(linea)
+        if m:
+            num = int(m.group(1))
+            estilo = m.group(4).capitalize()
+            dist = re.sub(r'\s*x\s*', 'x', m.group(3).lower())
+            nombre = f'{dist} {estilo}'
+            actual = pruebas.setdefault(num, {'id': f'{grupo}-{num}', 'num': num, 'nombre': nombre, 'sexo': SEXO_PDF.get(m.group(2).lower(), ''),
+                                              'hora': '', 'fecha': '', 'sesion': grupo, 'estado': '', 'filas': []})
+            serie = 0
+            continue
+        if actual is None:
+            continue
+        m = RE_HORA.match(linea)
+        if m:
+            actual['fecha'], actual['hora'] = f'{m.group(3)}-{m.group(2)}-{m.group(1)}', f'{int(m.group(4)):02d}:{m.group(5)}'
+            continue
+        m = RE_SERIE.match(linea)
+        if m:
+            serie = int(m.group(1))
+            continue
+        if not serie:
+            continue
+        m = RE_NADADOR.match(linea)
+        if m and 'x' not in actual['nombre']:
+            nombre = f'{m.group(3).strip()} {m.group(2).strip().title()}'
+            nac = 2000 + int(m.group(4)) if int(m.group(4)) < 50 else 1900 + int(m.group(4))
+            club = m.group(5).strip()
+            rfen = (nuestros.get((norm(nombre), nac)) or '?') if CLUB in club.upper() else None
+            actual['filas'].append({'serie': serie, 'calle': int(m.group(1)), 'n': nombre, 'club': club, 'nac': nac, 't': None,
+                                    'ins': cs_texto(m.group(6)), 'puesto': None, 'cat': '', 'estado': '', 'rfen': rfen, 'parc': None})
+            continue
+        m = RE_EQUIPO.match(linea)
+        if m and 'x' in actual['nombre']:      # relevos: una línea por equipo
+            club = m.group(2).strip()
+            dup = re.match(r'^(.+?) \d+ \1$', club)      # «C.N. Mijas 10 C.N. Mijas» → «C.N. Mijas»
+            club = dup.group(1) if dup else club
+            actual['filas'].append({'serie': serie, 'calle': int(m.group(1)), 'n': f'{club} (relevo)', 'club': club, 'nac': None, 't': None,
+                                    'ins': cs_texto(m.group(3)), 'puesto': None, 'cat': '', 'estado': '', 'rfen': 'club' if CLUB in club.upper() else None, 'parc': None})
+    for p in pruebas.values():
+        p['filas'].sort(key=lambda f: (f['serie'], f['calle']))
+        p['nadadas'] = 0
+    return [p for p in pruebas.values() if p['filas']]
+
+
+def leer_series_pdf(docs, nuestros):
+    """Documentos «Series…» de una competición (PDF) → lenex de series, o None si no hay o no se pueden leer"""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        print('Aviso: falta pypdf para leer las series en PDF', file=sys.stderr)
+        return None
+    pruebas = []
+    for d in docs:
+        if not re.match(r'series', d.get('t', ''), re.I):
+            continue
+        try:
+            pdf = PdfReader(io.BytesIO(obtener(d['url'], binario=True)))
+            texto = '\n'.join(pag.extract_text() or '' for pag in pdf.pages)
+        except Exception as e:
+            print('Aviso: no se pudo leer', d.get('t'), e, file=sys.stderr)
+            continue
+        grupo = re.sub(r'^series\.?\s*', '', d['t'], flags=re.I).strip() or 'Series'
+        pruebas += leer_series_texto(texto, grupo, nuestros)
+    if not pruebas:
+        return None
+    pruebas.sort(key=lambda p: (p['fecha'], p['hora'], p['num']))
+    return {'nombre': '', 'lugar': '', 'piscina': '', 'sesiones': [], 'pruebas': pruebas, 'origen': 'pdf'}
+
+
 def estado_de(c, hoy):
     if c['desde'] > hoy.isoformat():
         return 'proxima'
@@ -227,13 +316,16 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
                 c['web'], c['docs'] = None, []
     for c in comps:
         c['estado'] = estado_de(c, hoy)
-        if not c.get('web'):
-            continue
-        # los resultados se leen de las que se están nadando y de las recientes (y de las próximas, por si ya hay series)
-        try:
-            c['lenex'] = leer_lenex(obtener(c['web'] + 'results.lxf', binario=True), nuestros)
-        except Exception as e:
-            print('Sin resultados todavía', c['web'], e, file=sys.stderr)
+        # los resultados se leen de la web de la competición (SPLASH); si aún no la hay, de las series en PDF
+        if c.get('web'):
+            try:
+                c['lenex'] = leer_lenex(obtener(c['web'] + 'results.lxf', binario=True), nuestros)
+            except Exception as e:
+                print('Sin resultados todavía', c['web'], e, file=sys.stderr)
+        if not c.get('lenex') and c['estado'] != 'terminada' and c.get('docs'):
+            series = leer_series_pdf(c['docs'], nuestros)
+            if series:
+                c['lenex'] = series
     comps.sort(key=lambda c: (c['desde'], c['titulo']))
     return {'competiciones': comps}
 

@@ -88,5 +88,42 @@ class TestDirecto(unittest.TestCase):
         self.assertEqual(F.estado_de({'desde': '2026-10-18', 'hasta': '2026-10-18'}, hoy), 'terminada')
 
 
+SERIES = '''Splash Meet Manager, 11.85476 Registered to Andalucía 22/10/2026 10:59 - Página 1
+2 - FAN 24/10/2026
+9:00 Apertura Instalación
+Prueba 17 Fem., 50m Libre Benjamin 2017
+24/10/2026 - 9:52 Lista de salida
+AN
+Serie 1 de 2
+3 KABANOVA, Ekaterina 17 C.N. Mijas NT
+4 LASIERRA FERNANDEZ, Ana Lourdes17 C.N. Axarquia 1:03.33 25m
+Prueba 17, Fem., 50m Libre
+Serie 2 de 2
+4 ROMERO GIL, Lucía 15 C.N. Axarquia 41.01 25m
+Prueba 23 Fem., 4 x 50m Espalda Benjamin 2016-2017
+24/10/2026 - 10:29 Lista de salida
+Serie 1 de 1
+2 C.N. Axarquia 10 C.N. Axarquia 3:16.87 25m
+'''
+
+
+class TestSeriesPdf(unittest.TestCase):
+    def test_lista_de_salida(self):
+        P = F.leer_series_texto(SERIES, 'FAN Grupo 1', {('lucia romero gil', 2015): '6313922'})
+        self.assertEqual([(p['num'], p['nombre'], p['sexo'], p['hora'], p['fecha'], p['sesion']) for p in P],
+                         [(17, '50 Libre', 'F', '09:52', '2026-10-24', 'FAN Grupo 1'), (23, '4x50 Espalda', 'F', '10:29', '2026-10-24', 'FAN Grupo 1')])
+        f = P[0]['filas']
+        self.assertEqual([(x['serie'], x['calle'], x['n'], x['nac'], x['ins'], x['rfen']) for x in f], [
+            (1, 3, 'Ekaterina Kabanova', 2017, None, None),
+            (1, 4, 'Ana Lourdes Lasierra Fernandez', 2017, 6333, '?'),          # del club, sin emparejar con la web
+            (2, 4, 'Lucía Romero Gil', 2015, 4101, '6313922')])                  # la prueba sigue en otra página
+        self.assertEqual((P[1]['filas'][0]['n'], P[1]['filas'][0]['rfen']), ('C.N. Axarquia (relevo)', 'club'))
+
+    def test_tiempos_de_texto(self):
+        self.assertEqual(F.cs_texto('1:03.33'), 6333)
+        self.assertEqual(F.cs_texto('49.88'), 4988)
+        self.assertIsNone(F.cs_texto('NT'))
+
+
 if __name__ == '__main__':
     unittest.main()
