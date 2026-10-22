@@ -80,10 +80,11 @@ test('dirCatsDe y dirEsDeSuCat: un alevín solo ve las competiciones de alevines
   assert.deepEqual(cats('1ª Jornada Liga Prebenjamín – Benjamín – Alevín - Málaga'), ['ALE', 'BEN']);
   assert.deepEqual(cats('XIV Copa Andalucía Absoluta de clubes'), ['ABS', 'INF', 'JUN']);
   assert.deepEqual(cats('XLII Campeonato Andalucía Infantil - Júnior invierno'), ['INF', 'JUN']);
-  assert.equal(cats('XIII Campeonato Andalucía Larga Distancia'), null);
+  assert.deepEqual(cats('XIII Campeonato Andalucía Larga Distancia'), []);
   assert.deepEqual(cats('Campeonato Máster'), []);
   const de = (t, cat) => evalIn(ctx, `dirEsDeSuCat({titulo: ${JSON.stringify(t)}}, {cat: '${cat}'})`);
   assert.equal(de('XIV Copa Andalucía Absoluta de clubes', 'ALE'), false);
   assert.equal(de('1ª Jornada Liga Prebenjamín – Benjamín – Alevín - Málaga', 'ALE'), true);
-  assert.equal(de('XIII Campeonato Andalucía Larga Distancia', 'ALE'), true);
+  assert.equal(de('XIII Campeonato Andalucía Larga Distancia', 'ALE'), false);
+  assert.equal(de('Trofeo de otoño', 'ALE'), true);   // sin categoría en el nombre: se muestra
 });

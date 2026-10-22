@@ -3926,7 +3926,8 @@ const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.h
    «Absoluto» incluye a infantiles y júniors (pueden nadarlo); «Máster» no es de ninguna categoría del club. */
 function dirCatsDe(titulo) {
   const t = String(titulo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  if (/master/.test(t)) return new Set();
+  // Máster y Larga Distancia no van en la ficha de los nadadores (siguen en Directo, para quien quiera verlo todo)
+  if (/master|larga distancia/.test(t)) return new Set();
   const c = new Set();
   if (/benjamin/.test(t)) c.add('BEN');
   if (/alevin/.test(t)) c.add('ALE');
