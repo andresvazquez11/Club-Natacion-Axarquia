@@ -3922,6 +3922,22 @@ const dirNuestras = c => !c.lenex ? [] : c.lenex.pruebas.flatMap(p => p.filas.fi
 const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.hasOwn(SW, f.rfen)
   ? `<a href="#nadador/${f.rfen}">${esc(f.n)}</a>` : esc(f.n);
 
+/* Categorías a las que va una competición, según su nombre (null si el nombre no lo dice).
+   «Absoluto» incluye a infantiles y júniors (pueden nadarlo); «Máster» no es de ninguna categoría del club. */
+function dirCatsDe(titulo) {
+  const t = String(titulo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/master/.test(t)) return new Set();
+  const c = new Set();
+  if (/benjamin/.test(t)) c.add('BEN');
+  if (/alevin/.test(t)) c.add('ALE');
+  if (/infantil/.test(t)) c.add('INF');
+  if (/junior/.test(t)) c.add('JUN');
+  if (/absolut/.test(t)) ['INF', 'JUN', 'ABS'].forEach(x => c.add(x));
+  return c.size ? c : null;
+}
+/* ¿Puede ser una competición de este nadador? (por su categoría; si el nombre no lo dice, sí) */
+const dirEsDeSuCat = (c, s) => { const cats = dirCatsDe(c.titulo); return !cats || !s || !s.cat || cats.has(s.cat); };
+
 /* ── Seguir a un nadador en una competición ──
    Sus pruebas en orden de hora: serie y calle, cuántas series tiene la prueba y cuántas van, su resultado,
    con quién nada (su serie) y la prueba completa. Pensado para la familia que lo sigue desde la grada o desde casa. */
@@ -4047,8 +4063,9 @@ async function pintarDirectoNadador(app, s) {
   await dirAlMomento(d);
   if (!d || !app.isConnected) return;
   const id = String(s.id);
+  // Las suyas (aparece en las series) y, del calendario sin series, solo las de su categoría
   const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => f.rfen === id)}))
-    .filter(x => x.filas.length || (x.c.estado !== 'terminada' && !x.c.lenex));
+    .filter(x => x.filas.length || (x.c.estado !== 'terminada' && !x.c.lenex && dirEsDeSuCat(x.c, s)));
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
   if (!prox.length && !rec.length) return;
@@ -4062,7 +4079,7 @@ async function pintarDirectoNadador(app, s) {
   const conSeries = prox.filter(x => x.filas.length), calendario = prox.filter(x => !x.filas.length);
   const html = `<div class="card dir-ficha"><div class="h">${ico('copa')}Competiciones${prox.some(x => x.c.estado === 'en_curso' && x.filas.length) ? ' <span class="dir-punto"></span>en directo' : ''}</div>
     ${conSeries.length ? `<div class="ent-sel">Próximas de ${nombre}</div>${conSeries.map(linea).join('')}` : ''}
-    ${calendario.length ? `<details class="dir-mas"><summary>Próximas del calendario (${calendario.length})</summary>${calendario.map(linea).join('')}</details>` : ''}
+    ${calendario.length ? `<div class="ent-sel">Próximas para ${esc((catOf(s.cat) || {}).label || 'su categoría')}</div>${calendario.map(linea).join('')}` : ''}
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
   const ancla = app.querySelector('.card');
   if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
