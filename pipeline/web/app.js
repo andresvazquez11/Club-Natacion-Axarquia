@@ -30,7 +30,7 @@ function resolverRuta(hash, ben, sw) {
     if (canon !== '#' + raw) x.redirigir = canon;
     return x;
   }
-  if (['club', 'campeonatos', 'rankings', 'comparar', 'entrenamientos'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
+  if (['club', 'campeonatos', 'rankings', 'comparar', 'entrenamientos', 'directo'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
   return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
 }
 /* Camino recorrido (para «Volver a …» dentro del nadador). Una entrada por pantalla: cambiar un filtro o una prueba
@@ -53,7 +53,7 @@ function nombrePantalla(h, ben, sw) {
     const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
     return a ? a[1] : 'la pantalla anterior';
   }
-  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
+  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Directo', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
 }
 /* ── Contador de visitas por sección (GoatCounter) ──
    Cada pantalla se apunta como «sección», sin ids de nadador ni filtros, para ver qué partes se usan más.
@@ -138,6 +138,7 @@ function route() {
   else if (sec === 'rankings') vistaRankings(app, params);
   else if (sec === 'comparar') vistaComparar(app, params);
   else if (sec === 'entrenamientos') vistaEntrenamientos(app, params);
+  else if (sec === 'directo') vistaDirecto(app, params);
   else if (sec === 'elegir') vistaElegir(app, params);
   else vistaFicha(app, SW[r.id], r.sub, params);
 
@@ -160,6 +161,7 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
   bindBuscador('q-cab');
   entNavModo();
+  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) b.classList.toggle('vivo', dirEnCurso(d)); });   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN${FIRMA}`;
   window.addEventListener('hashchange', route);

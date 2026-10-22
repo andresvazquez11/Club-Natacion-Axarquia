@@ -30,6 +30,12 @@ function limpiarDoc(col, d) {
     d.inicio = INICIOS.includes(d.inicio) ? d.inicio : null;
     d.comp = d.comp === true;
     d.ts = Number(d.ts) > 0 ? Number(d.ts) : null;   // hora de su salida
+    // Posta de un relevo: su tiempo es con salida lanzada (no cuenta como marca individual)
+    if (d.relevo && typeof d.relevo === 'object') {
+      const pos = Number(d.relevo.pos), n = Number(d.relevo.n);
+      d.relevo = {equipo: (txtCorto(d.relevo.equipo) || 'Equipo').slice(0, 40), gId: idOk(d.relevo.gId) ? d.relevo.gId : null,
+        pos: Number.isInteger(pos) && pos > 0 ? pos : 1, n: Number.isInteger(n) && n > 0 ? n : 1, tipo: d.relevo.tipo === 'estilos' ? 'estilos' : 'igual'};
+    } else d.relevo = null;
   }
   if (col==='sesiones') {
     d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null;
@@ -38,6 +44,13 @@ function limpiarDoc(col, d) {
       .map(t => ({r: Number(t.r), ini: Number(t.ini), fin: numOk(t.fin)}));
     if ('presentes' in d) d.presentes = (Array.isArray(d.presentes) ? d.presentes : []).filter(idOk);
     if ('planId' in d) d.planId = idOk(d.planId) ? d.planId : null;
+    if ('relevos' in d) d.relevos = (Array.isArray(d.relevos) ? d.relevos : []).filter(x => x && typeof x === 'object' && Array.isArray(x.nIds)).map(x => {
+      const nIds = x.nIds.filter(idOk), num = v => Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0;
+      return {ronda: Number.isInteger(Number(x.ronda)) && Number(x.ronda) > 0 ? Number(x.ronda) : 1, gId: idOk(x.gId) ? x.gId : null,
+        equipo: (txtCorto(x.equipo) || 'Equipo').slice(0, 40), tipo: x.tipo === 'estilos' ? 'estilos' : 'igual', dist: num(x.dist) || null,
+        estilos: nIds.map((_, i) => estiloOk((x.estilos || [])[i]) ? x.estilos[i] : 'libre'), nIds,
+        parciales: nIds.map((_, i) => num((x.parciales || [])[i])), ms: num(x.ms), ts: num(x.ts) || null, inicio: INICIOS.includes(x.inicio) ? x.inicio : 'agua'};
+    });
   }
   if (col==='planes') {
     d.nombre = txtCorto(d.nombre) || 'Entreno';
@@ -49,7 +62,7 @@ function limpiarDoc(col, d) {
       const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
               parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
-              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp};
+              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true};
     });
   }
   if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
@@ -154,3 +167,24 @@ function puestoEn(lista, cs, excluir) {
 }
 // Sale de dentro del agua o de la plataforma: el modo competición siempre es desde la plataforma
 const inicioDe = o => o && o.comp ? 'plataforma' : (o && INICIOS.includes(o.inicio) ? o.inicio : 'agua');
+
+// ── Tiempo total de una serie: de la primera salida a la última llegada (ts = hora de salida, ms = su tiempo) ──
+function totalSerie(res) {
+  const con = (res || []).filter(r => Number(r.ts) > 0 && Number(r.ms) > 0);
+  if (!con.length) return null;
+  const ini = Math.min(...con.map(r => r.ts)), fin = Math.max(...con.map(r => r.ts + r.ms));
+  return {ini, fin, ms: fin - ini};
+}
+// ── Corregir el orden de salida de una calle después de la serie ──
+// res: los tiempos de esa calle en esa serie [{id, salida, ts, ms}]; orden: ids en el orden en que salieron DE VERDAD.
+// Las horas de salida (ts) de cada puesto son reales; cada nadador pasa a tener la hora de salida de su puesto nuevo
+// y su llegada no cambia, así que su tiempo se recalcula. Devuelve solo los que cambian [{id, salida, ts, ms}].
+function recalcularOrden(res, orden) {
+  const puestos = [...res].sort((a, b) => a.salida - b.salida || a.ts - b.ts).map(r => ({salida: r.salida, ts: r.ts}));
+  const porId = new Map(res.map(r => [r.id, r]));
+  if (orden.length !== res.length || orden.some(id => !porId.has(id)) || res.some(r => r.ts == null || !Number.isFinite(Number(r.ts)))) return null;
+  return orden.map((id, i) => {
+    const r = porId.get(id), llegada = r.ts + r.ms, p = puestos[i];
+    return {id, salida: p.salida, ts: p.ts, ms: llegada - p.ts};
+  }).filter(x => { const r = porId.get(x.id); return r.salida !== x.salida || r.ts !== x.ts || r.ms !== x.ms; });
+}

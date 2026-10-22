@@ -72,8 +72,8 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
     series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
-  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false },
-    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false }]);
+  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false },
+    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false }]);
 });
 
 test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
@@ -145,4 +145,32 @@ test('decodRank y puestoEn: puesto que tendría un tiempo, sin contarse a sí mi
   assert.deepEqual(ev('puestoEn', L, 3100), { pos: 2, de: 5 });            // empatar cuenta como ir delante
   assert.deepEqual(ev('puestoEn', L, 3150, 3200), { pos: 3, de: 4 });      // su propia marca (3200) no es un rival
   assert.deepEqual(ev('puestoEn', [], 3000), { pos: 1, de: 1 });
+});
+
+test('totalSerie: de la primera salida a la última llegada', () => {
+  assert.deepEqual(ev('totalSerie', [{ ts: 1000, ms: 30000 }, { ts: 6000, ms: 40000 }, { ts: 11000, ms: 20000 }]), { ini: 1000, fin: 46000, ms: 45000 });
+  assert.equal(ev('totalSerie', [{ ms: 3000 }]), null);
+});
+
+test('recalcularOrden: el que salió antes de su turno gana el hueco; las llegadas no cambian', () => {
+  // Calle con salidas cada 5 s: A (1º), B (2º), C (3º). En realidad C salió 2º y B 3º.
+  const res = [{ id: 'A', salida: 1, ts: 0, ms: 40000 }, { id: 'B', salida: 2, ts: 5000, ms: 40000 }, { id: 'C', salida: 3, ts: 10000, ms: 38000 }];
+  assert.deepEqual(ev('recalcularOrden', res, ['A', 'C', 'B']), [
+    { id: 'C', salida: 2, ts: 5000, ms: 43000 },    // llegó a los 48 s y salió a los 5 s
+    { id: 'B', salida: 3, ts: 10000, ms: 35000 },   // llegó a los 45 s y salió a los 10 s
+  ]);
+  assert.deepEqual(ev('recalcularOrden', res, ['A', 'B', 'C']), []);
+  assert.equal(ev('recalcularOrden', [{ id: 'X', salida: 1, ms: 3 }], ['X']), null);   // sin hora de salida no se puede
+});
+
+test('limpiarDoc: relevos de la sesión y postas de cada tiempo, sin HTML ni datos raros', () => {
+  const s = ev('limpiarDoc', 'sesiones', { relevos: [{ ronda: 2, gId: 'g1', equipo: '<b>Calle 1', tipo: 'estilos', dist: 50,
+    estilos: ['espalda', '<x>'], nIds: ['a', 'b', '<c>'], parciales: [31000, 'x'], ms: 62000 }, 'basura'] });
+  assert.equal(s.relevos.length, 1);
+  assert.deepEqual(s.relevos[0].nIds, ['a', 'b']);
+  assert.deepEqual(s.relevos[0].estilos, ['espalda', 'libre']);
+  assert.deepEqual(s.relevos[0].parciales, [31000, 0]);
+  const r = ev('limpiarDoc', 'resultados', { relevo: { equipo: 'C1', gId: 'g1', pos: '2', n: 4, tipo: 'raro' } });
+  assert.deepEqual(r.relevo, { equipo: 'C1', gId: 'g1', pos: 2, n: 4, tipo: 'igual' });
+  assert.equal(ev('limpiarDoc', 'resultados', {}).relevo, null);
 });

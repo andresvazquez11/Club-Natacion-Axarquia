@@ -586,6 +586,18 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .ent-chart .ent-comp-eje{stroke:var(--warn);stroke-width:12;opacity:.18}
 .ent-chart .ent-tx-comp{fill:var(--warn);font-weight:800}
 .ent-chart .ent-punto-comp{stroke:var(--warn);stroke-width:2.5}
+.ent-pick{margin:8px 0;border:1px solid var(--ln);border-radius:12px;background:var(--surf)}
+.ent-pick summary{cursor:pointer;padding:9px 12px;font-size:.85rem;list-style:none}
+.ent-pick summary::-webkit-details-marker{display:none}
+.ent-pick-acc{display:flex;gap:6px;padding:0 12px 6px}
+.ent-pick-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px 10px;padding:4px 12px 10px;max-height:260px;overflow-y:auto}
+.ent-pick-list label{display:flex;align-items:center;gap:7px;font-size:.85rem;min-height:36px;cursor:pointer}
+.ent-pick-list input{width:18px;height:18px;flex:none;accent-color:var(--link)}
+.ent-pick-series{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.ent-pick-series label{cursor:pointer}
+.ent-pick-series input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+.ent-chip-comp{border-color:var(--warn)}
+.ent-chart .ent-etq{font-size:11px;font-weight:800;paint-order:stroke;stroke:var(--surf);stroke-width:3px}
 .ent-rango{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.8rem;color:var(--ink2);margin:8px 0 4px}
 .ent-rango input{font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--ln);border-radius:10px;padding:5px 8px;margin-left:4px}
 .ent-ini{font-size:.62rem;padding:2px 7px;color:var(--ink2);border:1px solid var(--ln)}
@@ -601,6 +613,22 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
   background:var(--surf);border:1px solid var(--hl);color:var(--ink);font-weight:700;font-size:.72rem;text-decoration:none}
 .crono-b .ico{width:16px;height:16px;color:var(--hl)}
 .crono-b[hidden]{display:none}
+/* Directo de la FAN */
+.dir-b{border-color:var(--ln)}
+@media (max-width:440px){#cab-crono span{display:none}.crono-b{padding:0 8px}}
+.dir-punto{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ink2);margin-right:5px;vertical-align:1px}
+.dir-b.vivo{border-color:#e5484d}
+.dir-b.vivo .dir-punto,.dir-en_curso .dir-punto,.dir-ficha .dir-punto,.sub-cab .dir-punto{background:#e5484d;animation:dirLatido 1.4s infinite}
+@keyframes dirLatido{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dir-punto{animation:none!important}}
+.dir-en_curso{border-color:#e5484d}
+.dir-docs{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;margin-top:4px}
+tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
+.dir-tag{font-size:.62rem;padding:2px 7px;color:var(--hl);border:1px solid var(--hl)}
+.dir-p summary{cursor:pointer;list-style:none;font-size:.88rem}
+.dir-p summary::-webkit-details-marker{display:none}
+.dir-f{padding:6px 0;border-top:1px solid var(--ln)}
+.dir-f:first-of-type{border-top:0}
 .ent-leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.75rem;color:var(--ink2);margin-top:4px}
 .ent-leyenda i,.ent-pt{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .ent-chart{max-height:300px}
@@ -631,6 +659,7 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 <header class="cab" id="cab">
   <a class="brand" href="#inicio"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></a>
   <div class="cab-bus" id="cab-bus"></div>
+  <a class="crono-b dir-b" id="cab-dir" href="#directo" title="Competiciones en directo" aria-label="Competiciones en directo"><span class="dir-punto"></span><span>Directo</span></a>
   <a class="crono-b" id="cab-crono" href="cronometro/" hidden title="Abrir el cronómetro" aria-label="Abrir el cronómetro"><svg class="ico"><use href="#i-crono"/></svg><span>Crono</span></a>
   <button class="modo-b" type="button" onclick="cambiarModo()" aria-label="Cambiar entre modo claro y acuático"></button>
 </header>
@@ -2384,6 +2413,7 @@ function vistaFicha(app, s, sub, params) {
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
+    pintarDirectoNadador(app, s);   // próximas competiciones y últimos resultados (directo de la FAN)
   } else vistaSub(app, s, sub, paramsSub(sub, params));
   app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
     if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">conseguida</span>' : ''}`; });
@@ -3126,7 +3156,7 @@ function entTiempos(D, sw) {
   const ses = new Map(D.sesiones.map(s => [s.id, s]));
   const nad = new Map(D.nadadores.map(n => [n.id, n]));
   (D.estilos || []).forEach(e => { if (entEstiloOk(e.id) && e.nombre) ENT_NOMBRES[e.id] = String(e.nombre).slice(0, 30); });
-  return D.resultados.map(r => {
+  return D.resultados.filter(r => r.borrado !== true && !r.relevo).map(r => {
     const s = ses.get(r.sesId); if (!s) return null;
     const estilo = entEstiloOk(r.estilo) ? r.estilo : entEstiloOk(s.estilo) ? s.estilo : null;
     const dist = Number(r.estilo ? r.dist : s.dist) || null;
@@ -3271,13 +3301,18 @@ function entGraficoDispersion(D, ev) {
    Tiempo más alto arriba, mejor abajo. */
 const ENT_COL_SERIES = ['#0a6cff', '#e0861a', '#0f9d8a', '#8b3fd9', '#d43d51', '#2a9d3c', '#c2185b', '#00838f', '#6d4c41', '#5c6bc0', '#9e9d24', '#546e7a'];
 const entColorNad = (tabla, nId) => ENT_COL_SERIES[Math.max(0, tabla.filas.findIndex(f => f.nId === nId)) % ENT_COL_SERIES.length];
+/* Tiempo escrito junto a un punto (gráficas con pocos nadadores); el primero y el último, hacia dentro */
+const entEtiqueta = (x, y, txt, col, i, n, abajo) => `<text x="${x}" y="${abajo ? y + 16 : y - 8}" text-anchor="${n > 1 && i === 0 ? 'start' : n > 1 && i === n - 1 ? 'end' : 'middle'}" class="ent-etq" fill="${col}">${txt}</text>`;
 function entGraficoSeries(tabla, rondas, elegidos) {
   elegidos = elegidos || [];
   const filas = tabla.filas.filter(f => rondas.some(r => f.t[r]) && (!elegidos.length || elegidos.includes(f.nId)));
   if (!rondas.length || !filas.length) return '<p class="empty">Elige al menos una serie.</p>';
   const comp = new Set((tabla.series || []).filter(s => s.comp).map(s => s.ronda));
+  const etiquetas = filas.length <= 5;   // con pocos nadadores se escribe el tiempo junto a cada punto
+  // en cada serie, las etiquetas se alternan arriba y abajo (por orden de tiempo) para que no se pisen
+  const puesto = (r, f) => filas.filter(x => x.t[r]).sort((a, b) => a.t[r].cs - b.t[r].cs).indexOf(f);
   const movil = typeof window !== 'undefined' && window.innerWidth < 600;
-  const W = movil ? 400 : 760, H = movil ? 250 : 280, P = {l: 50, r: 14, t: 14, b: 30};
+  const W = movil ? 400 : 760, H = movil ? 250 : 280, P = {l: 50, r: 14, t: 22, b: 30};
   const cs = filas.flatMap(f => rondas.map(r => f.t[r] && f.t[r].cs).filter(Boolean));
   const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .1, 30), lo = mn - pad, hi = mx + pad;
   const X = i => rondas.length === 1 ? W / 2 : P.l + i * (W - P.l - P.r) / (rondas.length - 1);
@@ -3294,7 +3329,8 @@ function entGraficoSeries(tabla, rondas, elegidos) {
     let tramo = [];
     const linea = () => { if (tramo.length > 1) g += `<polyline fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" points="${tramo.join(' ')}"/>`; tramo = []; };
     rondas.forEach((r, i) => { const t = f.t[r]; if (t) tramo.push(X(i) + ',' + Y(t.cs)); else linea(); }); linea();
-    rondas.forEach((r, i) => { const t = f.t[r]; if (t) g += `<circle cx="${X(i)}" cy="${Y(t.cs)}" r="${comp.has(r) ? 5.5 : 4}" fill="${col}"${comp.has(r) ? ' class="ent-punto-comp"' : ''}><title>${esc(f.n)} · serie ${r}${comp.has(r) ? ' (competición)' : ''} · ${fmt(t.cs)}</title></circle>`; });
+    rondas.forEach((r, i) => { const t = f.t[r]; if (t) g += `<circle cx="${X(i)}" cy="${Y(t.cs)}" r="${comp.has(r) ? 5.5 : 4}" fill="${col}"${comp.has(r) ? ' class="ent-punto-comp"' : ''}><title>${esc(f.n)} · serie ${r}${comp.has(r) ? ' (competición)' : ''} · ${fmt(t.cs)}</title></circle>`
+      + (etiquetas ? entEtiqueta(X(i), Y(t.cs), fmt(t.cs), col, i, rondas.length, puesto(r, f) % 2 === 1) : ''); });
   });
   return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progreso de cada nadador en las series elegidas">${g}</svg>`;
 }
@@ -3318,7 +3354,8 @@ function entComparativaRango(T, ev, nIds, desde, hasta) {
 function entGraficoRango(CR, colorDe) {
   if (!CR || !CR.lineas.length || !CR.slots.length) return '<p class="empty">Sin tiempos de estos nadadores entre esas fechas.</p>';
   const movil = typeof window !== 'undefined' && window.innerWidth < 600;
-  const W = movil ? 400 : 760, H = movil ? 260 : 290, P = {l: 50, r: 14, t: 14, b: 40}, n = CR.slots.length;
+  const W = movil ? 400 : 760, H = movil ? 260 : 290, P = {l: 50, r: 14, t: 22, b: 40}, n = CR.slots.length;
+  const etiquetas = CR.lineas.length <= 5 && n <= (movil ? 8 : 14);
   const cs = CR.lineas.flatMap(l => Object.values(l.t).map(t => t.cs));
   const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .1, 20), lo = mn - pad, hi = mx + pad;
   const X = i => n === 1 ? W / 2 : P.l + i * (W - P.l - P.r) / (n - 1);
@@ -3338,9 +3375,100 @@ function entGraficoRango(CR, colorDe) {
     const col = colorDe(l.nId); let tramo = [];
     const linea = () => { if (tramo.length > 1) g += `<polyline fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" points="${tramo.join(' ')}"/>`; tramo = []; };
     CR.slots.forEach((s, i) => { const t = l.t[s.k]; if (t) tramo.push(X(i) + ',' + Y(t.cs)); else linea(); }); linea();
-    CR.slots.forEach((s, i) => { const t = l.t[s.k]; if (t) g += `<circle cx="${X(i)}" cy="${Y(t.cs)}" r="${s.comp ? 5.5 : 3.8}" fill="${col}"${s.comp ? ' class="ent-punto-comp"' : ''}><title>${esc(l.n)} · ${dfmt(s.dia)} · serie ${s.ronda}${s.comp ? ' (competición)' : ''} · ${fmt(t.cs)}</title></circle>`; });
+    CR.slots.forEach((s, i) => { const t = l.t[s.k]; if (t) g += `<circle cx="${X(i)}" cy="${Y(t.cs)}" r="${s.comp ? 5.5 : 3.8}" fill="${col}"${s.comp ? ' class="ent-punto-comp"' : ''}><title>${esc(l.n)} · ${dfmt(s.dia)} · serie ${s.ronda}${s.comp ? ' (competición)' : ''} · ${fmt(t.cs)}</title></circle>`
+      + (etiquetas ? entEtiqueta(X(i), Y(t.cs), fmt(t.cs), col, i, n, CR.lineas.filter(m => m.t[s.k]).sort((a, b) => a.t[s.k].cs - b.t[s.k].cs).indexOf(l) % 2 === 1) : ''); });
   });
   return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}</svg>`;
+}
+
+/* Relevos del entrenamiento (los guarda el cronómetro en la sesión): equipos por tiempo y la posta de cada nadador */
+function entRelevosHTML(sesId) {
+  const D = ENT.datos || {}, ses = (D.sesiones || []).find(x => x.id === sesId);
+  const rel = ses && Array.isArray(ses.relevos) ? ses.relevos.filter(x => x && Array.isArray(x.nIds) && Number(x.ms) > 0) : [];
+  if (!rel.length) return '';
+  const nom = id => { const n = (D.nadadores || []).find(x => x.id === id); const w = n && n.rfen && Object.hasOwn(SW, String(n.rfen)) ? SW[String(n.rfen)] : null; return (w && w.n) || (n && n.n) || '?'; };
+  const est = e => entEstiloOk(e) ? entEstiloNombre(e) : '';
+  const rondas = [...new Set(rel.map(x => Number(x.ronda) || 1))].sort((a, b) => a - b);
+  return `<div class="h h-sub">${ico('grupo')}Relevos</div>` + rondas.map(r => { const eqs = rel.filter(x => (Number(x.ronda) || 1) === r).sort((a, b) => a.ms - b.ms);
+    return `<div class="ent-sel">Serie ${r} · ${eqs[0].nIds.length}×${esc(eqs[0].dist)} ${eqs[0].tipo === 'estilos' ? 'estilos' : esc(est(eqs[0].estilos && eqs[0].estilos[0]))}</div>
+      <div class="tw"><table class="rt"><tr><th>#</th><th>Equipo</th><th class="num">Tiempo</th><th>Postas</th></tr>
+      ${eqs.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(String(x.equipo || 'Equipo').slice(0, 40))}</b></td><td class="num"><b>${fmt(Math.round(x.ms / 10))}</b>${i ? ` <span class="tiny muted">+${((x.ms - eqs[0].ms) / 1000).toFixed(2)}</span>` : ''}</td>
+        <td class="tiny">${x.nIds.map((id, k) => `${esc(nom(id))} ${esc(est((x.estilos || [])[k]))} ${fmt(Math.round(Number((x.parciales || [])[k]) / 10))}`).join(' · ')}</td></tr>`).join('')}</table></div>`; }).join('');
+}
+
+/* ── Selector de nadadores con casillas ──
+   Marcar o desmarcar no redibuja la página (la lista no vuelve al principio). Con «Todos» marcado,
+   desmarcar uno deja a todos menos ese. onCambio(Set de nIds) redibuja solo la gráfica y su tabla. */
+function entSelNadHTML(id, lista, sel) {
+  const txt = k => k === lista.length ? 'todos' : `${k} de ${lista.length}`;
+  return `<details class="ent-pick" id="${id}"><summary>Nadadores: <b data-cuenta>${txt(lista.filter(x => sel.has(x.nId)).length)}</b> <span class="muted">· toca para elegir</span></summary>
+    <div class="ent-pick-acc"><button type="button" class="chip" data-todos>Todos</button><button type="button" class="chip" data-ninguno>Ninguno</button></div>
+    <div class="ent-pick-list">${lista.map(x => `<label><input type="checkbox" value="${esc(x.nId)}"${sel.has(x.nId) ? ' checked' : ''}><i class="ent-pt" style="background:${x.color}"></i>${esc(x.n)}</label>`).join('')}</div></details>`;
+}
+function entSelNadBind(root, id, onCambio) {
+  const d = root.querySelector('#' + id); if (!d) return;
+  const ins = () => [...d.querySelectorAll('.ent-pick-list input')];
+  const avisar = () => { const k = ins().filter(i => i.checked).length;
+    d.querySelector('[data-cuenta]').textContent = k === ins().length ? 'todos' : `${k} de ${ins().length}`;
+    onCambio(new Set(ins().filter(i => i.checked).map(i => i.value))); };
+  d.querySelector('.ent-pick-list').addEventListener('change', avisar);
+  d.querySelector('[data-todos]').onclick = () => { ins().forEach(i => { i.checked = true; }); avisar(); };
+  d.querySelector('[data-ninguno]').onclick = () => { ins().forEach(i => { i.checked = false; }); avisar(); };
+}
+/* Guarda la elección en la dirección (para volver a ella) sin redibujar la página */
+function entRecordar(o) {
+  const q = new URLSearchParams((location.hash.split('?')[1]) || '');
+  Object.entries(o).forEach(([k, v]) => { if (v) q.set(k, v); else q.delete(k); });
+  history.replaceState(null, '', location.hash.split('?')[0] + '?' + q.toString());
+}
+/* Tabla de lo que se ve en la gráfica del día: nadadores elegidos × series elegidas y diferencia entre la primera y la última */
+function entTablaSeries(tabla, rondas, sel, serieTxt, fichaA) {
+  const filas = tabla.filas.filter(x => sel.has(x.nId) && rondas.some(r => x.t[r]));
+  if (!filas.length || !rondas.length) return '';
+  const mejor = {}; rondas.forEach(r => { const v = filas.filter(x => x.t[r]).map(x => x.t[r].cs); mejor[r] = v.length ? Math.min(...v) : null; });
+  const comp = new Set(tabla.series.filter(s => s.comp).map(s => s.ronda)), dif = rondas.length > 1;
+  return `<div class="tw"><table class="rt ent-mat" style="margin-top:8px"><tr><th>Nadador</th>${rondas.map(r => `<th class="num${comp.has(r) ? ' ent-col-comp' : ''}">${serieTxt(tabla.series.find(s => s.ronda === r))}</th>`).join('')}${dif ? `<th class="num">Serie ${rondas[0]} → ${rondas[rondas.length - 1]}</th>` : ''}</tr>
+    ${filas.map(x => { const a = x.t[rondas[0]], b = x.t[rondas[rondas.length - 1]];
+      return `<tr><td style="white-space:nowrap"><i class="ent-pt" style="background:${entColorNad(tabla, x.nId)}"></i><b>${fichaA(x.rfen, esc(x.n))}</b></td>${rondas.map(r => { const t = x.t[r], c = comp.has(r) ? ' ent-col-comp' : '';
+        return t ? `<td class="num${c}">${t.cs === mejor[r] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}${dif ? `<td class="num">${a && b ? entDif((b.cs - a.cs) / 100) : '—'}</td>` : ''}</tr>`; }).join('')}</table></div>
+    <p class="tiny muted">En verde, el más rápido de cada serie entre los elegidos. La última columna: diferencia entre la primera y la última serie elegidas.</p>`;
+}
+function entMontarGraficaDia(host, G) {
+  const out = host.querySelector('#ent-graf-dia'); if (!out) return;
+  let rondas = [...G.gs], sel = new Set(G.gf.length ? G.gf : G.tabla.filas.map(x => x.nId));
+  const pintar = () => {
+    out.innerHTML = !sel.size ? '<p class="empty">Elige al menos un nadador.</p>'
+      : entGraficoSeries(G.tabla, rondas, [...sel]) + entTablaSeries(G.tabla, rondas, sel, G.serieTxt, G.fichaA);
+    const todos = sel.size === G.tabla.filas.length;
+    entRecordar({gs: rondas.length ? rondas.join(',') : '-', gf: todos || !sel.size ? '' : [...sel].join(',')});
+  };
+  const gsBox = host.querySelector('#ent-gs');
+  if (gsBox) gsBox.addEventListener('change', () => {
+    rondas = [...gsBox.querySelectorAll('input:checked')].map(i => Number(i.value)).sort((a, b) => a - b);
+    gsBox.querySelectorAll('label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+    pintar(); });
+  entSelNadBind(host, 'ent-gf', s2 => { sel = s2; pintar(); });
+  pintar();
+}
+function entMontarComparar(host, C) {
+  const out = host.querySelector('#ent-comparar-out'); if (!out) return;
+  let sel = new Set(C.elegidos), cd = C.cd, ch = C.ch;
+  const colorDe = id => (C.nads.find(m => m.nId === id) || {}).color || ENT_COL_SERIES[0];
+  const pintar = () => {
+    const CR = entComparativaRango(C.F, C.cev, C.nads.map(m => m.nId).filter(id => sel.has(id)), cd, ch);
+    out.innerHTML = entGraficoRango(CR, colorDe) + (CR.lineas.length ? `<div class="tw"><table class="rt" style="margin-top:8px"><tr><th>Nadador</th><th class="num">Series</th><th class="num">Mejor</th><th class="num">Media</th><th class="num">Primera → última</th><th class="num">Comp. 25 m</th></tr>
+      ${CR.lineas.map(l => { const L = CR.slots.map(s => l.t[s.k]).filter(Boolean), sw = l.rfen && Object.hasOwn(SW, l.rfen) ? SW[l.rfen] : null, c = sw ? entMejorCompeticion(sw, C.cev) : null;
+        const media = Math.round(L.reduce((a, t) => a + t.cs, 0) / L.length), primera = L[0], ultima = L[L.length - 1];
+        return `<tr><td style="max-width:0;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="ent-pt" style="background:${colorDe(l.nId)}"></i><b>${esc(l.n)}</b></td>
+          <td class="num">${L.length}</td><td class="num"><b>${fmt(Math.min(...L.map(t => t.cs)))}</b></td><td class="num">${fmt(media)}</td>
+          <td class="num">${fmt(primera.cs)} → ${fmt(ultima.cs)} ${L.length > 1 ? entDif((ultima.cs - primera.cs) / 100) : ''}</td><td class="num">${c ? fmt(c.cs) : '—'}</td></tr>`; }).join('')}</table></div>
+      <p class="tiny muted">Todas las series de ${esc(C.cev)} entre el ${dfmt(cd)} y el ${dfmt(ch)}, en orden. Las de simulación de competición, en dorado.</p>` : '');
+    entRecordar({cev: C.cev, cn: sel.size ? [...sel].join(',') : '', cd: cd === C.min ? '' : cd, ch: ch === C.max ? '' : ch});
+  };
+  entSelNadBind(host, 'ent-cn', s2 => { sel = s2; pintar(); });
+  ['cd', 'ch'].forEach(k => { const el = host.querySelector('#ent-' + k); if (el) el.onchange = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(el.value)) return; if (k === 'cd') cd = el.value; else ch = el.value; pintar(); }; });
+  pintar();
 }
 
 /* Su mejor marca de competición de esa prueba en equivalente de 25 m (los entrenamientos son en piscina de 25 m):
@@ -3507,19 +3635,16 @@ function pintarEntrenamientos(host, f) {
   const sesSel = sesDia.find(e => e.sesId === f.ses) || sesDia[sesDia.length - 1];
   const tabla = sesSel ? entTabla(TD.filter(t => t.sesId === sesSel.sesId)) : null;
   const fichaA = (rfen, txt) => rfen ? `<a href="#nadador/${rfen}/entrenos">${txt}</a>` : txt;
-  let diaHTML = '';
+  let diaHTML = '', graficaDia = null;
   if (tabla && tabla.series.length) {
     const mejorDe = {}; tabla.series.forEach(s => { mejorDe[s.ronda] = Math.min(...tabla.filas.filter(x => x.t[s.ronda]).map(x => x.t[s.ronda].cs)); });
-    const rondas = tabla.series.map(s => String(s.ronda));
-    const sa = rondas.includes(f.sa) ? f.sa : rondas[0], sb = rondas.includes(f.sb) && f.sb !== sa ? f.sb : (rondas.find(r => r !== sa) || '');
     const serieTxt = s => `Serie ${s.ronda}${s.ev ? ' · ' + esc(s.ev) : ''}`;
     // Series de la gráfica: las elegidas, o por defecto todas las de la prueba más repetida ('-' = ninguna)
     const evTop = (() => { const c = {}; tabla.series.forEach(s => { c[s.ev] = (c[s.ev] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a])[0]; })();
     const gs = f.gs === '-' ? [] : f.gs ? f.gs.split(',').map(Number).filter(r => tabla.series.some(s => s.ronda === r))
       : tabla.series.filter(s => s.ev === evTop).map(s => s.ronda);
     const gf = f.gf ? f.gf.split(',').filter(n => tabla.filas.some(x => x.nId === n)) : [];   // nadadores elegidos (vacío = todo el grupo)
-    const C = sb ? entCompararSeries(tabla, Number(sa), Number(sb)) : [];
-    const sA = tabla.series.find(s => String(s.ronda) === sa), sB = tabla.series.find(s => String(s.ronda) === sb);
+    graficaDia = {tabla, gs, gf, serieTxt, fichaA};
     diaHTML = `
     <div class="card" id="ent-dia"><div class="h">${ico('crono')}Entrenamiento del ${entDiaSemana(diaVer)} ${dfmt(diaVer)} <span class="h-n">(${sesSel.hora}${sesSel.fin ? '–' + entHora(sesSel.fin) : ''} · ${esc(sesSel.coach)} · ${tabla.series.length} series · ${tabla.filas.length} nadadores)</span></div>
       ${sesDia.length > 1 ? `<div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos:</div>${chipsHTML('ses', sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series]), sesSel.sesId)}` : ''}
@@ -3527,20 +3652,12 @@ function pintarEntrenamientos(host, f) {
         ${tabla.filas.map(x => `<tr><td style="white-space:nowrap"><b>${fichaA(x.rfen, esc(x.n))}</b></td>${tabla.series.map(s => { const t = x.t[s.ronda], c = s.comp ? ' ent-col-comp' : '';
           return t ? `<td class="num${c}">${t.cs === mejorDe[s.ronda] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}</tr>`).join('')}</table></div>
       <p class="tiny muted" style="margin-top:4px">En verde, el más rápido de cada serie. Pulsa un nombre para abrir su ficha.</p>
+      ${entRelevosHTML(sesSel.sesId)}
       <div class="h h-sub">${ico('tendencia')}Gráfica del entreno</div>
-      <div class="ent-sel">Elige las series a comparar (por ejemplo 1, 2 y 3) para ver cómo progresa cada nadador</div>
-      <div class="chips" data-chips="gs">${tabla.series.map(s => { const on = gs.includes(s.ronda);
-        return `<button class="chip ${on ? 'on' : ''}" data-v="${(on ? gs.filter(r => r !== s.ronda) : [...gs, s.ronda].sort((a, b) => a - b)).join(',') || '-'}">${serieTxt(s)}</button>`; }).join('')}</div>
-      <div class="ent-sel">Nadadores: todo el grupo o los que elijas (puedes marcar varios)</div>
-      <div class="chips" data-chips="gf"><button class="chip ${gf.length ? '' : 'on'}" data-v="">Todo el grupo</button>${tabla.filas.filter(x => gs.some(r => x.t[r])).map(x => { const on = gf.includes(x.nId);
-        return `<button class="chip ${on ? 'on' : ''}" data-v="${esc((on ? gf.filter(n => n !== x.nId) : [...gf, x.nId]).join(','))}"><i class="ent-pt" style="background:${entColorNad(tabla, x.nId)}"></i>${esc(x.n.split(' ')[0])} ${esc((x.n.split(' ')[1] || '').charAt(0))}.</button>`; }).join('')}</div>
-      ${entGraficoSeries(tabla, gs, gf)}
-      ${sB ? `<div class="h h-sub">${ico('balanza')}Comparar una serie con otra</div>
-        <div class="ent-sel">Serie de referencia</div>${chipsHTML('sa', tabla.series.map(s => [s.ronda, serieTxt(s)]), sa)}
-        <div class="ent-sel">Comparar con</div>${chipsHTML('sb', tabla.series.filter(s => String(s.ronda) !== sa).map(s => [s.ronda, serieTxt(s)]), sb)}
-        ${C.length ? `<div class="tw"><table class="rt ent-cmp-series"><tr><th>Nadador</th><th class="num">${serieTxt(sA)}</th><th class="num">${serieTxt(sB)}</th><th class="num">Diferencia</th></tr>
-          ${C.map(x => `<tr><td><b>${fichaA(x.rfen, esc(x.n))}</b></td><td class="num">${fmt(x.a)}</td><td class="num">${fmt(x.b)}</td><td class="num">${entDif(x.dif / 100)}</td></tr>`).join('')}</table></div>
-          ${sA.ev !== sB.ev ? '<p class="tiny muted">Ojo: son pruebas distintas, la diferencia es solo orientativa.</p>' : ''}` : '<p class="empty">Ningún nadador nadó las dos series.</p>'}` : ''}
+      <div class="ent-sel">Series a comparar (por ejemplo 1, 2 y 3) para ver cómo progresa cada nadador</div>
+      <div class="ent-pick-series" id="ent-gs">${tabla.series.map(s => `<label class="chip${gs.includes(s.ronda) ? ' on' : ''}${s.comp ? ' ent-chip-comp' : ''}"><input type="checkbox" value="${s.ronda}"${gs.includes(s.ronda) ? ' checked' : ''}>${serieTxt(s)}</label>`).join('')}</div>
+      ${entSelNadHTML('ent-gf', tabla.filas.map(x => ({nId: x.nId, n: x.n, color: entColorNad(tabla, x.nId)})), new Set(gf.length ? gf : tabla.filas.map(x => x.nId)))}
+      <div id="ent-graf-dia"></div>
     </div>`;
   }
   const vacio = !T.length
@@ -3584,27 +3701,16 @@ function pintarEntrenamientos(host, f) {
   const prC = R.pruebas.find(x => x.ev === cev);
   const diasEv = prC ? [...new Set(F.filter(t => t.ev === cev).map(t => t.dia))].sort() : [];
   const cd = f.cd || diasEv[0] || '', ch = f.ch || diasEv[diasEv.length - 1] || '';
-  const elegidos = prC ? (f.cn ? f.cn.split(',') : prC.nads.slice(0, 3).map(m => m.nId)).filter(id => prC.nads.some(m => m.nId === id)).slice(0, ENT_COL_SERIES.length) : [];
+  const elegidos = prC ? (f.cn ? f.cn.split(',') : prC.nads.map(m => m.nId)).filter(id => prC.nads.some(m => m.nId === id)) : [];   // por defecto, todo el grupo
   const colorDe = id => ENT_COL_SERIES[Math.max(0, prC ? prC.nads.findIndex(m => m.nId === id) : 0) % ENT_COL_SERIES.length];
-  const toggleN = id => (elegidos.includes(id) ? elegidos.filter(x => x !== id) : [...elegidos, id]).join(',') || '-';
-  const CR = prC ? entComparativaRango(F, cev, elegidos, cd, ch) : null;
+  const comparaDatos = prC ? {F, cev, nads: prC.nads.map(m => ({nId: m.nId, n: m.n, rfen: m.rfen, color: colorDe(m.nId)})), elegidos, cd, ch, min: diasEv[0] || '', max: diasEv[diasEv.length - 1] || ''} : null;
   const comparar = prC ? `
     <div class="card" id="ent-comparar"><div class="h">${ico('balanza')}Comparar nadadores</div>
       ${chipsHTML('cev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.nads.length]), cev)}
-      <div class="ent-rango"><label>Desde <input type="date" id="ent-cd" value="${cd}" min="${diasEv[0] || ''}" max="${diasEv[diasEv.length - 1] || ''}"></label>
-        <label>Hasta <input type="date" id="ent-ch" value="${ch}" min="${diasEv[0] || ''}" max="${diasEv[diasEv.length - 1] || ''}"></label>
-        ${f.cd || f.ch ? `<a href="${hrefDe({cd: '', ch: ''})}" class="ent-x">Todas las fechas</a>` : ''}</div>
-      <div class="tiny muted" style="margin:2px 0 4px">Elige los nadadores que quieras comparar</div>
-      <div class="chips" data-chips="cn"><button class="chip ${elegidos.length === prC.nads.length ? 'on' : ''}" data-v="${esc(prC.nads.map(m => m.nId).slice(0, ENT_COL_SERIES.length).join(','))}">Todo el grupo</button>${prC.nads.map(m => { const on = elegidos.includes(m.nId);
-        return `<button class="chip ${on ? 'on' : ''}" data-v="${esc(toggleN(m.nId))}"><i class="ent-pt" style="background:${colorDe(m.nId)}"></i>${esc(m.n.split(' ')[0])} ${esc((m.n.split(' ')[1] || '').charAt(0))}.</button>`; }).join('')}</div>
-      ${entGraficoRango(CR, colorDe)}
-      ${CR.lineas.length ? `<div class="tw"><table class="rt" style="margin-top:8px"><tr><th>Nadador</th><th class="num">Series</th><th class="num">Mejor</th><th class="num">Media</th><th class="num">Primera → última</th><th class="num">Comp. 25 m</th></tr>
-        ${CR.lineas.map(l => { const L = CR.slots.map(s => l.t[s.k]).filter(Boolean), sw = l.rfen && Object.hasOwn(SW, l.rfen) ? SW[l.rfen] : null, c = sw ? entMejorCompeticion(sw, cev) : null;
-          const media = Math.round(L.reduce((a, t) => a + t.cs, 0) / L.length), primera = L[0], ultima = L[L.length - 1];
-          return `<tr><td style="max-width:0;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="ent-pt" style="background:${colorDe(l.nId)}"></i><b>${esc(l.n)}</b></td>
-            <td class="num">${L.length}</td><td class="num"><b>${fmt(Math.min(...L.map(t => t.cs)))}</b></td><td class="num">${fmt(media)}</td>
-            <td class="num">${fmt(primera.cs)} → ${fmt(ultima.cs)} ${L.length > 1 ? entDif((ultima.cs - primera.cs) / 100) : ''}</td><td class="num">${c ? fmt(c.cs) : '—'}</td></tr>`; }).join('')}</table></div>
-        <p class="tiny muted">Todas las series de ${esc(cev)} entre el ${dfmt(cd)} y el ${dfmt(ch)}, en orden. Las de simulación de competición, en dorado.</p>` : ''}
+      <div class="ent-rango"><label>Desde <input type="date" id="ent-cd" value="${cd}" min="${comparaDatos.min}" max="${comparaDatos.max}"></label>
+        <label>Hasta <input type="date" id="ent-ch" value="${ch}" min="${comparaDatos.min}" max="${comparaDatos.max}"></label></div>
+      ${entSelNadHTML('ent-cn', comparaDatos.nads, new Set(elegidos))}
+      <div id="ent-comparar-out"></div>
     </div>` : '';
   const nads = R.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
       <td style="max-width:0;width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.pruebas.map(esc).join(' · ')}</div></td>
@@ -3633,15 +3739,11 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'estilo', v => go({estilo: v}));
   onChips(host, 'dias', v => go({dias: v}));
   onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: ''}));
-  onChips(host, 'cn', v => go({cev, cn: v === '-' ? '' : v}));
-  ['cd', 'ch'].forEach(k => { const el = host.querySelector('#ent-' + k); if (el) el.onchange = () => { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) go({cev, [k]: el.value}); }; });
   onChips(host, 'gev', v => go({gev: v}));
   onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: ''}));
   onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: ''}));
-  onChips(host, 'gs', v => go({gs: v}));
-  onChips(host, 'gf', v => go({gf: v}));
-  onChips(host, 'sa', v => go({sa: v, sb: f.sb === v ? '' : f.sb}));
-  onChips(host, 'sb', v => go({sb: v}));
+  if (graficaDia) entMontarGraficaDia(host, graficaDia);
+  if (comparaDatos) entMontarComparar(host, comparaDatos);
   host.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
   host.querySelector('#ent-salir').onclick = async e => { e.preventDefault(); await entSalir(); entPreparar(host, () => pintarEntrenamientos(host, f)); };
   host.querySelector('#ent-act').onclick = async e => { e.preventDefault(); await entCargar(true); pintarEntrenamientos(host, f); };
@@ -3686,6 +3788,114 @@ function pintarEntrenosNadador(app, s, p) {
       </div>` : ''}`;
     onChips(host, 'ev', v => { location.hash = fichaHref(s, 'entrenos') + '?ev=' + encodeURIComponent(v); });
   });
+}
+
+/* ── vistas/directo.js ── */
+/* Directo: competiciones de la Federación Andaluza (calendario, series y resultados) a partir de directo.json,
+   que actualiza el proceso pipeline/fan_directo.py (cada 10 minutos los fines de semana).
+   Si hay una competición en curso, la pantalla se refresca sola cada minuto. */
+
+let DIR = null, DIR_T = 0, DIR_RELOJ = null;
+/* Solo enlaces seguros a la federación (los datos vienen de su web) */
+const dirUrlOk = u => typeof u === 'string' && /^https:\/\/(www\.)?(fan\.es|fanatacion\.es)\//.test(u);
+async function dirCargar(forzar) {
+  if (!forzar && DIR && Date.now() - DIR_T < 55e3) return DIR;
+  try {
+    const r = await fetch('directo.json?t=' + Math.floor(Date.now() / 6e4), {cache: 'no-cache'});
+    if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.competiciones)) { DIR = d; DIR_T = Date.now(); } }
+  } catch (e) { /* sin conexión: lo último que hubiera */ }
+  return DIR;
+}
+const dirEnCurso = d => !!d && d.competiciones.some(c => c.estado === 'en_curso');
+const dirFechas = c => c.desde === c.hasta ? dfmt(c.desde) : `${dfmt(c.desde)} – ${dfmt(c.hasta)}`;
+const dirSexo = x => ({F: 'Fem.', M: 'Masc.', X: 'Mixto'})[x] || '';
+const DIR_ESTADO = {DSQ: 'Descalificado', DNS: 'No presentado', DNF: 'No terminó', SICK: 'Baja', WDR: 'Retirado', EXH: 'Exhibición'};
+const dirTiempo = f => f.t ? fmt(f.t) : f.estado ? `<span class="muted">${esc(DIR_ESTADO[f.estado] || f.estado)}</span>` : '<span class="muted">—</span>';
+/* Filas de nuestros nadadores (rfen = su licencia en la web; '?' = del club sin emparejar; 'club' = relevo del club) */
+const dirNuestras = c => !c.lenex ? [] : c.lenex.pruebas.flatMap(p => p.filas.filter(f => f.rfen).map(f => Object.assign({p}, f)));
+const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.hasOwn(SW, f.rfen)
+  ? `<a href="#nadador/${f.rfen}">${esc(f.n)}</a>` : esc(f.n);
+
+function dirTarjeta(c) {
+  const nos = dirNuestras(c), hechas = nos.filter(f => f.t || f.estado).length;
+  const docs = (c.docs || []).filter(d => dirUrlOk(d.url)).map(d => `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.t)}</a>`);
+  if (dirUrlOk(c.web)) docs.unshift(`<a href="${esc(c.web)}" target="_blank" rel="noopener">Web de la competición</a>`);
+  return `<div class="card dir-c dir-${c.estado}">
+    <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
+    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${c.lenex && c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
+    ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : ''}</p>`
+      : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>' : '<p class="small muted" style="margin:6px 0">Las series y los resultados aparecerán aquí cuando la federación publique la web de la competición.</p>'}
+    ${docs.length ? `<div class="dir-docs">${docs.join('')}</div>` : ''}
+    ${c.lenex ? `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">Ver series y resultados</a>` : ''}
+  </div>`;
+}
+
+function dirDetalle(c, soloNuestros) {
+  const L = c.lenex, nos = dirNuestras(c);
+  const pruebas = L.pruebas.filter(p => !soloNuestros || p.filas.some(f => f.rfen));
+  const resumen = nos.length ? `<div class="card"><div class="h">${ico('grupo')}Nuestros nadadores <span class="h-n">(${nos.length})</span></div>
+    <div class="tw"><table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Serie · calle</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
+    ${nos.sort((a, b) => a.p.num - b.p.num || a.serie - b.serie).map(f => `<tr class="dir-nuestro"><td><b>${dirNombre(f)}</b></td><td>${esc(f.p.nombre)} <span class="tiny muted">${dirSexo(f.p.sexo)} · ${esc(f.p.hora)}</span></td>
+      <td class="num">${f.serie} · ${f.calle}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º <span class="tiny muted">${esc(f.cat)}</span>` : '—'}</td></tr>`).join('')}</table></div></div>` : '';
+  const prueba = p => {
+    const series = [...new Set(p.filas.map(f => f.serie))];
+    return `<details class="card dir-p"${p.filas.some(f => f.rfen) ? ' open' : ''}><summary><b>${p.num}. ${esc(p.nombre)}</b> ${dirSexo(p.sexo)} <span class="muted">· ${esc(p.hora)} · ${p.nadadas} de ${p.filas.length} nadados</span>${p.filas.some(f => f.rfen) ? ' <span class="tag dir-tag">club</span>' : ''}</summary>
+      ${series.map(n => `<div class="ent-sel">Serie ${n}</div><div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
+        ${p.filas.filter(f => f.serie === n).map(f => `<tr${f.rfen ? ' class="dir-nuestro"' : ''}><td class="num">${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
+          <td class="tiny">${esc(f.club)}</td><td class="num"><b>${dirTiempo(f)}</b>${f.parc && f.parc.length > 1 ? `<div class="tiny muted">${f.parc.map(fmt).join(' · ')}</div>` : ''}</td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}</td></tr>`).join('')}</table></div>`).join('')}
+    </details>`;
+  };
+  return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1></div>
+    ${resumen}
+    <div class="chips" data-chips="dsolo" style="margin:10px 0"><button class="chip ${soloNuestros ? 'on' : ''}" data-v="1">Pruebas con nadadores del club</button><button class="chip ${soloNuestros ? '' : 'on'}" data-v="">Todas las pruebas</button></div>
+    ${pruebas.map(prueba).join('') || '<div class="vacio">Sin pruebas todavía.</div>'}`;
+}
+
+function vistaDirecto(app, p) {
+  clearInterval(DIR_RELOJ);
+  app.innerHTML = '<div class="card sub-cab"><span class="ante">Federación Andaluza de Natación</span><h1>Directo</h1></div><div id="dir-host"><p class="empty">Cargando competiciones…</p></div>';
+  const pintar = async forzar => {
+    const host = app.querySelector('#dir-host'); if (!host) { clearInterval(DIR_RELOJ); return; }
+    const d = await dirCargar(forzar);
+    if (!location.hash.startsWith('#directo')) { clearInterval(DIR_RELOJ); return; }
+    if (!d) { host.innerHTML = '<div class="vacio">No se pudo cargar el calendario de competiciones. ¿Hay conexión?</div>'; return; }
+    const y = window.scrollY, abiertos = [...host.querySelectorAll('details[open] summary b')].map(b => b.textContent);
+    const c = p.c ? d.competiciones.find(x => String(x.id) === String(p.c)) : null;
+    const pie = `<p class="tiny muted" style="margin-top:12px">Datos de la Federación Andaluza (calendario y web de cada competición). Actualizado ${esc((d.actualizado || '').replace('T', ' a las '))}.${dirEnCurso(d) ? ' Se refresca solo cada minuto; los resultados llegan con unos minutos de retraso.' : ''}</p>`;
+    if (c && c.lenex) {
+      host.innerHTML = dirDetalle(c, p.solo !== '0') + pie;
+      onChips(host, 'dsolo', v => { location.hash = `#directo?c=${Number(c.id)}${v ? '' : '&solo=0'}`; });
+      if (abiertos.length) host.querySelectorAll('details').forEach(x => { if (abiertos.includes(x.querySelector('summary b').textContent)) x.open = true; });
+    } else {
+      const g = e => d.competiciones.filter(x => x.estado === e);
+      const sec = (t, L, inv) => L.length ? `<div class="h h-sub" style="margin-top:14px">${t}</div>${(inv ? [...L].reverse() : L).map(dirTarjeta).join('')}` : '';
+      host.innerHTML = (sec('En curso', g('en_curso')) + sec('Próximas', g('proxima')) + sec('Recientes', g('terminada'), true)
+        || '<div class="vacio">No hay competiciones en las próximas semanas.</div>') + pie;
+    }
+    if (forzar) window.scrollTo(0, y);
+  };
+  pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), 60e3); });
+}
+
+/* En la ficha del nadador: sus próximas competiciones y lo último que ha nadado (según el directo) */
+async function pintarDirectoNadador(app, s) {
+  const d = await dirCargar(false);
+  if (!d || !app.isConnected) return;
+  const id = String(s.id);
+  const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => f.rfen === id)}))
+    .filter(x => x.filas.length || (x.c.estado !== 'terminada' && !x.c.lenex));
+  const prox = suyas.filter(x => x.c.estado !== 'terminada');
+  const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
+  if (!prox.length && !rec.length) return;
+  const linea = x => `<div class="dir-f"><b><a href="#directo${x.c.lenex ? '?c=' + Number(x.c.id) : ''}">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span>
+    ${x.filas.length ? `<div class="tiny">${x.filas.map(f => `${esc(f.p.nombre)}: serie ${f.serie}, calle ${f.calle}${f.t || f.estado ? ` · <b>${dirTiempo(f)}</b>${f.puesto ? ` (${f.puesto}º)` : ''}` : ''}`).join(' · ')}</div>`
+      : '<div class="tiny muted">Calendario del club (las series aún no están publicadas)</div>'}</div>`;
+  const html = `<div class="card dir-ficha"><div class="h">${ico('copa')}Competiciones${prox.some(x => x.c.estado === 'en_curso') ? ' <span class="dir-punto"></span>en directo' : ''}</div>
+    ${prox.length ? `<div class="ent-sel">Próximas</div>${prox.map(linea).join('')}` : ''}
+    ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
+  const ancla = app.querySelector('.card');
+  if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
 }
 
 /* ── agua.js ── */
@@ -3795,7 +4005,7 @@ function resolverRuta(hash, ben, sw) {
     if (canon !== '#' + raw) x.redirigir = canon;
     return x;
   }
-  if (['club', 'campeonatos', 'rankings', 'comparar', 'entrenamientos'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
+  if (['club', 'campeonatos', 'rankings', 'comparar', 'entrenamientos', 'directo'].includes(sec0)) return {sec: sec0, sub: parts[1] || '', params, parts};
   return Object.assign(ben ? resolverRuta('#mi', ben, sw) : aClub(), {redirigir: ben ? '#mi' : '#club'});
 }
 /* Camino recorrido (para «Volver a …» dentro del nadador). Una entrada por pantalla: cambiar un filtro o una prueba
@@ -3818,7 +4028,7 @@ function nombrePantalla(h, ben, sw) {
     const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
     return a ? a[1] : 'la pantalla anterior';
   }
-  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
+  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Directo', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
 }
 /* ── Contador de visitas por sección (GoatCounter) ──
    Cada pantalla se apunta como «sección», sin ids de nadador ni filtros, para ver qué partes se usan más.
@@ -3903,6 +4113,7 @@ function route() {
   else if (sec === 'rankings') vistaRankings(app, params);
   else if (sec === 'comparar') vistaComparar(app, params);
   else if (sec === 'entrenamientos') vistaEntrenamientos(app, params);
+  else if (sec === 'directo') vistaDirecto(app, params);
   else if (sec === 'elegir') vistaElegir(app, params);
   else vistaFicha(app, SW[r.id], r.sub, params);
 
@@ -3925,6 +4136,7 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
   bindBuscador('q-cab');
   entNavModo();
+  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) b.classList.toggle('vivo', dirEnCurso(d)); });   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>Actualizado ${DATA.fecha}<br>Datos: RFEN${FIRMA}`;
   window.addEventListener('hashchange', route);

@@ -62,6 +62,17 @@ D.entrenadores['ana.monitora@gmail.com'] = { nombre: 'Ana López', aprobado: tru
 D.entrenadores['pedro.nuevo@gmail.com'] = { nombre: 'Pedro Sánchez', alta: AHORA - 3600e3, ultimo: AHORA - 3600e3 };
 // marcas de competición (las que publica la web en nadadores.json): un poco mejores que los entrenos
 const ev = { 'libre|50': '50 Libre', 'libre|100': '100 Libre', 'espalda|50': '50 Espalda' };
+// Directo de la federación con competiciones y resultados FICTICIOS
+const DIRECTO = { actualizado: '2026-10-22T18:00', competiciones: [
+  { id: 9001, titulo: 'Jornada de liga de ejemplo', ambito: 'Málaga', desde: '2026-10-24', hasta: '2026-10-24', estado: 'proxima', url: 'https://www.fan.es/', web: null,
+    docs: [{ t: 'Series', url: 'https://www.fan.es/index.php/x' }, { t: 'Horario', url: 'https://www.fan.es/index.php/y' }] },
+  { id: 9000, titulo: 'Trofeo de otoño de ejemplo', ambito: 'Andalucía', desde: '2026-10-18', hasta: '2026-10-18', estado: 'terminada', url: 'https://www.fan.es/', web: 'https://fanatacion.es/resultados/ejemplo/', docs: [],
+    lenex: { nombre: 'Trofeo', lugar: 'MÁLAGA', piscina: '25 m', sesiones: [], pruebas: [
+      { id: '1', num: 1, nombre: '50 Libre', sexo: 'F', hora: '10:00', sesion: '1', fecha: '2026-10-18', estado: 'OFFICIAL', nadadas: 4, filas: [
+        { serie: 1, calle: 3, n: 'Lucía Romero', club: 'C.N. Axarquia', nac: 2014, t: 3598, puesto: 1, cat: '12 años', estado: '', rfen: '990001' },
+        { serie: 1, calle: 4, n: 'Nadadora Uno', club: 'Club A', nac: 2014, t: 3640, puesto: 2, cat: '12 años', estado: '', rfen: null },
+        { serie: 1, calle: 5, n: 'Paula Navarro', club: 'C.N. Axarquia', nac: 2014, t: 3815, puesto: 3, cat: '12 años', estado: '', rfen: '990003' },
+        { serie: 1, calle: 6, n: 'Nadadora Dos', club: 'Club B', nac: 2014, t: 3902, puesto: 4, cat: '12 años', estado: '', rfen: null }] }] } }] };
 const NAD_JSON = { fecha: '2026-10-22', nadadores: nads.map((x, i) => ({ id: x.rfen, n: x.n, cat: 'ALE', g: x.g, y: 2014 + (i % 2),
   mm: Object.fromEntries(Object.entries(BASE_MS).map(([kk, v]) => { const cs = Math.round(v[i] * (i === 1 ? 1.03 : 0.985) / 10);
     return [ev[kk], [cs, '2026-06-14', 'Cto. Andalucía Alevín de verano', '25m', cs]]; })) })) };
@@ -96,6 +107,7 @@ async function abrir(url, { usuario = USUARIO, coach = 'Laura', datos = D, modo 
   await ctx.route(/gstatic\.com\/firebasejs/, r => r.fulfill({ status: 200, contentType: 'text/javascript', body: '/* SDK sustituido */' }));
   await ctx.route(/cronometro\/nadadores\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NAD_JSON) }));
   await ctx.route(/\/sw\.js$/, r => r.fulfill({ status: 404, body: '' }));
+  await ctx.route(/directo\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DIRECTO) }));
   await ctx.addInitScript(firebaseFalso, { datos: JSON.parse(JSON.stringify(datos)), usuario });
   // la web carga el SDK con comprobación de integridad: en este navegador de pruebas se ignora (el SDK es el falso de arriba)
   await ctx.addInitScript(() => Object.defineProperty(HTMLScriptElement.prototype, 'integrity', { get: () => '', set: () => {}, configurable: true }));
@@ -134,18 +146,22 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await toca(p, '[data-action="hist-estilo"][data-val="libre"]'); await toca(p, '[data-action="hist-dist"][data-val="50"]'); await foto(p, 'historial_filtro');
   await toca(p, '[data-action="hist-estilo"][data-val="libre"]'); await toca(p, '[data-action="hist-dist"][data-val="50"]');
   await toca(p, '.hist-row'); await foto(p, 'resumen_entreno', 1300);
+  await bajarA(p, '[data-action="graf-serie"]', 140); await foto(p, 'grafica');
   await toca(p, '[data-action="tab"][data-to="nadadores"]'); await foto(p, 'nadadores');
   await toca(p, '[data-action="evolucion-nad"][data-nid="n1"]');
   await toca(p, '[data-action="evo-filter"][data-f="libre|50"]'); await foto(p, 'evolucion', 1000);
   await toca(p, '[data-action="tab"][data-to="home"]');
   await toca(p, '[data-action="plan-editar"]'); await foto(p, 'plan', 1500);
+  await toca(p, '[data-action="plan-cancelar"]');
+  await toca(p, '[data-action="menu"]'); await toca(p, '.menu-pop [data-action="limpieza"]'); await foto(p, 'papelera', 1100);
   await ctx.close(); }
 
 // 3. Un entrenamiento en directo: preparar, salidas, llegadas y resumen de la serie
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="nueva-sesion"]'); await foto(p, 'preparar_oferta');
   await toca(p, '[data-action="usar-plantilla"]');
-  await p.fill('input[data-ciclo="ps"]', '1:00'); await p.locator('input[data-ciclo="ps"]').blur(); await p.clock.runFor(300);
+  await toca(p, '[data-action="ciclo-auto"][data-t="ps"]');   // el ciclo se escribe con la salida automática encendida
+  await p.fill('input[data-ciclo="ps"]', '60'); await p.locator('input[data-ciclo="ps"]').blur(); await p.clock.runFor(300);
   await foto(p, 'preparar', 1450);
   await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
   await foto(p, 'salida');
@@ -168,6 +184,8 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
     if (n === 'Paula Navarro') await foto(p, 'llegadas');
   }
   await p.clock.runFor(3500); await arriba(p); await foto(p, 'serie_resumen', 1500);
+  await toca(p, '[data-action="orden-abrir"]'); await toca(p, '[data-action="orden-mover"][data-i="0"][data-dir="1"]');
+  await bajarA(p, '[data-action="orden-guardar"]', 520); await foto(p, 'corregir_orden'); await toca(p, '[data-action="orden-cancelar"]');
   // segunda serie: 100 libre con parciales cada 50 m
   await toca(p, '[data-action="ns-abrir"]');
   await toca(p, '[data-action="ns-dist"][data-val="100"]'); await toca(p, '[data-action="ns-parc"]');
@@ -179,11 +197,51 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await p.clock.runFor(2000); await foto(p, 'parciales');
   await ctx.close(); }
 
+// 3b. Series solapadas y cada nadador su estilo
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
+  await toca(p, '[data-action="pornad-toggle"][data-t="ps"]'); await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
+  await p.selectOption('select[data-estnad="n2"]', 'mariposa'); await p.clock.runFor(200);
+  for (let s = 0; s < 3; s++) { await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(10000); }
+  await p.clock.runFor(20000);
+  for (let i = 0; i < 6; i++) { await p.locator('.sw-card[data-action="llego"]').first().click(); await p.clock.runFor(1500); }
+  await toca(p, '[data-action="serie-ya"]'); await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(6000);
+  await bajarA(p, '.tira-series', 20); await foto(p, 'series_solapadas', 1000);
+  await ctx.close(); }
+
+// 3c. Entreno preparado en curso: cambiar el orden de las series
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="plan-empezar"]'); await p.clock.runFor(800);
+  await toca(p, '[data-action="plan-ec"]'); await foto(p, 'plan_en_curso');
+  await ctx.close(); }
+
+// 3d. Relevo de estilos: un equipo por calle, todas las calles a la vez
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
+  await toca(p, '[data-action="rel-modo"][data-t="ps"][data-v="1"]'); await toca(p, '[data-action="rel-tipo"][data-t="ps"][data-v="estilos"]');
+  await foto(p, 'relevo_preparar', 1100);
+  await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800); await foto(p, 'relevo_salida');
+  await toca(p, '[data-action="rel-salida"]');
+  const POSTA = [[44100, 45200, 46900], [52300, 51800, 53900], [43300, 44800]];
+  const gs = await p.$$eval('[data-action="rel-toque"]', es => es.map(e => e.dataset.g));
+  const toques = []; gs.forEach((g, c) => { let t = 0; POSTA[c].forEach(ms => { t += ms; toques.push([t, g]); }); });
+  toques.sort((a, b) => a[0] - b[0]); let ahora = 0, fotoHecha = false;
+  for (const [t, g] of toques) {
+    await p.clock.runFor(t - ahora); ahora = t;
+    if (!fotoHecha && t > 90000) { await foto(p, 'relevo_agua'); fotoHecha = true; }
+    await p.locator(`[data-action="rel-toque"][data-g="${g}"]`).click(); await p.clock.runFor(10); ahora += 10;
+  }
+  await p.clock.runFor(500); await bajarA(p, '.sum-row', 160); await foto(p, 'relevo_resumen');
+  await ctx.close(); }
+
 // 4. La web del club: botón del cronómetro y sección Entrenamientos (modo entrenador)
 { const { ctx, p } = await abrir('club.html#entrenamientos');
   await p.clock.runFor(3000); await foto(p, 'web_entrenos', 1500);
+  await bajarA(p, '#ent-gs', 160); await p.evaluate(() => { document.querySelector('#ent-gf').open = true; }); await p.clock.runFor(200); await foto(p, 'web_grafica', 1300);
   await bajarA(p, '[data-chips="cev"]', 120); await foto(p, 'web_comparar', 1100);
   await bajarA(p, '.ent-ses', 120); await p.locator('.ent-ses summary').first().click(); await p.clock.runFor(300); await foto(p, 'web_sesion', 1100);
+  await p.evaluate(() => { location.hash = '#directo'; }); await p.clock.runFor(1500); await arriba(p); await foto(p, 'web_directo');
+  await p.evaluate(() => { location.hash = '#directo?c=9000'; }); await p.clock.runFor(1500); await arriba(p); await foto(p, 'web_directo_resultados');
   await p.evaluate(() => { location.hash = '#club'; }); await p.clock.runFor(800); await arriba(p);
   await p.screenshot({ path: path.join(OUT, 'z', 'web_cabecera.jpg'), type: 'jpeg', quality: 74, clip: { x: 0, y: 0, width: 390, height: 64 } });
   await p.screenshot({ path: path.join(OUT, 'z', 'web_barra.jpg'), type: 'jpeg', quality: 74, clip: { x: 0, y: 844 - 60, width: 390, height: 60 } });

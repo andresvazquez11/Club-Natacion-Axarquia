@@ -578,6 +578,18 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .ent-chart .ent-comp-eje{stroke:var(--warn);stroke-width:12;opacity:.18}
 .ent-chart .ent-tx-comp{fill:var(--warn);font-weight:800}
 .ent-chart .ent-punto-comp{stroke:var(--warn);stroke-width:2.5}
+.ent-pick{margin:8px 0;border:1px solid var(--ln);border-radius:12px;background:var(--surf)}
+.ent-pick summary{cursor:pointer;padding:9px 12px;font-size:.85rem;list-style:none}
+.ent-pick summary::-webkit-details-marker{display:none}
+.ent-pick-acc{display:flex;gap:6px;padding:0 12px 6px}
+.ent-pick-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px 10px;padding:4px 12px 10px;max-height:260px;overflow-y:auto}
+.ent-pick-list label{display:flex;align-items:center;gap:7px;font-size:.85rem;min-height:36px;cursor:pointer}
+.ent-pick-list input{width:18px;height:18px;flex:none;accent-color:var(--link)}
+.ent-pick-series{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.ent-pick-series label{cursor:pointer}
+.ent-pick-series input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+.ent-chip-comp{border-color:var(--warn)}
+.ent-chart .ent-etq{font-size:11px;font-weight:800;paint-order:stroke;stroke:var(--surf);stroke-width:3px}
 .ent-rango{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.8rem;color:var(--ink2);margin:8px 0 4px}
 .ent-rango input{font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--ln);border-radius:10px;padding:5px 8px;margin-left:4px}
 .ent-ini{font-size:.62rem;padding:2px 7px;color:var(--ink2);border:1px solid var(--ln)}
@@ -593,6 +605,22 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
   background:var(--surf);border:1px solid var(--hl);color:var(--ink);font-weight:700;font-size:.72rem;text-decoration:none}
 .crono-b .ico{width:16px;height:16px;color:var(--hl)}
 .crono-b[hidden]{display:none}
+/* Directo de la FAN */
+.dir-b{border-color:var(--ln)}
+@media (max-width:440px){#cab-crono span{display:none}.crono-b{padding:0 8px}}
+.dir-punto{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ink2);margin-right:5px;vertical-align:1px}
+.dir-b.vivo{border-color:#e5484d}
+.dir-b.vivo .dir-punto,.dir-en_curso .dir-punto,.dir-ficha .dir-punto,.sub-cab .dir-punto{background:#e5484d;animation:dirLatido 1.4s infinite}
+@keyframes dirLatido{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dir-punto{animation:none!important}}
+.dir-en_curso{border-color:#e5484d}
+.dir-docs{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;margin-top:4px}
+tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
+.dir-tag{font-size:.62rem;padding:2px 7px;color:var(--hl);border:1px solid var(--hl)}
+.dir-p summary{cursor:pointer;list-style:none;font-size:.88rem}
+.dir-p summary::-webkit-details-marker{display:none}
+.dir-f{padding:6px 0;border-top:1px solid var(--ln)}
+.dir-f:first-of-type{border-top:0}
 .ent-leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.75rem;color:var(--ink2);margin-top:4px}
 .ent-leyenda i,.ent-pt{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .ent-chart{max-height:300px}

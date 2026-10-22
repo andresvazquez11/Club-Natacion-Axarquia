@@ -557,7 +557,7 @@ def escribir_rankings_cronometro(marcas, info, swimmers):
 
 
 JS_ORDEN = ['comunes.js', 'iconos.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/club.js', 'vistas/campeonatos.js',
-            'vistas/accesos.js', 'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'vistas/entrenamientos.js', 'agua.js', 'app.js']
+            'vistas/accesos.js', 'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'vistas/entrenamientos.js', 'vistas/directo.js', 'agua.js', 'app.js']
 
 
 def montar_html():

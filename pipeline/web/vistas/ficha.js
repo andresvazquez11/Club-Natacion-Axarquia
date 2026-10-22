@@ -506,6 +506,7 @@ function vistaFicha(app, s, sub, params) {
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
+    pintarDirectoNadador(app, s);   // próximas competiciones y últimos resultados (directo de la FAN)
   } else vistaSub(app, s, sub, paramsSub(sub, params));
   app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
     if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">conseguida</span>' : ''}`; });

@@ -1,0 +1,46 @@
+name: Directo FAN (competiciones y resultados)
+
+# Lee el calendario de la Federación Andaluza y los resultados de cada competición (SPLASH / Lenex)
+# y publica directo.json, que muestra la web en «Directo».
+# - Fines de semana (cuando hay competiciones): cada 10 minutos de 7:00 a 22:00 (hora de Madrid, aprox.).
+# - Resto de días: cada 6 horas (calendario, series nuevas…).
+# Solo se publica si algo cambió. GitHub puede retrasar estos disparos unos minutos.
+on:
+  schedule:                         # horas en UTC
+    - cron: '*/10 5-21 * * 5,6,0'
+    - cron: '17 */6 * * 1-4'
+  workflow_dispatch:
+
+concurrency:
+  group: directo-fan
+  cancel-in-progress: false
+
+jobs:
+  directo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TZ: Europe/Madrid
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Leer calendario y resultados de la FAN
+        run: python pipeline/fan_directo.py
+
+      - name: Publicar si cambió
+        run: |
+          if git diff --quiet -- directo.json && git ls-files --error-unmatch directo.json >/dev/null 2>&1; then
+            echo "Sin cambios"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add directo.json
+          git commit -m "Directo FAN — $(date +'%d/%m/%Y %H:%M')"
+          for i in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 5; done
+          exit 1
