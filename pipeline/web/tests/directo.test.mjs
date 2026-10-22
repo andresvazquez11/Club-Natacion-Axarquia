@@ -54,3 +54,23 @@ test('dirCs y dirNorm: tiempos en centésimas y nombres sin acentos', () => {
   assert.equal(evalIn(ctx, 'dirCs("00:00:00.00")'), null);
   assert.equal(evalIn(ctx, 'dirNorm("Lucía  Romero-Gil")'), 'lucia romero gil');
 });
+
+test('dirSusPruebas: sus pruebas por hora, serie «x de n», cuántas van y con quién nada', () => {
+  ctx.__c2 = { id: 1, titulo: 'T', ambito: 'Málaga', desde: '2026-10-24', hasta: '2026-10-24', estado: 'en_curso', lenex: { lugar: 'X', pruebas: [
+    { num: 5, nombre: '100 Libre', sexo: 'F', hora: '11:30', fecha: '2026-10-24', filas: [
+      { serie: 1, calle: 2, n: 'A', t: null, rfen: null }, { serie: 2, calle: 4, n: 'Lucía Romero', t: null, rfen: '6313922' }, { serie: 2, calle: 5, n: 'B', t: null, rfen: null }] },
+    { num: 2, nombre: '50 Libre', sexo: 'F', hora: '10:00', fecha: '2026-10-24', filas: [
+      { serie: 1, calle: 3, n: 'C', t: 3600, rfen: null }, { serie: 2, calle: 4, n: 'Lucía Romero', t: null, rfen: '6313922' }, { serie: 3, calle: 1, n: 'D', t: null, rfen: null }] }] } };
+  const L = JSON.parse(evalIn(ctx, 'JSON.stringify(dirSusPruebas(__c2, "6313922").map(x => [x.p.nombre, x.posSerie, x.series, x.hechas, x.estado, x.rivales.length]))'));
+  assert.deepEqual(L, [['50 Libre', 2, 3, 1, 'en_marcha', 1], ['100 Libre', 2, 2, 0, 'pendiente', 2]]);
+  assert.deepEqual(JSON.parse(evalIn(ctx, 'JSON.stringify(dirSusPruebas(__c2, "1"))')), []);
+});
+
+test('dirSeguirHTML: su nombre, la hora de cada prueba y su fila marcada', () => {
+  const h = evalIn(ctx, 'dirSeguirHTML(__c2, "6313922")');
+  assert.match(h, /<h1>Lucía Romero<\/h1>/);
+  assert.match(h, /<b>10:00<\/b>/);
+  assert.match(h, /Se está nadando: van 1 de 3 series/);
+  assert.match(h, /class="dir-yo"/);
+  assert.match(h, /#directo\?c=1&solo=0/);
+});

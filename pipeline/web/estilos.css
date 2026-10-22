@@ -620,6 +620,29 @@ tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
 .dir-p summary{cursor:pointer;list-style:none;font-size:.88rem}
 .dir-p summary::-webkit-details-marker{display:none}
 .dir-f{padding:6px 0;border-top:1px solid var(--ln)}
+.dir-f-acc{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:6px;font-size:.8rem}
+.dir-btn-mio{background:var(--hl);color:#1a1200;border-color:var(--hl);margin-top:6px}
+.dir-sel{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--ink2);margin:10px 0}
+.dir-sel select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--surf);border:1px solid var(--ln);border-radius:12px;padding:10px}
+.dir-seg{border-left:5px solid var(--ln)}
+.dir-seg-pendiente{border-left-color:var(--link)}
+.dir-seg-en_marcha{border-left-color:#e5484d}
+.dir-seg-hecha{border-left-color:var(--good,#2a9d3c)}
+.dir-seg-top{display:flex;gap:12px;align-items:center}
+.dir-hora{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:6px 8px;border-radius:12px;background:var(--inset,rgba(127,127,127,.12))}
+.dir-hora small{font-size:.62rem;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+.dir-hora b{font-size:1.25rem;font-variant-numeric:tabular-nums}
+.dir-prueba{font-size:1.05rem}
+.dir-datos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
+.dir-datos div{display:flex;flex-direction:column;align-items:center;padding:6px;border-radius:10px;background:var(--inset,rgba(127,127,127,.12))}
+.dir-datos small{font-size:.62rem;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
+.dir-datos b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.dir-res{font-size:.95rem;margin:4px 0}
+.dir-res.vivo{color:#e5484d;font-weight:700}
+.dir-res.pend{color:var(--ink2)}
+.dir-mas{margin-top:6px}
+.dir-mas summary{cursor:pointer;font-size:.85rem;color:var(--link);padding:6px 0}
+tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight:700}
 .dir-f:first-of-type{border-top:0}
 .ent-leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.75rem;color:var(--ink2);margin-top:4px}
 .ent-leyenda i,.ent-pt{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}

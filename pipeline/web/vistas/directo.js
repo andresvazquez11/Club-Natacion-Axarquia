@@ -106,6 +106,55 @@ const dirNuestras = c => !c.lenex ? [] : c.lenex.pruebas.flatMap(p => p.filas.fi
 const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.hasOwn(SW, f.rfen)
   ? `<a href="#nadador/${f.rfen}">${esc(f.n)}</a>` : esc(f.n);
 
+/* ── Seguir a un nadador en una competición ──
+   Sus pruebas en orden de hora: serie y calle, cuántas series tiene la prueba y cuántas van, su resultado,
+   con quién nada (su serie) y la prueba completa. Pensado para la familia que lo sigue desde la grada o desde casa. */
+function dirSusPruebas(c, rfen) {
+  if (!c || !c.lenex || !rfen) return [];
+  return c.lenex.pruebas.map(p => {
+    const f = p.filas.find(x => x.rfen === rfen); if (!f) return null;
+    const series = [...new Set(p.filas.map(x => x.serie))].sort((a, b) => a - b);
+    const hechas = series.filter(n => p.filas.some(x => x.serie === n && (x.t || x.estado)));
+    const estado = f.t || f.estado ? 'hecha' : hechas.length ? 'en_marcha' : 'pendiente';
+    return {p, f, series: series.length, posSerie: series.indexOf(f.serie) + 1, hechas: hechas.length, estado,
+      rivales: p.filas.filter(x => x.serie === f.serie).sort((a, b) => a.calle - b.calle)};
+  }).filter(Boolean).sort((a, b) => (a.p.fecha || '').localeCompare(b.p.fecha || '') || (a.p.hora || '').localeCompare(b.p.hora || '') || a.p.num - b.p.num);
+}
+/* Nadadores del club (emparejados con su ficha) que nadan en una competición */
+const dirDelClub = c => !c || !c.lenex ? [] : [...new Map(dirNuestras(c).filter(f => f.rfen && Object.hasOwn(SW, f.rfen)).map(f => [f.rfen, SW[f.rfen]])).values()]
+  .sort((a, b) => a.n.localeCompare(b.n));
+const dirSelector = (c, actual) => { const L = dirDelClub(c); return L.length ? `<label class="dir-sel">Seguir a un nadador del club
+  <select data-dir-seguir="${Number(c.id)}"><option value="">Elige un nadador…</option>${L.map(s => `<option value="${esc(String(s.id))}"${String(s.id) === actual ? ' selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label>` : ''; };
+const dirTablaFilas = (filas, marcar) => `<div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Inscrito</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
+  ${filas.map(f => `<tr${marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : ''}><td class="num">${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
+    <td class="tiny">${esc(f.club)}</td><td class="num tiny">${f.ins ? fmt(f.ins) : '—'}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}</td></tr>`).join('')}</table></div>`;
+function dirSeguirHTML(c, rfen) {
+  const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
+  const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}</span>
+      <h1>${s ? esc(s.n) : 'Nadador'}</h1></div>
+    ${dirSelector(c, rfen)}`;
+  if (!L.length) return cab + `<div class="vacio">${s ? esc(s.n.split(' ')[0]) : 'Este nadador'} no aparece en las series publicadas de esta competición.</div>`;
+  const prim = L.find(x => x.estado !== 'hecha');
+  const resumen = `<p class="small" style="margin:10px 2px">${L.length} ${L.length === 1 ? 'prueba' : 'pruebas'}${prim ? ` · la próxima, <b>${esc(prim.p.nombre)}</b>${prim.p.hora ? ` (empieza a las <b>${esc(prim.p.hora)}</b>)` : ''}` : ' · todas nadadas'}.</p>`;
+  const tarjeta = x => {
+    const series = [...new Set(x.p.filas.map(f => f.serie))].sort((a, b) => a - b);
+    const est = x.estado === 'hecha' ? `<div class="dir-res">Resultado <b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : '')}` : ''}${x.f.parc && x.f.parc.length > 1 ? `<div class="tiny muted">Parciales: ${x.f.parc.map(fmt).join(' · ')}</div>` : ''}</div>`
+      : x.estado === 'en_marcha' ? `<div class="dir-res vivo">Se está nadando: van ${x.hechas} de ${x.series} series. La suya es la ${x.posSerie}ª.</div>`
+      : `<div class="dir-res pend">Por nadar</div>`;
+    return `<div class="card dir-seg dir-seg-${x.estado}">
+      <div class="dir-seg-top"><div class="dir-hora"><small>${varios && x.p.fecha ? dfmt(x.p.fecha) : 'empieza'}</small><b>${esc(x.p.hora || '--:--')}</b></div>
+        <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? ` · sesión ${esc(x.p.sesion)}` : ''}</div></div></div>
+      <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
+      ${est}
+      <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => f.rfen === rfen)}</details>
+      <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} nadadores)</summary>${series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => f.rfen === rfen)}`).join('')}</details>
+    </div>`;
+  };
+  return cab + resumen + L.map(tarjeta).join('') + `<a class="btn" href="#directo?c=${Number(c.id)}&solo=0" style="margin-top:6px">Ver toda la competición</a>
+    <p class="tiny muted" style="margin-top:8px">La hora es la de inicio de cada prueba según el programa. Su serie se nada después de las anteriores: con «serie 3 de 8», nada en la tercera.</p>`;
+}
+
 function dirTarjeta(c) {
   const nos = dirNuestras(c), hechas = nos.filter(f => f.t || f.estado).length;
   const docs = (c.docs || []).filter(d => dirUrlOk(d.url)).map(d => `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.t)}</a>`);
@@ -118,6 +167,7 @@ function dirTarjeta(c) {
       : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>' : '<p class="small muted" style="margin:6px 0">Las series y los resultados aparecerán aquí cuando la federación publique la web de la competición.</p>'}
     ${docs.length ? `<div class="dir-docs">${docs.join('')}</div>` : ''}
     ${c.lenex ? `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">Ver series y resultados</a>` : ''}
+    ${BEN && dirSusPruebas(c, String(BEN.id)).length ? `<a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(BEN.id)}">Seguir a ${esc(BEN.n.split(' ')[0])}: sus pruebas y horarios</a>` : ''}
   </div>`;
 }
 
@@ -138,6 +188,7 @@ function dirDetalle(c, soloNuestros) {
   };
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1></div>
+    ${dirSelector(c, '')}
     ${resumen}
     <div class="chips" data-chips="dsolo" style="margin:10px 0"><button class="chip ${soloNuestros ? 'on' : ''}" data-v="1">Pruebas con nadadores del club</button><button class="chip ${soloNuestros ? '' : 'on'}" data-v="">Todas las pruebas</button></div>
     ${pruebas.map(prueba).join('') || '<div class="vacio">Sin pruebas todavía.</div>'}`;
@@ -152,10 +203,13 @@ function vistaDirecto(app, p) {
     await dirAlMomento(d);
     if (!location.hash.startsWith('#directo')) { clearInterval(DIR_RELOJ); return; }
     if (!d) { host.innerHTML = '<div class="vacio">No se pudo cargar el calendario de competiciones. ¿Hay conexión?</div>'; return; }
-    const y = window.scrollY, abiertos = [...host.querySelectorAll('details[open] summary b')].map(b => b.textContent);
+    const y = window.scrollY, abiertos = [...host.querySelectorAll('details[open] summary')].map(x => (x.querySelector('b') || x).textContent).concat([...host.querySelectorAll('details[open] summary')].map(x => x.textContent));
     const c = p.c ? d.competiciones.find(x => String(x.id) === String(p.c)) : null;
     const pie = `<p class="tiny muted" style="margin-top:12px">Datos de la Federación Andaluza (calendario y web de cada competición). Actualizado ${esc((d.actualizado || '').replace('T', ' a las '))}.${dirEnCurso(d) ? (DIR_PROXY ? ' Competición en curso: los resultados se leen al momento y la pantalla se refresca sola cada 30 segundos.' : ' Se refresca solo cada minuto; los resultados llegan con unos minutos de retraso.') : ''}</p>`;
-    if (c && c.lenex) {
+    if (c && c.lenex && /^\d{3,12}$/.test(p.n || '')) {
+      host.innerHTML = dirSeguirHTML(c, String(p.n)) + pie;
+      if (abiertos.length) host.querySelectorAll('details').forEach(x => { if (abiertos.includes(x.querySelector('summary').textContent)) x.open = true; });
+    } else if (c && c.lenex) {
       host.innerHTML = dirDetalle(c, p.solo !== '0') + pie;
       onChips(host, 'dsolo', v => { location.hash = `#directo?c=${Number(c.id)}${v ? '' : '&solo=0'}`; });
       if (abiertos.length) host.querySelectorAll('details').forEach(x => { if (abiertos.includes(x.querySelector('summary b').textContent)) x.open = true; });
@@ -165,6 +219,7 @@ function vistaDirecto(app, p) {
       host.innerHTML = (sec('En curso', g('en_curso')) + sec('Próximas', g('proxima')) + sec('Recientes', g('terminada'), true)
         || '<div class="vacio">No hay competiciones en las próximas semanas.</div>') + pie;
     }
+    host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
     if (forzar) window.scrollTo(0, y);
   };
   pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), DIR_PROXY ? 30e3 : 60e3); });
@@ -181,11 +236,17 @@ async function pintarDirectoNadador(app, s) {
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
   if (!prox.length && !rec.length) return;
-  const linea = x => `<div class="dir-f"><b><a href="#directo${x.c.lenex ? '?c=' + Number(x.c.id) : ''}">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span>
-    ${x.filas.length ? `<div class="tiny">${x.filas.map(f => `${esc(f.p.nombre)}: serie ${f.serie}, calle ${f.calle}${f.t || f.estado ? ` · <b>${dirTiempo(f)}</b>${f.puesto ? ` (${f.puesto}º)` : ''}` : ''}`).join(' · ')}</div>`
-      : '<div class="tiny muted">Calendario del club (las series aún no están publicadas)</div>'}</div>`;
-  const html = `<div class="card dir-ficha"><div class="h">${ico('copa')}Competiciones${prox.some(x => x.c.estado === 'en_curso') ? ' <span class="dir-punto"></span>en directo' : ''}</div>
-    ${prox.length ? `<div class="ent-sel">Próximas</div>${prox.map(linea).join('')}` : ''}
+  const nombre = esc(s.n.split(' ')[0]);
+  const linea = x => x.filas.length ? `<div class="dir-f"><b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
+      <div class="tiny">${dirSusPruebas(x.c, id).map(y => `${esc(y.p.nombre)}${y.p.hora ? ` (${esc(y.p.hora)})` : ''}: serie ${y.posSerie}, calle ${y.f.calle}${y.f.t || y.f.estado ? ` · <b>${dirTiempo(y.f)}</b>${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`).join(' · ')}</div>
+      <div class="dir-f-acc"><a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(id)}">Seguir a ${nombre}: pruebas, horarios y rivales</a>
+        <a href="#directo?c=${Number(x.c.id)}&solo=0">Toda la competición</a></div></div>`
+    : `<div class="dir-f"><b><a href="#directo">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span>
+      <div class="tiny muted">En el calendario de la federación. Las series aún no están publicadas: cuando salgan verás aquí si nada, a qué hora y en qué calle.</div></div>`;
+  const conSeries = prox.filter(x => x.filas.length), calendario = prox.filter(x => !x.filas.length);
+  const html = `<div class="card dir-ficha"><div class="h">${ico('copa')}Competiciones${prox.some(x => x.c.estado === 'en_curso' && x.filas.length) ? ' <span class="dir-punto"></span>en directo' : ''}</div>
+    ${conSeries.length ? `<div class="ent-sel">Próximas de ${nombre}</div>${conSeries.map(linea).join('')}` : ''}
+    ${calendario.length ? `<details class="dir-mas"><summary>Próximas del calendario (${calendario.length})</summary>${calendario.map(linea).join('')}</details>` : ''}
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
   const ancla = app.querySelector('.card');
   if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
