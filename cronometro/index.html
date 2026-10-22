@@ -846,7 +846,7 @@ async function iniciarSesion() {
   buildSA(sesId);
   SA.ciclo = cicloDe(PS); SA.auto = !!SA.ciclo;
   SA.comp = !!PS.comp; SA.inicio = inicioDe(PS); SA.porNadador = !!PS.porNadador;
-  SA.relevo = PS.relevo ? {...PS.relevo, estilos: [...PS.relevo.estilos]} : null; SA.rel = null;
+  SA.relevo = PS.relevo ? {...PS.relevo, estilos: [...PS.relevo.estilos]} : null; SA.rel = null; SA.relNad = new Map();
   DB.guardarPresentes(sesId, [...new Set([...callesConNads.flatMap(g=>g.nads.map(n=>n.id)), ...(PS.extras||[])])]);
   const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
   // copia: los cambios sobre la marcha no tocan el entreno preparado (salvo que se guarden a propósito)
@@ -1568,7 +1568,7 @@ function render() {
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 // Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
-const APP_VERSION = 'v16';
+const APP_VERSION = 'v17';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
@@ -1674,7 +1674,8 @@ const NOVEDADES = [
   ['✎', 'Cambiar el entreno preparado sobre la marcha', 'botón «✎ Plan» durante el entreno: reordena, quita o añade series.'],
   ['✕', 'Borrar un tiempo erróneo', 'en el resumen del entreno; queda en la papelera y se puede recuperar.'],
   ['🌐', 'Web del club', 'se abre aparte (ya no se descoloca la pantalla al volver) y directamente en el Modo entrenador.'],
-  ['📡', 'Directo de la federación', 'en la web, botón «Directo»: competiciones, series y resultados de la FAN, con nuestros nadadores destacados.'],
+  ['📡', 'Directo de la federación', 'en la web, botón «Directo»: competiciones, series y resultados de la FAN, con nuestros nadadores destacados. Durante la competición se actualiza solo cada 30 segundos.'],
+  ['🔁', 'Relevos: estilo de cada nadador', 'antes de la salida puedes cambiar el estilo de un relevista concreto (no solo el de la posta).'],
 ];
 function renderNovedades() {
   if (Date.now() >= NOVEDADES_HASTA) return '';
@@ -2334,6 +2335,8 @@ function relevoHTML(o, t) {
     </div>` : ''}`;
 }
 const estiloPosta = (rel, k, base) => rel && rel.tipo === 'estilos' ? rel.estilos[k % rel.estilos.length] : base;
+// Estilo de un relevista concreto: el de su posta, salvo que el entrenador lo cambie para ese nadador antes de la salida
+const estiloRelevista = (g, k) => (SA.relNad && SA.relNad.get(g.nads[k].nId)) || estiloPosta(SA.relevo, k, SA.estilo);
 function relevoEnMarcha() { return !!(SA && SA.relevo && SA.rel && Object.values(SA.rel.eq).some(e => !e.fin)); }
 function relevoSalida(t) {
   if (!SA || !SA.relevo || SA.rel) return;
@@ -2350,7 +2353,7 @@ function relevoToque(gId, t) {
   const g = grupoSA(gId), e = SA && SA.rel && SA.rel.eq[gId];
   if (!g || !e || e.fin) return;
   if (t - e.tUlt < 1500) return;   // doble toque accidental
-  const k = e.k, nad = g.nads[k], ini = e.tUlt, ms = t - ini, estilo = estiloPosta(SA.relevo, k, SA.estilo);
+  const k = e.k, nad = g.nads[k], ini = e.tUlt, ms = t - ini, estilo = estiloRelevista(g, k);
   const resId = DB.guardarRes(SA.sesId, nad.nId, gId, ms, 'relevo', {ronda: SA.ronda, salida: k+1, estilo, dist: SA.dist||null, ts: ini,
     inicio: k ? 'relevo' : (SA.inicio||'agua'), relevo: {equipo: g.nombre, gId, pos: k+1, n: g.nads.length, tipo: SA.relevo.tipo}});
   e.toques.push(t); e.resIds.push(resId); e.tUlt = t; e.k++;
@@ -2376,7 +2379,7 @@ function guardarEquipoRelevo(g, e) {
   const ses = S.sesiones.find(s=>s.id===SA.sesId); if (!ses) return;
   const parciales = e.toques.map((t,i) => t - (i ? e.toques[i-1] : SA.rel.t0));
   const rec = {ronda: SA.ronda, gId: g.gId, equipo: g.nombre, tipo: SA.relevo.tipo, dist: SA.dist||null,
-    estilos: g.nads.map((_,k) => estiloPosta(SA.relevo, k, SA.estilo)), nIds: g.nads.map(n=>n.nId), parciales, ms: e.fin - SA.rel.t0, ts: SA.rel.t0, inicio: SA.inicio||'agua'};
+    estilos: g.nads.map((_,k) => estiloRelevista(g, k)), nIds: g.nads.map(n=>n.nId), parciales, ms: e.fin - SA.rel.t0, ts: SA.rel.t0, inicio: SA.inicio||'agua'};
   ses.relevos = [...relevosDe(ses).filter(x => !(x.ronda===rec.ronda && x.gId===rec.gId)), rec];
   _db.collection('sesiones').doc(ses.id).update({relevos: ses.relevos}).catch(console.error);
 }
@@ -2402,8 +2405,9 @@ function renderRelevo(now) {
   if (!R) return `<div class="salida-card">
       <div style="font-weight:800;font-size:17px;margin-bottom:8px">🔁 ${esc(titulo)}</div>
       ${gs.map(g => `<div class="ord-lane" style="--lc:${g.color}"><b>${esc(g.nombre)}</b>
-        ${g.nads.map((n,k)=>`<div class="ord-row"><span class="muted" style="width:22px">${k+1}</span><span style="flex:1">${esc(n.n)}</span><span class="muted">${estiloEmo(estiloPosta(SA.relevo,k,SA.estilo))} ${esc(estiloNombre(estiloPosta(SA.relevo,k,SA.estilo)))}</span></div>`).join('')}</div>`).join('')}
-      <div class="muted" style="font-size:12px;margin:4px 0 8px">Para cambiar equipos u orden: ✎ Calles.</div>
+        ${g.nads.map((n,k)=>{ const e = estiloRelevista(g,k); return `<div class="ord-row"><span class="muted" style="width:22px">${k+1}</span><span style="flex:1">${esc(n.n)}</span>
+          <label class="est-nad">${estiloEmo(e)} ${esc(estiloNombre(e))} ▾<select data-relnad="${esc(n.nId)}">${misEstilos().map(x=>`<option value="${esc(x)}"${x===e?' selected':''}>${esc(estiloNombre(x))}</option>`).join('')}</select></label></div>`; }).join('')}</div>`).join('')}
+      <div class="muted" style="font-size:12px;margin:4px 0 8px">Toca el estilo de un nadador para cambiar solo el suyo. Para cambiar equipos u orden: ✎ Calles.</div>
       <button class="edit-link mb8" data-action="edit-abrir">✎ Calles</button>
       <button class="salida-btn" data-action="rel-salida">🚀 SALIDA · todas las calles</button>
     </div>`;
@@ -3153,6 +3157,7 @@ document.getElementById('app').addEventListener('keydown', async function(e) {
 });
 
 document.getElementById('app').addEventListener('change', function(e) {
+  if (e.target.dataset.relnad && SA) { (SA.relNad = SA.relNad || new Map()).set(e.target.dataset.relnad, e.target.value); render(); return; }
   if (e.target.dataset.relest != null) { const o = cicloObj(e.target.dataset.t); if (o && o.relevo) { o.relevo.estilos[Number(e.target.dataset.relest)] = e.target.value; render(); } return; }
   if (e.target.dataset.planec && SA && SA.plan) { const x = SA.plan.series[Number(e.target.dataset.i)]; if (x) { if (e.target.dataset.planec==='dist') { x.dist = Number(e.target.value); if (x.dist<=50) x.parciales = false; } else x.estilo = e.target.value; } render(); return; }
   if (e.target.dataset.estnad && SA) { SA.estiloNad.set(e.target.dataset.estnad, e.target.value); render(); return; }

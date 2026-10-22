@@ -35,3 +35,22 @@ test('dirDetalle: nuestros nadadores arriba y su ficha enlazada', () => {
   assert.match(h, /35\.20/);
   assert.match(h, /Nuestros nadadores/);
 });
+
+test('dirUnzip: descomprime el results.lxf (zip con deflate) como hace el navegador', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const b64 = execFileSync('python3', ['-c', `
+import io, zipfile, base64, sys
+b = io.BytesIO()
+with zipfile.ZipFile(b, 'w', zipfile.ZIP_DEFLATED) as z: z.writestr('results.lef', '<LENEX>' + 'x' * 500 + '</LENEX>')
+sys.stdout.write(base64.b64encode(b.getvalue()).decode())`]).toString();
+  Object.assign(ctx, { Blob, Response, DecompressionStream, TextDecoder, DataView, Uint8Array });
+  ctx.__buf = Uint8Array.from(Buffer.from(b64, 'base64')).buffer;
+  const txt = await evalIn(ctx, 'dirUnzip(__buf)');
+  assert.equal(txt, '<LENEX>' + 'x'.repeat(500) + '</LENEX>');
+});
+
+test('dirCs y dirNorm: tiempos en centésimas y nombres sin acentos', () => {
+  assert.equal(evalIn(ctx, 'dirCs("00:01:05.32")'), 6532);
+  assert.equal(evalIn(ctx, 'dirCs("00:00:00.00")'), null);
+  assert.equal(evalIn(ctx, 'dirNorm("Lucía  Romero-Gil")'), 'lucia romero gil');
+});
