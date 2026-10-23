@@ -72,8 +72,8 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
     series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
-  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false, rota: null },
-    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false, rota: null }]);
+  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null },
+    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null }]);
 });
 
 test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
@@ -219,4 +219,25 @@ test('limpiarDoc: la rota de resultados y planes se normaliza', () => {
   assert.equal(evalIn(ctx, `limpiarDoc('resultados', {ms: 1, rota: '<b>'}).rota`), null);
   const p = JSON.parse(evalIn(ctx, `JSON.stringify(limpiarDoc('planes', {series: [{estilo: 'libre', dist: 200, rota: {tramos: [50, 100, 50], desc: [10, 20]}}]}).series[0].rota)`));
   assert.deepEqual(p, { tramos: [50, 100, 50], desc: [10, 20] });
+});
+
+test('ritmo: objetivo de su 200/400, 400 estimado, a mano; y lectura del ritmo escrito', () => {
+  assert.deepEqual(ev('objetivoRitmo', '200', 100, { 200: 15560 }, null), { cs: 7780, base: 'marca' });
+  assert.deepEqual(ev('objetivoRitmo', '400', 100, { 200: 15560 }, null), { cs: Math.round(15560 * 2 ** 1.06 / 4), base: 'est' });
+  assert.deepEqual(ev('objetivoRitmo', '400', 50, { 400: 33000 }, null), { cs: 4125, base: 'marca' });
+  assert.deepEqual(ev('objetivoRitmo', '200', 100, {}, 8000), { cs: 8000, base: 'mano' });
+  assert.deepEqual(ev('objetivoRitmo', 'mejor', 100, { dist: 7100 }, 8000), { cs: 7100, base: 'marca' });
+  assert.equal(ev('objetivoRitmo', '200', 100, {}, null), null);
+  assert.equal(ev('parseRitmo', '1:20.5'), 8050);
+  assert.equal(ev('parseRitmo', '80'), 8000);
+  assert.equal(ev('parseRitmo', '1:75'), null);
+  assert.equal(ev('parseRitmo', 'x'), null);
+  assert.deepEqual(ev('ritmoOk', { ref: '400', mano: 8000.4 }), { ref: '400', mano: 8000 });
+  assert.equal(ev('ritmoOk', { ref: '<b>' }), null);
+});
+
+test('limpiarDoc: el ritmo de cada tiempo y de las series del plan se normaliza', () => {
+  const r = JSON.parse(evalIn(ctx, `JSON.stringify(limpiarDoc('resultados', {ms: 1, ritmo: {ref: '200', mano: null, cs: 7780, base: 'marca'}}).ritmo)`));
+  assert.deepEqual(r, { ref: '200', mano: null, cs: 7780, base: 'marca' });
+  assert.equal(evalIn(ctx, `limpiarDoc('resultados', {ms: 1, ritmo: {ref: 'x'}}).ritmo`), null);
 });

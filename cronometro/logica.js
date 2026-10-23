@@ -37,6 +37,9 @@ function limpiarDoc(col, d) {
         pos: Number.isInteger(pos) && pos > 0 ? pos : 1, n: Number.isInteger(n) && n > 0 ? n : 1, tipo: d.relevo.tipo === 'estilos' ? 'estilos' : 'igual'};
     } else d.relevo = null;
     d.rota = rotaOk(d.rota);   // tiempo neto de una rota (sin descansos): solo se compara con la misma rota
+    // con qué ritmo se comparó al crear la serie (y el objetivo que tenía ese día)
+    if (d.ritmo && typeof d.ritmo === 'object') { const r = ritmoOk(d.ritmo), cs = Math.round(Number(d.ritmo.cs));
+      d.ritmo = r ? {...r, cs: Number.isFinite(cs) && cs > 0 ? cs : null, base: ['marca', 'est', 'mano', 'media'].includes(d.ritmo.base) ? d.ritmo.base : null} : null; } else d.ritmo = null;
   }
   if (col==='sesiones') {
     d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null;
@@ -63,7 +66,7 @@ function limpiarDoc(col, d) {
       const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
               parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
-              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota)};
+              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota), ritmo: ritmoOk(x.ritmo)};
     });
   }
   if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
@@ -193,6 +196,36 @@ function parseCiclo(txt) {
   if (m) { const n = Number(m[1]); return n > 0 ? n : null; }
   m = /^(\d{1,2}):([0-5]\d)$/.exec(t);
   if (m) { const n = Number(m[1]) * 60 + Number(m[2]); return n > 0 ? n : null; }
+  return null;
+}
+
+// ── Ritmo de 200 y de 400: con qué se compara cada tiempo de la serie ──
+// ref: 'mejor' (su mejor marca en esa distancia, lo de siempre), '200' o '400' (el ritmo medio de su mejor 200 / 400
+// llevado a la distancia de la serie). mano: ritmo cada 100 m que pone el entrenador (en centésimas) para quien no tenga marca.
+const RITMO_REFS = ['mejor', '200', '400'];
+const RIEGEL = 2 ** 1.06;   // 400 estimado = 200 × 2^1.06 (fórmula de Riegel)
+function ritmoOk(r) {
+  if (!r || typeof r !== 'object' || !RITMO_REFS.includes(r.ref)) return null;
+  const mano = Math.round(Number(r.mano));
+  return {ref: r.ref, mano: Number.isFinite(mano) && mano >= 1000 && mano <= 60000 ? mano : null};
+}
+// «1:20.5», «1:20» u «80.5» → centésimas; vacío o inválido → null
+function parseRitmo(txt) {
+  const t = String(txt == null ? '' : txt).trim().replace(',', '.');
+  const m = /^(?:(\d{1,2}):)?(\d{1,2})(?:\.(\d{1,2}))?$/.exec(t);
+  if (!m || (m[1] && Number(m[2]) > 59)) return null;
+  const cs = (Number(m[1] || 0) * 60 + Number(m[2])) * 100 + Number((m[3] || '0').padEnd(2, '0'));
+  return cs >= 1000 && cs <= 60000 ? cs : null;
+}
+// Objetivo de un nadador en una serie de «dist» metros: marcas = {200, 400, dist} en centésimas (25 m) o null.
+// Orden: su marca → (400) estimado de su 200 → ritmo a mano → null (la media del grupo la pone quien llama)
+function objetivoRitmo(ref, dist, marcas, mano) {
+  if (!ref || !dist) return null;
+  if (ref === 'mejor') return marcas.dist ? {cs: marcas.dist, base: 'marca'} : null;
+  const d = ref === '400' ? 400 : 200;
+  if (marcas[d]) return {cs: Math.round(marcas[d] * dist / d), base: 'marca'};
+  if (d === 400 && marcas[200]) return {cs: Math.round(marcas[200] * RIEGEL * dist / 400), base: 'est'};
+  if (mano) return {cs: Math.round(mano * dist / 100), base: 'mano'};
   return null;
 }
 

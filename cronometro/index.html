@@ -211,6 +211,10 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sw-nm{font-size:15px;font-weight:800;line-height:1.15;word-break:normal;overflow-wrap:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .sw-clk{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l);line-height:1.1;}
 .sw-last{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;}
+/* Ritmo: objetivo de cada nadador y cuánto va por delante (verde) o por detrás (ámbar) */
+.sw-obj{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;line-height:1.2}
+.sw-obj b.mej{color:var(--grn-l)} .sw-obj b.peor{color:var(--amb)}
+.ritmo-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:#0c2235;color:#7dd3fc;font-size:11px;font-weight:800;vertical-align:middle;}
 .sw-act{margin:auto -6px 0;padding:6px 2px;background:var(--blu);color:#fff;text-align:center;font-size:14px;font-weight:900;letter-spacing:.3px;line-height:1.1;display:flex;flex-direction:column;align-items:center;}
 .sw-act small{font-size:10px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.5px;}
 .sw-card.parcial .sw-act{background:#7c3aed;}
@@ -873,6 +877,7 @@ async function iniciarSesion() {
   SA.comp = !!PS.comp; SA.inicio = inicioDe(PS); SA.porNadador = !!PS.porNadador;
   SA.relevo = PS.relevo ? {...PS.relevo, estilos: [...PS.relevo.estilos]} : null; SA.rel = null; SA.relNad = new Map();
   ponerRota(PS.rota);
+  SA.ritmo = ritmoOk(PS.ritmo);
   DB.guardarPresentes(sesId, [...new Set([...callesConNads.flatMap(g=>g.nads.map(n=>n.id)), ...(PS.extras||[])])]);
   const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
   // copia: los cambios sobre la marcha no tocan el entreno preparado (salvo que se guarden a propósito)
@@ -936,6 +941,16 @@ function ponerRota(r) {
   if (SA.rota) { SA.dist = rotaTotal(SA.rota); SA.tramos = SA.rota.tramos.length; SA.parciales = false; }
 }
 const copiaRota = r => r ? {tramos: [...r.tramos], desc: [...r.desc]} : null;
+// Objetivo de un nadador en la serie según el ritmo elegido (200 / 400): su marca, estimado, ritmo a mano o media del grupo
+function objetivoNad(nId, estilo, dist) {
+  const r = SA && SA.ritmo; if (!r || r.ref === 'mejor' || !estilo || !dist) return null;
+  const propio = (id, mano) => { const m = d => { const c = mejorCompeticion(id, estilo, d); return c ? c.cs : null; };
+    return objetivoRitmo(r.ref, dist, {200: m(200), 400: m(400)}, mano); };
+  const o = propio(nId, r.mano);
+  if (o) return {...o, ref: r.ref};
+  const otros = SA.grupos.flatMap(g => g.nads).map(n => propio(n.nId, null)).filter(Boolean);
+  return otros.length ? {cs: Math.round(otros.reduce((a, x) => a + x.cs, 0) / otros.length), base: 'media', ref: r.ref} : null;
+}
 function laneShort(g) {
   const m = /(\d+)/.exec(g.nombre||'');
   return m ? 'C'+m[1] : String(g.nombre||'?').slice(0,3);
@@ -967,7 +982,8 @@ function salidaTanda(t, auto) {
       key: `k${++SA.seq}`,
       gId: g.gId, laneIdx: g.idx, lane: laneShort(g), color: g.color,
       nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0,
-      ronda: SA.ronda, estilo: SA.porNadador ? (SA.estiloNad.get(nad.nId) || SA.estilo) : SA.estilo, dist: SA.dist, tramos: SA.tramos, comp: !!SA.comp, inicio: SA.inicio || 'agua',
+      ronda: SA.ronda, estilo: SA.porNadador ? (SA.estiloNad.get(nad.nId) || SA.estilo) : SA.estilo, dist: SA.dist,
+      ritmo: SA.ritmo, obj: objetivoNad(nad.nId, SA.porNadador ? (SA.estiloNad.get(nad.nId) || SA.estilo) : SA.estilo, SA.dist), tramos: SA.tramos, comp: !!SA.comp, inicio: SA.inicio || 'agua',
       rota: SA.rota, pausas: [], descHasta: null
     });
   });
@@ -986,6 +1002,7 @@ function llegoNad(key, t) {
   const extra = {ronda:a.ronda, salida:a.salida, estilo:a.estilo||null, dist:a.dist||null, inicio:a.inicio||'agua', ts:a.t0};
   if (a.comp) extra.comp = true;
   if (a.rota) extra.rota = a.rota;
+  if (a.ritmo) extra.ritmo = {ref: a.ritmo.ref, mano: a.ritmo.mano, cs: a.obj ? a.obj.cs : null, base: a.obj ? a.obj.base : null};
   if (a.nota) extra.nota = a.nota;
   if (a.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, a.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
@@ -1002,6 +1019,8 @@ function llegoNad(key, t) {
   vibrar(rec.marca ? [60,40,60] : 35);
   render();
 }
+// Diferencia con el ritmo en la tarjeta: verde si va por delante, ámbar si va por detrás
+const difRitmo = ms => `<b class="${ms <= 0 ? 'mej' : 'peor'}">${ms <= 0 ? '−' : '+'}${(Math.abs(ms)/1000).toFixed(1)}</b>`;
 const MARCA_TXT = {comp:'🏅 ¡marca de comp.!', entreno:'🏅 mejor entreno'};
 // Toque en el botón del nadador: parcial cada 50 m o llegada en el último tramo
 function marcaNad(key, t) {
@@ -1257,6 +1276,12 @@ function comparaHTML(c) {
   if (c.ult && !(c.ent && c.ult.ms === c.ent.ms && c.ult.fecha === c.ent.fecha)) out.push(fila('↺ Último entreno', fmtTime(c.ult.ms), `${fmtDateShort(c.ult.fecha)} · serie ${c.ult.ronda}`, c.difUlt));
   return out.length ? `<div class="cmp-tab">${out.join('')}</div>` : '';
 }
+// En el resumen: su objetivo de ritmo y cómo le fue (diferencia y % de su ritmo)
+function ritmoCmpHTML(l) {
+  const obj = l.obj.cs * 10, d = (l.ms - obj) / 1000;
+  return `<div class="cmp-tab"><div class="cmp-i"><span class="k">🎯 Ritmo de ${l.obj.ref}</span> <span class="t">${fmtTime(obj)}</span> <small>(${BASE_TXT[l.obj.base]})</small>
+    → hoy <b class="${d<=0?'cmp-mej':'cmp-peor'}">${difTxt(d)} s ${difPalabra(d)}</b> <small>(${(l.ms / obj * 100).toFixed(1)} %)</small></div></div>`;
+}
 function comparaTexto(c) {
   const out = [];
   if (c.comp) out.push(`su mejor competición (25 m) ${fmtCs(c.comp.cs)} del ${fmtFechaIso(c.comp.fecha)} (${origenComp(c.comp)}): ${difTxt(c.difComp)} s ${difPalabra(c.difComp)}`);
@@ -1331,6 +1356,7 @@ function repetirSerie(cfg) {
     SA.comp = !!cfg.comp; SA.inicio = inicioDe(cfg); SA.porNadador = !!cfg.porNadador;
     SA.relevo = cfg.relevo ? {...cfg.relevo, estilos: [...cfg.relevo.estilos]} : null;
     ponerRota(cfg.rota);
+    SA.ritmo = ritmoOk(cfg.ritmo);
   }
   SA.nuevaSerie = null;
   SA.ronda++;
@@ -1610,7 +1636,7 @@ function render() {
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 // Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
@@ -1707,13 +1733,15 @@ function renderHome() {
       <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>`;
 }
 // ── Novedades de esta versión: se ven en el inicio hasta NOVEDADES_HASTA y luego desaparecen solas (después, borrar este bloque) ──
-const NOVEDADES_HASTA = new Date(2026, 10, 1).getTime();   // hasta el sábado 31 de octubre incluido
+const NOVEDADES_HASTA = new Date(2026, 10, 8).getTime();   // hasta el sábado 7 de noviembre incluido
 const NOVEDADES = [
   // El 4º campo marca lo nuevo de esta versión (sale primero y con la etiqueta «Nuevo»)
-  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso y, al acabar, pita, vibra y avisa «¡sale!». Se guarda el tiempo neto, sin descansos.', true],
-  ['📈', 'La rota en las gráficas', 'en la web (Modo entrenador) cada rota sale como su propia prueba: ritmo del grupo, evolución de cada nadador y comparar nadadores o series. Solo se compara con la misma rota, nunca con un 200 normal ni con competiciones.', true],
-  ['🔔', 'Pitido y vibración en las salidas', 'en todos los móviles: la salida automática pita y vibra; al tocar SALIDA a mano solo vibra. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.', true],
-  ['🔴', 'Directo más visible', 'en la web, el botón «Directo» se pone rojo y late cuando hay una competición en curso. Al seguir a un nadador, la hora de sus pruebas sale destacada y el día de la competición hay cuenta atrás hasta su prueba.', true],
+  ['🎯', 'Ritmo de 200 y de 400', 'al preparar la serie elige «Comparar cada tiempo con»: mejor marca, ritmo de 200 o ritmo de 400. Cada nadador tiene su objetivo (su mejor 200 o 400 llevado a la distancia de la serie); en la tarjeta ves si va por delante o por detrás en cada 50 y en el resumen, cuánto y en qué %. Sin marca: el ritmo que escribas tú o la media del grupo.', true],
+  ['📊', 'Gráficas más claras en la web', 'nueva gráfica «¿Quién va a su ritmo?»: cada nadador en su fila, en % de su ritmo, con zonas dentro / cerca / fuera. Se puede cambiar entre ritmo de 200, de 400 o mejor marca. Todas las gráficas muestran el tiempo al tocar un punto.', true],
+  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso y, al acabar, pita, vibra y avisa «¡sale!». Se guarda el tiempo neto, sin descansos.'],
+  ['📈', 'La rota en las gráficas', 'en la web (Modo entrenador) cada rota sale como su propia prueba: ritmo del grupo, evolución de cada nadador y comparar nadadores o series. Solo se compara con la misma rota, nunca con un 200 normal ni con competiciones.'],
+  ['🔔', 'Pitido y vibración en las salidas', 'en todos los móviles: la salida automática pita y vibra; al tocar SALIDA a mano solo vibra. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.'],
+  ['🔴', 'Directo más visible', 'en la web, el botón «Directo» se pone rojo y late cuando hay una competición en curso. Al seguir a un nadador, la hora de sus pruebas sale destacada y el día de la competición hay cuenta atrás hasta su prueba.'],
   ['🎨', 'Series solapadas más claras', 'cada serie tiene su color en las tarjetas y arriba se ve el tiempo total de cada una (de la primera salida a la última llegada).'],
   ['🔁', 'Relevos', 'al preparar la serie elige «Relevo»: cada calle es un equipo, salen todas a la vez y cada toque cierra la posta de un nadador. Resultado por equipos y comparado con relevos anteriores.'],
   ['🎯', 'Cada nadador su estilo', 'en la misma calle uno puede nadar crol y otro mariposa: el estilo se elige en su tarjeta antes de salir.'],
@@ -2119,7 +2147,7 @@ const cicloObj = t => t === 'ps' ? PS : t.startsWith('plan-') ? (PS && PS.plan &
 
 // ── Planes: entrenos preparados en casa (calles + lista de series) ──
 function misPlanes() { return S.planes.filter(esMio).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
-const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, auto:false, inicio:'agua', comp:false, porNadador:false, rota:null});
+const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, auto:false, inicio:'agua', comp:false, porNadador:false, rota:null, ritmo:null});
 // Abre preparar en modo plan: el mismo tablero de calles y, en lugar de estilo/distancia, la lista de series
 function abrirPlan(id) {
   const p = id ? S.planes.find(x=>x.id===id) : null;
@@ -2149,6 +2177,7 @@ function renderSeriesPlan() {
       ${x.rota ? '' : `<div class="picker-row p4" style="margin-bottom:8px">${DISTS.map(d=>`<button class="pick-btn${Number(x.dist)===d?' on':''}" data-action="plan-dist" data-i="${i}" data-val="${d}">${d}m</button>`).join('')}</div>`}
       ${x.rota ? '' : (() => { const ok = Number(x.dist) > 50; return `<div class="toggle-row${ok?'':' dis'}" ${ok?`data-action="plan-parc" data-i="${i}"`:''}><div style="flex:1;font-weight:600;font-size:14px">⏱ Parciales cada 50 m</div><div class="sw${ok&&x.parciales?' on':''}"></div></div>`; })()}
       ${cicloHTML(x, 'plan-'+i)}
+      ${ritmoHTML(x, 'plan-'+i)}
       ${inicioHTML(x, 'plan-'+i)}
     </div>`).join('') + `<button class="btn btn-surf mb16" data-action="plan-add">➕ Añadir serie</button>`;
 }
@@ -2159,7 +2188,7 @@ async function guardarPlanPS() {
   const data = {coach: coachName, coachEmail: miEmail(), ts: Date.now(), nombre: String(nombre||'').trim().slice(0,200) || 'Entreno',
     eqId: PS.eqId || eqMasFrecuente(calles), calles: calles.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})),
     series: p.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:cicloDe(x), auto:!!x.auto,
-      inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota)}))};
+      inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota), ritmo:ritmoOk(x.ritmo)}))};
   await DB.guardarPlan(p.id, data);
   PS = null; nav({screen:'home'});
 }
@@ -2173,7 +2202,7 @@ async function empezarPlan(id) {
   if (!calles.length) { alert('Los nadadores de este entreno ya no están en la lista.'); return; }
   PS.grupos = calles;
   const s1 = p.series[0];
-  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, auto:s1.auto, inicio:inicioDe(s1), comp:!!s1.comp, porNadador:!!s1.porNadador, rota:copiaRota(s1.rota), planId:p.id});
+  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, auto:s1.auto, inicio:inicioDe(s1), comp:!!s1.comp, porNadador:!!s1.porNadador, rota:copiaRota(s1.rota), ritmo:ritmoOk(s1.ritmo), planId:p.id});
   await iniciarSesion();
 }
 
@@ -2243,6 +2272,7 @@ function renderPreparar() {
       <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
       <div class="sw${on?' on':''}"></div></div>`; })()}
     ${PS.relevo ? '' : cicloHTML(PS, 'ps')}
+    ${PS.relevo ? '' : ritmoHTML(PS, 'ps')}
     ${inicioHTML(PS, 'ps')}
     ${renderQuienMas()}
     <input class="input mb16" id="notas-input" placeholder="Notas opcionales..." value="${esc(PS.notas)}">
@@ -2255,7 +2285,7 @@ function renderPreparar() {
 function renderEnCurso() {
   if (!SA) return '';
   const ses = S.sesiones.find(s=>s.id===SA.sesId);
-  const titulo = SA.relevo ? `🔁 ${esc(relevoNombre(SA.relevo, Math.max(1, ...SA.grupos.map(g=>g.nads.length)), SA.dist, SA.estilo))}` : comboLabel(SA.estilo, SA.dist) + rotaEtiqueta(SA.rota);
+  const titulo = SA.relevo ? `🔁 ${esc(relevoNombre(SA.relevo, Math.max(1, ...SA.grupos.map(g=>g.nads.length)), SA.dist, SA.estilo))}` : comboLabel(SA.estilo, SA.dist) + rotaEtiqueta(SA.rota) + ritmoEtiqueta(SA.ritmo);
   const eq = ses?eqNombre(ses.eqId):'';
   const now = Date.now();
   const totalNads = SA.grupos.reduce((s,g)=>s+g.nads.length,0);
@@ -2377,6 +2407,7 @@ function renderSwCard(f, now) {
       <span class="sw-meta">${tag}<button class="sw-undo-mini" data-action="deshacer" data-key="${esc(f.key)}" aria-label="Deshacer llegada">↶</button></span>
       <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
+      ${f.obj ? `<span class="sw-obj">${difRitmo(f.ms - f.obj.cs*10)} vs ritmo ${f.obj.ref}</span>` : ''}
       ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
     </div>${conParc ? HUECO_EXTRA : ''}`;
@@ -2403,7 +2434,8 @@ function renderSwCard(f, now) {
       <span class="sw-meta">${tag}${dots}</span>
       <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk live-clk" data-t0="${t0}">${fmtTime(now-t0)}</span>
-      ${ultimo!=null?`<span class="sw-last">${metros(f.parc.length)}m ${fmtTime(ultimo)}</span>`:''}
+      ${ultimo!=null?`<span class="sw-last">${metros(f.parc.length)}m ${fmtTime(ultimo)}${f.obj && f.dist ? ` ${difRitmo(ultimo - f.obj.cs*10*metros(f.parc.length)/f.dist)}` : ''}</span>`:''}
+      ${f.obj && ultimo==null ? `<span class="sw-obj">objetivo ${fmtTime(f.obj.cs*10)}</span>` : ''}
       <span class="sw-act">${recienSale?`<small>¡sale!</small>${f.rota.tramos[f.parc.length]} m`:esParcial?`<small>${f.rota?'pared':'parcial'}</small>${metros(f.parc.length+1)} m`:'LLEGÓ'}</span>
     </button>
     ${conParc ? `<div class="sw-extra">
@@ -2429,6 +2461,19 @@ function relevoHTML(o, t) {
         <select class="input" style="padding:8px" data-relest="${i}" data-t="${t}">${misEstilos().map(x=>`<option value="${esc(x)}"${x===e?' selected':''}>${esc(estiloNombre(x))}</option>`).join('')}</select></label>`).join('')}</div>` : ''}
     </div>` : ''}`;
 }
+// Con qué se compara cada tiempo de la serie (t: 'ps', 'ns' o 'plan-N'): su mejor marca (como siempre) o su ritmo de 200 / 400
+const RITMO_TXT = {mejor: 'Mejor marca', '200': 'Ritmo de 200', '400': 'Ritmo de 400'};
+const BASE_TXT = {marca: 'su mejor marca', est: 'estimado de su 200', mano: 'ritmo del entrenador', media: 'media del grupo'};
+function ritmoHTML(o, t) {
+  const r = ritmoOk(o.ritmo) || {ref: 'mejor', mano: null};
+  return `<span class="label">Comparar cada tiempo con</span>
+    <div class="seg" style="margin-bottom:6px">${RITMO_REFS.map(v => `<button class="${r.ref===v?'on':''}" data-action="ritmo-ref" data-t="${t}" data-v="${v}">${RITMO_TXT[v]}</button>`).join('')}</div>
+    ${r.ref === 'mejor' ? '<div class="muted" style="font-size:12px;margin-bottom:12px">Su mejor marca de competición y de entreno en esta distancia, como hasta ahora.</div>'
+      : `<div class="muted" style="font-size:12px;margin-bottom:6px">Cada nadador tendrá como objetivo el ritmo medio de su mejor ${r.ref} llevado a la distancia de la serie${r.ref==='400'?' (sin 400, se estima de su 200)':''}.</div>
+      <label class="ciclo-seg" style="margin-bottom:12px"><span class="muted">Ritmo cada 100 m para quien no tenga marca (opcional; si no, la media del grupo)</span>
+      <input class="input" inputmode="decimal" placeholder="Ej.: 1:20.0" data-ritmomano="${t}" value="${r.mano ? fmtCs(r.mano) : ''}"></label>`}`;
+}
+const ritmoEtiqueta = r => r && r.ref !== 'mejor' ? ` <span class="ritmo-tag">🎯 ritmo ${r.ref}</span>` : '';
 // Rota: interruptor y, encendida, sus tramos y los descansos entre ellos (t: 'ps', 'ns' o 'plan-N')
 function rotaHTML(o, t) {
   const r = o.rota;
@@ -2604,7 +2649,7 @@ function renderResumenRonda() {
     <div class="sum-row" style="--lc:${l.color}${l.comp?';border:1px solid var(--amb)':''}">
       ${pos!=null?`<div class="rpos${pos===1?' gold':''}">${pos}</div>`:''}
       ${laneTag(l.lane, l.color)}
-      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}${comparaHTML(cmpDe(l))}${SA.porNadador?` <span class="ini-tag">${estiloEmo(l.estilo)} ${esc(estiloNombre(l.estilo))}</span>`:''}${l.comp ? rankingHTML(rankingDe(l.nId, l.estilo, l.dist, l.ms)) : ''}</div>
+      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}${l.obj ? ritmoCmpHTML(l) : ''}${comparaHTML(cmpDe(l))}${SA.porNadador?` <span class="ini-tag">${estiloEmo(l.estilo)} ${esc(estiloNombre(l.estilo))}</span>`:''}${l.comp ? rankingHTML(rankingDe(l.nId, l.estilo, l.dist, l.ms)) : ''}</div>
       <div style="text-align:right">
         <div class="sum-time">${fmtTime(l.ms)}</div>
         ${gap?`<div class="sum-gap">${gap}</div>`:''}
@@ -2629,7 +2674,7 @@ function renderResumenRonda() {
   return `
     <div class="card" style="text-align:center;padding:14px">
       <div style="font-size:28px">🏁</div>
-      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)}${rotaEtiqueta(SA.rota)} ${iniTag(SA)}</div>
+      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)}${rotaEtiqueta(SA.rota)}${ritmoEtiqueta(SA.ritmo)} ${iniTag(SA)}</div>
       ${SA.rota ? `<div class="muted" style="font-size:12px">Rota de ${esc(rotaTexto(SA.rota))} · tiempos netos, sin descansos</div>` : ''}
       <div class="muted" style="font-size:13px">${lleg.length} nadadores · mejor ${fmtTime(best)}</div>
     </div>
@@ -2661,6 +2706,7 @@ function renderNuevaSerie() {
     <div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="ns-parc"':''}>
       <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>`}
     ${f.relevo ? '' : cicloHTML(f, 'ns')}
+    ${f.relevo ? '' : ritmoHTML(f, 'ns')}
     ${inicioHTML(f, 'ns')}
     <div class="row">
       <button class="btn btn-blue" style="flex:2;min-height:52px" data-action="ns-empezar" ${f.estilo&&f.dist?'':'disabled style="opacity:.4"'}>▶ Empezar serie ${SA.ronda+1}</button>
@@ -3222,7 +3268,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
-    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, auto:!!SA.ciclo, inicio:SA.inicio, comp:SA.comp, porNadador:SA.porNadador, relevo: SA.relevo ? {...SA.relevo, estilos:[...SA.relevo.estilos]} : null, rota: copiaRota(SA.rota)}; render(); } break;
+    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, auto:!!SA.ciclo, inicio:SA.inicio, comp:SA.comp, porNadador:SA.porNadador, relevo: SA.relevo ? {...SA.relevo, estilos:[...SA.relevo.estilos]} : null, rota: copiaRota(SA.rota), ritmo: SA.ritmo ? {...SA.ritmo} : null}; render(); } break;
     // Siguiente serie sin esperar a los que aún nadan: la del plan si hay, si no la misma
     case 'serie-ya':        if (SA) { if (SA.plan && SA.plan.series[SA.planIdx+1]) { SA.planIdx++; repetirSerie(SA.plan.series[SA.planIdx]); } else repetirSerie(); } break;
     case 'inicio':          { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && !o.comp) { o.inicio = btn.dataset.v === 'plataforma' ? 'plataforma' : 'agua'; render(); } break; }
@@ -3232,9 +3278,10 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'planec-quitar':   if (SA && SA.plan) { SA.plan.series.splice(Number(btn.dataset.i), 1); render(); } break;
     case 'planec-add':      if (SA && SA.plan) { const u = SA.plan.series[SA.plan.series.length-1]; SA.plan.series.push({...serieVacia(), ...(u?{estilo:u.estilo, dist:u.dist}:{})}); render(); } break;
     case 'planec-guardar':  if (SA && SA.plan && SA.plan.id && confirm('¿Guardar este orden de series en el entreno preparado para la próxima vez?')) {
-                              await DB.guardarPlan(SA.plan.id, {series: SA.plan.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!x.auto, inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota)}))});
+                              await DB.guardarPlan(SA.plan.id, {series: SA.plan.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!x.auto, inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota), ritmo:ritmoOk(x.ritmo)}))});
                               alert('Guardado en el entreno preparado.'); } break;
     case 'rel-modo':        { saveNotas(); const o = cicloObj(btn.dataset.t); if (o) { o.relevo = btn.dataset.v ? (o.relevo || {tipo:'igual', estilos:[...ESTILOS_RELEVO]}) : null; if (o.relevo) { o.parciales = false; o.auto = false; o.ciclo = null; o.comp = false; o.porNadador = false; o.rota = null; } render(); } break; }
+    case 'ritmo-ref':       { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.ritmo = {ref: btn.dataset.v, mano: (ritmoOk(o.ritmo) || {}).mano || null}; render(); } break; }
     case 'rota-toggle':     { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.rota = o.rota ? null : rotaDefecto(Number(o.dist) >= 100 ? o.dist : 200);
                               if (o.rota) { o.relevo = null; o.parciales = false; o.comp = false; o.dist = rotaTotal(o.rota); } render(); } break; }
     case 'rota-add':        { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && o.rota && o.rota.tramos.length < 8) { o.rota.tramos.push(50); o.rota.desc.push(ROTA_DESC_DEF); o.dist = rotaTotal(o.rota); render(); } break; }
@@ -3277,6 +3324,12 @@ document.getElementById('app').addEventListener('keydown', async function(e) {
 
 document.getElementById('app').addEventListener('change', function(e) {
   if (e.target.dataset.relnad && SA) { (SA.relNad = SA.relNad || new Map()).set(e.target.dataset.relnad, e.target.value); render(); return; }
+  if (e.target.dataset.ritmomano != null) {
+    planNombre(); const o = cicloObj(e.target.dataset.ritmomano); if (!o || !o.ritmo) return;
+    const v = parseRitmo(e.target.value);
+    if (e.target.value.trim() && !v) { alert('Escribe el ritmo cada 100 m así: 1:20.0'); return; }
+    o.ritmo = {...o.ritmo, mano: v}; render(); return;
+  }
   if (e.target.dataset.rotatr != null || e.target.dataset.rotadesc != null) {
     planNombre(); const o = cicloObj(e.target.dataset.t); if (!o || !o.rota) return;
     if (e.target.dataset.rotatr != null) o.rota.tramos[Number(e.target.dataset.rotatr)] = Number(e.target.value);

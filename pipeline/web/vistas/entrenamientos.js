@@ -47,10 +47,10 @@ function entTiempos(D, sw) {
     const n = nad.get(r.nId) || {};
     const web = n.rfen && Object.hasOwn(sw, String(n.rfen)) ? sw[String(n.rfen)] : null;
     const fecha = Number(s.fecha) || 0, ts = Number(r.ts) > 0 ? Number(r.ts) : null;
-    const rota = entRota(r.rota);
+    const rota = entRota(r.rota), ritmo = entRitmoGuardado(r.ritmo);
     return {id: r.id, sesId: r.sesId, fecha, dia: entDia(fecha), hora: entHora(fecha), fin: Number(s.fin) || null, coach: s.coach || '', sim: entEsSim(s), ronda: entEntero(r.ronda),
       ts, horaSerie: ts ? entHora(ts) : '', comp: r.comp === true, inicio: r.comp === true ? 'plataforma' : ['agua', 'plataforma'].includes(r.inicio) ? r.inicio : null,
-      estilo, dist, rota, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}${rota ? ` · ${entRotaTxt(rota)}` : ''}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
+      estilo, dist, rota, ritmo, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}${rota ? ` · ${entRotaTxt(rota)}` : ''}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
@@ -192,41 +192,44 @@ function entGraficoDispersion(D, ev) {
 /* Gráfica de un entrenamiento: una línea por nadador a lo largo de las series elegidas (series de progreso).
    rondas = series a dibujar (en orden); elegidos = nIds a dibujar (vacío = todo el grupo).
    Cada nadador conserva su color (el de su puesto en la tabla). Las series de competición se marcan en dorado.
-   Tiempo más alto arriba, mejor abajo. */
-const ENT_COL_SERIES = ['#0a6cff', '#e0861a', '#0f9d8a', '#8b3fd9', '#d43d51', '#2a9d3c', '#c2185b', '#00838f', '#6d4c41', '#5c6bc0', '#9e9d24', '#546e7a'];
-const entColorNad = (tabla, nId) => ENT_COL_SERIES[Math.max(0, tabla.filas.findIndex(f => f.nId === nId)) % ENT_COL_SERIES.length];
-/* Tiempo escrito junto a un punto (gráficas con pocos nadadores); el primero y el último, hacia dentro */
-const entEtiqueta = (x, y, txt, col, i, n, abajo) => `<text x="${x}" y="${abajo ? y + 16 : y - 8}" text-anchor="${n > 1 && i === 0 ? 'start' : n > 1 && i === n - 1 ? 'end' : 'middle'}" class="ent-etq" fill="${col}">${txt}</text>`;
+   Tiempo más alto arriba, mejor abajo. Con 4 nadadores o menos, su último tiempo al final de la línea; el resto, al tocar. */
+/* Colores de nadador: los 8 de la paleta comprobada para daltonismo (--s1…--s8 en estilos.css, uno por tema);
+   del 9º en adelante, gris (nunca se repite un color: dos nadadores con el mismo color se confunden) */
+const ENT_COL_SERIES = [1, 2, 3, 4, 5, 6, 7, 8].map(i => `var(--s${i})`);
+const ENT_COL_OTRO = 'var(--s-otro)';
+const entColorIdx = i => i >= 0 && i < ENT_COL_SERIES.length ? ENT_COL_SERIES[i] : ENT_COL_OTRO;
+const entColorNad = (tabla, nId) => entColorIdx(tabla.filas.findIndex(f => f.nId === nId));
 function entGraficoSeries(tabla, rondas, elegidos) {
   elegidos = elegidos || [];
   const filas = tabla.filas.filter(f => rondas.some(r => f.t[r]) && (!elegidos.length || elegidos.includes(f.nId)));
   if (!rondas.length || !filas.length) return '<p class="empty">Elige al menos una serie.</p>';
   const comp = new Set((tabla.series || []).filter(s => s.comp).map(s => s.ronda));
-  const etiquetas = filas.length <= 5;   // con pocos nadadores se escribe el tiempo junto a cada punto
-  // en cada serie, las etiquetas se alternan arriba y abajo (por orden de tiempo) para que no se pisen
-  const puesto = (r, f) => filas.filter(x => x.t[r]).sort((a, b) => a.t[r].cs - b.t[r].cs).indexOf(f);
+  const pocos = filas.length <= 4;   // con pocos nadadores, su último tiempo escrito al final de la línea
   const movil = typeof window !== 'undefined' && window.innerWidth < 600;
-  const W = movil ? 400 : 760, H = movil ? 250 : 280, P = {l: 50, r: 14, t: 22, b: 30};
+  const W = movil ? 400 : 760, H = movil ? 250 : 280, P = {l: 50, r: pocos ? 58 : 14, t: 16, b: 30};
   const cs = filas.flatMap(f => rondas.map(r => f.t[r] && f.t[r].cs).filter(Boolean));
   const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .1, 30), lo = mn - pad, hi = mx + pad;
-  const X = i => rondas.length === 1 ? W / 2 : P.l + i * (W - P.l - P.r) / (rondas.length - 1);
+  const X = i => rondas.length === 1 ? (P.l + W - P.r) / 2 : P.l + i * (W - P.l - P.r) / (rondas.length - 1);
   const Y = c => P.t + (hi - c) / (hi - lo) * (H - P.t - P.b);
-  let g = '';
-  for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
-    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="ent-eje"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end" class="ent-tx">${fmt(Math.round(c))}</text>`; }
-  // la primera y la última etiqueta se alinean hacia dentro para que no se corten en los bordes
+  let g = entEjeY(lo, hi, Y, P, W);
   rondas.forEach((r, i) => { const a = rondas.length > 1 && i === 0 ? 'start' : rondas.length > 1 && i === rondas.length - 1 ? 'end' : 'middle';
     if (comp.has(r)) g += `<line x1="${X(i)}" x2="${X(i)}" y1="${P.t}" y2="${H - P.b}" class="ent-comp-eje"/>`;
     g += `<text x="${X(i)}" y="${H - 8}" text-anchor="${a}" class="ent-tx${comp.has(r) ? ' ent-tx-comp' : ''}">Serie ${r}${comp.has(r) ? ' · competición' : ''}</text>`; });
-  filas.forEach(f => {
-    const col = entColorNad(tabla, f.nId), w = elegidos.length ? 3 : 2.2;
+  // el gris (del 9º nadador en adelante) se dibuja debajo, para que los de color se lean encima
+  const orden = [...filas].sort((a, b) => (entColorNad(tabla, b.nId) === ENT_COL_OTRO) - (entColorNad(tabla, a.nId) === ENT_COL_OTRO));
+  let puntos = '';
+  orden.forEach(f => {
+    const col = entColorNad(tabla, f.nId);
     let tramo = [];
-    const linea = () => { if (tramo.length > 1) g += `<polyline fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" points="${tramo.join(' ')}"/>`; tramo = []; };
+    const linea = () => { if (tramo.length > 1) g += `<polyline fill="none" stroke="${col}" class="ent-linea" points="${tramo.join(' ')}"/>`; tramo = []; };
     rondas.forEach((r, i) => { const t = f.t[r]; if (t) tramo.push(X(i) + ',' + Y(t.cs)); else linea(); }); linea();
-    rondas.forEach((r, i) => { const t = f.t[r]; if (t) g += `<circle cx="${X(i)}" cy="${Y(t.cs)}" r="${comp.has(r) ? 5.5 : 4}" fill="${col}"${comp.has(r) ? ' class="ent-punto-comp"' : ''}><title>${esc(f.n)} · serie ${r}${comp.has(r) ? ' (competición)' : ''} · ${fmt(t.cs)}</title></circle>`
-      + (etiquetas ? entEtiqueta(X(i), Y(t.cs), fmt(t.cs), col, i, rondas.length, puesto(r, f) % 2 === 1) : ''); });
+    rondas.forEach((r, i) => { const t = f.t[r]; if (!t) return;
+      puntos += entPunto(X(i), Y(t.cs), col, `${fmt(t.cs)}\n${f.n} · serie ${r}${comp.has(r) ? ' (competición)' : ''}`, comp.has(r)); });
+    const u = [...rondas].reverse().find(r => f.t[r]);
+    if (pocos && u != null) puntos += `<text x="${X(rondas.indexOf(u)) + 8}" y="${Y(f.t[u].cs) + 4}" class="ent-etq">${fmt(f.t[u].cs)}</text>`;
   });
-  return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progreso de cada nadador en las series elegidas">${g}</svg>`;
+  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progreso de cada nadador en las series elegidas">${g}${puntos}</svg>
+    ${entLeyenda(filas.map(f => [entColorNad(tabla, f.nId), f.n]))}</div>`;
 }
 
 /* Comparar nadadores en una prueba entre dos fechas con TODAS sus series (no solo el mejor de cada día).
@@ -248,15 +251,13 @@ function entComparativaRango(T, ev, nIds, desde, hasta) {
 function entGraficoRango(CR, colorDe) {
   if (!CR || !CR.lineas.length || !CR.slots.length) return '<p class="empty">Sin tiempos de estos nadadores entre esas fechas.</p>';
   const movil = typeof window !== 'undefined' && window.innerWidth < 600;
-  const W = movil ? 400 : 760, H = movil ? 260 : 290, P = {l: 50, r: 14, t: 22, b: 40}, n = CR.slots.length;
-  const etiquetas = CR.lineas.length <= 5 && n <= (movil ? 8 : 14);
+  const pocos = CR.lineas.length <= 4;
+  const W = movil ? 400 : 760, H = movil ? 260 : 290, P = {l: 50, r: pocos ? 58 : 14, t: 16, b: 40}, n = CR.slots.length;
   const cs = CR.lineas.flatMap(l => Object.values(l.t).map(t => t.cs));
   const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .1, 20), lo = mn - pad, hi = mx + pad;
-  const X = i => n === 1 ? W / 2 : P.l + i * (W - P.l - P.r) / (n - 1);
+  const X = i => n === 1 ? (P.l + W - P.r) / 2 : P.l + i * (W - P.l - P.r) / (n - 1);
   const Y = c => P.t + (hi - c) / (hi - lo) * (H - P.t - P.b);
-  let g = '';
-  for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
-    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="ent-eje"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end" class="ent-tx">${fmt(Math.round(c))}</text>`; }
+  let g = entEjeY(lo, hi, Y, P, W), puntos = '';
   const paso = Math.ceil(n / (movil ? 6 : 12)) || 1;
   CR.slots.forEach((s, i) => {
     if (s.comp) g += `<line x1="${X(i)}" x2="${X(i)}" y1="${P.t}" y2="${H - P.b}" class="ent-comp-eje"/>`;
@@ -265,14 +266,160 @@ function entGraficoRango(CR, colorDe) {
     if (!(i % paso) || s.comp) g += `<text x="${X(i)}" y="${H - 22}" text-anchor="middle" class="ent-tx${s.comp ? ' ent-tx-comp' : ''}">S${s.ronda}</text>`;
     if (primeraDelDia) g += `<text x="${X(i)}" y="${H - 7}" text-anchor="${i === 0 && n > 1 ? 'start' : i === n - 1 && n > 1 ? 'end' : 'middle'}" class="ent-tx">${s.dia.slice(8)}/${s.dia.slice(5, 7)}</text>`;
   });
-  CR.lineas.forEach(l => {
+  const orden = [...CR.lineas].sort((a, b) => (colorDe(b.nId) === ENT_COL_OTRO) - (colorDe(a.nId) === ENT_COL_OTRO));
+  orden.forEach(l => {
     const col = colorDe(l.nId); let tramo = [];
-    const linea = () => { if (tramo.length > 1) g += `<polyline fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" points="${tramo.join(' ')}"/>`; tramo = []; };
+    const linea = () => { if (tramo.length > 1) g += `<polyline fill="none" stroke="${col}" class="ent-linea" points="${tramo.join(' ')}"/>`; tramo = []; };
     CR.slots.forEach((s, i) => { const t = l.t[s.k]; if (t) tramo.push(X(i) + ',' + Y(t.cs)); else linea(); }); linea();
-    CR.slots.forEach((s, i) => { const t = l.t[s.k]; if (t) g += `<circle cx="${X(i)}" cy="${Y(t.cs)}" r="${s.comp ? 5.5 : 3.8}" fill="${col}"${s.comp ? ' class="ent-punto-comp"' : ''}><title>${esc(l.n)} · ${dfmt(s.dia)} · serie ${s.ronda}${s.comp ? ' (competición)' : ''} · ${fmt(t.cs)}</title></circle>`
-      + (etiquetas ? entEtiqueta(X(i), Y(t.cs), fmt(t.cs), col, i, n, CR.lineas.filter(m => m.t[s.k]).sort((a, b) => a.t[s.k].cs - b.t[s.k].cs).indexOf(l) % 2 === 1) : ''); });
+    CR.slots.forEach((s, i) => { const t = l.t[s.k]; if (t) puntos += entPunto(X(i), Y(t.cs), col, `${fmt(t.cs)}\n${l.n} · ${dfmt(s.dia)} · serie ${s.ronda}${s.comp ? ' (competición)' : ''}`, s.comp); });
+    const u = [...CR.slots].reverse().find(s => l.t[s.k]);
+    if (pocos && u) puntos += `<text x="${X(CR.slots.indexOf(u)) + 8}" y="${Y(l.t[u.k].cs) + 4}" class="ent-etq">${fmt(l.t[u.k].cs)}</text>`;
   });
-  return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}</svg>`;
+  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}${puntos}</svg>
+    ${entLeyenda(CR.lineas.map(l => [colorDe(l.nId), l.n]))}</div>`;
+}
+
+/* ── Piezas comunes de las gráficas ──
+   Rejilla fina y discreta; puntos con un aro del color del fondo (se leen aunque se crucen); el valor de cada punto
+   en un aviso al pasar el dedo o el ratón (zona de toque más grande que el punto); leyenda siempre con 2 o más nadadores. */
+function entEjeY(lo, hi, Y, P, W) {
+  let g = '';
+  for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="ent-eje"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end" class="ent-tx">${fmt(Math.round(c))}</text>`; }
+  return g;
+}
+const entTip = txt => ` data-tip="${esc(txt)}" tabindex="0" aria-label="${esc(txt.replace(/\n/g, ' · '))}"`;
+const entPunto = (x, y, col, tip, comp) => `<g class="ent-pt-g"${entTip(tip)}><circle cx="${x}" cy="${y}" r="14" class="ent-hit"/><circle cx="${x}" cy="${y}" r="${comp ? 6 : 4.5}" fill="${col}" class="ent-dot${comp ? ' ent-punto-comp' : ''}"/></g>`;
+const entLeyenda = L => L.length < 2 ? '' : `<div class="ent-leyenda">${L.map(([c, n]) => `<span><i class="ent-l-linea" style="background:${c}"></i>${esc(n)}</span>`).join('')}</div>`;
+/* Aviso flotante de las gráficas: uno solo para toda la página; el texto entra con textContent (nunca HTML) */
+let ENT_TIP = null;
+function entTips(root) {
+  if (!root || root.dataset.tips) return; root.dataset.tips = '1';
+  const mostrar = el => {
+    if (!ENT_TIP) { ENT_TIP = document.createElement('div'); ENT_TIP.className = 'ent-tip'; ENT_TIP.setAttribute('role', 'tooltip'); document.body.appendChild(ENT_TIP); }
+    ENT_TIP.textContent = '';
+    el.dataset.tip.split('\n').forEach((l, i) => { const d = document.createElement(i ? 'div' : 'b'); d.textContent = l; ENT_TIP.appendChild(d); });
+    const r = el.getBoundingClientRect();
+    ENT_TIP.style.display = 'block';
+    const w = ENT_TIP.offsetWidth;
+    ENT_TIP.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    ENT_TIP.style.top = (r.top + window.scrollY - ENT_TIP.offsetHeight - 6) + 'px';
+  };
+  const ocultar = () => { if (ENT_TIP) ENT_TIP.style.display = 'none'; };
+  root.addEventListener('pointerover', e => { const el = e.target.closest('[data-tip]'); if (el) mostrar(el); });
+  root.addEventListener('pointerout', e => { if (e.target.closest('[data-tip]')) ocultar(); });
+  root.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el) mostrar(el); });
+  root.addEventListener('focusout', ocultar);
+  window.addEventListener('scroll', ocultar, {passive: true});
+}
+
+/* ── Ritmo de 200 y de 400 ──
+   Cada tiempo se compara con el ritmo medio de la mejor marca del nadador (en piscina de 25 m) en 200 o en 400 del mismo estilo,
+   llevado a la distancia de la serie: con 2:35.6 en 200, una serie de 100 tiene como objetivo 1:17.8.
+   Si no tiene 400, se estima de su 200 (fórmula de Riegel: ×2^1.06). Si no tiene marca, el ritmo que puso el entrenador
+   a mano en el cronómetro y, si tampoco, la media del grupo en esa serie (para tener algo con lo que comparar). */
+const ENT_RIEGEL = 2 ** 1.06;
+const ENT_REFS = [['200', 'Ritmo de 200'], ['400', 'Ritmo de 400'], ['mejor', 'Mejor marca de la prueba']];
+const ENT_BASE = {marca: 'su mejor marca', est: 'estimado de su 200', mano: 'puesto por el entrenador', media: 'media del grupo'};
+function entRitmoGuardado(x) {
+  if (!x || typeof x !== 'object' || !['200', '400', 'mejor'].includes(x.ref)) return null;
+  const n = v => Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null;
+  return {ref: x.ref, mano: n(x.mano), cs: n(x.cs), base: Object.hasOwn(ENT_BASE, x.base) ? x.base : null};
+}
+// Objetivo de un tiempo según su marca: {cs, base} (sin media del grupo) o null
+function entObjetivoPropio(t, ref) {
+  if (!t.estilo || !t.dist) return null;
+  const s = t.rfen && Object.hasOwn(SW, t.rfen) ? SW[t.rfen] : null, est = entEstiloNombre(t.estilo);
+  const marca = d => s ? entMejorCompeticion(s, `${d} ${est}`) : null;
+  if (ref === 'mejor') { const c = marca(t.dist); return c ? {cs: c.cs, base: 'marca'} : null; }
+  const d = ref === '400' ? 400 : 200, c = marca(d);
+  if (c) return {cs: Math.round(c.cs * t.dist / d), base: 'marca'};
+  if (d === 400) { const c2 = marca(200); if (c2) return {cs: Math.round(c2.cs * ENT_RIEGEL * t.dist / 400), base: 'est'}; }
+  if (t.ritmo && t.ritmo.mano && ref !== 'mejor') return {cs: Math.round(t.ritmo.mano * t.dist / 100), base: 'mano'};
+  return null;
+}
+// Objetivos de una serie (lista de tiempos): los que no tienen, la media del grupo (por metro, llevada a su distancia)
+function entObjetivos(L, ref) {
+  const m = new Map(L.map(t => [t, entObjetivoPropio(t, ref)]));
+  const conM = L.filter(t => m.get(t));
+  const porMetro = conM.length ? conM.reduce((a, t) => a + m.get(t).cs / t.dist, 0) / conM.length : null;
+  L.forEach(t => { if (!m.get(t) && porMetro && t.dist) m.set(t, {cs: Math.round(porMetro * t.dist), base: 'media'}); });
+  return m;
+}
+// Zonas: «dentro» = a su ritmo o más rápido; «cerca» = hasta su ritmo de 400 (con el de 200) o hasta un 3 % más lento; «fuera» = más lento
+function entZonas(ref) {
+  return ref === '200' ? {dentro: 'A su ritmo de 200 o mejor', cerca: 'Entre su ritmo de 200 y el de 400', fuera: 'Más lento que su ritmo de 400'}
+    : ref === '400' ? {dentro: 'A su ritmo de 400 o mejor', cerca: 'Hasta un 3 % más lento', fuera: 'Más de un 3 % más lento'}
+    : {dentro: 'Igual o mejor que su marca', cerca: 'Hasta un 3 % más lento', fuera: 'Más de un 3 % más lento'};
+}
+const ENT_FORMA = {dentro: '●', cerca: '◆', fuera: '▲'};
+// Datos de la gráfica de ritmo: una fila por nadador con el % de su ritmo en cada serie elegida
+function entDatosRitmo(tabla, rondas, sel, ref) {
+  const obj = new Map(), lim = new Map();
+  rondas.forEach(r => { const L = tabla.filas.map(f => f.t[r]).filter(Boolean);
+    entObjetivos(L, ref).forEach((v, t) => obj.set(t, v));
+    if (ref === '200') entObjetivos(L, '400').forEach((v, t) => lim.set(t, v)); });
+  const filas = tabla.filas.filter(f => sel.has(f.nId)).map(f => {
+    const pts = rondas.filter(r => f.t[r] && obj.get(f.t[r])).map(r => {
+      const t = f.t[r], o = obj.get(t), pct = t.cs / o.cs * 100;
+      const l = lim.get(t), limPct = l ? l.cs / o.cs * 100 : 103;
+      return {r, t, o, pct, limPct, zona: pct <= 100 ? 'dentro' : pct <= limPct ? 'cerca' : 'fuera'};
+    });
+    if (!pts.length) return null;
+    const media = pts.reduce((a, x) => a + x.pct, 0) / pts.length, limPct = pts.reduce((a, x) => a + x.limPct, 0) / pts.length;
+    return {nId: f.nId, n: f.n, rfen: f.rfen, pts, media, limPct, base: pts[0].o.base, zona: media <= 100 ? 'dentro' : media <= limPct ? 'cerca' : 'fuera'};
+  }).filter(Boolean).sort((a, b) => a.media - b.media);
+  return {filas, sinDatos: tabla.filas.filter(f => sel.has(f.nId)).length - filas.length};
+}
+/* Gráfica de ritmo: una fila por nadador (el mejor arriba); cada punto, una serie, en % de su ritmo (100 % = justo a ritmo).
+   Fondo de cada fila en tres zonas (dentro · cerca · fuera), con forma además de color (● ◆ ▲) para que se distinga sin color. */
+function entGraficoRitmo(D, ref, serieTxt) {
+  if (!D.filas.length) return '<p class="empty">Sin marcas para calcular ritmos en estas series. Se puede poner un ritmo a mano al preparar la serie en el cronómetro.</p>';
+  const Z = entZonas(ref), movil = typeof window !== 'undefined' && window.innerWidth < 600;
+  const W = movil ? 400 : 760, FH = 30, P = {l: movil ? 96 : 150, r: 52, t: 26, b: 22}, H = P.t + D.filas.length * FH + P.b;
+  const todos = D.filas.flatMap(f => [...f.pts.map(x => x.pct), f.limPct]);
+  const lo = Math.max(70, Math.floor(Math.min(95, ...todos) - 1)), hi = Math.min(140, Math.ceil(Math.max(105, ...todos) + 1));
+  const X = v => P.l + (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (W - P.l - P.r);
+  let g = '';
+  // marcas del eje: cada 5 %
+  for (let v = Math.ceil(lo / 5) * 5; v <= hi; v += 5) g += `<line x1="${X(v)}" x2="${X(v)}" y1="${P.t - 4}" y2="${H - P.b}" class="ent-eje"/><text x="${X(v)}" y="${H - 6}" text-anchor="middle" class="ent-tx">${v} %</text>`;
+  D.filas.forEach((f, i) => {
+    const y = P.t + i * FH, yc = y + FH / 2;
+    g += `<rect x="${X(lo)}" y="${y + 3}" width="${X(100) - X(lo)}" height="${FH - 6}" class="ent-z-dentro"/>`
+      + `<rect x="${X(100)}" y="${y + 3}" width="${Math.max(0, X(f.limPct) - X(100))}" height="${FH - 6}" class="ent-z-cerca"/>`
+      + `<rect x="${X(f.limPct)}" y="${y + 3}" width="${Math.max(0, X(hi) - X(f.limPct))}" height="${FH - 6}" class="ent-z-fuera"/>`;
+    const nom = f.n.length > (movil ? 12 : 22) ? f.n.slice(0, movil ? 10 : 21) + '…' : f.n;
+    g += `<text x="${P.l - 8}" y="${yc + 4}" text-anchor="end" class="ent-tx ent-tx-nom">${esc(nom)}${f.base !== 'marca' ? ' *' : ''}</text>`;
+    const xs = f.pts.map(x => X(x.pct));
+    if (xs.length > 1) g += `<line x1="${Math.min(...xs)}" x2="${Math.max(...xs)}" y1="${yc}" y2="${yc}" class="ent-rango"/>`;
+    f.pts.forEach(x => { const xx = X(x.pct), dif = (x.t.cs - x.o.cs) / 100;
+      const tip = `${fmt(x.t.cs)} · ${x.pct.toFixed(1)} %\n${f.n} · ${serieTxt(x.r)}\nObjetivo ${fmt(x.o.cs)} (${ENT_BASE[x.o.base]}) · ${dif <= 0 ? '−' : '+'}${Math.abs(dif).toFixed(2)} s\n${ENT_FORMA[x.zona]} ${Z[x.zona]}`;
+      g += `<g class="ent-pt-g"${entTip(tip)}><circle cx="${xx}" cy="${yc}" r="14" class="ent-hit"/>${entForma(x.zona, xx, yc)}</g>`; });
+    g += `<text x="${W - P.r + 8}" y="${yc + 4}" class="ent-tx ent-tx-media">${f.media.toFixed(1)} %</text>`;
+  });
+  g += `<line x1="${X(100)}" x2="${X(100)}" y1="${P.t - 6}" y2="${H - P.b}" class="ent-cien"/><text x="${X(100)}" y="${P.t - 10}" text-anchor="middle" class="ent-tx ent-tx-cien">${ref === 'mejor' ? 'su marca' : 'su ritmo de ' + ref}</text>`;
+  const cuenta = z => D.filas.filter(f => f.zona === z).length;
+  return `<div class="ent-ritmo-res">${['dentro', 'cerca', 'fuera'].map(z => `<div class="ent-rz ent-rz-${z}"><b>${ENT_FORMA[z]} ${cuenta(z)}</b><span>${Z[z]}</span></div>`).join('')}</div>
+    <div class="ent-graf"><svg class="chart ent-chart ent-chart-ritmo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cada nadador en % de su ritmo">${g}</svg></div>
+    <p class="tiny muted">Cada punto es una serie; la columna de la derecha, su media. Más a la izquierda = más rápido. El fondo de cada fila marca sus propias zonas.
+      ${D.filas.some(f => f.base !== 'marca') ? ' * Sin marca propia: objetivo puesto por el entrenador, estimado o media del grupo (se ve al tocar el punto).' : ''}
+      ${D.sinDatos ? ` ${D.sinDatos} sin datos para calcular su ritmo.` : ''}</p>`;
+}
+// Forma de cada zona (además del color): círculo, rombo, triángulo
+function entForma(z, x, y) {
+  if (z === 'dentro') return `<circle cx="${x}" cy="${y}" r="5.5" class="ent-zp ent-zp-dentro"/>`;
+  if (z === 'cerca') return `<path d="M${x} ${y - 7}L${x + 7} ${y}L${x} ${y + 7}L${x - 7} ${y}Z" class="ent-zp ent-zp-cerca"/>`;
+  return `<path d="M${x} ${y - 7}L${x + 7} ${y + 6}L${x - 7} ${y + 6}Z" class="ent-zp ent-zp-fuera"/>`;
+}
+// Tabla de la gráfica de ritmo: objetivo de cada uno y diferencia en cada serie
+function entTablaRitmo(D, serieTxt, fichaA) {
+  if (!D.filas.length) return '';
+  const rondas = [...new Set(D.filas.flatMap(f => f.pts.map(x => x.r)))].sort((a, b) => a - b);
+  return `<details class="ent-tabla-ritmo"><summary class="small">Ver en tabla</summary><div class="tw"><table class="rt ent-mat"><tr><th>Nadador</th><th class="num">Objetivo</th>${rondas.map(r => `<th class="num">${serieTxt(r)}</th>`).join('')}<th class="num">Media</th></tr>
+    ${D.filas.map(f => `<tr><td style="white-space:nowrap"><b>${fichaA(f.rfen, esc(f.n))}</b><div class="tiny muted">${ENT_BASE[f.base]}</div></td><td class="num">${fmt(f.pts[0].o.cs)}</td>
+      ${rondas.map(r => { const x = f.pts.find(p => p.r === r); if (!x) return '<td class="num vacia">—</td>'; const d = (x.t.cs - x.o.cs) / 100;
+        return `<td class="num">${fmt(x.t.cs)}<div class="tiny ${d <= 0 ? 'good' : 'bad'}">${ENT_FORMA[x.zona]} ${d <= 0 ? '−' : '+'}${Math.abs(d).toFixed(1)}</div></td>`; }).join('')}
+      <td class="num"><b>${f.media.toFixed(1)} %</b></td></tr>`).join('')}</table></div></details>`;
 }
 
 /* Relevos del entrenamiento (los guarda el cronómetro en la sesión): equipos por tiempo y la posta de cada nadador */
@@ -327,15 +474,31 @@ function entTablaSeries(tabla, rondas, sel, serieTxt, fichaA) {
         return t ? `<td class="num${c}">${t.cs === mejor[r] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}${dif ? `<td class="num">${a && b ? entDif((b.cs - a.cs) / 100) : '—'}</td>` : ''}</tr>`; }).join('')}</table></div>
     <p class="tiny muted">En verde, el más rápido de cada serie entre los elegidos. La última columna: diferencia entre la primera y la última serie elegidas.</p>`;
 }
+/* Con qué ritmo se creó la serie en el cronómetro (el más repetido entre las series elegidas); si no lo dice, el de 200 */
+function entRefDeSeries(tabla, rondas) {
+  const c = {}; tabla.filas.forEach(f => rondas.forEach(r => { const t = f.t[r]; if (t && t.ritmo) c[t.ritmo.ref] = (c[t.ritmo.ref] || 0) + 1; }));
+  return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || null;
+}
 function entMontarGraficaDia(host, G) {
   const out = host.querySelector('#ent-graf-dia'); if (!out) return;
-  let rondas = [...G.gs], sel = new Set(G.gf.length ? G.gf : G.tabla.filas.map(x => x.nId));
+  const outR = host.querySelector('#ent-ritmo');
+  let rondas = [...G.gs], sel = new Set(G.gf.length ? G.gf : G.tabla.filas.map(x => x.nId)), ref = G.gr || '';
+  const pintarRitmo = () => {
+    if (!outR) return;
+    const creada = entRefDeSeries(G.tabla, rondas), r = ref || creada || '200';
+    const D = entDatosRitmo(G.tabla, rondas, sel, r), st = n => `Serie ${n}`;
+    outR.innerHTML = `<div class="chips sub" data-chips="gr">${ENT_REFS.map(([v, t]) => `<button class="chip ${v === r ? 'on' : ''}" data-v="${v}">${t}${v === creada ? ' <span class="tiny">· de la serie</span>' : ''}</button>`).join('')}</div>
+      ${!rondas.length || !sel.size ? '<p class="empty">Elige series y nadadores arriba.</p>' : entGraficoRitmo(D, r, st) + entTablaRitmo(D, st, G.fichaA)}`;
+    onChips(outR, 'gr', v => { ref = v === creada ? '' : v; entRecordar({gr: ref}); pintarRitmo(); });
+  };
   const pintar = () => {
     out.innerHTML = !sel.size ? '<p class="empty">Elige al menos un nadador.</p>'
       : entGraficoSeries(G.tabla, rondas, [...sel]) + entTablaSeries(G.tabla, rondas, sel, G.serieTxt, G.fichaA);
     const todos = sel.size === G.tabla.filas.length;
     entRecordar({gs: rondas.length ? rondas.join(',') : '-', gf: todos || !sel.size ? '' : [...sel].join(',')});
+    pintarRitmo();
   };
+  entTips(host);
   const gsBox = host.querySelector('#ent-gs');
   if (gsBox) gsBox.addEventListener('change', () => {
     rondas = [...gsBox.querySelectorAll('input:checked')].map(i => Number(i.value)).sort((a, b) => a - b);
@@ -346,6 +509,7 @@ function entMontarGraficaDia(host, G) {
 }
 function entMontarComparar(host, C) {
   const out = host.querySelector('#ent-comparar-out'); if (!out) return;
+  entTips(host);
   let sel = new Set(C.elegidos), cd = C.cd, ch = C.ch;
   const colorDe = id => (C.nads.find(m => m.nId === id) || {}).color || ENT_COL_SERIES[0];
   const pintar = () => {
@@ -492,7 +656,7 @@ function vistaEntrenamientos(app, p) {
   const ok = (v, re) => re.test(String(v || '')) ? String(v) : '';
   const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || '', gev: p.gev || '',
     sem: ok(p.sem, /^\d{4}-\d{2}-\d{2}$/), dia: ok(p.dia, /^\d{4}-\d{2}-\d{2}$/), ses: ok(p.ses, /^[A-Za-z0-9_-]{1,64}$/),
-    sa: ok(p.sa, /^\d{1,3}$/), sb: ok(p.sb, /^\d{1,3}$/), gs: ok(p.gs, /^(-|\d{1,3}(,\d{1,3}){0,30})$/), gf: ok(p.gf, /^[A-Za-z0-9_-]{1,64}(,[A-Za-z0-9_-]{1,64}){0,40}$/),
+    sa: ok(p.sa, /^\d{1,3}$/), sb: ok(p.sb, /^\d{1,3}$/), gs: ok(p.gs, /^(-|\d{1,3}(,\d{1,3}){0,30})$/), gf: ok(p.gf, /^[A-Za-z0-9_-]{1,64}(,[A-Za-z0-9_-]{1,64}){0,40}$/), gr: ok(p.gr, /^(200|400|mejor)$/),
     cd: ok(p.cd, /^\d{4}-\d{2}-\d{2}$/), ch: ok(p.ch, /^\d{4}-\d{2}-\d{2}$/)};
   app.innerHTML = `
     <div class="card sub-cab"><span class="ante">Modo entrenador</span><h1>Entrenamientos</h1></div>
@@ -538,7 +702,7 @@ function pintarEntrenamientos(host, f) {
     const gs = f.gs === '-' ? [] : f.gs ? f.gs.split(',').map(Number).filter(r => tabla.series.some(s => s.ronda === r))
       : tabla.series.filter(s => s.ev === evTop).map(s => s.ronda);
     const gf = f.gf ? f.gf.split(',').filter(n => tabla.filas.some(x => x.nId === n)) : [];   // nadadores elegidos (vacío = todo el grupo)
-    graficaDia = {tabla, gs, gf, serieTxt, fichaA};
+    graficaDia = {tabla, gs, gf, serieTxt, fichaA, gr: ['200', '400', 'mejor'].includes(f.gr) ? f.gr : ''};
     diaHTML = `
     <div class="card" id="ent-dia"><div class="h">${ico('crono')}Entrenamiento del ${entDiaSemana(diaVer)} ${dfmt(diaVer)} <span class="h-n">(${sesSel.hora}${sesSel.fin ? '–' + entHora(sesSel.fin) : ''} · ${esc(sesSel.coach)} · ${tabla.series.length} series · ${tabla.filas.length} nadadores)</span></div>
       ${sesDia.length > 1 ? `<div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos:</div>${chipsHTML('ses', sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series]), sesSel.sesId)}` : ''}
@@ -552,6 +716,9 @@ function pintarEntrenamientos(host, f) {
       <div class="ent-pick-series" id="ent-gs">${tabla.series.map(s => `<label class="chip${gs.includes(s.ronda) ? ' on' : ''}${s.comp ? ' ent-chip-comp' : ''}"><input type="checkbox" value="${s.ronda}"${gs.includes(s.ronda) ? ' checked' : ''}>${serieTxt(s)}</label>`).join('')}</div>
       ${entSelNadHTML('ent-gf', tabla.filas.map(x => ({nId: x.nId, n: x.n, color: entColorNad(tabla, x.nId)})), new Set(gf.length ? gf : tabla.filas.map(x => x.nId)))}
       <div id="ent-graf-dia"></div>
+      <div class="h h-sub">${ico('tendencia')}Ritmo: ¿quién va a su ritmo?</div>
+      <div class="ent-sel">Cada nadador frente a su propio ritmo de 200 o de 400 (de su mejor marca) en las series elegidas arriba. Se marca el que se eligió al crear la serie; puedes cambiarlo.</div>
+      <div id="ent-ritmo"></div>
     </div>`;
   }
   const vacio = !T.length
@@ -596,7 +763,7 @@ function pintarEntrenamientos(host, f) {
   const diasEv = prC ? [...new Set(F.filter(t => t.ev === cev).map(t => t.dia))].sort() : [];
   const cd = f.cd || diasEv[0] || '', ch = f.ch || diasEv[diasEv.length - 1] || '';
   const elegidos = prC ? (f.cn ? f.cn.split(',') : prC.nads.map(m => m.nId)).filter(id => prC.nads.some(m => m.nId === id)) : [];   // por defecto, todo el grupo
-  const colorDe = id => ENT_COL_SERIES[Math.max(0, prC ? prC.nads.findIndex(m => m.nId === id) : 0) % ENT_COL_SERIES.length];
+  const colorDe = id => entColorIdx(Math.max(0, prC ? prC.nads.findIndex(m => m.nId === id) : 0));
   const comparaDatos = prC ? {F, cev, nads: prC.nads.map(m => ({nId: m.nId, n: m.n, rfen: m.rfen, color: colorDe(m.nId)})), elegidos, cd, ch, min: diasEv[0] || '', max: diasEv[diasEv.length - 1] || ''} : null;
   const comparar = prC ? `
     <div class="card" id="ent-comparar"><div class="h">${ico('balanza')}Comparar nadadores</div>
@@ -635,7 +802,7 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: ''}));
   onChips(host, 'gev', v => go({gev: v}));
   onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: ''}));
-  onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: ''}));
+  onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: '', gr: ''}));
   if (graficaDia) entMontarGraficaDia(host, graficaDia);
   if (comparaDatos) entMontarComparar(host, comparaDatos);
   host.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });

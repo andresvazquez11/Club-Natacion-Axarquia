@@ -8,6 +8,9 @@
 }
 html.clara,:root{
   --bg:#f7fdff;
+  /* gráficas: 8 colores de nadador comprobados (daltonismo, contraste) para este fondo; del 9º en adelante, gris */
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;--s-otro:#9fb3bc;
+  --graf-fondo:#fcfeff;--z-dentro:#0ca30c;--z-cerca:#fab219;--z-fuera:#d03b3b;
   --surf:rgba(255,255,255,.84); --surf-bd:#dff3f8; --shadow:0 4px 18px rgba(8,80,110,.08);
   --solid:#f4fcfe; --inset:#eef6f9; --ln:rgba(6,58,74,.09);
   --field:rgba(255,255,255,.8); --field-bd:#d3eef5; --field-ink:#4b7280;
@@ -22,6 +25,8 @@ html.clara,:root{
 }
 html.acuatico{
   --bg:#032a4d;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;--s-otro:#5d7590;
+  --graf-fondo:#031a33;
   --surf:rgba(3,22,44,.82); --surf-bd:rgba(255,255,255,.08); --shadow:inset 0 1px 0 rgba(255,255,255,.06);
   --solid:#04223f; --inset:rgba(255,255,255,.07); --ln:rgba(255,255,255,.08);
   --field:rgba(3,22,44,.74); --field-bd:rgba(255,255,255,.1); --field-ink:#9cc2dd;
@@ -695,3 +700,37 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .dir-est{margin-left:4px}
 .dir-est.hecha{color:var(--good,#2a9d3c)}
 .dir-est.vivo,.dir-vivo-txt{color:#e5484d;font-weight:700}
+
+/* Gráficas: líneas de 2 px, puntos con aro del color del fondo, zona de toque grande y aviso al pasar o tocar */
+.ent-chart .ent-linea{stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ent-chart .ent-dot{stroke:var(--graf-fondo);stroke-width:2}
+.ent-chart .ent-hit{fill:transparent}
+.ent-chart .ent-pt-g{cursor:pointer;outline:none}
+.ent-chart .ent-pt-g:hover .ent-dot,.ent-chart .ent-pt-g:focus .ent-dot,.ent-chart .ent-pt-g:hover .ent-zp,.ent-chart .ent-pt-g:focus .ent-zp{stroke:var(--ink);stroke-width:2.5}
+.ent-chart .ent-etq{font-size:11px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:var(--graf-fondo);stroke-width:3px}
+.ent-leyenda .ent-l-linea{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}
+.ent-tip{position:absolute;z-index:50;display:none;pointer-events:none;max-width:260px;padding:7px 10px;border-radius:10px;
+  background:var(--ink);color:var(--bg);font-size:.75rem;line-height:1.35;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.ent-tip b{font-size:.95rem;display:block}
+/* Gráfica de ritmo: zonas de cada fila (un velo del color), forma por zona y línea del 100 % */
+.ent-chart-ritmo{max-height:none}
+.ent-chart .ent-z-dentro{fill:var(--z-dentro);opacity:.12}
+.ent-chart .ent-z-cerca{fill:var(--z-cerca);opacity:.12}
+.ent-chart .ent-z-fuera{fill:var(--z-fuera);opacity:.12}
+.ent-chart .ent-zp{stroke:var(--graf-fondo);stroke-width:2}
+.ent-chart .ent-zp-dentro{fill:var(--z-dentro)}
+.ent-chart .ent-zp-cerca{fill:var(--z-cerca)}
+.ent-chart .ent-zp-fuera{fill:var(--z-fuera)}
+.ent-chart .ent-rango{stroke:var(--ink2);stroke-width:2;opacity:.45}
+.ent-chart .ent-cien{stroke:var(--ink);stroke-width:2}
+.ent-chart .ent-tx-cien{fill:var(--ink);font-weight:800}
+.ent-chart .ent-tx-nom{fill:var(--ink);font-weight:600;font-size:12px}
+.ent-chart .ent-tx-media{fill:var(--ink);font-weight:800}
+.ent-ritmo-res{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.ent-rz{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:12px;background:var(--inset);border-left:4px solid}
+.ent-rz b{font-size:1.25rem;font-variant-numeric:tabular-nums}
+.ent-rz span{font-size:.72rem;color:var(--ink2);line-height:1.25}
+.ent-rz-dentro{border-color:var(--z-dentro)} .ent-rz-dentro b{color:var(--ink)}
+.ent-rz-cerca{border-color:var(--z-cerca)}
+.ent-rz-fuera{border-color:var(--z-fuera)}
+.ent-tabla-ritmo summary{cursor:pointer;color:var(--link);padding:4px 0}

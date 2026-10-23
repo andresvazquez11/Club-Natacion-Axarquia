@@ -205,7 +205,8 @@ test('entGraficoSeries: una línea por nadador que nadó las series elegidas; av
   ctx.__tb = evalIn(ctx, 'entTabla')(T);
   const svg = evalIn(ctx, 'entGraficoSeries(__tb, [1, 2], null)');
   assert.equal((svg.match(/<polyline/g) || []).length, 1);     // solo Ana nadó las dos series
-  assert.equal((svg.match(/<circle/g) || []).length, 3);
+  assert.equal((svg.match(/class="ent-dot/g) || []).length, 3);
+  assert.match(svg, /data-tip="/);                                // el valor de cada punto, al tocarlo
   assert.match(evalIn(ctx, 'entGraficoSeries(__tb, [], null)'), /Elige al menos una serie/);
 });
 
@@ -222,8 +223,8 @@ test('entComparativaRango: todas las series de los elegidos entre dos fechas, en
 test('entGraficoSeries: con nadadores elegidos solo dibuja los suyos', () => {
   const T = ev('entTiempos', D, SW).filter(t => t.sesId === 's1');
   ctx.__tb = evalIn(ctx, 'entTabla')(T);
-  assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], ["b"])').match(/<circle/g) || []).length, 1);
-  assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], [])').match(/<circle/g) || []).length, 2);
+  assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], ["b"])').match(/class="ent-dot/g) || []).length, 1);
+  assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], [])').match(/class="ent-dot/g) || []).length, 2);
 });
 
 test('entTiempos: una rota es su propia prueba (sale en gráficas y solo se compara con la misma rota)', () => {
@@ -240,4 +241,42 @@ test('entTiempos: una rota es su propia prueba (sale en gráficas y solo se comp
   assert.ok(evs.indexOf('200 Libre') < evs.indexOf('200 Libre · rota 100·100 (15 s)'));
   ctx.__T = T;
   assert.equal(evalIn(ctx, `entComparar(__T, __T.find(t => t.id === 'r6')).ent`), null);   // no se compara con el 200 normal
+});
+
+test('ritmo: objetivo de su marca de 200 o 400, 400 estimado del 200, ritmo a mano y media del grupo', () => {
+  const c = cargar(ARCH, structuredClone(DATA));
+  c.SW = { '7': { id: 7, n: 'Ana', g: 'F', ev: [{ e: '200 Libre', h: [['2026-03-01', 15560, '25m', 'x', 'y', 0, 0, 0, 0]] }, { e: '100 Libre', h: [['2026-03-01', 7000, '25m', 'x', 'y', 0, 0, 0, 0]] }] } };
+  evalIn(c, 'Object.assign(SW, globalThis.SW)');
+  const t = (o) => Object.assign({ estilo: 'libre', dist: 100, rfen: '7', ritmo: null }, o);
+  c.__t = [t({ cs: 7600 }), t({ cs: 8200, rfen: null }), t({ cs: 9000, rfen: null, ritmo: { ref: '200', mano: 8000 } })];
+  const r = (expr) => JSON.parse(evalIn(c, `JSON.stringify(${expr})`));
+  assert.deepEqual(r('entObjetivoPropio(__t[0], "200")'), { cs: 7780, base: 'marca' });              // 2:35.60 / 2
+  assert.deepEqual(r('entObjetivoPropio(__t[0], "400")'), { cs: Math.round(15560 * 2 ** 1.06 / 4), base: 'est' });
+  assert.deepEqual(r('entObjetivoPropio(__t[0], "mejor")'), { cs: 7000, base: 'marca' });
+  assert.deepEqual(r('entObjetivoPropio(__t[2], "200")'), { cs: 8000, base: 'mano' });
+  assert.equal(r('entObjetivoPropio(__t[1], "200")'), null);
+  assert.deepEqual(r('[...entObjetivos(__t, "200").values()].map(o => o.base)'), ['marca', 'media', 'mano']);
+  assert.equal(r('entObjetivos(__t, "200").get(__t[1]).cs'), Math.round((7780 / 100 + 8000 / 100) / 2 * 100));
+});
+
+test('ritmo: cada nadador en su zona (dentro, cerca, fuera) y ordenados del más rápido al más lento', () => {
+  const c = cargar(ARCH, structuredClone(DATA));
+  evalIn(c, `Object.assign(SW, {'1': {id: 1, n: 'A', ev: [{e: '200 Libre', h: [['2026-03-01', 16000, '25m', 'x', 'y', 0, 0, 0, 0]]}]},
+    '2': {id: 2, n: 'B', ev: [{e: '200 Libre', h: [['2026-03-01', 16000, '25m', 'x', 'y', 0, 0, 0, 0]]}]},
+    '3': {id: 3, n: 'C', ev: [{e: '200 Libre', h: [['2026-03-01', 16000, '25m', 'x', 'y', 0, 0, 0, 0]]}]}})`);
+  const T = (nId, rfen, cs) => ({ nId, n: nId, rfen, cs, estilo: 'libre', dist: 100, ritmo: null });
+  c.__tb = { filas: [{ nId: 'b', n: 'B', rfen: '2', t: { 1: T('b', '2', 8200) } }, { nId: 'a', n: 'A', rfen: '1', t: { 1: T('a', '1', 7900) } },
+    { nId: 'c', n: 'C', rfen: '3', t: { 1: T('c', '3', 9000) } }] };
+  const D = JSON.parse(evalIn(c, `JSON.stringify(entDatosRitmo(__tb, [1], new Set(['a', 'b', 'c']), '200'))`));
+  // objetivo 1:20.00; el de 400 estimado: 1:20.00 × 2^1.06 / 2 ≈ 1:23.40
+  assert.deepEqual(D.filas.map(f => [f.nId, f.zona]), [['a', 'dentro'], ['b', 'cerca'], ['c', 'fuera']]);
+  const h = evalIn(c, `entGraficoRitmo(entDatosRitmo(__tb, [1], new Set(['a', 'b', 'c']), '200'), '200', n => 'Serie ' + n)`);
+  assert.match(h, /su ritmo de 200/);
+  assert.match(h, /ent-zp-dentro/); assert.match(h, /ent-zp-cerca/); assert.match(h, /ent-zp-fuera/);
+  assert.match(h, /● 1<\/b><span>A su ritmo de 200 o mejor/);
+});
+
+test('entRitmoGuardado: solo acepta lo que guarda el cronómetro', () => {
+  assert.deepEqual(ev('entRitmoGuardado', { ref: '400', mano: '8000', cs: 7700.4, base: 'est' }), { ref: '400', mano: 8000, cs: 7700, base: 'est' });
+  assert.equal(ev('entRitmoGuardado', { ref: '<b>' }), null);
 });
