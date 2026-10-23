@@ -40,7 +40,7 @@ function entTiempos(D, sw) {
   const ses = new Map(D.sesiones.map(s => [s.id, s]));
   const nad = new Map(D.nadadores.map(n => [n.id, n]));
   (D.estilos || []).forEach(e => { if (entEstiloOk(e.id) && e.nombre) ENT_NOMBRES[e.id] = String(e.nombre).slice(0, 30); });
-  return D.resultados.filter(r => r.borrado !== true && !r.relevo).map(r => {
+  return D.resultados.filter(r => r.borrado !== true && !r.relevo && !r.rota).map(r => {
     const s = ses.get(r.sesId); if (!s) return null;
     const estilo = entEstiloOk(r.estilo) ? r.estilo : entEstiloOk(s.estilo) ? s.estilo : null;
     const dist = Number(r.estilo ? r.dist : s.dist) || null;

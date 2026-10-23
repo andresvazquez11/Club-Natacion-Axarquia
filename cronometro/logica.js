@@ -36,6 +36,7 @@ function limpiarDoc(col, d) {
       d.relevo = {equipo: (txtCorto(d.relevo.equipo) || 'Equipo').slice(0, 40), gId: idOk(d.relevo.gId) ? d.relevo.gId : null,
         pos: Number.isInteger(pos) && pos > 0 ? pos : 1, n: Number.isInteger(n) && n > 0 ? n : 1, tipo: d.relevo.tipo === 'estilos' ? 'estilos' : 'igual'};
     } else d.relevo = null;
+    d.rota = rotaOk(d.rota);   // tiempo neto de una rota (sin descansos): solo se compara con la misma rota
   }
   if (col==='sesiones') {
     d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null;
@@ -62,7 +63,7 @@ function limpiarDoc(col, d) {
       const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
               parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
-              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true};
+              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota)};
     });
   }
   if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
@@ -79,6 +80,52 @@ function abrirTramo(tramos, r, t) {
 }
 function cerrarTramo(tramos, r, t) { return tramos.map(x => x.r === r ? {...x, fin: t} : x); }
 function reabrirTramo(tramos, r) { return tramos.map(x => x.r === r ? {...x, fin: null} : x); }
+
+// ── Rota: una serie partida en tramos con descansos fijos entre ellos (200 = 50 · 100 · 50 descansando 10 y 20 s) ──
+// El entrenador toca al llegar a la pared; el descanso se cuenta solo y el nadador sigue al acabarlo.
+// El tiempo que vale es el neto: lo nadado, sin los descansos.
+const ROTA_TRAMOS = [25, 50, 75, 100, 150, 200, 300, 400];
+const ROTA_DESC = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120];
+const ROTA_DESC_DEF = 10;
+function rotaOk(r) {
+  if (!r || typeof r !== 'object' || !Array.isArray(r.tramos)) return null;
+  const tramos = r.tramos.map(Number).filter(x => Number.isInteger(x) && x > 0 && x <= 1500 && x % 25 === 0).slice(0, 8);
+  if (tramos.length < 2) return null;
+  const desc = tramos.slice(1).map((_, i) => { const d = Math.round(Number((r.desc || [])[i])); return Number.isFinite(d) && d >= 0 && d <= 600 ? d : ROTA_DESC_DEF; });
+  return {tramos, desc};
+}
+// Reparto de partida para una distancia: 200 → 50·100·50; 100 → 25·50·25; si no, dos mitades
+function rotaDefecto(dist) {
+  const d = Number(dist) || 200;
+  if (d >= 100 && d % 100 === 0) return {tramos: [d/4, d/2, d/4], desc: [ROTA_DESC_DEF, ROTA_DESC_DEF * 2]};
+  return rotaOk({tramos: d % 50 === 0 ? [d/2, d/2] : [50, 50], desc: [ROTA_DESC_DEF]});
+}
+const rotaTotal = r => r ? r.tramos.reduce((s, x) => s + x, 0) : 0;
+const rotaKey = r => r ? `${r.tramos.join('-')}/${r.desc.join('-')}` : '';
+const rotaTexto = r => r ? `${r.tramos.join(' · ')} m, descansos de ${r.desc.join(' · ')} s` : '';
+// Toque en la pared (no el último): guarda el acumulado neto y empieza el descanso de ese tramo
+function rotaPared(f, t) {
+  f.parc.push(t - f.t0 - rotaPausa(f));
+  f.descMs = (f.rota.desc[f.parc.length - 1] || 0) * 1000;
+  f.descHasta = t + f.descMs;
+}
+const rotaPausa = f => (f.pausas || []).reduce((s, x) => s + x, 0);
+// Cada décima: ¿qué toca con este nadador? 'sale' al acabar el descanso, 'aviso' en cada uno de los 3 últimos segundos
+function rotaTic(f, ahora) {
+  if (!f.descHasta) return null;
+  const resta = f.descHasta - ahora;
+  if (resta <= 0) { (f.pausas = f.pausas || []).push(f.descMs); f.salioEn = f.descHasta; f.descHasta = null; f.avisoS = null; return 'sale'; }
+  const s = Math.ceil(resta / 1000);
+  if (s <= 3 && f.avisoS !== s) { f.avisoS = s; return 'aviso'; }
+  return null;
+}
+// Deshacer el último toque en la pared: si aún descansaba se anula el descanso; si ya había salido, también se quita esa pausa
+function rotaDeshacer(f) {
+  if (!f.parc.length) return;
+  f.parc.pop();
+  if (f.descHasta) f.descHasta = null; else if ((f.pausas || []).length > f.parc.length) f.pausas.pop();
+  f.avisoS = null;
+}
 
 // ── Salidas por ciclo: cuánto falta para la siguiente desde la última ──
 function cicloEstado(tUlt, cicloS, ahora, quedan) {

@@ -72,8 +72,8 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
     series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
-  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false },
-    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false }]);
+  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false, rota: null },
+    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false, rota: null }]);
 });
 
 test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
@@ -173,4 +173,50 @@ test('limpiarDoc: relevos de la sesión y postas de cada tiempo, sin HTML ni dat
   const r = ev('limpiarDoc', 'resultados', { relevo: { equipo: 'C1', gId: 'g1', pos: '2', n: 4, tipo: 'raro' } });
   assert.deepEqual(r.relevo, { equipo: 'C1', gId: 'g1', pos: 2, n: 4, tipo: 'igual' });
   assert.equal(ev('limpiarDoc', 'resultados', {}).relevo, null);
+});
+
+test('rota: normaliza tramos y descansos, reparto por defecto y total', () => {
+  const r = JSON.parse(evalIn(ctx, `JSON.stringify(rotaOk({tramos: [50, '100', 50, 33], desc: [10]}))`));
+  assert.deepEqual(r, { tramos: [50, 100, 50], desc: [10, 10] });
+  assert.equal(evalIn(ctx, 'rotaOk({tramos: [200]})'), null);
+  assert.deepEqual(JSON.parse(evalIn(ctx, 'JSON.stringify(rotaDefecto(200))')), { tramos: [50, 100, 50], desc: [10, 20] });
+  assert.equal(evalIn(ctx, 'rotaTotal(rotaDefecto(400))'), 400);
+  assert.equal(evalIn(ctx, 'rotaKey({tramos:[50,100,50],desc:[10,20]})'), '50-100-50/10-20');
+});
+
+test('rota: pared → descanso con avisos → sale solo; el tiempo neto no cuenta los descansos', () => {
+  const out = JSON.parse(evalIn(ctx, `(() => {
+    const f = {t0: 0, parc: [], pausas: [], rota: {tramos: [50, 100, 50], desc: [10, 20]}};
+    rotaPared(f, 30000);                       // 50 m en 30 s; descansa 10 s
+    const ev = [];
+    for (let t = 30000; t <= 40100; t += 100) { const e = rotaTic(f, t); if (e) ev.push([e, t]); }
+    const neto = 110000 - f.t0 - rotaPausa(f);  // a los 110 s reales lleva 100 s nadados
+    return JSON.stringify({ev, parc: f.parc, pausas: f.pausas, salio: f.salioEn, neto, desc: f.descHasta});
+  })()`));
+  assert.deepEqual(out.ev.map(x => x[0]), ['aviso', 'aviso', 'aviso', 'sale']);
+  assert.equal(out.ev[3][1], 40000);
+  assert.deepEqual(out.parc, [30000]);
+  assert.deepEqual(out.pausas, [10000]);
+  assert.equal(out.salio, 40000);
+  assert.equal(out.neto, 100000);
+  assert.equal(out.desc, null);
+});
+
+test('rota: deshacer en pleno descanso lo anula; después de salir quita también la pausa', () => {
+  const out = JSON.parse(evalIn(ctx, `(() => {
+    const f = {t0: 0, parc: [], pausas: [], rota: {tramos: [50, 50], desc: [10]}};
+    rotaPared(f, 30000); rotaDeshacer(f);
+    const a = [f.parc.length, f.descHasta, f.pausas.length];
+    rotaPared(f, 31000); rotaTic(f, 41000); rotaDeshacer(f);
+    return JSON.stringify([a, [f.parc.length, f.descHasta, f.pausas.length]]);
+  })()`));
+  assert.deepEqual(out, [[0, null, 0], [0, null, 0]]);
+});
+
+test('limpiarDoc: la rota de resultados y planes se normaliza', () => {
+  const r = JSON.parse(evalIn(ctx, `JSON.stringify(limpiarDoc('resultados', {ms: 1, rota: {tramos: [50, 50], desc: ['x']}}).rota)`));
+  assert.deepEqual(r, { tramos: [50, 50], desc: [10] });
+  assert.equal(evalIn(ctx, `limpiarDoc('resultados', {ms: 1, rota: '<b>'}).rota`), null);
+  const p = JSON.parse(evalIn(ctx, `JSON.stringify(limpiarDoc('planes', {series: [{estilo: 'libre', dist: 200, rota: {tramos: [50, 100, 50], desc: [10, 20]}}]}).series[0].rota)`));
+  assert.deepEqual(p, { tramos: [50, 100, 50], desc: [10, 20] });
 });

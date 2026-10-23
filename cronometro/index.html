@@ -215,6 +215,23 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sw-act small{font-size:10px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.5px;}
 .sw-card.parcial .sw-act{background:#7c3aed;}
 .sw-card.done{border-color:#16a34a;background:var(--grn-s);cursor:default;}
+/* Rota: descansando (ámbar, cuenta atrás grande) y recién salido (verde que se apaga) */
+.sw-card.rota-desc{border-color:var(--amb);background:#2a1c0c;cursor:default;}
+.sw-card.rota-desc .sw-act{background:var(--amb);color:#1a1200;}
+.sw-card.rota-desc .sw-clk{color:var(--amb);font-size:15px;}
+.rota-cd-box{display:flex;align-items:baseline;justify-content:center;gap:4px;color:var(--amb);font-weight:800;font-size:13px;}
+.rota-cd-box b{font-size:34px;line-height:1;font-variant-numeric:tabular-nums;}
+.sw-card.rota-desc.ultimos .rota-cd-box b{color:#fff;animation:rotaLatido .5s infinite alternate;}
+@keyframes rotaLatido{to{transform:scale(1.15)}}
+.sw-card.rota-sale{animation:rotaSale 3s ease-out forwards;}
+.sw-card.rota-sale .sw-act{background:#16a34a;}
+@keyframes rotaSale{0%,40%{background:#16a34a;border-color:#4ade80}100%{background:var(--surf)}}
+@media (prefers-reduced-motion:reduce){.sw-card.rota-sale,.sw-card.rota-desc.ultimos .rota-cd-box b{animation:none}}
+.rota-cfg{border-color:var(--amb);padding:10px 12px;}
+.rota-tr{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;}
+.rota-desc-cfg{display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:12px;color:var(--amb);margin:4px 0;}
+.rota-sel{width:auto;padding:6px 8px;margin:0;}
+.rota-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:#2a1c0c;color:var(--amb);font-size:11px;font-weight:800;vertical-align:middle;}
 .sw-card.done .sw-act{background:#16a34a;}
 .sw-undo{margin:0 -6px;padding:8px 4px;background:rgba(0,0,0,.25);border:none;color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;}
 .sw-dots{display:inline-flex;gap:3px;margin-left:auto;}
@@ -649,7 +666,7 @@ function fmtDateShort(ts) {
 function getSwimmerSessions(nId, filter) {
   const myIds = new Set(mySes().map(s=>s.id));
   const res = S.resultados.filter(r => {
-    if (r.nId !== nId || r.relevo) return false;
+    if (r.nId !== nId || r.relevo || r.rota) return false;
     if (!myIds.has(r.sesId)) return false;
     if (!filter) return true;
     const c = resCombo(r);
@@ -765,6 +782,14 @@ function startClock() {
         if (SA.auto) salidaTanda(SA.tUltSalida + SA.ciclo*1000, true);
       }
     }
+    // Rota: avisos de los 3 últimos segundos de descanso y salida al acabarlo
+    let sale = false;
+    SA.agua.forEach(f => { if (!f.rota) return; const e = rotaTic(f, now);
+      if (e === 'aviso') pitido(90, 880); else if (e === 'sale') { pitido(450, 1320); vibrar(250); sale = true; }
+      else if (f.salioEn && now - f.salioEn > 3000) { f.salioEn = null; sale = true; } });   // quita el «¡sale!» a los 3 s
+    if (sale) render();
+    document.querySelectorAll('.rota-cd[data-hasta]').forEach(el => { const s = Math.max(0, Math.ceil((Number(el.dataset.hasta) - now)/1000));
+      el.textContent = s; el.closest('.sw-card').classList.toggle('ultimos', s <= 3); });
     const nd = document.getElementById('live-nado');
     if (nd) { nd.textContent = fmtNado(msNadando(SA.nado, now)); nd.parentElement.classList.toggle('parado', !SA.nado.some(x=>x.fin==null)); }
   }, 100);
@@ -847,6 +872,7 @@ async function iniciarSesion() {
   SA.ciclo = cicloDe(PS); SA.auto = !!SA.ciclo;
   SA.comp = !!PS.comp; SA.inicio = inicioDe(PS); SA.porNadador = !!PS.porNadador;
   SA.relevo = PS.relevo ? {...PS.relevo, estilos: [...PS.relevo.estilos]} : null; SA.rel = null; SA.relNad = new Map();
+  ponerRota(PS.rota);
   DB.guardarPresentes(sesId, [...new Set([...callesConNads.flatMap(g=>g.nads.map(n=>n.id)), ...(PS.extras||[])])]);
   const plan = PS && PS.planId ? S.planes.find(p=>p.id===PS.planId) : null;
   // copia: los cambios sobre la marcha no tocan el entreno preparado (salvo que se guarden a propósito)
@@ -904,6 +930,12 @@ function buildSA(sesId) {
     })
   };
 }
+// Serie en rota: la distancia es la suma de los tramos y cada toque en la pared es un parcial
+function ponerRota(r) {
+  SA.rota = rotaOk(r);
+  if (SA.rota) { SA.dist = rotaTotal(SA.rota); SA.tramos = SA.rota.tramos.length; SA.parciales = false; }
+}
+const copiaRota = r => r ? {tramos: [...r.tramos], desc: [...r.desc]} : null;
 function laneShort(g) {
   const m = /(\d+)/.exec(g.nombre||'');
   return m ? 'C'+m[1] : String(g.nombre||'?').slice(0,3);
@@ -935,7 +967,8 @@ function salidaTanda(t, auto) {
       key: `k${++SA.seq}`,
       gId: g.gId, laneIdx: g.idx, lane: laneShort(g), color: g.color,
       nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0,
-      ronda: SA.ronda, estilo: SA.porNadador ? (SA.estiloNad.get(nad.nId) || SA.estilo) : SA.estilo, dist: SA.dist, tramos: SA.tramos, comp: !!SA.comp, inicio: SA.inicio || 'agua'
+      ronda: SA.ronda, estilo: SA.porNadador ? (SA.estiloNad.get(nad.nId) || SA.estilo) : SA.estilo, dist: SA.dist, tramos: SA.tramos, comp: !!SA.comp, inicio: SA.inicio || 'agua',
+      rota: SA.rota, pausas: [], descHasta: null
     });
   });
   SA.agua.sort(ordenFila);
@@ -947,9 +980,12 @@ function llegoNad(key, t) {
   const i = SA.agua.findIndex(a=>a.key===key);
   if (i<0) return;
   const a = SA.agua.splice(i,1)[0];
-  const ms = t - a.t0;
+  // Rota: si se da por acabada mientras descansa, su tiempo es el de la última pared
+  if (a.rota && a.descHasta) { t = a.t0 + rotaPausa(a) + a.parc.pop(); a.descHasta = null; }
+  const ms = t - a.t0 - (a.rota ? rotaPausa(a) : 0);   // rota: tiempo neto, sin los descansos
   const extra = {ronda:a.ronda, salida:a.salida, estilo:a.estilo||null, dist:a.dist||null, inicio:a.inicio||'agua', ts:a.t0};
   if (a.comp) extra.comp = true;
+  if (a.rota) extra.rota = a.rota;
   if (a.nota) extra.nota = a.nota;
   if (a.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, a.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
@@ -972,11 +1008,12 @@ function marcaNad(key, t) {
   if (!SA) return;
   const a = SA.agua.find(x=>x.key===key);
   if (!a) return;
+  if (a.descHasta) return;   // rota: descansando en la pared; sale solo al acabar el descanso
   // Un tramo de 50 m dura bastante más de 4 s: un segundo toque tan rápido es accidental
   if (a.tUlt && t - a.tUlt < 4000) return;
   a.tUlt = t;
   if (a.parc.length < a.tramos-1) {
-    a.parc.push(t - a.t0);
+    if (a.rota) { rotaPared(a, t); pitido(90, 990); } else a.parc.push(t - a.t0);
     vibrar(20);
     render();
   } else {
@@ -993,7 +1030,7 @@ function llegoDirecto(key, t) {
 function deshacerParcial(key) {
   const a = SA && SA.agua.find(x=>x.key===key);
   if (!a || !a.parc.length) return;
-  a.parc.pop();
+  if (a.rota) rotaDeshacer(a); else a.parc.pop();
   a.tUlt = 0;
   render();
 }
@@ -1028,8 +1065,9 @@ async function nuevoEstilo(ctx) {
   render();
 }
 // Título de una serie: si cada nadador nadó su estilo, se dice así
-const serieLabel = x => x.relevo ? `🔁 Relevo ${esc(x.dist)}m por posta` : x.mixto ? `🎯 Cada uno su estilo · ${esc(x.dist)}m` : comboLabel(x.estilo, x.dist);
-const serieTexto = x => x.relevo ? `Relevo ${x.dist} m por posta` : x.mixto ? `Cada uno su estilo ${x.dist} m` : comboTexto(x.estilo, x.dist);
+const rotaEtiqueta = r => r ? ` <span class="rota-tag">🧩 rota ${esc(r.tramos.join('·'))}</span>` : '';
+const serieLabel = x => x.rota ? `${comboLabel(x.estilo, x.dist)}${rotaEtiqueta(x.rota)}` : x.relevo ? `🔁 Relevo ${esc(x.dist)}m por posta` : x.mixto ? `🎯 Cada uno su estilo · ${esc(x.dist)}m` : comboLabel(x.estilo, x.dist);
+const serieTexto = x => x.rota ? `${comboTexto(x.estilo, x.dist)} en rota (${rotaTexto(x.rota)})` : x.relevo ? `Relevo ${x.dist} m por posta` : x.mixto ? `Cada uno su estilo ${x.dist} m` : comboTexto(x.estilo, x.dist);
 function comboLabel(estilo, dist) { return estilo && dist ? `${estiloEmo(estilo)} ${esc(estiloNombre(estilo))} ${esc(dist)}m` : '🏊 Serie libre'; }
 function comboTexto(estilo, dist) { if (!estilo || !dist) return 'Serie libre'; const n = estiloNombre(estilo); return `${n.charAt(0).toUpperCase()+n.slice(1)} ${dist} m`; }
 // Series de un entrenamiento: [{ronda, estilo, dist, res:[tiempos]}]
@@ -1043,7 +1081,7 @@ function seriesDe(sesId) {
     if (r.inicio && !x.inicio) x.inicio = r.inicio;
     if (r.ts && (!x.t0 || r.ts < x.t0)) x.t0 = r.ts;   // hora de la primera salida de la serie
   });
-  Object.values(by).forEach(x => { x.hora = x.t0 ? fmtHora(x.t0) : null; x.relevo = x.res.some(r => r.relevo); x.mixto = !x.relevo && x.res.some(r => resCombo(r).estilo !== x.estilo); });
+  Object.values(by).forEach(x => { x.hora = x.t0 ? fmtHora(x.t0) : null; x.relevo = x.res.some(r => r.relevo); x.rota = (x.res.find(r => r.rota) || {}).rota || null; x.mixto = !x.relevo && x.res.some(r => resCombo(r).estilo !== x.estilo); });
   return Object.values(by).sort((a,b)=>a.ronda-b.ronda).map(x => (x.res.sort((a,b)=>a.ms-b.ms), x));
 }
 // Un entrenamiento como tabla: {filas: [{nId, n, t: {ronda: tiempo}}] por nombre, mejor: {ronda: ms más rápido}}
@@ -1175,10 +1213,10 @@ function mejorCompeticion(nId, estilo, dist) {
 }
 const origenComp = c => c.pool === '50m' ? `de ${fmtCs(c.real)} en 50 m` : '25 m';
 // Mejor tiempo de entrenamiento anterior en la misma prueba (otros tiempos, hasta la fecha de ese entrenamiento)
-function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta) {
+function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta, rk = '') {
   let best = null;
   S.resultados.forEach(r => {
-    if (r.nId!==nId || r.id===excluirId || r.relevo) return;
+    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rk) return;
     const c = resCombo(r); if (c.estilo!==estilo || c.dist!==Number(dist)) return;
     const ses = S.sesiones.find(x=>x.id===r.sesId); const f = ses ? ses.fecha : 0;
     if (hasta && f > hasta) return;
@@ -1187,10 +1225,10 @@ function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta) {
   return best;
 }
 // Su último entreno anterior en la misma prueba (otro entrenamiento, antes de este): el más reciente, no el mejor
-function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId) {
+function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId, rk = '') {
   let ult = null;
   S.resultados.forEach(r => {
-    if (r.nId!==nId || r.id===excluirId || r.relevo || (sesId && r.sesId===sesId)) return;
+    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rk || (sesId && r.sesId===sesId)) return;
     const c = resCombo(r); if (c.estilo!==estilo || c.dist!==Number(dist)) return;
     const ses = S.sesiones.find(x=>x.id===r.sesId); const f = ses ? ses.fecha : 0;
     if (hasta && f > hasta) return;
@@ -1199,9 +1237,11 @@ function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId) {
   return ult;
 }
 // {comp, ent, ult, difComp, difEnt, difUlt} en segundos: diferencias negativas = hoy más rápido
+// Un tiempo de rota (neto, con descansos) no se compara con competiciones ni con series normales: solo con la misma rota
 function comparaciones(nId, estilo, dist, ms, resId, hasta, sesId) {
-  const comp = mejorCompeticion(nId, estilo, dist), ent = mejorEntrenoPrevio(nId, estilo, dist, resId, hasta);
-  const ult = ultimoEntrenoPrevio(nId, estilo, dist, resId, hasta, sesId);
+  const r = S.resultados.find(x=>x.id===resId), rk = r ? rotaKey(r.rota) : '';
+  const comp = rk ? null : mejorCompeticion(nId, estilo, dist), ent = mejorEntrenoPrevio(nId, estilo, dist, resId, hasta, rk);
+  const ult = ultimoEntrenoPrevio(nId, estilo, dist, resId, hasta, sesId, rk);
   return {comp, ent, ult, difComp: comp ? (ms - comp.cs*10)/1000 : null, difEnt: ent ? (ms - ent.ms)/1000 : null,
           difUlt: ult ? (ms - ult.ms)/1000 : null};
 }
@@ -1290,6 +1330,7 @@ function repetirSerie(cfg) {
     SA.ciclo = cicloDe(cfg); SA.auto = !!SA.ciclo;
     SA.comp = !!cfg.comp; SA.inicio = inicioDe(cfg); SA.porNadador = !!cfg.porNadador;
     SA.relevo = cfg.relevo ? {...cfg.relevo, estilos: [...cfg.relevo.estilos]} : null;
+    ponerRota(cfg.rota);
   }
   SA.nuevaSerie = null;
   SA.ronda++;
@@ -1372,7 +1413,7 @@ async function editNuevaCalle() {
 function mejorPrevia(nId, excluirId, estilo = SA.estilo, dist = SA.dist) {
   if (!estilo || !dist) return null;
   const prev = S.resultados.filter(r => {
-    if (r.nId!==nId || r.id===excluirId || r.relevo || (r.sesId===SA.sesId && r.ronda===SA.ronda)) return false;
+    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rotaKey(SA.rota) || (r.sesId===SA.sesId && r.ronda===SA.ronda)) return false;
     const c = resCombo(r);
     return c.estilo===estilo && c.dist===Number(dist);
   });
@@ -1668,6 +1709,7 @@ function renderHome() {
 // ── Novedades de esta versión: se ven en el inicio hasta NOVEDADES_HASTA y luego desaparecen solas (después, borrar este bloque) ──
 const NOVEDADES_HASTA = new Date(2026, 10, 1).getTime();   // hasta el sábado 31 de octubre incluido
 const NOVEDADES = [
+  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso, pita los 3 últimos segundos y avisa «¡sale!» cuando toca seguir. Se guarda el tiempo neto, sin descansos.'],
   ['🔔', 'Pitido y vibración en cada salida', 'en todos los móviles, también al tocar SALIDA a mano y en los relevos. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.'],
   ['🎨', 'Series solapadas más claras', 'cada serie tiene su color en las tarjetas y arriba se ve el tiempo total de cada una (de la primera salida a la última llegada).'],
   ['🔁', 'Relevos', 'al preparar la serie elige «Relevo»: cada calle es un equipo, salen todas a la vez y cada toque cierra la posta de un nadador. Resultado por equipos y comparado con relevos anteriores.'],
@@ -2059,10 +2101,10 @@ function inicioHTML(o, t) {
   return `<div class="seg" style="margin-bottom:8px">
       <button class="${ini==='agua'?'on':''}" data-action="inicio" data-t="${t}" data-v="agua"${o.comp?' disabled style="opacity:.4"':''}>🌊 Desde el agua</button>
       <button class="${ini==='plataforma'?'on':''}" data-action="inicio" data-t="${t}" data-v="plataforma">🧱 Desde plataforma</button></div>
-    <div class="toggle-row" data-action="comp-toggle" data-t="${t}"${o.comp?' style="border-color:var(--amb);background:#2a1c0c"':''}>
+    ${o.rota ? '' : `<div class="toggle-row" data-action="comp-toggle" data-t="${t}"${o.comp?' style="border-color:var(--amb);background:#2a1c0c"':''}>
       <div style="flex:1"><div style="font-weight:600">🏆 Modo competición</div>
         <div class="muted" style="font-size:12px">Salen desde la plataforma a hacer su mejor tiempo. Cada tiempo se compara con sus compañeros del club y con el ranking de Málaga, Andalucía y España.</div></div>
-      <div class="sw${o.comp?' on':''}"></div></div>
+      <div class="sw${o.comp?' on':''}"></div></div>`}
     <div class="toggle-row" data-action="pornad-toggle" data-t="${t}">
       <div style="flex:1"><div style="font-weight:600">🎯 Cada nadador su estilo</div>
         <div class="muted" style="font-size:12px">En la misma calle uno nada crol, otro mariposa… El estilo de cada uno se elige en su tarjeta antes de salir.</div></div>
@@ -2074,7 +2116,7 @@ const cicloObj = t => t === 'ps' ? PS : t.startsWith('plan-') ? (PS && PS.plan &
 
 // ── Planes: entrenos preparados en casa (calles + lista de series) ──
 function misPlanes() { return S.planes.filter(esMio).sort((a,b)=>(b.ts||0)-(a.ts||0)); }
-const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, auto:false, inicio:'agua', comp:false, porNadador:false});
+const serieVacia = () => ({estilo:'libre', dist:50, parciales:false, ciclo:null, auto:false, inicio:'agua', comp:false, porNadador:false, rota:null});
 // Abre preparar en modo plan: el mismo tablero de calles y, en lugar de estilo/distancia, la lista de series
 function abrirPlan(id) {
   const p = id ? S.planes.find(x=>x.id===id) : null;
@@ -2100,8 +2142,9 @@ function renderSeriesPlan() {
         ${ss.length>1?`<button class="btn-icon" data-action="plan-quitar" data-i="${i}" style="color:var(--red)" aria-label="Quitar">✕</button>`:''}
       </div>
       <div class="picker-row p4" style="margin-bottom:6px">${estilosBtns(x.estilo, 'plan-estilo', 'plan-'+i, ` data-i="${i}"`)}</div>
-      <div class="picker-row p4" style="margin-bottom:8px">${DISTS.map(d=>`<button class="pick-btn${Number(x.dist)===d?' on':''}" data-action="plan-dist" data-i="${i}" data-val="${d}">${d}m</button>`).join('')}</div>
-      ${(() => { const ok = Number(x.dist) > 50; return `<div class="toggle-row${ok?'':' dis'}" ${ok?`data-action="plan-parc" data-i="${i}"`:''}><div style="flex:1;font-weight:600;font-size:14px">⏱ Parciales cada 50 m</div><div class="sw${ok&&x.parciales?' on':''}"></div></div>`; })()}
+      ${rotaHTML(x, 'plan-'+i)}
+      ${x.rota ? '' : `<div class="picker-row p4" style="margin-bottom:8px">${DISTS.map(d=>`<button class="pick-btn${Number(x.dist)===d?' on':''}" data-action="plan-dist" data-i="${i}" data-val="${d}">${d}m</button>`).join('')}</div>`}
+      ${x.rota ? '' : (() => { const ok = Number(x.dist) > 50; return `<div class="toggle-row${ok?'':' dis'}" ${ok?`data-action="plan-parc" data-i="${i}"`:''}><div style="flex:1;font-weight:600;font-size:14px">⏱ Parciales cada 50 m</div><div class="sw${ok&&x.parciales?' on':''}"></div></div>`; })()}
       ${cicloHTML(x, 'plan-'+i)}
       ${inicioHTML(x, 'plan-'+i)}
     </div>`).join('') + `<button class="btn btn-surf mb16" data-action="plan-add">➕ Añadir serie</button>`;
@@ -2113,7 +2156,7 @@ async function guardarPlanPS() {
   const data = {coach: coachName, coachEmail: miEmail(), ts: Date.now(), nombre: String(nombre||'').trim().slice(0,200) || 'Entreno',
     eqId: PS.eqId || eqMasFrecuente(calles), calles: calles.map(g=>({nombre:g.nombre, nIds:g.nads.map(n=>n.id)})),
     series: p.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:cicloDe(x), auto:!!x.auto,
-      inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador}))};
+      inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota)}))};
   await DB.guardarPlan(p.id, data);
   PS = null; nav({screen:'home'});
 }
@@ -2127,7 +2170,7 @@ async function empezarPlan(id) {
   if (!calles.length) { alert('Los nadadores de este entreno ya no están en la lista.'); return; }
   PS.grupos = calles;
   const s1 = p.series[0];
-  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, auto:s1.auto, inicio:inicioDe(s1), comp:!!s1.comp, porNadador:!!s1.porNadador, planId:p.id});
+  Object.assign(PS, {estilo:s1.estilo, dist:s1.dist, parciales:s1.parciales, ciclo:s1.ciclo, auto:s1.auto, inicio:inicioDe(s1), comp:!!s1.comp, porNadador:!!s1.porNadador, rota:copiaRota(s1.rota), planId:p.id});
   await iniciarSesion();
 }
 
@@ -2187,11 +2230,12 @@ function renderPreparar() {
     <div class="h1">Preparar sesión</div>
     ${ofertaHtml}
     ${relevoHTML(PS, 'ps')}
+    ${PS.relevo ? '' : rotaHTML(PS, 'ps')}
     ${PS.relevo && PS.relevo.tipo === 'estilos' ? '' : `<span class="label">${PS.relevo?'Estilo de todas las postas':'Estilo'}</span>
     <div class="picker-row p4">${estBtns}</div>`}
-    <span class="label">${PS.relevo?'Distancia de cada posta':'Distancia'}</span>
-    <div class="picker-row p4">${distBtns}</div>
-    ${PS.relevo ? '' : (() => { const ok = Number(PS.dist) > 50; const on = ok && PS.parciales; return `<div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="toggle-parciales"':''}>
+    ${PS.rota ? '' : `<span class="label">${PS.relevo?'Distancia de cada posta':'Distancia'}</span>
+    <div class="picker-row p4">${distBtns}</div>`}
+    ${PS.relevo || PS.rota ? '' : (() => { const ok = Number(PS.dist) > 50; const on = ok && PS.parciales; return `<div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="toggle-parciales"':''}>
       <div style="flex:1"><div style="font-weight:600">⏱ Tiempos parciales cada 50 m</div>
       <div class="muted" style="font-size:12px">${ok?`${Math.round(PS.dist/50)} toques por nadador; el último es la llegada`:'Para 100 m o más'}</div></div>
       <div class="sw${on?' on':''}"></div></div>`; })()}
@@ -2208,7 +2252,7 @@ function renderPreparar() {
 function renderEnCurso() {
   if (!SA) return '';
   const ses = S.sesiones.find(s=>s.id===SA.sesId);
-  const titulo = SA.relevo ? `🔁 ${esc(relevoNombre(SA.relevo, Math.max(1, ...SA.grupos.map(g=>g.nads.length)), SA.dist, SA.estilo))}` : comboLabel(SA.estilo, SA.dist);
+  const titulo = SA.relevo ? `🔁 ${esc(relevoNombre(SA.relevo, Math.max(1, ...SA.grupos.map(g=>g.nads.length)), SA.dist, SA.estilo))}` : comboLabel(SA.estilo, SA.dist) + rotaEtiqueta(SA.rota);
   const eq = ses?eqNombre(ses.eqId):'';
   const now = Date.now();
   const totalNads = SA.grupos.reduce((s,g)=>s+g.nads.length,0);
@@ -2274,7 +2318,7 @@ function renderEnCurso() {
   const cols = Math.min(SA.grupos.length, 4);
   const nAgua = SA.agua.filter(f=>f.ronda===SA.ronda).length;
   html += renderTiraSeries(now);
-  html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.tramos>1?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
+  html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.rota?'<span class="muted" style="font-size:11px">Toca al llegar a la pared: el descanso se cuenta solo</span>':SA.tramos>1?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
     <div class="lanes-grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
     ${SA.grupos.map(g => {
       const deEsta = f => f.gId===g.gId;
@@ -2336,12 +2380,28 @@ function renderSwCard(f, now) {
   }
   const esParcial = conParc && f.parc.length < f.tramos-1;
   const ultimo = conParc && f.parc.length ? f.parc[f.parc.length-1] : null;
-  return `<button class="sw-card${esParcial?' parcial':''}${cls}" style="--sc:${serieCol(f.ronda)}" data-action="llego" data-key="${esc(f.key)}">
+  // Metros hechos tras n toques: de 50 en 50, o los tramos de la rota
+  const metros = n => f.rota ? f.rota.tramos.slice(0, n).reduce((s,x)=>s+x, 0) : n*50;
+  if (f.rota && f.descHasta) {   // descansando en la pared: cuenta atrás grande y el tramo que viene
+    const s = Math.max(0, Math.ceil((f.descHasta - now)/1000));
+    return `<div class="sw-card rota-desc${s<=3?' ultimos':''}${cls}" style="--sc:${serieCol(f.ronda)}">
+      <span class="sw-meta">${tag}${dots}</span>
+      <span class="sw-nm">${esc(f.n)}</span>
+      <span class="sw-clk">${metros(f.parc.length)}m ${fmtTime(ultimo)}</span>
+      <span class="rota-cd-box">⏸ <b class="rota-cd" data-hasta="${f.descHasta}">${s}</b> s</span>
+      <span class="sw-act"><small>descansa · luego</small>${f.rota.tramos[f.parc.length]} m</span>
+    </div>
+    <div class="sw-extra"><button class="sw-mini" data-action="deshacer-parcial" data-key="${esc(f.key)}" aria-label="Deshacer pared">↶</button>
+      <button class="sw-mini fin" data-action="llego-directo" data-key="${esc(f.key)}">🏁 Acabó</button></div>`;
+  }
+  const t0 = f.t0 + (f.rota ? rotaPausa(f) : 0);   // rota: el reloj marca lo nadado, sin los descansos
+  const recienSale = f.rota && f.salioEn && now - f.salioEn < 3000;
+  return `<button class="sw-card${esParcial?' parcial':''}${recienSale?' rota-sale':''}${cls}" style="--sc:${serieCol(f.ronda)}" data-action="llego" data-key="${esc(f.key)}">
       <span class="sw-meta">${tag}${dots}</span>
       <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
-      <span class="sw-clk live-clk" data-t0="${f.t0}">${fmtTime(now-f.t0)}</span>
-      ${ultimo!=null?`<span class="sw-last">${f.parc.length*50}m ${fmtTime(ultimo)}</span>`:''}
-      <span class="sw-act">${esParcial?`<small>parcial</small>${(f.parc.length+1)*50} m`:'LLEGÓ'}</span>
+      <span class="sw-clk live-clk" data-t0="${t0}">${fmtTime(now-t0)}</span>
+      ${ultimo!=null?`<span class="sw-last">${metros(f.parc.length)}m ${fmtTime(ultimo)}</span>`:''}
+      <span class="sw-act">${recienSale?`<small>¡sale!</small>${f.rota.tramos[f.parc.length]} m`:esParcial?`<small>${f.rota?'pared':'parcial'}</small>${metros(f.parc.length+1)} m`:'LLEGÓ'}</span>
     </button>
     ${conParc ? `<div class="sw-extra">
       ${f.parc.length?`<button class="sw-mini" data-action="deshacer-parcial" data-key="${esc(f.key)}" aria-label="Deshacer parcial">↶</button>`:''}
@@ -2364,6 +2424,24 @@ function relevoHTML(o, t) {
         <button class="${r.tipo==='estilos'?'on':''}" data-action="rel-tipo" data-t="${t}" data-v="estilos">Un estilo por posta</button></div>
       ${r.tipo==='estilos' ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">${r.estilos.map((e,i)=>`<label style="font-size:12px" class="muted">Posta ${i+1}
         <select class="input" style="padding:8px" data-relest="${i}" data-t="${t}">${misEstilos().map(x=>`<option value="${esc(x)}"${x===e?' selected':''}>${esc(estiloNombre(x))}</option>`).join('')}</select></label>`).join('')}</div>` : ''}
+    </div>` : ''}`;
+}
+// Rota: interruptor y, encendida, sus tramos y los descansos entre ellos (t: 'ps', 'ns' o 'plan-N')
+function rotaHTML(o, t) {
+  const r = o.rota;
+  const sel = (vals, v, attr, suf) => `<select class="input rota-sel" ${attr} data-t="${t}">${[...new Set([...vals, v])].sort((a,b)=>a-b)
+    .map(x=>`<option value="${x}"${x===v?' selected':''}>${x}${suf}</option>`).join('')}</select>`;
+  return `<div class="toggle-row" data-action="rota-toggle" data-t="${t}"${r?' style="border-color:var(--amb)"':''}>
+      <div style="flex:1"><div style="font-weight:600">🧩 Rota</div>
+        <div class="muted" style="font-size:12px">La distancia partida en tramos con descanso entre ellos (200: 50 · 100 · 50 descansando 10 y 20 s). Tocas al llegar a la pared; el descanso se cuenta solo y pita cuando tiene que salir.</div></div>
+      <div class="sw${r?' on':''}"></div></div>
+    ${r ? `<div class="card rota-cfg">
+      ${r.tramos.map((x,i)=>`${i?`<div class="rota-desc-cfg">⏸ descansa ${sel(ROTA_DESC, r.desc[i-1], `data-rotadesc="${i-1}"`, ' s')}</div>`:''}
+        <div class="rota-tr"><span>Tramo ${i+1}</span>${sel(ROTA_TRAMOS, x, `data-rotatr="${i}"`, ' m')}</div>`).join('')}
+      <div class="row" style="margin-top:10px;gap:6px;align-items:center">
+        ${r.tramos.length<8?`<button class="btn btn-surf btn-sm btn-inline" data-action="rota-add" data-t="${t}">➕ Tramo</button>`:''}
+        ${r.tramos.length>2?`<button class="btn btn-surf btn-sm btn-inline" data-action="rota-quitar" data-t="${t}">➖ Quitar</button>`:''}
+        <b style="margin-left:auto">Total ${rotaTotal(r)} m</b></div>
     </div>` : ''}`;
 }
 const estiloPosta = (rel, k, base) => rel && rel.tipo === 'estilos' ? rel.estilos[k % rel.estilos.length] : base;
@@ -2548,7 +2626,8 @@ function renderResumenRonda() {
   return `
     <div class="card" style="text-align:center;padding:14px">
       <div style="font-size:28px">🏁</div>
-      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)} ${iniTag(SA)}</div>
+      <div style="font-weight:700;font-size:17px">Serie ${SA.ronda} completa · ${comboLabel(SA.estilo, SA.dist)}${rotaEtiqueta(SA.rota)} ${iniTag(SA)}</div>
+      ${SA.rota ? `<div class="muted" style="font-size:12px">Rota de ${esc(rotaTexto(SA.rota))} · tiempos netos, sin descansos</div>` : ''}
       <div class="muted" style="font-size:13px">${lleg.length} nadadores · mejor ${fmtTime(best)}</div>
     </div>
     ${ORDEN && ORDEN.sesId===SA.sesId && ORDEN.ronda===SA.ronda ? renderOrdenEditor()
@@ -2559,7 +2638,7 @@ function renderResumenRonda() {
     </div>
     ${cuerpo}
     ${!SA.nuevaSerie && SA.plan ? (SA.plan.series[SA.planIdx+1]
-      ? `<button class="btn btn-green mt16" style="min-height:60px;font-size:18px" data-action="plan-siguiente">▶ Siguiente serie: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].auto&&SA.plan.series[SA.planIdx+1].ciclo?` · auto ${esc(SA.plan.series[SA.planIdx+1].ciclo)} s`:''}</button>`
+      ? `<button class="btn btn-green mt16" style="min-height:60px;font-size:18px" data-action="plan-siguiente">▶ Siguiente serie: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].rota?' en rota':''}${SA.plan.series[SA.planIdx+1].auto&&SA.plan.series[SA.planIdx+1].ciclo?` · auto ${esc(SA.plan.series[SA.planIdx+1].ciclo)} s`:''}</button>`
       : `<div class="card mt16" style="text-align:center;color:var(--grn-l);font-weight:700">✓ Plan terminado (${SA.plan.series.length} series)</div>`) : ''}
     ${SA.nuevaSerie ? renderNuevaSerie() : `
     <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir igual · serie ${SA.ronda+1}</button>
@@ -2571,12 +2650,13 @@ function renderNuevaSerie() {
   return `<div class="card mt16" style="border-color:var(--blu)">
     <div style="font-weight:700;margin-bottom:10px">Serie ${SA.ronda+1} · mismas calles</div>
     ${relevoHTML(f, 'ns')}
+    ${f.relevo ? '' : rotaHTML(f, 'ns')}
     <span class="label">Estilo</span>
     <div class="picker-row p4">${estilosBtns(f.estilo, 'ns-estilo', 'ns')}</div>
-    <span class="label">Distancia</span>
+    ${f.rota ? '' : `<span class="label">Distancia</span>
     <div class="picker-row p4">${DISTS.map(d=>`<button class="pick-btn${Number(f.dist)===d?' on':''}" data-action="ns-dist" data-val="${d}">${d}m</button>`).join('')}</div>
     <div class="toggle-row${ok?'':' dis'}" ${ok?'data-action="ns-parc"':''}>
-      <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>
+      <div style="flex:1;font-weight:600">⏱ Parciales cada 50 m</div><div class="sw${ok&&f.parciales?' on':''}"></div></div>`}
     ${f.relevo ? '' : cicloHTML(f, 'ns')}
     ${inicioHTML(f, 'ns')}
     <div class="row">
@@ -3139,7 +3219,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
-    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, auto:!!SA.ciclo, inicio:SA.inicio, comp:SA.comp, porNadador:SA.porNadador, relevo: SA.relevo ? {...SA.relevo, estilos:[...SA.relevo.estilos]} : null}; render(); } break;
+    case 'ns-abrir':        if (SA) { SA.nuevaSerie = {estilo:SA.estilo, dist:SA.dist, parciales:SA.parciales, ciclo:SA.ciclo, auto:!!SA.ciclo, inicio:SA.inicio, comp:SA.comp, porNadador:SA.porNadador, relevo: SA.relevo ? {...SA.relevo, estilos:[...SA.relevo.estilos]} : null, rota: copiaRota(SA.rota)}; render(); } break;
     // Siguiente serie sin esperar a los que aún nadan: la del plan si hay, si no la misma
     case 'serie-ya':        if (SA) { if (SA.plan && SA.plan.series[SA.planIdx+1]) { SA.planIdx++; repetirSerie(SA.plan.series[SA.planIdx]); } else repetirSerie(); } break;
     case 'inicio':          { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && !o.comp) { o.inicio = btn.dataset.v === 'plataforma' ? 'plataforma' : 'agua'; render(); } break; }
@@ -3149,9 +3229,13 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'planec-quitar':   if (SA && SA.plan) { SA.plan.series.splice(Number(btn.dataset.i), 1); render(); } break;
     case 'planec-add':      if (SA && SA.plan) { const u = SA.plan.series[SA.plan.series.length-1]; SA.plan.series.push({...serieVacia(), ...(u?{estilo:u.estilo, dist:u.dist}:{})}); render(); } break;
     case 'planec-guardar':  if (SA && SA.plan && SA.plan.id && confirm('¿Guardar este orden de series en el entreno preparado para la próxima vez?')) {
-                              await DB.guardarPlan(SA.plan.id, {series: SA.plan.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!x.auto, inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador}))});
+                              await DB.guardarPlan(SA.plan.id, {series: SA.plan.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!x.auto, inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota)}))});
                               alert('Guardado en el entreno preparado.'); } break;
-    case 'rel-modo':        { saveNotas(); const o = cicloObj(btn.dataset.t); if (o) { o.relevo = btn.dataset.v ? (o.relevo || {tipo:'igual', estilos:[...ESTILOS_RELEVO]}) : null; if (o.relevo) { o.parciales = false; o.auto = false; o.ciclo = null; o.comp = false; o.porNadador = false; } render(); } break; }
+    case 'rel-modo':        { saveNotas(); const o = cicloObj(btn.dataset.t); if (o) { o.relevo = btn.dataset.v ? (o.relevo || {tipo:'igual', estilos:[...ESTILOS_RELEVO]}) : null; if (o.relevo) { o.parciales = false; o.auto = false; o.ciclo = null; o.comp = false; o.porNadador = false; o.rota = null; } render(); } break; }
+    case 'rota-toggle':     { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.rota = o.rota ? null : rotaDefecto(Number(o.dist) >= 100 ? o.dist : 200);
+                              if (o.rota) { o.relevo = null; o.parciales = false; o.comp = false; o.dist = rotaTotal(o.rota); } render(); } break; }
+    case 'rota-add':        { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && o.rota && o.rota.tramos.length < 8) { o.rota.tramos.push(50); o.rota.desc.push(ROTA_DESC_DEF); o.dist = rotaTotal(o.rota); render(); } break; }
+    case 'rota-quitar':     { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && o.rota && o.rota.tramos.length > 2) { o.rota.tramos.pop(); o.rota.desc.pop(); o.dist = rotaTotal(o.rota); render(); } break; }
     case 'rel-tipo':        { saveNotas(); const o = cicloObj(btn.dataset.t); if (o && o.relevo) { o.relevo.tipo = btn.dataset.v === 'estilos' ? 'estilos' : 'igual'; render(); } break; }
     case 'rel-salida':      desbloquearAudio(); relevoSalida(tiempoToque(btn)); break;
     case 'rel-toque':       relevoToque(btn.dataset.g, tiempoToque(btn)); break;
@@ -3190,6 +3274,12 @@ document.getElementById('app').addEventListener('keydown', async function(e) {
 
 document.getElementById('app').addEventListener('change', function(e) {
   if (e.target.dataset.relnad && SA) { (SA.relNad = SA.relNad || new Map()).set(e.target.dataset.relnad, e.target.value); render(); return; }
+  if (e.target.dataset.rotatr != null || e.target.dataset.rotadesc != null) {
+    planNombre(); const o = cicloObj(e.target.dataset.t); if (!o || !o.rota) return;
+    if (e.target.dataset.rotatr != null) o.rota.tramos[Number(e.target.dataset.rotatr)] = Number(e.target.value);
+    else o.rota.desc[Number(e.target.dataset.rotadesc)] = Number(e.target.value);
+    o.dist = rotaTotal(o.rota); render(); return;
+  }
   if (e.target.dataset.relest != null) { const o = cicloObj(e.target.dataset.t); if (o && o.relevo) { o.relevo.estilos[Number(e.target.dataset.relest)] = e.target.value; render(); } return; }
   if (e.target.dataset.planec && SA && SA.plan) { const x = SA.plan.series[Number(e.target.dataset.i)]; if (x) { if (e.target.dataset.planec==='dist') { x.dist = Number(e.target.value); if (x.dist<=50) x.parciales = false; } else x.estilo = e.target.value; } render(); return; }
   if (e.target.dataset.estnad && SA) { SA.estiloNad.set(e.target.dataset.estnad, e.target.value); render(); return; }
