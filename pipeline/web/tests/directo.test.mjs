@@ -45,10 +45,14 @@ test('dirFiltrar: del club, por sexo y por categoría (año de nacimiento)', () 
   ctx.__c2 = { lenex: { pruebas: [
     { num: 1, sexo: 'F', filas: [{ nac: 2016, rfen: '1' }] },
     { num: 2, sexo: 'M', filas: [{ nac: 2015, rfen: null }] },
-    { num: 3, sexo: 'M', filas: [{ nac: 2019, rfen: '2' }] }] } };
+    { num: 3, sexo: 'M', filas: [{ nac: 2019, rfen: '2' }] },
+    { num: 4, sexo: 'X', filas: [{ nac: 2017, rfen: '3' }] }] } };
   const nums = f => JSON.parse(evalIn(ctx, `JSON.stringify(dirFiltrar(__c2, ${JSON.stringify(f)}).map(p => p.num))`));
-  assert.deepEqual(nums({ solo: true }), [1, 3]);
-  assert.deepEqual(nums({ solo: false, sx: 'M' }), [2, 3]);
+  assert.deepEqual(nums({ solo: true }), [1, 3, 4]);
+  assert.deepEqual(nums({ solo: false, sx: 'M' }), [2, 3, 4]);   // las mixtas salen en masculino y en femenino
+  assert.deepEqual(nums({ solo: false, sx: 'F' }), [1, 4]);
+  assert.deepEqual(nums({ solo: false, ano: '2015' }), [2]);
+  assert.deepEqual(nums({ solo: true, ano: '2015' }), []);       // con «del club», el de ese año tiene que ser del club
   assert.deepEqual(nums({ solo: false, cat: 'ALE' }), [2]);
   assert.deepEqual(nums({ solo: false, cat: 'PRE' }), [3]);   // más pequeños que benjamín
   assert.equal(evalIn(ctx, 'dirCatLabel("PRE")'), 'Prebenjamín');
