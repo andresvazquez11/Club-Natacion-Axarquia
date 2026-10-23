@@ -785,7 +785,7 @@ function startClock() {
     // Rota: avisos de los 3 últimos segundos de descanso y salida al acabarlo
     let sale = false;
     SA.agua.forEach(f => { if (!f.rota) return; const e = rotaTic(f, now);
-      if (e === 'aviso') pitido(90, 880); else if (e === 'sale') { pitido(450, 1320); vibrar(250); sale = true; }
+      if (e === 'sale') { pitido(450, 1320); vibrar(250); sale = true; }   // los últimos segundos solo se ven (sin pitar)
       else if (f.salioEn && now - f.salioEn > 3000) { f.salioEn = null; sale = true; } });   // quita el «¡sale!» a los 3 s
     if (sale) render();
     document.querySelectorAll('.rota-cd[data-hasta]').forEach(el => { const s = Math.max(0, Math.ceil((Number(el.dataset.hasta) - now)/1000));
@@ -972,7 +972,7 @@ function salidaTanda(t, auto) {
     });
   });
   SA.agua.sort(ordenFila);
-  if (!auto) { pitido(300, 660); vibrar(200); }   // la salida automática ya pita y vibra desde el reloj
+  if (!auto) vibrar(200);   // a mano solo vibra; la salida automática pita y vibra desde el reloj
   render();
 }
 function llegoNad(key, t) {
@@ -1710,9 +1710,9 @@ function renderHome() {
 const NOVEDADES_HASTA = new Date(2026, 10, 1).getTime();   // hasta el sábado 31 de octubre incluido
 const NOVEDADES = [
   // El 4º campo marca lo nuevo de esta versión (sale primero y con la etiqueta «Nuevo»)
-  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso, pita los 3 últimos segundos y avisa «¡sale!» cuando toca seguir. Se guarda el tiempo neto, sin descansos.', true],
+  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso y, al acabar, pita, vibra y avisa «¡sale!». Se guarda el tiempo neto, sin descansos.', true],
   ['📈', 'La rota en las gráficas', 'en la web (Modo entrenador) cada rota sale como su propia prueba: ritmo del grupo, evolución de cada nadador y comparar nadadores o series. Solo se compara con la misma rota, nunca con un 200 normal ni con competiciones.', true],
-  ['🔔', 'Pitido y vibración en cada salida', 'en todos los móviles, también al tocar SALIDA a mano y en los relevos. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.', true],
+  ['🔔', 'Pitido y vibración en las salidas', 'en todos los móviles: la salida automática pita y vibra; al tocar SALIDA a mano solo vibra. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.', true],
   ['🔴', 'Directo más visible', 'en la web, el botón «Directo» se pone rojo y late cuando hay una competición en curso. Al seguir a un nadador, la hora de sus pruebas sale destacada y el día de la competición hay cuenta atrás hasta su prueba.', true],
   ['🎨', 'Series solapadas más claras', 'cada serie tiene su color en las tarjetas y arriba se ve el tiempo total de cada una (de la primera salida a la última llegada).'],
   ['🔁', 'Relevos', 'al preparar la serie elige «Relevo»: cada calle es un equipo, salen todas a la vez y cada toque cierra la posta de un nadador. Resultado por equipos y comparado con relevos anteriores.'],
@@ -2459,7 +2459,7 @@ function relevoSalida(t) {
   SA.seriesT = {...(SA.seriesT||{}), [SA.ronda]: {ini: t, fin: null}};
   SA.nado = SA.nado.map(x => x.fin == null && x.r !== SA.ronda ? {...x, fin: t} : x);
   SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado);
-  pitido(300, 660); vibrar(200);
+  vibrar(200);
   render();
 }
 function relevoToque(gId, t) {
