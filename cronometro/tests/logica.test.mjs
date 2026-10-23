@@ -262,3 +262,12 @@ test('ritmo pedido: «ritmo de 200 + 10 s», margen y bloques con patrón (20×1
   assert.equal(ev('zonaRitmo', -150, 100), 'rapido');
   assert.equal(ev('zonaRitmo', 120, 100), 'lento');
 });
+
+test('ritmo pedido: avisos al escribir los segundos del bloque', () => {
+  assert.equal(ev('parseSegundos', '+90'), null);                 // como mucho 60 s
+  assert.equal(ev('errorBloque', { reps: 5, patron: '+10 +10 +10 +4', tol: '1' }), '');
+  assert.match(ev('errorBloque', { reps: 5, patron: '+10 segundos', tol: '1' }), /No entiendo «segundos»/);
+  assert.match(ev('errorBloque', { reps: 5, patron: '+90', tol: '1' }), /como mucho 60/);
+  assert.match(ev('errorBloque', { reps: 20, patron: '10 10 10 4', tol: '1' }), /Serían 80 series/);
+  assert.match(ev('errorBloque', { reps: 5, patron: '10 4', tol: '15' }), /margen va de 0,1 a 10/);
+});

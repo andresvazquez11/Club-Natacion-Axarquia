@@ -217,6 +217,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .bloque-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
 .bloque-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px}
 .plan-compacta{padding:10px 12px}
+.aviso-bloque{margin-top:8px;padding:8px 10px;border-radius:10px;background:#2a1c0c;color:var(--amb);font-size:13px;font-weight:600}
 .sw-obj.zona-ritmo{color:var(--grn-l);font-weight:700} .sw-obj.zona-rapido{color:#7dd3fc;font-weight:700} .sw-obj.zona-lento{color:var(--amb);font-weight:700}
 .ritmo-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:#0c2235;color:#7dd3fc;font-size:11px;font-weight:800;vertical-align:middle;}
 .sw-act{margin:auto -6px 0;padding:6px 2px;background:var(--blu);color:#fff;text-align:center;font-size:14px;font-weight:900;letter-spacing:.3px;line-height:1.1;display:flex;flex-direction:column;align-items:center;}
@@ -1813,6 +1814,7 @@ function renderHome() {
 const NOVEDADES_HASTA = new Date(2026, 10, 8).getTime();   // hasta el sábado 7 de noviembre incluido
 const NOVEDADES = [
   // El 4º campo marca lo nuevo de esta versión (sale primero y con la etiqueta «Nuevo»)
+  ['✍', 'Cómo escribir los segundos', 'en «Sumar al ritmo» vale +10, 10, 4,5 o -2 (más rápido que el ritmo), hasta 60 s; vacío = el ritmo tal cual. En el bloque, los de una vuelta en orden y separados por espacios o comas: +10 +10 +10 +4 (hasta 12 por vuelta y 60 series). El margen, de 0,1 a 10 s. Si algo no se entiende, el cronómetro avisa.', true],
   ['⏱', 'Ritmo pedido: «ritmo de 200 + 10″»', 'al preparar la serie escribe los segundos que se suman al ritmo (+10, +4…) y el margen (±1 s). Cada uno ve si fue ● en el ritmo, ▲ más rápido o ▼ más lento de lo pedido. En el entreno preparado, «Añadir bloque a ritmo» crea series como 20×100 «3 a +10″ y 1 a +4″» de una vez. El PDF termina con la cuadrícula «¿Fueron al ritmo?».', true],
   ['🎯', 'Ritmo de 200 y de 400', 'al preparar la serie elige «Comparar cada tiempo con»: mejor marca, ritmo de 200 o ritmo de 400. Cada nadador tiene su objetivo (su mejor 200 o 400 llevado a la distancia de la serie); en la tarjeta ves si va por delante o por detrás en cada 50 y en el resumen, cuánto y en qué %. Sin marca: el ritmo que escribas tú o la media del grupo.', true],
   ['📊', 'Gráficas más claras en la web', 'nueva gráfica «¿Quién va a su ritmo?»: cada nadador en su fila, en % de su ritmo, con zonas dentro / cerca / fuera. Se puede cambiar entre ritmo de 200, de 400 o mejor marca. Todas las gráficas muestran el tiempo al tocar un punto.', true],
@@ -2267,16 +2269,17 @@ function renderSeriesPlan() {
 // Bloque a ritmo: p. ej. 20×100 = 5 vueltas a «+10 +10 +10 +4» sobre el ritmo de 200 → 20 series, cada una con su objetivo
 function renderBloquePlan() {
   const b = PS.bloque = PS.bloque || {reps: 5, patron: '+10 +10 +10 +4', dist: 100, estilo: 'libre', ref: '200', tol: '1'};
-  const n = bloqueSeries({...b, tol: Math.abs(parseSegundos(b.tol) || RITMO_TOL_DEF)}).length;
+  const err = errorBloque(b), n = err ? 0 : bloqueSeries({...b, tol: Math.abs(parseSegundos(b.tol) || RITMO_TOL_DEF)}).length;
   return `<details class="card mb16" ${PS.bloqueAbierto?'open':''}><summary data-action="bloque-toggle" style="cursor:pointer;font-weight:700">🎯 Añadir bloque a ritmo <span class="muted" style="font-weight:500">(p. ej. 20×100: 3 a +10″ y 1 a +4″)</span></summary>
     <div class="bloque-grid">
       <label><span class="muted">Vueltas</span><input class="input" inputmode="numeric" data-bloque="reps" value="${esc(b.reps)}"></label>
       <label><span class="muted">Distancia</span><select class="input" data-bloque="dist">${DISTS.map(d=>`<option value="${d}"${Number(b.dist)===d?' selected':''}>${d} m</option>`).join('')}</select></label>
       <label><span class="muted">Estilo</span><select class="input" data-bloque="estilo">${misEstilos().map(e=>`<option value="${esc(e)}"${b.estilo===e?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>
       <label><span class="muted">Ritmo de</span><select class="input" data-bloque="ref"><option value="200"${b.ref==='200'?' selected':''}>200</option><option value="400"${b.ref==='400'?' selected':''}>400</option></select></label>
-      <label style="grid-column:1/-1"><span class="muted">Segundos que se suman al ritmo en cada serie de una vuelta, en orden</span><input class="input" data-bloque="patron" value="${esc(b.patron)}" placeholder="+10 +10 +10 +4"></label>
+      <label style="grid-column:1/-1"><span class="muted">Segundos que se suman al ritmo en cada serie de una vuelta, en orden (separados por espacios o comas; -2 = más rápido que el ritmo; como mucho 60 s)</span><input class="input" data-bloque="patron" value="${esc(b.patron)}" placeholder="+10 +10 +10 +4"></label>
       <label><span class="muted">Margen ± (s)</span><input class="input" inputmode="decimal" data-bloque="tol" value="${esc(b.tol)}"></label>
     </div>
+    ${err ? `<div class="aviso-bloque">⚠ ${esc(err)}</div>` : ''}
     <button class="btn btn-blue mt8" data-action="plan-bloque" ${n?'':'disabled style="opacity:.4"'}>➕ Añadir ${n} series</button>
     <div class="muted" style="font-size:12px;margin-top:6px">Cada serie lleva su objetivo: el ritmo de cada nadador más los segundos de su turno. Después puedes editar o quitar cualquiera.</div>
   </details>`;
@@ -3444,10 +3447,10 @@ document.getElementById('app').addEventListener('change', function(e) {
     planNombre(); const t = e.target.dataset.ritmomas ?? e.target.dataset.ritmotol, o = cicloObj(t); if (!o || !o.ritmo) return;
     const txt = e.target.value.trim().replace('−', '-'), v = parseSegundos(txt);
     if (e.target.dataset.ritmomas != null) {
-      if (txt && v === null) { alert('Escribe los segundos que se suman al ritmo, por ejemplo +10 o +4'); return; }
+      if (txt && v === null) { alert('Escribe los segundos que se suman al ritmo (como mucho 60), por ejemplo +10, +4, 4,5 o -2'); render(); return; }
       o.ritmo = ritmoOk({...o.ritmo, mas: txt ? v : null, tol: o.ritmo.tol});
     } else {
-      if (!v) { alert('Escribe el margen en segundos, por ejemplo 1 o 0,5'); return; }
+      if (!v || Math.abs(v) < 10 || Math.abs(v) > 1000) { alert('Escribe el margen en segundos, de 0,1 a 10 (por ejemplo 1 o 0,5)'); render(); return; }
       o.ritmo = ritmoOk({...o.ritmo, tol: Math.abs(v)});
     }
     render(); return;

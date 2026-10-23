@@ -217,17 +217,33 @@ function ritmoOk(r) {
   }
   return out;
 }
-// «+10», «10», «-2», «4,5» → centésimas con signo; vacío o inválido → null
+// «+10», «10», «-2», «4,5» → centésimas con signo (como mucho 60 s); vacío o inválido → null
+const RITMO_MAS_MAX = 6000;
 function parseSegundos(txt) {
   const m = /^([+-]?)(\d{1,2})(?:[.,](\d{1,2}))?$/.exec(String(txt == null ? '' : txt).trim().replace(/\s|″|"|s$/g, ''));
   if (!m) return null;
   const v = Number(m[2]) * 100 + Number((m[3] || '0').padEnd(2, '0'));
+  if (v > RITMO_MAS_MAX) return null;
   return m[1] === '-' ? -v : v;
 }
 // Patrón de un bloque: «10, 10, 10, 4» o «+10 +10 +10 +4» → [1000, 1000, 1000, 400]
 function parsePatron(txt) {
   const L = String(txt == null ? '' : txt).split(/[,;\s]+/).filter(Boolean).map(parseSegundos);
   return L.length && L.length <= 12 && L.every(v => v !== null) ? L : null;
+}
+// Qué falla en un bloque (para avisar al entrenador); '' si está bien
+function errorBloque(b) {
+  const L = String(b.patron == null ? '' : b.patron).split(/[,;\s]+/).filter(Boolean);
+  if (!L.length) return 'Escribe los segundos de cada serie, por ejemplo +10 +10 +10 +4.';
+  const malo = L.find(x => parseSegundos(x) === null);
+  if (malo) return `No entiendo «${malo}». Escribe segundos (como mucho 60), por ejemplo +10 +10 +10 +4 o -2.`;
+  if (L.length > 12) return 'Como mucho 12 series por vuelta.';
+  const reps = Math.round(Number(b.reps));
+  if (!(reps >= 1)) return 'Escribe cuántas vueltas (1 o más).';
+  if (reps * L.length > 60) return `Serían ${reps * L.length} series: como mucho 60 por bloque.`;
+  const tol = parseSegundos(b.tol);
+  if (b.tol !== undefined && String(b.tol).trim() && (!tol || Math.abs(tol) < 10 || Math.abs(tol) > 1000)) return 'El margen va de 0,1 a 10 s.';
+  return '';
 }
 // Series de un bloque a ritmo: «reps» vueltas al patrón (20×100 = 5 vueltas a «+10 +10 +10 +4»)
 function bloqueSeries(b) {
