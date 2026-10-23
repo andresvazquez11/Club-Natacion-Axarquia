@@ -94,3 +94,23 @@ test('series en PDF: se avisa de que aún no hay resultados y la tarjeta ofrece 
   assert.match(evalIn(ctx, 'dirSeguirHTML(__c3, "6313922")'), /Series publicadas por la federación/);
   assert.match(evalIn(ctx, 'dirTarjeta(__c3)'), /Ver las series/);
 });
+
+test('dirCuentaHTML: cuenta atrás solo el día de la competición y en pruebas por nadar', () => {
+  const h = evalIn(ctx, `(() => {
+    const c = {desde: dirHoy(), hasta: dirHoy()}, p = {hora: '23:59'};
+    const otro = {desde: '2020-01-01', hasta: '2020-01-01'};
+    return JSON.stringify([dirCuentaHTML(c, {p, estado: 'pendiente', posSerie: 3, series: 8}),
+      dirCuentaHTML(c, {p, estado: 'hecha', posSerie: 3, series: 8}),
+      dirCuentaHTML(otro, {p, estado: 'pendiente', posSerie: 3, series: 8})]);
+  })()`);
+  const [hoy, hecha, otroDia] = JSON.parse(h);
+  assert.match(hoy, /data-cuenta="\d+"/);
+  assert.match(hoy, /serie 3 de 8/);
+  assert.equal(hecha, '');
+  assert.equal(otroDia, '');
+});
+
+test('dirCuentaTexto: pasada la hora avisa de que ya ha empezado', () => {
+  assert.match(evalIn(ctx, 'dirCuentaTexto(Date.now() - 1000, 2, 5)'), /ya ha empezado.*serie <b>2<\/b> de 5/);
+  assert.match(evalIn(ctx, 'dirCuentaTexto(Date.now() + 3725e3, 2, 5)'), /1 h 0[12] min/);
+});

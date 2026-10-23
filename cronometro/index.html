@@ -761,7 +761,7 @@ function startClock() {
       if (e.aviso && SA.avisado !== SA.nSalida) { SA.avisado = SA.nSalida; pitido(120, 880); }
       if (e.toca && SA.cicloSonado !== SA.nSalida) {
         SA.cicloSonado = SA.nSalida; pitido(500, 660);
-        try { navigator.vibrate && navigator.vibrate(200); } catch {}
+        vibrar(200);
         if (SA.auto) salidaTanda(SA.tUltSalida + SA.ciclo*1000, true);
       }
     }
@@ -939,6 +939,7 @@ function salidaTanda(t, auto) {
     });
   });
   SA.agua.sort(ordenFila);
+  if (!auto) { pitido(300, 660); vibrar(200); }   // la salida automática ya pita y vibra desde el reloj
   render();
 }
 function llegoNad(key, t) {
@@ -962,7 +963,7 @@ function llegoNad(key, t) {
   if (abierto && !SA.agua.some(x => x.ronda === a.ronda) && (a.ronda !== SA.ronda || !quedanPorSalir())) {
     SA.nado = cerrarTramo(SA.nado, a.ronda, t); DB.guardarNado(SA.sesId, SA.nado);
   }
-  try { navigator.vibrate && navigator.vibrate(rec.marca ? [60,40,60] : 35); } catch {}
+  vibrar(rec.marca ? [60,40,60] : 35);
   render();
 }
 const MARCA_TXT = {comp:'🏅 ¡marca de comp.!', entreno:'🏅 mejor entreno'};
@@ -976,7 +977,7 @@ function marcaNad(key, t) {
   a.tUlt = t;
   if (a.parc.length < a.tramos-1) {
     a.parc.push(t - a.t0);
-    try { navigator.vibrate && navigator.vibrate(20); } catch {}
+    vibrar(20);
     render();
   } else {
     llegoNad(key, t);
@@ -1568,7 +1569,7 @@ function render() {
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 // Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
-const APP_VERSION = 'v17';
+const APP_VERSION = 'v18';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
@@ -1665,8 +1666,9 @@ function renderHome() {
       <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>`;
 }
 // ── Novedades de esta versión: se ven en el inicio hasta NOVEDADES_HASTA y luego desaparecen solas (después, borrar este bloque) ──
-const NOVEDADES_HASTA = new Date(2026, 9, 25).getTime();   // hasta el sábado 24 de octubre incluido
+const NOVEDADES_HASTA = new Date(2026, 10, 1).getTime();   // hasta el sábado 31 de octubre incluido
 const NOVEDADES = [
+  ['🔔', 'Pitido y vibración en cada salida', 'en todos los móviles, también al tocar SALIDA a mano y en los relevos. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.'],
   ['🎨', 'Series solapadas más claras', 'cada serie tiene su color en las tarjetas y arriba se ve el tiempo total de cada una (de la primera salida a la última llegada).'],
   ['🔁', 'Relevos', 'al preparar la serie elige «Relevo»: cada calle es un equipo, salen todas a la vez y cada toque cierra la posta de un nadador. Resultado por equipos y comparado con relevos anteriores.'],
   ['🎯', 'Cada nadador su estilo', 'en la misma calle uno puede nadar crol y otro mariposa: el estilo se elige en su tarjeta antes de salir.'],
@@ -1926,7 +1928,7 @@ function dragStart() {
   document.body.appendChild(g);
   DRAG.ghost = g; DRAG.dx = DRAG.x - r.left; DRAG.dy = DRAG.y - r.top;
   DRAG.card.classList.add('dragging');
-  try { navigator.vibrate && navigator.vibrate(15); } catch {}
+  vibrar(15);
   dragMoveTo(DRAG.x, DRAG.y);
   DRAG.scroll = setInterval(() => {
     if (!DRAG) return;
@@ -1994,16 +1996,46 @@ document.addEventListener('contextmenu', e => { if (e.target.closest && e.target
 // ── Salidas por ciclo ────────────────────────────────────────
 function planNombre() { const el = document.getElementById('plan-nombre'); if (el && PS && PS.plan) PS.plan.nombre = el.value; }
 let _ac = null;   // audio: se crea con un toque del entrenador (los móviles no suenan sin él)
+// iPhone: con el interruptor de silencio puesto, Safari calla el audio web salvo que la sesión sea de «reproducción»
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
 function desbloquearAudio() {
-  try { if (!_ac) { const C = window.AudioContext || window.webkitAudioContext; if (C) _ac = new C(); } if (_ac && _ac.state === 'suspended') _ac.resume(); } catch {}
+  try {
+    if (!_ac) {
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      _ac = new C();
+      // iPhone: el audio solo queda desbloqueado si suena algo dentro del toque (un instante de silencio basta)
+      const b = _ac.createBufferSource(); b.buffer = _ac.createBuffer(1, 1, 22050); b.connect(_ac.destination); b.start(0);
+    }
+    if (_ac.state !== 'running') _ac.resume();   // 'suspended' o 'interrupted' (pantalla bloqueada, llamada…)
+  } catch {}
 }
+// Cualquier toque vuelve a despertar el audio (el iPhone lo duerme al bloquear la pantalla o cambiar de app)
+document.addEventListener('pointerdown', desbloquearAudio, {passive: true});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && _ac && _ac.state !== 'running') try { _ac.resume(); } catch {} });
 function pitido(ms, hz) {
   try {
     if (!_ac) return;
-    const o = _ac.createOscillator(), g = _ac.createGain(), t = _ac.currentTime;
-    o.frequency.value = hz; o.connect(g); g.connect(_ac.destination);
-    g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.001, t + ms/1000);
-    o.start(t); o.stop(t + ms/1000);
+    if (_ac.state !== 'running') _ac.resume();
+    const o = _ac.createOscillator(), g = _ac.createGain(), t = _ac.currentTime + .01, fin = t + ms/1000;
+    o.type = 'square'; o.frequency.value = hz; o.connect(g); g.connect(_ac.destination);   // onda cuadrada: se oye más en la piscina
+    g.gain.setValueAtTime(.5, t); g.gain.setValueAtTime(.5, fin - .03); g.gain.exponentialRampToValueAtTime(.001, fin);
+    o.start(t); o.stop(fin + .02);
+  } catch {}
+}
+// Vibración: Android usa navigator.vibrate. Safari (iPhone) no lo tiene; desde iOS 18 se puede dar un toque háptico
+// pulsando por código un interruptor oculto (<input switch>). En iPhone es un toque corto, no un patrón.
+let _hap = null;
+function vibrar(p) {
+  try {
+    if (navigator.vibrate) { navigator.vibrate(p); return; }
+    if (!_hap) {
+      _hap = document.createElement('label');
+      _hap.setAttribute('aria-hidden', 'true');
+      _hap.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;overflow:hidden';
+      _hap.innerHTML = '<input type="checkbox" switch tabindex="-1">';
+      document.body.appendChild(_hap);
+    }
+    _hap.click();
   } catch {}
 }
 // Campo de ciclo + interruptor de salida automática (t: 'ps' preparar, 'ns' nueva serie)
@@ -2346,7 +2378,7 @@ function relevoSalida(t) {
   SA.seriesT = {...(SA.seriesT||{}), [SA.ronda]: {ini: t, fin: null}};
   SA.nado = SA.nado.map(x => x.fin == null && x.r !== SA.ronda ? {...x, fin: t} : x);
   SA.nado = abrirTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado);
-  try { navigator.vibrate && navigator.vibrate(40); } catch {}
+  pitido(300, 660); vibrar(200);
   render();
 }
 function relevoToque(gId, t) {
@@ -2362,7 +2394,7 @@ function relevoToque(gId, t) {
     guardarEquipoRelevo(g, e);
     if (!relevoEnMarcha()) { SA.seriesT[SA.ronda].fin = t; SA.nado = cerrarTramo(SA.nado, SA.ronda, t); DB.guardarNado(SA.sesId, SA.nado); }
   }
-  try { navigator.vibrate && navigator.vibrate(e.fin ? [60,40,60] : 30); } catch {}
+  vibrar(e.fin ? [60,40,60] : 30);
   render();
 }
 function relevoDeshacer(gId) {
@@ -2924,7 +2956,7 @@ document.getElementById('app').addEventListener('pointerdown', function(e) {
   const enAgua = el.classList.contains('sw-card') && !el.classList.contains('done');
   _lp = {x:e.clientX, y:e.clientY, key:el.dataset.key, timer:setTimeout(() => {
     _notaPend = _lp && _lp.key; _ignoreClickUntil = Date.now() + 2000;
-    try { navigator.vibrate && navigator.vibrate(15); } catch {}
+    vibrar(15);
   }, enAgua ? 800 : 600)};
 });
 document.addEventListener('pointermove', function(e) {

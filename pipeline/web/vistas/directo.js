@@ -139,6 +139,31 @@ function dirSusPruebas(c, rfen) {
       rivales: p.filas.filter(x => x.serie === f.serie).sort((a, b) => a.calle - b.calle)};
   }).filter(Boolean).sort((a, b) => (a.p.fecha || '').localeCompare(b.p.fecha || '') || (a.p.hora || '').localeCompare(b.p.hora || '') || a.p.num - b.p.num);
 }
+/* Cuenta atrás hasta la hora de inicio de la prueba, solo el día de la competición y si aún no ha empezado
+   (la hora del programa es la de la piscina; se da por hecho que el móvil está en la misma hora) */
+const dirHoy = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; };
+function dirCuentaHTML(c, x) {
+  const f = x.p.fecha || (c.desde === c.hasta ? c.desde : '');
+  if (x.estado !== 'pendiente' || f !== dirHoy() || !/^\d{1,2}:\d{2}$/.test(x.p.hora || '')) return '';
+  const [h, m] = x.p.hora.split(':').map(Number);
+  const t = new Date(+f.slice(0, 4), +f.slice(5, 7) - 1, +f.slice(8, 10), h, m).getTime();
+  return `<div class="dir-cuenta" data-cuenta="${t}" data-serie="${x.posSerie}" data-series="${x.series}">${dirCuentaTexto(t, x.posSerie, x.series)}</div>`;
+}
+function dirCuentaTexto(t, serie, series) {
+  const ms = t - Date.now();
+  if (ms <= 0) return `<span>Su prueba ya ha empezado: nada en la serie <b>${Number(serie)}</b> de ${Number(series)}.</span>`;
+  const s = Math.floor(ms / 1000), hh = Math.floor(s / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+  return `<span>Faltan</span><b>${hh ? `${hh} h ${String(mm).padStart(2, '0')}` : mm} min ${String(ss).padStart(2, '0')} s</b><span>para que empiece su prueba (nada en la serie ${Number(serie)} de ${Number(series)})</span>`;
+}
+let DIR_CUENTA = null;
+function dirCuentaTic() {
+  const els = document.querySelectorAll('[data-cuenta]');
+  els.forEach(el => { const t = Number(el.dataset.cuenta); el.innerHTML = dirCuentaTexto(t, el.dataset.serie, el.dataset.series); el.classList.toggle('ya', t <= Date.now()); });
+  return els.length;
+}
+// Un reloj por segundo mientras haya alguna cuenta atrás en pantalla (se para solo al salir de ella)
+const dirCuentaArrancar = () => { clearInterval(DIR_CUENTA); if (dirCuentaTic()) DIR_CUENTA = setInterval(() => { if (!dirCuentaTic()) clearInterval(DIR_CUENTA); }, 1000); };
+
 /* Nadadores del club (emparejados con su ficha) que nadan en una competición */
 const dirDelClub = c => !c || !c.lenex ? [] : [...new Map(dirNuestras(c).filter(f => f.rfen && Object.hasOwn(SW, f.rfen)).map(f => [f.rfen, SW[f.rfen]])).values()]
   .sort((a, b) => a.n.localeCompare(b.n));
@@ -166,6 +191,7 @@ function dirSeguirHTML(c, rfen) {
       <div class="dir-seg-top"><div class="dir-hora"><small>${varios && x.p.fecha ? dfmt(x.p.fecha) : 'empieza'}</small><b>${esc(x.p.hora || '--:--')}</b></div>
         <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirDePdf(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
+      ${dirCuentaHTML(c, x)}
       ${est}
       <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => f.rfen === rfen)}</details>
       <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} nadadores)</summary>${series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => f.rfen === rfen)}`).join('')}</details>
@@ -241,6 +267,7 @@ function vistaDirecto(app, p) {
         || '<div class="vacio">No hay competiciones en las próximas semanas.</div>') + pie;
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
+    dirCuentaArrancar();
     if (forzar) window.scrollTo(0, y);
   };
   pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), DIR_PROXY ? 30e3 : 60e3); });
@@ -260,7 +287,8 @@ async function pintarDirectoNadador(app, s) {
   if (!prox.length && !rec.length) return;
   const nombre = esc(s.n.split(' ')[0]);
   const linea = x => x.filas.length ? `<div class="dir-f"><b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
-      <div class="tiny">${dirSusPruebas(x.c, id).map(y => `${esc(y.p.nombre)}${y.p.hora ? ` (${esc(y.p.hora)})` : ''}: serie ${y.posSerie}, calle ${y.f.calle}${y.f.t || y.f.estado ? ` · <b>${dirTiempo(y.f)}</b>${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`).join(' · ')}</div>
+      <div class="tiny">${dirSusPruebas(x.c, id).map(y => `${esc(y.p.nombre)}${y.p.hora ? ` (${y.estado === 'hecha' ? esc(y.p.hora) : `<b class="dir-h-mio">${esc(y.p.hora)}</b>`})` : ''}: serie ${y.posSerie}, calle ${y.f.calle}${y.f.t || y.f.estado ? ` · <b>${dirTiempo(y.f)}</b>${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`).join(' · ')}</div>
+      ${dirSusPruebas(x.c, id).map(y => dirCuentaHTML(x.c, y)).find(Boolean) || ''}
       <div class="dir-f-acc"><a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(id)}">Seguir a ${nombre}: pruebas, horarios y rivales</a>
         <a href="#directo?c=${Number(x.c.id)}&solo=0">Toda la competición</a></div></div>`
     : `<div class="dir-f"><b><a href="#directo">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span>
@@ -272,4 +300,5 @@ async function pintarDirectoNadador(app, s) {
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
   const ancla = app.querySelector('.card');
   if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
+  dirCuentaArrancar();
 }

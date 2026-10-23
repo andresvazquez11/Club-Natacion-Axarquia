@@ -609,10 +609,13 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .dir-b{border-color:var(--ln)}
 @media (max-width:440px){#cab-crono span{display:none}.crono-b{padding:0 8px}}
 .dir-punto{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ink2);margin-right:5px;vertical-align:1px}
-.dir-b.vivo{border-color:#e5484d}
+/* con una competición en curso, el botón se pone rojo y late; si no, se queda gris */
+.dir-b.vivo{background:#e5484d;border-color:#e5484d;color:#fff;animation:dirAro 1.6s infinite}
+.dir-b.vivo .dir-punto{background:#fff!important}
+@keyframes dirAro{0%{box-shadow:0 0 0 0 rgba(229,72,77,.55)}70%{box-shadow:0 0 0 9px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
 .dir-b.vivo .dir-punto,.dir-en_curso .dir-punto,.dir-ficha .dir-punto,.sub-cab .dir-punto{background:#e5484d;animation:dirLatido 1.4s infinite}
 @keyframes dirLatido{50%{opacity:.25}}
-@media (prefers-reduced-motion:reduce){.dir-punto{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.dir-punto,.dir-b.vivo{animation:none!important}}
 .dir-en_curso{border-color:#e5484d}
 .dir-docs{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;margin-top:4px}
 tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
@@ -634,6 +637,16 @@ tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
 .dir-hora{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:6px 8px;border-radius:12px;background:var(--inset,rgba(127,127,127,.12))}
 .dir-hora small{font-size:.62rem;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
 .dir-hora b{font-size:1.25rem;font-variant-numeric:tabular-nums}
+/* la hora de las pruebas que le quedan por nadar, en el color de realce para que salte a la vista */
+.dir-seg-pendiente .dir-hora,.dir-seg-en_marcha .dir-hora{background:var(--hl);color:#1a1200}
+.dir-seg-pendiente .dir-hora small,.dir-seg-en_marcha .dir-hora small{color:#1a1200;opacity:.8}
+.dir-seg-pendiente .dir-datos div:first-child,.dir-seg-en_marcha .dir-datos div:first-child{outline:2px solid var(--hl)}
+.dir-h-mio{color:var(--hl);font-weight:800}
+/* cuenta atrás (solo el día de la competición) */
+.dir-cuenta{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin:8px 0 4px;padding:8px 12px;border-radius:12px;
+  background:color-mix(in srgb,var(--hl) 16%,transparent);border:1px solid var(--hl);font-size:.85rem}
+.dir-cuenta b{font-size:1.2rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+.dir-cuenta.ya{background:color-mix(in srgb,#e5484d 14%,transparent);border-color:#e5484d}
 .dir-prueba{font-size:1.05rem}
 .dir-datos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
 .dir-datos div{display:flex;flex-direction:column;align-items:center;padding:6px;border-radius:10px;background:var(--inset,rgba(127,127,127,.12))}
