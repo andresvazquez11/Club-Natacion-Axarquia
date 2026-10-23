@@ -1574,17 +1574,22 @@ async function generarPDF(sesId, btn, compartir) {
     series.forEach(x => {
       if (y > H - 40) { doc.addPage(); y = 18; }
       doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...AZUL);
-      doc.text(`Serie ${x.ronda} · ${serieTexto(x)}${x.hora?` · ${x.hora}`:''}${x.comp?' · Modo competición (plataforma)':x.inicio==='plataforma'?' · desde plataforma':''}`, M, y);
+      doc.text(`Serie ${x.ronda} · ${serieTexto(x)}${x.hora?` · ${x.hora}`:''}${x.comp?' · Modo competición (plataforma)':x.inicio==='plataforma'?' · desde plataforma':''}${(x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor') || {}).ritmo ? ` · a ritmo de ${x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor').ritmo.ref}` : ''}`, M, y);
       const conParc = x.res.some(r => r.parciales && r.parciales.length > 1);
+      // Serie comparada con el ritmo de 200 o de 400: su objetivo de ese día y cómo le fue
+      const refR = (x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor' && r.ritmo.cs) || {}).ritmo;
+      const ritmoCelda = r => { if (!r.ritmo || !r.ritmo.cs) return '—'; const obj = r.ritmo.cs * 10, d = (r.ms - obj) / 1000;
+        return `${fmtTime(obj)} · ${BASE_TXT[r.ritmo.base] || ''}\nhoy ${difTxt(d)} s ${difPalabra(d)} (${(r.ms / obj * 100).toFixed(1)} %)`; };
       const best = x.res[0] ? x.res[0].ms : 0;
       const dif = (d, t, f) => `${t} · ${f}\nhoy ${difTxt(d)} s ${difPalabra(d)}`;
       doc.autoTable({
         startY: y + 2, margin: {left:M, right:M},
-        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), 'Su mejor competición (25 m)', 'Su mejor entreno', 'Su último entreno']],
+        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), ...(refR?[`Su ritmo de ${refR.ref}`]:[]), 'Su mejor competición (25 m)', 'Su mejor entreno', 'Su último entreno']],
         body: x.res.map((r,i) => { const c = comparaciones(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms, r.id, ses.fecha, ses.id);
           const rk = r.comp ? rankingTexto(rankingDe(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms)) : '';
           return [i+1, nombreDe(r.nId) + (r.nota ? `\nNota: ${r.nota}` : '') + (rk ? `\n${rk}` : ''), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
             ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[]),
+            ...(refR?[ritmoCelda(r)]:[]),
             c.comp ? dif(c.difComp, fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} (${origenComp(c.comp)})`) : '—',
             c.ent ? dif(c.difEnt, fmtTime(c.ent.ms), fmtDateShort(c.ent.fecha)) : '—',
             c.ult ? dif(c.difUlt, fmtTime(c.ult.ms), fmtDateShort(c.ult.fecha)) : '—']; }),
@@ -1592,7 +1597,7 @@ async function generarPDF(sesId, btn, compartir) {
         headStyles: {fillColor: AZUL, textColor: 255},
         columnStyles: {0:{cellWidth:7}, 3:{fontStyle:'bold'}},
         didParseCell: h => { if (h.section!=='body') return; const t = String(h.cell.raw||'');
-          if (h.column.index >= h.table.columns.length-3 && /hoy -/.test(t)) h.cell.styles.textColor = [10,122,67]; },
+          if (/hoy -/.test(t)) h.cell.styles.textColor = [10,122,67]; },   // más rápido que con lo que se compara: en verde
       });
       doc.setFontSize(10);
       y = doc.lastAutoTable.finalY + 10;

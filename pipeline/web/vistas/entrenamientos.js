@@ -742,15 +742,20 @@ function pintarEntrenamientos(host, f) {
   const G = entGrupo(F, (ENT.datos && ENT.datos.sesiones) || []), catNom = f.cat === 'all' ? 'Todo el club' : ((DATA.cats.find(c => c.key === f.cat) || {}).label || f.cat);
   const gev = R.pruebas.some(x => x.ev === f.gev) ? f.gev : (R.pruebas[0] || {}).ev;
   const DG = gev ? entDispersion(F, gev) : null, ultimo = DG && DG.dias[DG.dias.length - 1], primero = DG && DG.dias[0];
-  const grupo = `
-    <div class="card"><div class="h">${ico('grupo')}El grupo · ${esc(catNom)} <span class="h-n">(${G.nadadores.length} nadadores · ${G.sesiones} entrenamientos)</span></div>
+  // Asistencia de cada nadador: al final de la página, plegada (se abre si el entrenador la quiere ver)
+  const asistencia = `
+    <details class="card ent-asist"><summary><span class="h" style="margin:0">${ico('grupo')}Asistencia y tiempos de cada nadador · ${esc(catNom)} <span class="h-n">(${G.nadadores.length} nadadores · ${G.sesiones} entrenamientos)</span></span><span class="dir-chev" aria-hidden="true">›</span></summary>
       <div class="tw"><table class="rt"><tr><th>Nadador</th><th class="num">Sesiones</th><th class="num">Asist.</th><th class="num">Tiempos</th><th>Estilos</th></tr>
       ${G.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
         <td style="max-width:0;width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b></td>
         <td class="num">${m.sesiones} de ${G.sesiones}</td><td class="num"><b class="${m.asistencia >= 75 ? 'good' : m.asistencia < 50 ? 'bad' : ''}">${Math.round(m.asistencia)}%</b></td>
         <td class="num">${m.tiempos}</td><td class="ent-estilos">${m.estilos.map(e => `<span title="${esc(entEstiloNombre(e))}">${franja(e)}</span>`).join('')}</td></tr>`).join('')}</table></div>
       <div class="ent-leyenda" style="margin-bottom:4px">${[...new Set([...ENT_ESTILOS, ...entEstilosDe(F)])].map(e => `<span>${franja(e)}${esc(entEstiloNombre(e))}</span>`).join('')}</div>
-      ${gev ? `<div class="h h-sub">${ico('tendencia')}Cómo va el grupo en cada prueba</div>
+      <p class="tiny muted">Sesiones: a cuántos entrenamientos vino (también cuenta si vino sin nadar). Tiempos: cuántos tiempos se le tomaron. Pulsa un nombre para abrir su ficha.</p>
+    </details>`;
+  const grupo = !gev ? '' : `
+    <div class="card"><div class="h">${ico('tendencia')}Cómo va el grupo en cada prueba · ${esc(catNom)}</div>
+      ${gev ? `
         ${chipsHTML('gev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.n]), gev)}
         ${entGraficoDispersion(DG, gev)}
         ${DG.dias.length > 1 ? `<p class="tiny muted" style="margin-top:6px">Mediana del grupo: ${fmt(primero.mediana)} el ${dfmt(primero.dia)} → ${fmt(ultimo.mediana)} el ${dfmt(ultimo.dia)}
@@ -773,9 +778,6 @@ function pintarEntrenamientos(host, f) {
       ${entSelNadHTML('ent-cn', comparaDatos.nads, new Set(elegidos))}
       <div id="ent-comparar-out"></div>
     </div>` : '';
-  const nads = R.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}>
-      <td style="max-width:0;width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.pruebas.map(esc).join(' · ')}</div></td>
-      <td class="num">${m.sesiones}</td><td class="num"><b>${m.tiempos}</b></td></tr>`).join('');
 
   host.innerHTML = `
     ${(n => n ? `<div class="ent-aviso-sim"><b>Datos de simulación.</b> ${n} de ${R.entrenamientos.length} entrenamientos son de prueba (marcados «Simulación») y se borrarán antes de empezar con datos reales. Lo que toméis vosotros no se toca.</div>` : '')(R.entrenamientos.filter(e => e.sim).length)}
@@ -793,8 +795,7 @@ function pintarEntrenamientos(host, f) {
     <div class="card"><div class="h">${ico('crono')}Entrenamientos <span class="h-n">(${R.entrenamientos.length})</span></div>${ents}</div>
     <div class="h h-sub" style="margin-top:16px">${ico('medalla')}Mejores tiempos por prueba</div>
     ${pruebas || '<div class="vacio">Sin pruebas con estilo y distancia.</div>'}
-    <div class="card"><div class="h">${ico('grupo')}Nadadores <span class="h-n">(${R.nadadores.length})</span></div>
-      <table class="rt"><tr><th>Nadador</th><th class="num">Entrenos</th><th class="num">Tiempos</th></tr>${nads}</table></div>`}
+    ${asistencia}`}
     <p class="small muted" style="margin-top:14px">Modo entrenador activo con ${esc(ENT.user && ENT.user.email)} · <a href="#" id="ent-salir">Salir del modo entrenador</a> · <a href="#" id="ent-act">Actualizar</a> · <a href="cronometro/">Abrir el cronómetro</a> · <a href="cronometro/manual.pdf" target="_blank" rel="noopener">Manual del cronómetro</a></p>`;
   onChips(host, 'cat', v => go({cat: v}));
   onChips(host, 'estilo', v => go({estilo: v}));

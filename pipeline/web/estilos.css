@@ -734,3 +734,9 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .ent-rz-cerca{border-color:var(--z-cerca)}
 .ent-rz-fuera{border-color:var(--z-fuera)}
 .ent-tabla-ritmo summary{cursor:pointer;color:var(--link);padding:4px 0}
+/* Asistencia plegada al final de Entrenamientos */
+.ent-asist summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none}
+.ent-asist summary::-webkit-details-marker{display:none}
+.ent-asist summary .h{flex:1}
+.ent-asist[open] .dir-chev{transform:rotate(90deg)}
+.ent-asist[open] summary{margin-bottom:8px}
