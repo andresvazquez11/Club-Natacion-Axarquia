@@ -3840,9 +3840,10 @@ function pintarEntrenosNadador(app, s, p) {
 
 /* ── vistas/directo.js ── */
 /* Directo: competiciones de la Federación Andaluza (calendario, series y resultados) a partir de directo.json,
-   que actualiza el proceso pipeline/fan_directo.py (cada 10 minutos los fines de semana).
-   Durante una competición en curso, además, la web lee los resultados al momento: los pide al intermediario
-   (directo-proxy, en Cloudflare) cada 30 s, los descomprime y los lee aquí mismo (misma forma que fan_directo.py). */
+   que actualiza el proceso pipeline/fan_directo.py (cada 10 minutos de viernes a domingo, cada hora el resto).
+   Además, a través del intermediario (directo-proxy, en Cloudflare), la web busca al momento la web de las competiciones
+   de la semana que aún no la tienen y, durante una competición en curso, lee los resultados cada 30 s,
+   los descomprime y los lee aquí mismo (misma forma que fan_directo.py). */
 
 const DIR_PROXY = 'https://cna-directo.andrescovidelpi.workers.dev';   // intermediario (directo-proxy/worker.js en Cloudflare); vacío = solo directo.json
 
@@ -3927,10 +3928,34 @@ function dirLeerLenex(xml) {
   return {nombre: meet ? meet.getAttribute('name') : '', lugar: meet ? meet.getAttribute('city') : '',
     piscina: {SCM: '25 m', LCM: '50 m'}[meet && meet.getAttribute('course')] || '', sesiones, pruebas};
 }
-/* Competiciones en curso con web de resultados: se leen al momento a través del intermediario */
+/* Web de la competición al momento: si una competición de los próximos días aún no la tiene en directo.json,
+   se pregunta al intermediario por la página del evento en la FAN (devuelve solo el enlace). Así se enlaza en cuanto
+   la federación la publica, sin esperar al proceso de GitHub. Cada evento se vuelve a mirar como mucho cada 2 minutos. */
+const DIR_WEBS = new Map();   // id de la competición → {web, t}
+const dirWebOk = u => typeof u === 'string' && /^https:\/\/(www\.)?fanatacion\.es\/resultados\/[A-Za-z0-9_\-\/]+\/$/.test(u);
+const dirEventoRuta = c => { try { const u = new URL(c.url); return /^(www\.)?fan\.es$/.test(u.hostname) && /\/eventodetalle\/\d+\//.test(u.pathname) ? u.pathname : null; } catch (e) { return null; } };
+function dirBuscable(c, hoy = new Date()) {
+  if (c.estado === 'terminada' || dirUrlOk(c.web) || !dirEventoRuta(c)) return false;
+  const dias = (new Date(c.desde + 'T00:00:00') - new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 864e5;
+  return dias <= 7;   // las de esta semana (y las que ya han empezado)
+}
+async function dirBuscarWebs(d) {
+  await Promise.all(d.competiciones.filter(c => dirBuscable(c)).map(async c => {
+    const x = DIR_WEBS.get(c.id);
+    if (x && (x.web || Date.now() - x.t < 120e3)) { if (x.web) Object.assign(c, {web: x.web, webAlMomento: true}); return; }
+    try {
+      const r = await fetch(`${DIR_PROXY}/?evento=${encodeURIComponent(dirEventoRuta(c))}`);
+      const w = r.ok ? (await r.json()).web : null;
+      DIR_WEBS.set(c.id, {web: dirWebOk(w) ? w : null, t: Date.now()});
+      if (dirWebOk(w)) Object.assign(c, {web: w, webAlMomento: true});
+    } catch (e) { DIR_WEBS.set(c.id, {web: null, t: Date.now()}); }
+  }));
+}
+/* Competiciones en curso con web de resultados (y las recién enlazadas, para ver sus series): se leen al momento a través del intermediario */
 async function dirAlMomento(d) {
   if (!DIR_PROXY || !d) return;
-  await Promise.all(d.competiciones.filter(c => c.estado === 'en_curso' && dirUrlOk(c.web)).map(async c => {
+  await dirBuscarWebs(d);
+  await Promise.all(d.competiciones.filter(c => (c.estado === 'en_curso' || c.webAlMomento) && dirUrlOk(c.web)).map(async c => {
     try {
       const ruta = new URL(c.web).pathname.replace(/\/?$/, '/') + 'results.lxf';
       const r = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(ruta)}`, {cache: 'no-store'});
@@ -4051,7 +4076,9 @@ function dirTarjeta(c) {
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
     <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${c.lenex && c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
     ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
-      : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>' : '<p class="small muted" style="margin:6px 0">Las series y los resultados aparecerán aquí cuando la federación publique la web de la competición.</p>'}
+      : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>'
+      : dirUrlOk(c.web) ? '<p class="small muted" style="margin:6px 0">La web de la competición ya está publicada: las series y los resultados aparecerán aquí en cuanto la federación suba sus datos.</p>'
+      : '<p class="small muted" style="margin:6px 0">Las series y los resultados aparecerán aquí cuando la federación publique la web de la competición.</p>'}
     ${c.lenex ? `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">${dirDePdf(c) ? 'Ver las series' : 'Ver series y resultados'}</a>` : ''}
     ${docs.length ? `<div class="dir-docs"><span class="muted">Documentos de la federación:</span>${docs.join('')}</div>` : ''}
     ${BEN && dirSusPruebas(c, String(BEN.id)).length ? `<a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(BEN.id)}">Seguir a ${esc(BEN.n.split(' ')[0])}: sus pruebas y horarios</a>` : ''}

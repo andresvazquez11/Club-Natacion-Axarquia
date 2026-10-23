@@ -18,7 +18,7 @@ export function cargar(archivos, data, { ls = new Map() } = {}) {
   const document = { ...el(), body: el(), documentElement: el(), getElementById: () => null, createElement: el };
   const location = { search: '', hash: '', reload() {} };
   const window = { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }) };
-  const ctx = vm.createContext({ DATA: data, window, document, location, localStorage, console, URLSearchParams });
+  const ctx = vm.createContext({ DATA: data, window, document, location, localStorage, console, URLSearchParams, URL });
   for (const f of archivos) vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8'), ctx, { filename: f });
   return ctx;
 }

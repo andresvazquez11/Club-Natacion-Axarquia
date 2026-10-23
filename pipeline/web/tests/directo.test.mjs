@@ -114,3 +114,32 @@ test('dirCuentaTexto: pasada la hora avisa de que ya ha empezado', () => {
   assert.match(evalIn(ctx, 'dirCuentaTexto(Date.now() - 1000, 2, 5)'), /ya ha empezado.*serie <b>2<\/b> de 5/);
   assert.match(evalIn(ctx, 'dirCuentaTexto(Date.now() + 3725e3, 2, 5)'), /1 h 0[12] min/);
 });
+
+test('dirBuscable: solo competiciones de esta semana sin web y con página de evento de la FAN', () => {
+  const r = JSON.parse(evalIn(ctx, `(() => {
+    const hoy = new Date(2026, 9, 23), url = 'https://www.fan.es/index.php/natacion/ctos-andalucia/eventodetalle/3113/66/xiv-copa';
+    return JSON.stringify([
+      dirBuscable({estado: 'proxima', desde: '2026-10-24', url}, hoy),
+      dirBuscable({estado: 'proxima', desde: '2026-11-20', url}, hoy),
+      dirBuscable({estado: 'proxima', desde: '2026-10-24', url, web: 'https://fanatacion.es/resultados/x/'}, hoy),
+      dirBuscable({estado: 'terminada', desde: '2026-10-20', url}, hoy),
+      dirBuscable({estado: 'proxima', desde: '2026-10-24', url: 'https://evil.com/eventodetalle/1/2/x'}, hoy)]);
+  })()`));
+  assert.deepEqual(r, [true, false, false, false, false]);
+});
+
+test('dirBuscarWebs: enlaza la web que devuelve el intermediario (y descarta enlaces que no son de la FAN)', async () => {
+  const pedidas = [];
+  ctx.fetch = async u => { pedidas.push(u); const id = /eventodetalle%2F(\d+)/.exec(u)[1];
+    return { ok: true, json: async () => ({ web: id === '1' ? 'https://fanatacion.es/resultados/malaga/2627/X/' : 'https://evil.com/resultados/x/' }) }; };
+  const hoy = new Date(); const iso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  ctx.__d = { competiciones: [1, 2].map(id => ({ id, estado: 'proxima', desde: iso, url: `https://www.fan.es/index.php/natacion/x/eventodetalle/${id}/66/y` })) };
+  await evalIn(ctx, 'dirBuscarWebs(__d)');
+  const [a, b] = JSON.parse(evalIn(ctx, 'JSON.stringify(__d.competiciones.map(c => [c.web || null, !!c.webAlMomento]))'));
+  assert.deepEqual(a, ['https://fanatacion.es/resultados/malaga/2627/X/', true]);
+  assert.deepEqual(b, [null, false]);
+  assert.match(pedidas[0], /\?evento=%2Findex\.php%2Fnatacion%2Fx%2Feventodetalle%2F1%2F66%2Fy$/);
+  // la segunda vez no se vuelve a preguntar (ya se sabe la web, o se miró hace menos de 2 minutos)
+  await evalIn(ctx, 'dirBuscarWebs(__d)');
+  assert.equal(pedidas.length, 2);
+});
