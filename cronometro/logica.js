@@ -204,10 +204,44 @@ function parseCiclo(txt) {
 // llevado a la distancia de la serie). mano: ritmo cada 100 m que pone el entrenador (en centésimas) para quien no tenga marca.
 const RITMO_REFS = ['mejor', '200', '400'];
 const RIEGEL = 2 ** 1.06;   // 400 estimado = 200 × 2^1.06 (fórmula de Riegel)
+// mas: segundos que se suman al ritmo en esta serie («ritmo de 200 + 10 s»), en centésimas (puede ser negativo); null = ritmo tal cual.
+// tol: margen para contar como «en el ritmo» (± centésimas; 1 s por defecto). Solo cuenta si hay «mas».
+const RITMO_TOL_DEF = 100;
 function ritmoOk(r) {
   if (!r || typeof r !== 'object' || !RITMO_REFS.includes(r.ref)) return null;
-  const mano = Math.round(Number(r.mano));
-  return {ref: r.ref, mano: Number.isFinite(mano) && mano >= 1000 && mano <= 60000 ? mano : null};
+  const n = v => v === null || v === undefined || v === '' ? null : Math.round(Number(v));
+  const mano = n(r.mano), mas = n(r.mas), tol = n(r.tol);
+  const out = {ref: r.ref, mano: Number.isFinite(mano) && mano >= 1000 && mano <= 60000 ? mano : null};
+  if (r.ref !== 'mejor' && Number.isFinite(mas) && Math.abs(mas) <= 6000) {
+    out.mas = mas; out.tol = Number.isFinite(tol) && tol >= 10 && tol <= 1000 ? tol : RITMO_TOL_DEF;
+  }
+  return out;
+}
+// «+10», «10», «-2», «4,5» → centésimas con signo; vacío o inválido → null
+function parseSegundos(txt) {
+  const m = /^([+-]?)(\d{1,2})(?:[.,](\d{1,2}))?$/.exec(String(txt == null ? '' : txt).trim().replace(/\s|″|"|s$/g, ''));
+  if (!m) return null;
+  const v = Number(m[2]) * 100 + Number((m[3] || '0').padEnd(2, '0'));
+  return m[1] === '-' ? -v : v;
+}
+// Patrón de un bloque: «10, 10, 10, 4» o «+10 +10 +10 +4» → [1000, 1000, 1000, 400]
+function parsePatron(txt) {
+  const L = String(txt == null ? '' : txt).split(/[,;\s]+/).filter(Boolean).map(parseSegundos);
+  return L.length && L.length <= 12 && L.every(v => v !== null) ? L : null;
+}
+// Series de un bloque a ritmo: «reps» vueltas al patrón (20×100 = 5 vueltas a «+10 +10 +10 +4»)
+function bloqueSeries(b) {
+  const pat = parsePatron(b.patron), reps = Math.round(Number(b.reps));
+  if (!pat || !(reps >= 1 && reps * pat.length <= 60) || !b.dist) return [];
+  const out = [];
+  for (let i = 0; i < reps; i++) pat.forEach(mas => out.push({estilo: b.estilo || 'libre', dist: Number(b.dist), parciales: false, ciclo: b.ciclo || null, auto: !!b.auto,
+    inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: ritmoOk({ref: b.ref || '200', mano: b.mano, mas, tol: b.tol})}));
+  return out;
+}
+// ¿Cumplió el ritmo pedido? diferencia con el objetivo (centésimas) → 'ritmo' (dentro del margen), 'rapido' o 'lento'
+function zonaRitmo(dif, tol) {
+  const t = tol || RITMO_TOL_DEF;
+  return Math.abs(dif) <= t ? 'ritmo' : dif < 0 ? 'rapido' : 'lento';
 }
 // «1:20.5», «1:20» u «80.5» → centésimas; vacío o inválido → null
 function parseRitmo(txt) {
@@ -219,7 +253,11 @@ function parseRitmo(txt) {
 }
 // Objetivo de un nadador en una serie de «dist» metros: marcas = {200, 400, dist} en centésimas (25 m) o null.
 // Orden: su marca → (400) estimado de su 200 → ritmo a mano → null (la media del grupo la pone quien llama)
-function objetivoRitmo(ref, dist, marcas, mano) {
+function objetivoRitmo(ref, dist, marcas, mano, mas) {
+  const o = objetivoBase(ref, dist, marcas, mano);
+  return o && mas ? {...o, cs: o.cs + mas} : o;   // «ritmo + 10 s»: se suma al objetivo de la serie
+}
+function objetivoBase(ref, dist, marcas, mano) {
   if (!ref || !dist) return null;
   if (ref === 'mejor') return marcas.dist ? {cs: marcas.dist, base: 'marca'} : null;
   const d = ref === '400' ? 400 : 200;

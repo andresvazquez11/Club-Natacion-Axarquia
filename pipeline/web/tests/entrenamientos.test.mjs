@@ -277,6 +277,25 @@ test('ritmo: cada nadador en su zona (dentro, cerca, fuera) y ordenados del más
 });
 
 test('entRitmoGuardado: solo acepta lo que guarda el cronómetro', () => {
-  assert.deepEqual(ev('entRitmoGuardado', { ref: '400', mano: '8000', cs: 7700.4, base: 'est' }), { ref: '400', mano: 8000, cs: 7700, base: 'est' });
+  assert.deepEqual(ev('entRitmoGuardado', { ref: '400', mano: '8000', cs: 7700.4, base: 'est' }), { ref: '400', mano: 8000, cs: 7700, base: 'est', mas: null, tol: null });
   assert.equal(ev('entRitmoGuardado', { ref: '<b>' }), null);
+});
+
+test('ritmo pedido: objetivo = su ritmo + los segundos de la serie; casillas en el ritmo / más rápido / más lento', () => {
+  const c = cargar(ARCH, structuredClone(DATA));
+  evalIn(c, `Object.assign(SW, {'1': {id: 1, n: 'A', ev: [{e: '200 Libre', h: [['2026-03-01', 14400, '25m', 'x', 'y', 0, 0, 0, 0]]}]}})`);
+  const T = (r, cs, mas) => ({ cs, estilo: 'libre', dist: 100, rfen: '1', ritmo: { ref: '200', mano: null, cs: null, base: null, mas, tol: 100 } });
+  // ritmo de 200 = 1:12.00 cada 100; series a +10 (1:22.00) y a +4 (1:16.00)
+  c.__tb = { filas: [{ nId: 'a', n: 'A', rfen: '1', t: { 1: T(1, 8150, 1000), 2: T(2, 7950, 1000), 3: T(3, 8350, 1000), 4: T(4, 7640, 400) } }] };
+  const P = JSON.parse(evalIn(c, `JSON.stringify(entDatosPedido(__tb, [1, 2, 3, 4], new Set(['a']), '200', 0))`));
+  const f = P.filas[0];
+  assert.deepEqual([1, 2, 3, 4].map(r => [f.c[r].o.cs, f.c[r].zona]), [[8200, 'ritmo'], [8200, 'rapido'], [8200, 'lento'], [7600, 'ritmo']]);
+  assert.equal(f.ok, 2);
+  assert.equal(evalIn(c, `entEsPedido(__tb, [1], '200')`), true);
+  assert.equal(evalIn(c, `entEsPedido(__tb, [1], '400')`), false);
+  // con margen de ±2 s, la del 2 (−2.5 s) sigue fuera y la del 1 (−0.5) dentro
+  const P2 = JSON.parse(evalIn(c, `JSON.stringify(entDatosPedido(__tb, [1, 2, 3, 4], new Set(['a']), '200', 200))`));
+  assert.equal(P2.filas[0].c[2].zona, 'rapido');
+  const h = evalIn(c, `entGraficoPedido(entDatosPedido(__tb, [1, 2, 3, 4], new Set(['a']), '200', 0), '200', (r, t) => t)`);
+  assert.match(h, /\+10″/); assert.match(h, /\+4″/); assert.match(h, /2\/4/);
 });

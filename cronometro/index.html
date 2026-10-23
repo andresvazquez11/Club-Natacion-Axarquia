@@ -214,6 +214,10 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 /* Ritmo: objetivo de cada nadador y cuánto va por delante (verde) o por detrás (ámbar) */
 .sw-obj{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;line-height:1.2}
 .sw-obj b.mej{color:var(--grn-l)} .sw-obj b.peor{color:var(--amb)}
+.bloque-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.bloque-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.plan-compacta{padding:10px 12px}
+.sw-obj.zona-ritmo{color:var(--grn-l);font-weight:700} .sw-obj.zona-rapido{color:#7dd3fc;font-weight:700} .sw-obj.zona-lento{color:var(--amb);font-weight:700}
 .ritmo-tag{display:inline-block;padding:1px 6px;border-radius:5px;background:#0c2235;color:#7dd3fc;font-size:11px;font-weight:800;vertical-align:middle;}
 .sw-act{margin:auto -6px 0;padding:6px 2px;background:var(--blu);color:#fff;text-align:center;font-size:14px;font-weight:900;letter-spacing:.3px;line-height:1.1;display:flex;flex-direction:column;align-items:center;}
 .sw-act small{font-size:10px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.5px;}
@@ -946,10 +950,11 @@ function objetivoNad(nId, estilo, dist) {
   const r = SA && SA.ritmo; if (!r || r.ref === 'mejor' || !estilo || !dist) return null;
   const propio = (id, mano) => { const m = d => { const c = mejorCompeticion(id, estilo, d); return c ? c.cs : null; };
     return objetivoRitmo(r.ref, dist, {200: m(200), 400: m(400)}, mano); };
+  const extra = {ref: r.ref, mas: r.mas == null ? null : r.mas, tol: r.tol || null};   // «ritmo + 10 s» y su margen
   const o = propio(nId, r.mano);
-  if (o) return {...o, ref: r.ref};
+  if (o) return {...o, cs: o.cs + (r.mas || 0), ...extra};
   const otros = SA.grupos.flatMap(g => g.nads).map(n => propio(n.nId, null)).filter(Boolean);
-  return otros.length ? {cs: Math.round(otros.reduce((a, x) => a + x.cs, 0) / otros.length), base: 'media', ref: r.ref} : null;
+  return otros.length ? {cs: Math.round(otros.reduce((a, x) => a + x.cs, 0) / otros.length) + (r.mas || 0), base: 'media', ...extra} : null;
 }
 function laneShort(g) {
   const m = /(\d+)/.exec(g.nombre||'');
@@ -1002,7 +1007,8 @@ function llegoNad(key, t) {
   const extra = {ronda:a.ronda, salida:a.salida, estilo:a.estilo||null, dist:a.dist||null, inicio:a.inicio||'agua', ts:a.t0};
   if (a.comp) extra.comp = true;
   if (a.rota) extra.rota = a.rota;
-  if (a.ritmo) extra.ritmo = {ref: a.ritmo.ref, mano: a.ritmo.mano, cs: a.obj ? a.obj.cs : null, base: a.obj ? a.obj.base : null};
+  if (a.ritmo) extra.ritmo = {ref: a.ritmo.ref, mano: a.ritmo.mano, ...(a.ritmo.mas != null ? {mas: a.ritmo.mas, tol: a.ritmo.tol} : {}),
+    cs: a.obj ? a.obj.cs : null, base: a.obj ? a.obj.base : null};
   if (a.nota) extra.nota = a.nota;
   if (a.tramos > 1) extra.parciales = [...a.parc, ...Array(Math.max(0, a.tramos-1-a.parc.length)).fill(null), ms]; // acumulados cada 50 m (null = no tomado)
   const resId = DB.guardarRes(SA.sesId, a.nId, a.gId, ms, 'grupo', extra);
@@ -1264,7 +1270,7 @@ function comparaciones(nId, estilo, dist, ms, resId, hasta, sesId) {
   return {comp, ent, ult, difComp: comp ? (ms - comp.cs*10)/1000 : null, difEnt: ent ? (ms - ent.ms)/1000 : null,
           difUlt: ult ? (ms - ult.ms)/1000 : null};
 }
-const difTxt = d => d==null ? '' : (d <= 0 ? '-' : '+') + Math.abs(d).toFixed(1);   // guion normal: el PDF no tiene el signo −
+const difTxt = d => d==null ? '' : Math.abs(d) < 0.05 ? '0.0' : (d <= 0 ? '-' : '+') + Math.abs(d).toFixed(1);   // guion normal: el PDF no tiene el signo −
 const difPalabra = d => d==null ? '' : Math.abs(d) < 0.05 ? 'igual' : d < 0 ? 'más rápido' : 'más lento';
 // Tabla pequeña y explícita: qué tiempo es cada uno, de cuándo, y si hoy fue más rápido o más lento
 function comparaHTML(c) {
@@ -1276,9 +1282,73 @@ function comparaHTML(c) {
   if (c.ult && !(c.ent && c.ult.ms === c.ent.ms && c.ult.fecha === c.ent.fecha)) out.push(fila('↺ Último entreno', fmtTime(c.ult.ms), `${fmtDateShort(c.ult.fecha)} · serie ${c.ult.ronda}`, c.difUlt));
   return out.length ? `<div class="cmp-tab">${out.join('')}</div>` : '';
 }
+// ── PDF: página final «¿Fueron al ritmo?»: cuadrícula nadadores × series a ritmo ──
+// Cada casilla: la diferencia con su objetivo (s) sobre un color con forma (en el ritmo ● verde, más rápido ▲ azul, más lento ▼ rojo).
+// En una serie «a ritmo» sin suma de segundos cuenta el mismo margen (±1 s por defecto).
+const ZONA_PDF = {ritmo: 'en el ritmo', rapido: 'más rápido de lo pedido', lento: 'más lento de lo pedido'};
+const ZONA_COL = {ritmo: [12,163,12], rapido: [42,120,214], lento: [208,59,59]};
+function pdfGraficaRitmo(doc, series, {W, H, M, AZUL, GRIS}) {
+  const S = series.filter(x => x.res.some(r => r.ritmo && r.ritmo.ref !== 'mejor' && r.ritmo.cs)).sort((a, b) => a.ronda - b.ronda);
+  if (!S.length) return;
+  const zona = r => zonaRitmo(Math.round(r.ms / 10) - r.ritmo.cs, r.ritmo.tol);
+  const nads = [...new Set(S.flatMap(x => x.res.filter(r => r.ritmo && r.ritmo.cs).map(r => r.nId)))]
+    .map(nId => ({nId, n: nombreDe(nId), t: Object.fromEntries(S.map(x => [x.ronda, x.res.filter(r => r.nId === nId && r.ritmo && r.ritmo.cs).sort((a, b) => a.ms - b.ms)[0]]).filter(e => e[1]))}))
+    .map(f => ({...f, ok: Object.values(f.t).filter(r => zona(r) === 'ritmo').length, n2: Object.keys(f.t).length}))
+    .sort((a, b) => b.ok / b.n2 - a.ok / a.n2 || a.n.localeCompare(b.n));
+  doc.addPage();
+  let y = 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(...AZUL);
+  doc.text('¿Fueron al ritmo?', M, y); y += 6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GRIS);
+  const tols = [...new Set(S.flatMap(x => x.res.map(r => r.ritmo && (r.ritmo.tol || RITMO_TOL_DEF)).filter(Boolean)))];
+  doc.text(doc.splitTextToSize(`Cada casilla es una serie: la diferencia con su objetivo (su ritmo de 200 o 400 más los segundos pedidos en esa serie). En el ritmo = a menos de ±${tols.map(segTxt).join(' / ')} s del objetivo. A la derecha, cuántas series hizo en el ritmo.`, W - 2*M), M, y);
+  y += 10;
+  const nomW = 40, totW = 14, n = S.length, celW = Math.min(12, (W - 2*M - nomW - totW) / n), celH = n > 14 ? 6 : 7;
+  const x0 = M + nomW, cab = x => `S${x.ronda}`, sub = x => { const r = (x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor') || {}).ritmo; return r && r.mas != null ? `${r.mas >= 0 ? '+' : '-'}${segTxt(r.mas)}` : (r ? `r${r.ref}` : ''); };
+  const cabecera = () => {
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...AZUL);
+    S.forEach((x, i) => { const cx = x0 + i * celW + celW / 2; doc.text(cab(x), cx, y, {align: 'center'}); doc.setFont('helvetica','normal'); doc.text(sub(x), cx, y + 3, {align: 'center'}); doc.setFont('helvetica','bold'); });
+    doc.text('En ritmo', x0 + n * celW + totW / 2, y + 1.5, {align: 'center'});
+    y += 5;
+  };
+  cabecera();
+  const forma = (z, cx, cy) => { doc.setFillColor(...ZONA_COL[z]); const k = 1.1;
+    if (z === 'ritmo') doc.circle(cx, cy, k, 'F');
+    else if (z === 'rapido') doc.triangle(cx, cy - k, cx + k, cy + k * .8, cx - k, cy + k * .8, 'F');
+    else doc.triangle(cx - k, cy - k * .8, cx + k, cy - k * .8, cx, cy + k, 'F'); };
+  nads.forEach((f, j) => {
+    if (y + celH > H - 30) { doc.addPage(); y = 18; cabecera(); }
+    if (j % 2) { doc.setFillColor(245, 247, 250); doc.rect(M, y, W - 2*M, celH, 'F'); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...AZUL);
+    doc.text(f.n.length > 24 ? f.n.slice(0, 23) + '…' : f.n, M + 1, y + celH / 2 + 1.2);
+    S.forEach((x, i) => { const r = f.t[x.ronda], cx = x0 + i * celW;
+      if (!r) { doc.setTextColor(...GRIS); doc.text('·', cx + celW / 2, y + celH / 2 + 1, {align: 'center'}); return; }
+      const z = zona(r), c = ZONA_COL[z], d = (r.ms / 10 - r.ritmo.cs) / 100;
+      doc.setFillColor(...c.map(v => Math.round(255 - (255 - v) * .22))); doc.rect(cx + .3, y + .4, celW - .6, celH - .8, 'F');
+      forma(z, cx + 1.8, y + 1.9);
+      doc.setFontSize(celW < 8 ? 5.5 : 6.5); doc.setTextColor(30, 41, 59);
+      doc.text(difTxt(d), cx + celW / 2 + .6, y + celH - 1.4, {align: 'center'}); });
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...(f.ok === f.n2 ? [10,122,67] : AZUL));
+    doc.text(`${f.ok}/${f.n2}`, x0 + n * celW + totW / 2, y + celH / 2 + 1.2, {align: 'center'});
+    y += celH;
+  });
+  // fila del grupo: cuántos fueron en el ritmo en cada serie
+  doc.setDrawColor(...GRIS); doc.setLineWidth(.2); doc.line(M, y + .5, W - M, y + .5); y += 1.5;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...AZUL); doc.text('Grupo (en el ritmo)', M + 1, y + 3.6);
+  doc.setFontSize(celW < 8 ? 5.5 : 6.5);
+  S.forEach((x, i) => { const L = nads.map(f => f.t[x.ronda]).filter(Boolean); doc.text(`${L.filter(r => zona(r) === 'ritmo').length}/${L.length}`, x0 + i * celW + celW / 2, y + 3.6, {align: 'center'}); });
+  y += 10;
+  // leyenda con forma y color
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...AZUL);
+  let lx = M;
+  ['ritmo', 'rapido', 'lento'].forEach(z => { forma(z, lx + 1.5, y - 1); doc.text(ZONA_PDF[z].charAt(0).toUpperCase() + ZONA_PDF[z].slice(1), lx + 4, y); lx += doc.getTextWidth(ZONA_PDF[z]) + 14; });
+}
 // En el resumen: su objetivo de ritmo y cómo le fue (diferencia y % de su ritmo)
 function ritmoCmpHTML(l) {
   const obj = l.obj.cs * 10, d = (l.ms - obj) / 1000;
+  if (l.obj.mas != null) { const z = zonaRitmo(Math.round(l.ms / 10) - l.obj.cs, l.obj.tol);
+    return `<div class="cmp-tab"><div class="cmp-i"><span class="k">🎯 Ritmo de ${l.obj.ref}${masTxt(l.obj)}</span> <span class="t">${fmtTime(obj)}</span> <small>(${BASE_TXT[l.obj.base]})</small>
+      → hoy <b class="${z==='ritmo'?'cmp-mej':'cmp-peor'}">${ZONA_TXT[z]}</b> <small>(${difTxt(d)} s · margen ±${segTxt(l.obj.tol || RITMO_TOL_DEF)} s)</small></div></div>`; }
   return `<div class="cmp-tab"><div class="cmp-i"><span class="k">🎯 Ritmo de ${l.obj.ref}</span> <span class="t">${fmtTime(obj)}</span> <small>(${BASE_TXT[l.obj.base]})</small>
     → hoy <b class="${d<=0?'cmp-mej':'cmp-peor'}">${difTxt(d)} s ${difPalabra(d)}</b> <small>(${(l.ms / obj * 100).toFixed(1)} %)</small></div></div>`;
 }
@@ -1574,11 +1644,12 @@ async function generarPDF(sesId, btn, compartir) {
     series.forEach(x => {
       if (y > H - 40) { doc.addPage(); y = 18; }
       doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...AZUL);
-      doc.text(`Serie ${x.ronda} · ${serieTexto(x)}${x.hora?` · ${x.hora}`:''}${x.comp?' · Modo competición (plataforma)':x.inicio==='plataforma'?' · desde plataforma':''}${(x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor') || {}).ritmo ? ` · a ritmo de ${x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor').ritmo.ref}` : ''}`, M, y);
+      doc.text(`Serie ${x.ronda} · ${serieTexto(x)}${x.hora?` · ${x.hora}`:''}${x.comp?' · Modo competición (plataforma)':x.inicio==='plataforma'?' · desde plataforma':''}${(x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor') || {}).ritmo ? ` · a ritmo de ${x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor').ritmo.ref}${masTxt(x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor').ritmo)}` : ''}`, M, y);
       const conParc = x.res.some(r => r.parciales && r.parciales.length > 1);
       // Serie comparada con el ritmo de 200 o de 400: su objetivo de ese día y cómo le fue
       const refR = (x.res.find(r => r.ritmo && r.ritmo.ref !== 'mejor' && r.ritmo.cs) || {}).ritmo;
       const ritmoCelda = r => { if (!r.ritmo || !r.ritmo.cs) return '—'; const obj = r.ritmo.cs * 10, d = (r.ms - obj) / 1000;
+        if (r.ritmo.mas != null) return `${fmtTime(obj)} · ritmo ${r.ritmo.ref}${masTxt(r.ritmo)} · ${BASE_TXT[r.ritmo.base] || ''}\nhoy ${ZONA_PDF[zonaRitmo(Math.round(r.ms / 10) - r.ritmo.cs, r.ritmo.tol)]} (${difTxt(d)} s)`;
         return `${fmtTime(obj)} · ${BASE_TXT[r.ritmo.base] || ''}\nhoy ${difTxt(d)} s ${difPalabra(d)} (${(r.ms / obj * 100).toFixed(1)} %)`; };
       const best = x.res[0] ? x.res[0].ms : 0;
       const dif = (d, t, f) => `${t} · ${f}\nhoy ${difTxt(d)} s ${difPalabra(d)}`;
@@ -1597,12 +1668,13 @@ async function generarPDF(sesId, btn, compartir) {
         headStyles: {fillColor: AZUL, textColor: 255},
         columnStyles: {0:{cellWidth:7}, 3:{fontStyle:'bold'}},
         didParseCell: h => { if (h.section!=='body') return; const t = String(h.cell.raw||'');
-          if (/hoy -/.test(t)) h.cell.styles.textColor = [10,122,67]; },   // más rápido que con lo que se compara: en verde
+          if (/hoy -|en el ritmo/.test(t)) h.cell.styles.textColor = [10,122,67]; },   // más rápido que con lo que se compara, o en el ritmo pedido: en verde
       });
       doc.setFontSize(10);
       y = doc.lastAutoTable.finalY + 10;
     });
     if (!series.length) { doc.setTextColor(...GRIS); doc.text('Sin tiempos registrados en este entrenamiento.', M, y); }
+    pdfGraficaRitmo(doc, series, {W, H, M, AZUL, GRIS});
     const n = doc.getNumberOfPages();
     for (let i = 1; i <= n; i++) {
       doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...GRIS);
@@ -1641,7 +1713,7 @@ function render() {
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 // Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v20';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 function renderTabs(activa) {
@@ -1741,6 +1813,7 @@ function renderHome() {
 const NOVEDADES_HASTA = new Date(2026, 10, 8).getTime();   // hasta el sábado 7 de noviembre incluido
 const NOVEDADES = [
   // El 4º campo marca lo nuevo de esta versión (sale primero y con la etiqueta «Nuevo»)
+  ['⏱', 'Ritmo pedido: «ritmo de 200 + 10″»', 'al preparar la serie escribe los segundos que se suman al ritmo (+10, +4…) y el margen (±1 s). Cada uno ve si fue ● en el ritmo, ▲ más rápido o ▼ más lento de lo pedido. En el entreno preparado, «Añadir bloque a ritmo» crea series como 20×100 «3 a +10″ y 1 a +4″» de una vez. El PDF termina con la cuadrícula «¿Fueron al ritmo?».', true],
   ['🎯', 'Ritmo de 200 y de 400', 'al preparar la serie elige «Comparar cada tiempo con»: mejor marca, ritmo de 200 o ritmo de 400. Cada nadador tiene su objetivo (su mejor 200 o 400 llevado a la distancia de la serie); en la tarjeta ves si va por delante o por detrás en cada 50 y en el resumen, cuánto y en qué %. Sin marca: el ritmo que escribas tú o la media del grupo.', true],
   ['📊', 'Gráficas más claras en la web', 'nueva gráfica «¿Quién va a su ritmo?»: cada nadador en su fila, en % de su ritmo, con zonas dentro / cerca / fuera. Se puede cambiar entre ritmo de 200, de 400 o mejor marca. Todas las gráficas muestran el tiempo al tocar un punto.', true],
   ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso y, al acabar, pita, vibra y avisa «¡sale!». Se guarda el tiempo neto, sin descansos.'],
@@ -2159,7 +2232,7 @@ function abrirPlan(id) {
   navPreparar(p ? p.eqId : null);
   PS.oferta = null;
   PS.plan = {id: p ? p.id : null, nombre: p ? p.nombre : '',
-    series: p && p.series.length ? p.series.map(x=>({...x})) : [serieVacia()]};
+    series: p && p.series.length ? p.series.map(x=>({...x, ...(x.ritmo && x.ritmo.mas != null ? {compacta: true} : {})})) : [serieVacia()]};   // las de un bloque a ritmo, en una línea
   if (p) {
     const calles = p.calles.map((c,i)=>({key:'calle'+i+'-'+Date.now(), nombre:c.nombre,
       nads: c.nIds.map(id=>S.nadadores.find(n=>n.id===id)).filter(Boolean).map(n=>({id:n.id, n:n.n}))}));
@@ -2169,7 +2242,12 @@ function abrirPlan(id) {
 }
 function renderSeriesPlan() {
   const ss = PS.plan.series;
-  return ss.map((x,i)=>`
+  // las series de un bloque a ritmo salen en una línea (se abren con ✎); el resto, con todas sus opciones
+  const compacta = (x, i) => `<div class="card plan-serie plan-compacta"><div class="row">
+      <b style="flex:1">Serie ${i+1} <span class="muted" style="font-weight:600">· ${esc(comboTexto(x.estilo, x.dist))}</span>${ritmoEtiqueta(ritmoOk(x.ritmo))}</b>
+      <button class="btn-icon" data-action="plan-abrir" data-i="${i}" aria-label="Editar">✎</button>
+      ${ss.length>1?`<button class="btn-icon" data-action="plan-quitar" data-i="${i}" style="color:var(--red)" aria-label="Quitar">✕</button>`:''}</div></div>`;
+  return ss.map((x,i)=> x.compacta ? compacta(x, i) : `
     <div class="card plan-serie">
       <div class="row" style="margin-bottom:8px">
         <b style="flex:1">Serie ${i+1}</b>
@@ -2184,7 +2262,24 @@ function renderSeriesPlan() {
       ${cicloHTML(x, 'plan-'+i)}
       ${ritmoHTML(x, 'plan-'+i)}
       ${inicioHTML(x, 'plan-'+i)}
-    </div>`).join('') + `<button class="btn btn-surf mb16" data-action="plan-add">➕ Añadir serie</button>`;
+    </div>`).join('') + `<button class="btn btn-surf mb8" data-action="plan-add">➕ Añadir serie</button>` + renderBloquePlan();
+}
+// Bloque a ritmo: p. ej. 20×100 = 5 vueltas a «+10 +10 +10 +4» sobre el ritmo de 200 → 20 series, cada una con su objetivo
+function renderBloquePlan() {
+  const b = PS.bloque = PS.bloque || {reps: 5, patron: '+10 +10 +10 +4', dist: 100, estilo: 'libre', ref: '200', tol: '1'};
+  const n = bloqueSeries({...b, tol: Math.abs(parseSegundos(b.tol) || RITMO_TOL_DEF)}).length;
+  return `<details class="card mb16" ${PS.bloqueAbierto?'open':''}><summary data-action="bloque-toggle" style="cursor:pointer;font-weight:700">🎯 Añadir bloque a ritmo <span class="muted" style="font-weight:500">(p. ej. 20×100: 3 a +10″ y 1 a +4″)</span></summary>
+    <div class="bloque-grid">
+      <label><span class="muted">Vueltas</span><input class="input" inputmode="numeric" data-bloque="reps" value="${esc(b.reps)}"></label>
+      <label><span class="muted">Distancia</span><select class="input" data-bloque="dist">${DISTS.map(d=>`<option value="${d}"${Number(b.dist)===d?' selected':''}>${d} m</option>`).join('')}</select></label>
+      <label><span class="muted">Estilo</span><select class="input" data-bloque="estilo">${misEstilos().map(e=>`<option value="${esc(e)}"${b.estilo===e?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>
+      <label><span class="muted">Ritmo de</span><select class="input" data-bloque="ref"><option value="200"${b.ref==='200'?' selected':''}>200</option><option value="400"${b.ref==='400'?' selected':''}>400</option></select></label>
+      <label style="grid-column:1/-1"><span class="muted">Segundos que se suman al ritmo en cada serie de una vuelta, en orden</span><input class="input" data-bloque="patron" value="${esc(b.patron)}" placeholder="+10 +10 +10 +4"></label>
+      <label><span class="muted">Margen ± (s)</span><input class="input" inputmode="decimal" data-bloque="tol" value="${esc(b.tol)}"></label>
+    </div>
+    <button class="btn btn-blue mt8" data-action="plan-bloque" ${n?'':'disabled style="opacity:.4"'}>➕ Añadir ${n} series</button>
+    <div class="muted" style="font-size:12px;margin-top:6px">Cada serie lleva su objetivo: el ritmo de cada nadador más los segundos de su turno. Después puedes editar o quitar cualquiera.</div>
+  </details>`;
 }
 async function guardarPlanPS() {
   const p = PS.plan, calles = PS.grupos.filter(g=>g.nads.length);
@@ -2412,7 +2507,8 @@ function renderSwCard(f, now) {
       <span class="sw-meta">${tag}<button class="sw-undo-mini" data-action="deshacer" data-key="${esc(f.key)}" aria-label="Deshacer llegada">↶</button></span>
       <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
-      ${f.obj ? `<span class="sw-obj">${difRitmo(f.ms - f.obj.cs*10)} vs ritmo ${f.obj.ref}</span>` : ''}
+      ${f.obj ? (f.obj.mas != null ? `<span class="sw-obj zona-${zonaRitmo(Math.round(f.ms/10) - f.obj.cs, f.obj.tol)}">${ZONA_TXT[zonaRitmo(Math.round(f.ms/10) - f.obj.cs, f.obj.tol)].split(' de lo')[0]} ${difRitmo(f.ms - f.obj.cs*10)}</span>`
+        : `<span class="sw-obj">${difRitmo(f.ms - f.obj.cs*10)} vs ritmo ${f.obj.ref}</span>`) : ''}
       ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
     </div>${conParc ? HUECO_EXTRA : ''}`;
@@ -2475,10 +2571,19 @@ function ritmoHTML(o, t) {
     <div class="seg" style="margin-bottom:6px">${RITMO_REFS.map(v => `<button class="${r.ref===v?'on':''}" data-action="ritmo-ref" data-t="${t}" data-v="${v}">${RITMO_TXT[v]}</button>`).join('')}</div>
     ${r.ref === 'mejor' ? '<div class="muted" style="font-size:12px;margin-bottom:12px">Su mejor marca de competición y de entreno en esta distancia, como hasta ahora.</div>'
       : `<div class="muted" style="font-size:12px;margin-bottom:6px">Cada nadador tendrá como objetivo el ritmo medio de su mejor ${r.ref} llevado a la distancia de la serie${r.ref==='400'?' (sin 400, se estima de su 200)':''}.</div>
+      <label class="ciclo-seg" style="margin-bottom:6px"><span class="muted">Sumar al ritmo en esta serie (s): «+10» = su ritmo de ${r.ref} + 10 s. Vacío = el ritmo tal cual</span>
+      <input class="input" inputmode="text" placeholder="Ej.: +10" data-ritmomas="${t}" value="${r.mas != null ? (r.mas >= 0 ? '+' : '−') + segTxt(Math.abs(r.mas)) : ''}"></label>
+      ${r.mas != null ? `<label class="ciclo-seg" style="margin-bottom:6px"><span class="muted">Margen para contar como «en el ritmo» (± s)</span>
+      <input class="input" inputmode="decimal" data-ritmotol="${t}" value="${segTxt(r.tol)}"></label>` : ''}
       <label class="ciclo-seg" style="margin-bottom:12px"><span class="muted">Ritmo cada 100 m para quien no tenga marca (opcional; si no, la media del grupo)</span>
       <input class="input" inputmode="decimal" placeholder="Ej.: 1:20.0" data-ritmomano="${t}" value="${r.mano ? fmtCs(r.mano) : ''}"></label>`}`;
 }
-const ritmoEtiqueta = r => r && r.ref !== 'mejor' ? ` <span class="ritmo-tag">🎯 ritmo ${r.ref}</span>` : '';
+// segundos con un decimal si hace falta: 1000 → «10», 450 → «4,5»
+const segTxt = cs => { const v = Math.abs(cs) / 100; return Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ','); };
+const masTxt = r => r && r.mas != null ? ` ${r.mas >= 0 ? '+' : '−'}${segTxt(r.mas)}″` : '';
+const ritmoEtiqueta = r => r && r.ref !== 'mejor' ? ` <span class="ritmo-tag">🎯 ritmo ${r.ref}${masTxt(r)}</span>` : '';
+// Ritmo pedido («+10 s»): ¿lo cumplió? ● en el ritmo (dentro del margen), ▲ más rápido de lo pedido, ▼ más lento
+const ZONA_TXT = {ritmo: '● en el ritmo', rapido: '▲ más rápido de lo pedido', lento: '▼ más lento de lo pedido'};
 // Rota: interruptor y, encendida, sus tramos y los descansos entre ellos (t: 'ps', 'ns' o 'plan-N')
 function rotaHTML(o, t) {
   const r = o.rota;
@@ -2691,7 +2796,7 @@ function renderResumenRonda() {
     </div>
     ${cuerpo}
     ${!SA.nuevaSerie && SA.plan ? (SA.plan.series[SA.planIdx+1]
-      ? `<button class="btn btn-green mt16" style="min-height:60px;font-size:18px" data-action="plan-siguiente">▶ Siguiente serie: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].rota?' en rota':''}${SA.plan.series[SA.planIdx+1].auto&&SA.plan.series[SA.planIdx+1].ciclo?` · auto ${esc(SA.plan.series[SA.planIdx+1].ciclo)} s`:''}</button>`
+      ? `<button class="btn btn-green mt16" style="min-height:60px;font-size:18px" data-action="plan-siguiente">▶ Siguiente serie: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].rota?' en rota':''}${(r => r && r.ref !== 'mejor' ? ` · ritmo ${r.ref}${masTxt(r)}` : '')(ritmoOk(SA.plan.series[SA.planIdx+1].ritmo))}${SA.plan.series[SA.planIdx+1].auto&&SA.plan.series[SA.planIdx+1].ciclo?` · auto ${esc(SA.plan.series[SA.planIdx+1].ciclo)} s`:''}</button>`
       : `<div class="card mt16" style="text-align:center;color:var(--grn-l);font-weight:700">✓ Plan terminado (${SA.plan.series.length} series)</div>`) : ''}
     ${SA.nuevaSerie ? renderNuevaSerie() : `
     <button class="btn btn-blue mt16" style="min-height:56px;font-size:17px" data-action="repetir-serie">🔁 Repetir igual · serie ${SA.ronda+1}</button>
@@ -3147,6 +3252,11 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'plan-cancelar': PS = null; nav({screen:'home'}); break;
     case 'plan-guardar': await guardarPlanPS(); break;
     case 'plan-add':     planNombre(); PS.plan.series.push({...serieVacia(), ...(([u]) => u ? {estilo:u.estilo, dist:u.dist} : {})(PS.plan.series.slice(-1))}); render(); break;
+    case 'plan-abrir':   planNombre(); delete PS.plan.series[Number(btn.dataset.i)].compacta; render(); break;
+    case 'bloque-toggle': PS.bloqueAbierto = !PS.bloqueAbierto; break;
+    case 'plan-bloque':  { planNombre(); const b = PS.bloque, L = bloqueSeries({...b, tol: Math.abs(parseSegundos(b.tol) || RITMO_TOL_DEF)});
+                           if (L.length) { if (PS.plan.series.length === 1 && JSON.stringify(PS.plan.series[0]) === JSON.stringify(serieVacia())) PS.plan.series = [];
+                             PS.plan.series.push(...L.map(x => ({...x, compacta: true}))); render(); } break; }
     case 'plan-quitar':  planNombre(); PS.plan.series.splice(Number(btn.dataset.i), 1); render(); break;
     case 'plan-mover':   { planNombre(); const i = Number(btn.dataset.i), j = i + Number(btn.dataset.dir), ss = PS.plan.series; [ss[i], ss[j]] = [ss[j], ss[i]]; render(); break; }
     case 'plan-estilo':  planNombre(); PS.plan.series[Number(btn.dataset.i)].estilo = btn.dataset.val; render(); break;
@@ -3286,7 +3396,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
                               await DB.guardarPlan(SA.plan.id, {series: SA.plan.series.map(x=>({estilo:x.estilo, dist:Number(x.dist)||null, parciales:!!x.parciales && Number(x.dist)>50, ciclo:x.ciclo||null, auto:!!x.auto, inicio:inicioDe(x), comp:!!x.comp, porNadador:!!x.porNadador, rota:rotaOk(x.rota), ritmo:ritmoOk(x.ritmo)}))});
                               alert('Guardado en el entreno preparado.'); } break;
     case 'rel-modo':        { saveNotas(); const o = cicloObj(btn.dataset.t); if (o) { o.relevo = btn.dataset.v ? (o.relevo || {tipo:'igual', estilos:[...ESTILOS_RELEVO]}) : null; if (o.relevo) { o.parciales = false; o.auto = false; o.ciclo = null; o.comp = false; o.porNadador = false; o.rota = null; } render(); } break; }
-    case 'ritmo-ref':       { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.ritmo = {ref: btn.dataset.v, mano: (ritmoOk(o.ritmo) || {}).mano || null}; render(); } break; }
+    case 'ritmo-ref':       { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { const a = ritmoOk(o.ritmo) || {}; o.ritmo = ritmoOk({...a, ref: btn.dataset.v}); render(); } break; }
     case 'rota-toggle':     { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o) { o.rota = o.rota ? null : rotaDefecto(Number(o.dist) >= 100 ? o.dist : 200);
                               if (o.rota) { o.relevo = null; o.parciales = false; o.comp = false; o.dist = rotaTotal(o.rota); } render(); } break; }
     case 'rota-add':        { saveNotas(); planNombre(); const o = cicloObj(btn.dataset.t); if (o && o.rota && o.rota.tramos.length < 8) { o.rota.tramos.push(50); o.rota.desc.push(ROTA_DESC_DEF); o.dist = rotaTotal(o.rota); render(); } break; }
@@ -3329,11 +3439,24 @@ document.getElementById('app').addEventListener('keydown', async function(e) {
 
 document.getElementById('app').addEventListener('change', function(e) {
   if (e.target.dataset.relnad && SA) { (SA.relNad = SA.relNad || new Map()).set(e.target.dataset.relnad, e.target.value); render(); return; }
+  if (e.target.dataset.bloque && PS && PS.bloque) { planNombre(); PS.bloque[e.target.dataset.bloque] = e.target.value; render(); return; }
+  if (e.target.dataset.ritmomas != null || e.target.dataset.ritmotol != null) {
+    planNombre(); const t = e.target.dataset.ritmomas ?? e.target.dataset.ritmotol, o = cicloObj(t); if (!o || !o.ritmo) return;
+    const txt = e.target.value.trim().replace('−', '-'), v = parseSegundos(txt);
+    if (e.target.dataset.ritmomas != null) {
+      if (txt && v === null) { alert('Escribe los segundos que se suman al ritmo, por ejemplo +10 o +4'); return; }
+      o.ritmo = ritmoOk({...o.ritmo, mas: txt ? v : null, tol: o.ritmo.tol});
+    } else {
+      if (!v) { alert('Escribe el margen en segundos, por ejemplo 1 o 0,5'); return; }
+      o.ritmo = ritmoOk({...o.ritmo, tol: Math.abs(v)});
+    }
+    render(); return;
+  }
   if (e.target.dataset.ritmomano != null) {
     planNombre(); const o = cicloObj(e.target.dataset.ritmomano); if (!o || !o.ritmo) return;
     const v = parseRitmo(e.target.value);
     if (e.target.value.trim() && !v) { alert('Escribe el ritmo cada 100 m así: 1:20.0'); return; }
-    o.ritmo = {...o.ritmo, mano: v}; render(); return;
+    o.ritmo = ritmoOk({...o.ritmo, mano: v}); render(); return;
   }
   if (e.target.dataset.rotatr != null || e.target.dataset.rotadesc != null) {
     planNombre(); const o = cicloObj(e.target.dataset.t); if (!o || !o.rota) return;

@@ -740,3 +740,20 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .ent-asist summary .h{flex:1}
 .ent-asist[open] .dir-chev{transform:rotate(90deg)}
 .ent-asist[open] summary{margin-bottom:8px}
+/* Ritmo pedido: cuadrícula nadadores × series (color + forma; la diferencia en segundos dentro) */
+.ent-cuad-w{margin-top:6px}
+.ent-cuad{border-collapse:separate;border-spacing:2px;font-variant-numeric:tabular-nums;font-size:.72rem;width:100%}
+.ent-cuad th{font-size:.62rem;color:var(--ink2);font-weight:700;text-align:center;padding:2px;white-space:nowrap}
+.ent-cuad th span{display:block;color:var(--ink)} .ent-cuad th small{display:block;font-weight:600}
+.ent-cuad th:first-child{text-align:left}
+.ent-cuad td{padding:4px 2px;text-align:center;border-radius:6px;white-space:nowrap}
+.ent-cuad .ent-cuad-n{text-align:left;position:sticky;left:0;background:var(--solid);z-index:1;max-width:150px;overflow:hidden;text-overflow:ellipsis;padding-right:6px}
+.ent-cuad .ent-c{cursor:pointer;color:var(--ink);min-width:38px;outline:none}
+.ent-cuad .ent-c i{font-style:normal;margin-right:2px;font-size:.7rem}
+.ent-cuad .ent-c-ritmo{background:color-mix(in srgb,var(--z-dentro) 22%,transparent)} .ent-cuad .ent-c-ritmo i{color:var(--z-dentro)}
+.ent-cuad .ent-c-rapido{background:color-mix(in srgb,var(--s1) 22%,transparent)} .ent-cuad .ent-c-rapido i{color:var(--s1)}
+.ent-cuad .ent-c-lento{background:color-mix(in srgb,var(--z-fuera) 22%,transparent)} .ent-cuad .ent-c-lento i{color:var(--z-fuera)}
+.ent-cuad .ent-c:hover,.ent-cuad .ent-c:focus{box-shadow:inset 0 0 0 2px var(--ink)}
+.ent-cuad .vacia{color:var(--ink2)}
+.ent-cuad-grupo td{font-weight:700;color:var(--ink2);border-top:1px solid var(--ln)}
+.ent-rz-rapido{border-color:var(--s1)}

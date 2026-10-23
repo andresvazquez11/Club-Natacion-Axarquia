@@ -241,3 +241,24 @@ test('limpiarDoc: el ritmo de cada tiempo y de las series del plan se normaliza'
   assert.deepEqual(r, { ref: '200', mano: null, cs: 7780, base: 'marca' });
   assert.equal(evalIn(ctx, `limpiarDoc('resultados', {ms: 1, ritmo: {ref: 'x'}}).ritmo`), null);
 });
+
+test('ritmo pedido: «ritmo de 200 + 10 s», margen y bloques con patrón (20×100: 3 a +10, 1 a +4)', () => {
+  assert.equal(ev('parseSegundos', '+10'), 1000);
+  assert.equal(ev('parseSegundos', '4,5'), 450);
+  assert.equal(ev('parseSegundos', '-2'), -200);
+  assert.equal(ev('parseSegundos', 'x'), null);
+  assert.deepEqual(ev('parsePatron', '+10 +10 +10 +4'), [1000, 1000, 1000, 400]);
+  assert.deepEqual(ev('parsePatron', '10, 10, 10, 4'), [1000, 1000, 1000, 400]);
+  assert.equal(ev('parsePatron', '10, x'), null);
+  assert.deepEqual(ev('ritmoOk', { ref: '200', mas: 1000 }), { ref: '200', mano: null, mas: 1000, tol: 100 });
+  assert.deepEqual(ev('ritmoOk', { ref: '200', mas: 400, tol: 50 }), { ref: '200', mano: null, mas: 400, tol: 50 });
+  assert.deepEqual(ev('ritmoOk', { ref: 'mejor', mas: 400 }), { ref: 'mejor', mano: null });
+  assert.deepEqual(ev('objetivoRitmo', '200', 100, { 200: 14400 }, null, 1000), { cs: 8200, base: 'marca' });
+  const S = ev('bloqueSeries', { reps: 5, patron: '10 10 10 4', dist: 100, estilo: 'libre', ref: '200', tol: 100 });
+  assert.equal(S.length, 20);
+  assert.deepEqual(S.slice(0, 5).map(x => x.ritmo.mas), [1000, 1000, 1000, 400, 1000]);
+  assert.equal(S[19].ritmo.mas, 400);
+  assert.equal(ev('zonaRitmo', -80, 100), 'ritmo');
+  assert.equal(ev('zonaRitmo', -150, 100), 'rapido');
+  assert.equal(ev('zonaRitmo', 120, 100), 'lento');
+});
