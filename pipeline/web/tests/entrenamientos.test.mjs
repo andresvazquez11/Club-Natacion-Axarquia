@@ -225,3 +225,19 @@ test('entGraficoSeries: con nadadores elegidos solo dibuja los suyos', () => {
   assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], ["b"])').match(/<circle/g) || []).length, 1);
   assert.equal((evalIn(ctx, 'entGraficoSeries(__tb, [1], [])').match(/<circle/g) || []).length, 2);
 });
+
+test('entTiempos: una rota es su propia prueba (sale en gráficas y solo se compara con la misma rota)', () => {
+  const D2 = structuredClone(D);
+  D2.resultados.push({ id: 'r6', sesId: 's2', nId: 'a', ms: 150000, ronda: 2, estilo: 'libre', dist: 200, parciales: [30000, 115000, 150000], rota: { tramos: [50, 100, 50], desc: [10, 20] } },
+    { id: 'r7', sesId: 's2', nId: 'a', ms: 170000, ronda: 3, estilo: 'libre', dist: 200, rota: { tramos: [100, 100], desc: [15] } },
+    { id: 'r8', sesId: 's2', nId: 'b', ms: 140000, ronda: 2, estilo: 'libre', dist: 200, rota: '<b>' });
+  const T = ev('entTiempos', D2, SW);
+  assert.equal(T.find(t => t.id === 'r6').ev, '200 Libre · rota 50·100·50 (10·20 s)');
+  assert.equal(T.find(t => t.id === 'r7').ev, '200 Libre · rota 100·100 (15 s)');
+  assert.equal(T.find(t => t.id === 'r8').ev, '200 Libre');   // rota mal guardada: cuenta como serie normal
+  const R = ev('entResumen', T);
+  const evs = R.pruebas.map(p => p.ev);
+  assert.ok(evs.indexOf('200 Libre') < evs.indexOf('200 Libre · rota 100·100 (15 s)'));
+  ctx.__T = T;
+  assert.equal(evalIn(ctx, `entComparar(__T, __T.find(t => t.id === 'r6')).ent`), null);   // no se compara con el 200 normal
+});

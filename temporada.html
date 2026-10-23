@@ -3194,19 +3194,29 @@ function entTiempos(D, sw) {
   const ses = new Map(D.sesiones.map(s => [s.id, s]));
   const nad = new Map(D.nadadores.map(n => [n.id, n]));
   (D.estilos || []).forEach(e => { if (entEstiloOk(e.id) && e.nombre) ENT_NOMBRES[e.id] = String(e.nombre).slice(0, 30); });
-  return D.resultados.filter(r => r.borrado !== true && !r.relevo && !r.rota).map(r => {
+  return D.resultados.filter(r => r.borrado !== true && !r.relevo).map(r => {
     const s = ses.get(r.sesId); if (!s) return null;
     const estilo = entEstiloOk(r.estilo) ? r.estilo : entEstiloOk(s.estilo) ? s.estilo : null;
     const dist = Number(r.estilo ? r.dist : s.dist) || null;
     const n = nad.get(r.nId) || {};
     const web = n.rfen && Object.hasOwn(sw, String(n.rfen)) ? sw[String(n.rfen)] : null;
     const fecha = Number(s.fecha) || 0, ts = Number(r.ts) > 0 ? Number(r.ts) : null;
+    const rota = entRota(r.rota);
     return {id: r.id, sesId: r.sesId, fecha, dia: entDia(fecha), hora: entHora(fecha), fin: Number(s.fin) || null, coach: s.coach || '', sim: entEsSim(s), ronda: entEntero(r.ronda),
       ts, horaSerie: ts ? entHora(ts) : '', comp: r.comp === true, inicio: r.comp === true ? 'plataforma' : ['agua', 'plataforma'].includes(r.inicio) ? r.inicio : null,
-      estilo, dist, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
+      estilo, dist, rota, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}${rota ? ` · ${entRotaTxt(rota)}` : ''}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
+/* Rota (serie partida en tramos con descansos; el tiempo es el neto, sin descansos): cada rota distinta es su propia prueba,
+   así sale en las gráficas del grupo y de cada nadador y solo se compara con la misma rota (nunca con competiciones) */
+function entRota(r) {
+  if (!r || typeof r !== 'object' || !Array.isArray(r.tramos)) return null;
+  const tramos = r.tramos.map(Number).filter(x => Number.isInteger(x) && x > 0 && x <= 1500).slice(0, 8);
+  if (tramos.length < 2) return null;
+  return {tramos, desc: tramos.slice(1).map((_, i) => { const d = Math.round(Number((r.desc || [])[i])); return Number.isFinite(d) && d >= 0 && d <= 600 ? d : 0; })};
+}
+const entRotaTxt = r => `rota ${r.tramos.join('·')} (${r.desc.join('·')} s)`;
 /* Descarta tiempos imposibles (pulsaciones de prueba, errores): menos de 10 s por cada 50 m */
 const entPlausible = t => t.cs > 0 && t.cs >= (t.dist || 50) * 20;
 
@@ -3247,14 +3257,14 @@ function entResumen(T) {
   T.forEach(t => { const x = sesiones.get(t.sesId) || {sesId: t.sesId, fecha: t.fecha, hora: t.hora, fin: t.fin, coach: t.coach, sim: t.sim, tiempos: [], series: new Set(), pruebas: new Set(), nads: new Set()};
     x.tiempos.push(t); x.series.add(t.ronda); if (t.ev) x.pruebas.add(t.ev); x.nads.add(t.nId); sesiones.set(t.sesId, x); });
   const pruebas = new Map();
-  T.filter(t => t.ev).forEach(t => { const p = pruebas.get(t.ev) || {ev: t.ev, estilo: t.estilo, dist: t.dist, n: 0, nads: new Map()};
+  T.filter(t => t.ev).forEach(t => { const p = pruebas.get(t.ev) || {ev: t.ev, estilo: t.estilo, dist: t.dist, rota: !!t.rota, n: 0, nads: new Map()};
     p.n++; const m = p.nads.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, cat: t.cat, mejor: Infinity, ultimo: null, veces: 0};
     m.veces++; m.mejor = Math.min(m.mejor, t.cs); if (!m.ultimo || t.fecha >= m.ultimo.fecha) m.ultimo = t;
     p.nads.set(t.nId, m); pruebas.set(t.ev, p); });
   const nads = new Map();
   T.forEach(t => { const m = nads.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, cat: t.cat, tiempos: 0, sesiones: new Set(), pruebas: new Set()};
     m.tiempos++; m.sesiones.add(t.sesId); if (t.ev) m.pruebas.add(t.ev); nads.set(t.nId, m); });
-  const ordenP = (a, b) => entOrden(a.estilo) - entOrden(b.estilo) || a.estilo.localeCompare(b.estilo) || a.dist - b.dist;
+  const ordenP = (a, b) => entOrden(a.estilo) - entOrden(b.estilo) || a.estilo.localeCompare(b.estilo) || a.dist - b.dist || a.rota - b.rota || a.ev.localeCompare(b.ev);
   return {
     tiempos: T.length,
     entrenamientos: [...sesiones.values()].sort((a, b) => b.fecha - a.fecha)

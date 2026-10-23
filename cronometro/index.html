@@ -1689,6 +1689,7 @@ function renderHome() {
       </div>
     </div>` : '<div class="center-msg"><p>Todavía no hay entrenamientos. Empieza el primero arriba.</p></div>';
   return `
+    ${renderNovedades()}
     <div class="row mb16" style="position:relative;align-items:flex-start">
       <div style="flex:1">
         <div class="h1" style="margin-bottom:0">Hola, ${esc(coachName)}</div>
@@ -1700,7 +1701,6 @@ function renderHome() {
     ${pend ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${pend} ${pend===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
     <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
     ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:10px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
-    ${renderNovedades()}
     ${renderPreparados()}
     ${tarjeta}
     <a class="manual-card" href="${MANUAL_URL}" target="_blank" rel="noopener"><span class="mi">📘</span>
@@ -1709,8 +1709,11 @@ function renderHome() {
 // ── Novedades de esta versión: se ven en el inicio hasta NOVEDADES_HASTA y luego desaparecen solas (después, borrar este bloque) ──
 const NOVEDADES_HASTA = new Date(2026, 10, 1).getTime();   // hasta el sábado 31 de octubre incluido
 const NOVEDADES = [
-  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso, pita los 3 últimos segundos y avisa «¡sale!» cuando toca seguir. Se guarda el tiempo neto, sin descansos.'],
-  ['🔔', 'Pitido y vibración en cada salida', 'en todos los móviles, también al tocar SALIDA a mano y en los relevos. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.'],
+  // El 4º campo marca lo nuevo de esta versión (sale primero y con la etiqueta «Nuevo»)
+  ['🧩', 'Rota', 'al preparar la serie (o el entreno preparado) enciende «Rota» y pon los tramos y descansos, p. ej. 50 · 100 · 50 con 10 y 20 s. Tocas al llegar a la pared: la tarjeta cuenta el descanso, pita los 3 últimos segundos y avisa «¡sale!» cuando toca seguir. Se guarda el tiempo neto, sin descansos.', true],
+  ['📈', 'La rota en las gráficas', 'en la web (Modo entrenador) cada rota sale como su propia prueba: ritmo del grupo, evolución de cada nadador y comparar nadadores o series. Solo se compara con la misma rota, nunca con un 200 normal ni con competiciones.', true],
+  ['🔔', 'Pitido y vibración en cada salida', 'en todos los móviles, también al tocar SALIDA a mano y en los relevos. En iPhone suena aunque tenga puesto el modo silencio y vuelve a sonar tras bloquear la pantalla (toca la pantalla una vez al volver); vibra con iOS 18 o más.', true],
+  ['🔴', 'Directo más visible', 'en la web, el botón «Directo» se pone rojo y late cuando hay una competición en curso. Al seguir a un nadador, la hora de sus pruebas sale destacada y el día de la competición hay cuenta atrás hasta su prueba.', true],
   ['🎨', 'Series solapadas más claras', 'cada serie tiene su color en las tarjetas y arriba se ve el tiempo total de cada una (de la primera salida a la última llegada).'],
   ['🔁', 'Relevos', 'al preparar la serie elige «Relevo»: cada calle es un equipo, salen todas a la vez y cada toque cierra la posta de un nadador. Resultado por equipos y comparado con relevos anteriores.'],
   ['🎯', 'Cada nadador su estilo', 'en la misma calle uno puede nadar crol y otro mariposa: el estilo se elige en su tarjeta antes de salir.'],
@@ -1726,7 +1729,7 @@ function renderNovedades() {
   return `<details class="card mb16" open style="border-color:var(--blu);background:var(--blu-s)">
     <summary style="cursor:pointer;font-weight:800;font-size:16px">✨ Novedades de la versión ${APP_VERSION}</summary>
     <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px">
-      ${NOVEDADES.map(([i, t, d]) => `<div style="display:flex;gap:9px;font-size:13.5px;line-height:1.4"><span style="flex:none">${i}</span><span><b>${t}</b>: <span class="muted">${d}</span></span></div>`).join('')}
+      ${NOVEDADES.map(([i, t, d, nuevo]) => `<div style="display:flex;gap:9px;font-size:13.5px;line-height:1.4"><span style="flex:none">${i}</span><span>${nuevo?'<span class="pb" style="margin:0 4px 0 0">NUEVO</span>':''}<b>${t}</b>: <span class="muted">${d}</span></span></div>`).join('')}
     </div>
     <div class="muted" style="font-size:11px;margin-top:8px">Este aviso desaparece solo en unos días. El manual tiene todos los detalles.</div>
   </details>`;
