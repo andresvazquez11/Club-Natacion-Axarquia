@@ -680,3 +680,18 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 /* Toque en el agua (modo acuático, agua.js → agitarAgua): los reflejos de luz también se mecen un momento */
 .agua .agua-luz.agitada{animation:agua-luz 28s ease-in-out infinite alternate,agua-agita 2.6s ease-out}
 @keyframes agua-agita{0%{opacity:.38}12%{opacity:.52}100%{opacity:.38}}
+/* Directo · cronograma de una competición: cada prueba es una fila que se abre para ver sus series */
+.dir-filtros{display:flex;flex-direction:column;gap:2px;padding:8px 12px}
+.dir-ses{margin-top:16px}
+.dir-p summary{display:flex;align-items:center;gap:12px}
+.dir-p-txt{flex:1;min-width:0}
+.dir-chev{font-size:1.4rem;color:var(--ink2);transition:transform .15s}
+.dir-p[open] .dir-chev{transform:rotate(90deg)}
+.dir-p-hecha .dir-hora{opacity:.6}
+.dir-p-en_marcha{border-color:#e5484d}
+.dir-quien{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.dir-quien span{font-size:.72rem;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--hl) 18%,transparent);color:var(--ink)}
+.dir-quien span.muted{background:none}
+.dir-est{margin-left:4px}
+.dir-est.hecha{color:var(--good,#2a9d3c)}
+.dir-est.vivo,.dir-vivo-txt{color:#e5484d;font-weight:700}

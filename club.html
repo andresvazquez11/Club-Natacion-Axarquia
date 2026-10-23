@@ -688,6 +688,21 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 /* Toque en el agua (modo acuático, agua.js → agitarAgua): los reflejos de luz también se mecen un momento */
 .agua .agua-luz.agitada{animation:agua-luz 28s ease-in-out infinite alternate,agua-agita 2.6s ease-out}
 @keyframes agua-agita{0%{opacity:.38}12%{opacity:.52}100%{opacity:.38}}
+/* Directo · cronograma de una competición: cada prueba es una fila que se abre para ver sus series */
+.dir-filtros{display:flex;flex-direction:column;gap:2px;padding:8px 12px}
+.dir-ses{margin-top:16px}
+.dir-p summary{display:flex;align-items:center;gap:12px}
+.dir-p-txt{flex:1;min-width:0}
+.dir-chev{font-size:1.4rem;color:var(--ink2);transition:transform .15s}
+.dir-p[open] .dir-chev{transform:rotate(90deg)}
+.dir-p-hecha .dir-hora{opacity:.6}
+.dir-p-en_marcha{border-color:#e5484d}
+.dir-quien{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.dir-quien span{font-size:.72rem;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--hl) 18%,transparent);color:var(--ink)}
+.dir-quien span.muted{background:none}
+.dir-est{margin-left:4px}
+.dir-est.hecha{color:var(--good,#2a9d3c)}
+.dir-est.vivo,.dir-vivo-txt{color:#e5484d;font-weight:700}
 
 </style>
 </head>
@@ -3850,11 +3865,18 @@ const DIR_PROXY = 'https://cna-directo.andrescovidelpi.workers.dev';   // interm
 let DIR = null, DIR_T = 0, DIR_RELOJ = null;
 /* Solo enlaces seguros a la federación (los datos vienen de su web) */
 const dirUrlOk = u => typeof u === 'string' && /^https:\/\/(www\.)?(fan\.es|fanatacion\.es)\//.test(u);
+/* En curso / próxima / terminada según la fecha de hoy en este móvil (directo.json puede llevar horas sin actualizarse:
+   así el día de la competición se empiezan a leer los resultados al momento aunque GitHub no haya pasado todavía) */
+function dirEstadoHoy(c, antes, hoy = new Date()) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(c.desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(c.hasta || '')) return antes;
+  const h = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  return c.desde > h ? 'proxima' : c.hasta < h ? 'terminada' : 'en_curso';
+}
 async function dirCargar(forzar) {
   if (!forzar && DIR && Date.now() - DIR_T < 55e3) return DIR;
   try {
     const r = await fetch('directo.json?t=' + Math.floor(Date.now() / 6e4), {cache: 'no-cache'});
-    if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.competiciones)) { DIR = d; DIR_T = Date.now(); } }
+    if (r.ok) { const d = await r.json(); if (d && Array.isArray(d.competiciones)) { d.competiciones.forEach(c => { c.estado = dirEstadoHoy(c, c.estado); }); DIR = d; DIR_T = Date.now(); } }
   } catch (e) { /* sin conexión: lo último que hubiera */ }
   return DIR;
 }
@@ -4033,7 +4055,7 @@ const dirCuentaArrancar = () => { clearInterval(DIR_CUENTA); if (dirCuentaTic())
 /* Nadadores del club (emparejados con su ficha) que nadan en una competición */
 const dirDelClub = c => !c || !c.lenex ? [] : [...new Map(dirNuestras(c).filter(f => f.rfen && Object.hasOwn(SW, f.rfen)).map(f => [f.rfen, SW[f.rfen]])).values()]
   .sort((a, b) => a.n.localeCompare(b.n));
-const dirSelector = (c, actual) => { const L = dirDelClub(c); return L.length ? `<label class="dir-sel">Seguir a un nadador del club
+const dirSelector = (c, actual) => { const L = dirDelClub(c); return L.length ? `<label class="dir-sel">Ver solo a un nadador del club: sus pruebas, horas, series y calles
   <select data-dir-seguir="${Number(c.id)}"><option value="">Elige un nadador…</option>${L.map(s => `<option value="${esc(String(s.id))}"${String(s.id) === actual ? ' selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label>` : ''; };
 const dirTablaFilas = (filas, marcar) => `<div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Inscrito</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
   ${filas.map(f => `<tr${marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : ''}><td class="num">${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
@@ -4085,28 +4107,67 @@ function dirTarjeta(c) {
   </div>`;
 }
 
-function dirDetalle(c, soloNuestros) {
-  const L = c.lenex, nos = dirNuestras(c);
-  const pruebas = L.pruebas.filter(p => !soloNuestros || p.filas.some(f => f.rfen));
-  const resumen = nos.length ? `<div class="card"><div class="h">${ico('grupo')}Nuestros nadadores <span class="h-n">(${nos.length})</span></div>
-    <div class="tw"><table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Serie · calle</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
-    ${nos.sort((a, b) => a.p.num - b.p.num || a.serie - b.serie).map(f => `<tr class="dir-nuestro"><td><b>${dirNombre(f)}</b></td><td>${esc(f.p.nombre)} <span class="tiny muted">${dirSexo(f.p.sexo)} · ${esc(f.p.hora)}</span></td>
-      <td class="num">${f.serie} · ${f.calle}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º <span class="tiny muted">${esc(f.cat)}</span>` : '—'}</td></tr>`).join('')}</table></div></div>` : '';
-  const prueba = p => {
-    const series = [...new Set(p.filas.map(f => f.serie))];
-    return `<details class="card dir-p"${p.filas.some(f => f.rfen) ? ' open' : ''}><summary><b>${p.num}. ${esc(p.nombre)}</b> ${dirSexo(p.sexo)} <span class="muted">· ${esc(p.hora)} · ${p.nadadas} de ${p.filas.length} nadados</span>${p.filas.some(f => f.rfen) ? ' <span class="tag dir-tag">club</span>' : ''}</summary>
-      ${series.map(n => `<div class="ent-sel">Serie ${n}</div><div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
-        ${p.filas.filter(f => f.serie === n).map(f => `<tr${f.rfen ? ' class="dir-nuestro"' : ''}><td class="num">${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
-          <td class="tiny">${esc(f.club)}</td><td class="num"><b>${dirTiempo(f)}</b>${f.parc && f.parc.length > 1 ? `<div class="tiny muted">${f.parc.map(fmt).join(' · ')}</div>` : ''}</td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}</td></tr>`).join('')}</table></div>`).join('')}
+/* ── Una competición: cronograma de todas las pruebas, en orden de hora, con filtros ──
+   Cada prueba es una fila (hora, nombre, cuántas series y cómo va, quién del club nada) que se abre para ver sus series.
+   Filtros (en la dirección, para poder compartirla): del club o todas, categoría (por año de nacimiento) y sexo. */
+const DIR_SEXOS = [['', 'Todos'], ['F', 'Femenino'], ['M', 'Masculino'], ['X', 'Mixto']];
+// Categoría de un nadador por su año de nacimiento (las del club; más pequeños que benjamín = prebenjamín)
+function dirCatDeNac(nac) {
+  if (!nac) return null;
+  const c = DATA.cats.find(x => (x.yrs || []).includes(nac));
+  if (c) return c.key;
+  const ben = DATA.cats.find(x => x.key === 'BEN');
+  return ben && nac > Math.max(...ben.yrs) ? 'PRE' : null;
+}
+const dirCatLabel = k => k === 'PRE' ? 'Prebenjamín' : (DATA.cats.find(x => x.key === k) || {}).label || k;
+// Cómo va una prueba: series hechas de cuántas
+function dirMarcha(p) {
+  const series = [...new Set(p.filas.map(f => f.serie))].sort((a, b) => a - b);
+  const hechas = series.filter(n => p.filas.some(f => f.serie === n && (f.t || f.estado))).length;
+  return {series, hechas, estado: !hechas ? 'pendiente' : hechas >= series.length ? 'hecha' : 'en_marcha'};
+}
+function dirFiltrar(c, f) {
+  return c.lenex.pruebas.filter(p => (!f.solo || p.filas.some(x => x.rfen)) && (!f.sx || p.sexo === f.sx)
+    && (!f.cat || p.filas.some(x => dirCatDeNac(x.nac) === f.cat)));
+}
+function dirDetalle(c, f) {
+  f = Object.assign({solo: true, cat: '', sx: ''}, f);
+  const L = c.lenex, nos = dirNuestras(c), del = dirDelClub(c), pruebas = dirFiltrar(c, f);
+  const cats = [...new Set(L.pruebas.flatMap(p => p.filas.map(x => dirCatDeNac(x.nac))).filter(Boolean))]
+    .sort((a, b) => (a === 'PRE' ? -1 : DATA.cats.findIndex(x => x.key === a)) - (b === 'PRE' ? -1 : DATA.cats.findIndex(x => x.key === b)));
+  const chips = (nombre, ops, actual) => `<div class="chips sub" data-chips="${nombre}">${ops.map(([v, t]) => `<button class="chip ${v === actual ? 'on' : ''}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div>`;
+  const filtros = `<div class="card dir-filtros">
+      ${chips('dsolo', [['1', 'Con nadadores del club'], ['', 'Todas las pruebas']], f.solo ? '1' : '')}
+      ${cats.length > 1 ? chips('dcat', [['', 'Todas las categorías'], ...cats.map(k => [k, dirCatLabel(k)])], f.cat) : ''}
+      ${chips('dsx', DIR_SEXOS.filter(([v]) => !v || L.pruebas.some(p => p.sexo === v)), f.sx)}
+    </div>`;
+  const varios = c.desde !== c.hasta;
+  const fila = p => {
+    const m = dirMarcha(p), club = p.filas.filter(x => x.rfen), vivo = m.estado === 'en_marcha';
+    const nombres = [...new Map(club.map(x => [x.rfen === '?' || x.rfen === 'club' ? x.n : x.rfen, x])).values()];
+    const quien = nombres.length ? `<div class="dir-quien">${nombres.slice(0, 8).map(x => `<span>${esc(x.rfen === 'club' ? 'Relevo del club' : x.n.split(' ')[0] + (x.n.split(' ')[1] ? ' ' + x.n.split(' ')[1][0] + '.' : ''))}</span>`).join('')}${nombres.length > 8 ? `<span class="muted">+${nombres.length - 8}</span>` : ''}</div>` : '';
+    const est = m.estado === 'hecha' ? '<span class="dir-est hecha">Terminada</span>' : vivo ? `<span class="dir-est vivo"><span class="dir-punto"></span>Serie ${m.hechas + 1} de ${m.series.length}</span>` : `<span class="dir-est">${m.series.length} ${m.series.length === 1 ? 'serie' : 'series'}</span>`;
+    return `<details class="card dir-p dir-p-${m.estado}" data-pid="${esc(String(p.id || p.num))}">
+      <summary><div class="dir-hora"><small>${varios && p.fecha ? dfmt(p.fecha) : 'hora'}</small><b>${esc(p.hora || '--:--')}</b></div>
+        <div class="dir-p-txt"><b>${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}</span>
+          <div class="tiny muted">Prueba ${p.num}${p.sesion ? ` · ${esc(p.sesion)}` : ''} · ${p.filas.length} nadadores ${est}</div>${quien}</div>
+        <span class="dir-chev" aria-hidden="true">›</span></summary>
+      ${m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false)}`).join('')}
     </details>`;
   };
+  // agrupadas por día y sesión, en orden de hora
+  let ant = '', cuerpo = '';
+  pruebas.forEach(p => { const g = `${p.fecha || ''}|${p.sesion || ''}`;
+    if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirDePdf(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
+    cuerpo += fila(p); });
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1></div>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1>
+      ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, '')}
-    ${resumen}
-    <div class="chips" data-chips="dsolo" style="margin:10px 0"><button class="chip ${soloNuestros ? 'on' : ''}" data-v="1">Pruebas con nadadores del club</button><button class="chip ${soloNuestros ? '' : 'on'}" data-v="">Todas las pruebas</button></div>
-    ${pruebas.map(prueba).join('') || '<div class="vacio">Sin pruebas todavía.</div>'}`;
+    ${filtros}
+    <p class="tiny muted" style="margin:8px 2px">${pruebas.length} de ${L.pruebas.length} pruebas. Toca una para ver sus series y calles.</p>
+    ${cuerpo || '<div class="vacio">Ninguna prueba con estos filtros.</div>'}`;
 }
 
 function vistaDirecto(app, p) {
@@ -4119,15 +4180,20 @@ function vistaDirecto(app, p) {
     if (!location.hash.startsWith('#directo')) { clearInterval(DIR_RELOJ); return; }
     if (!d) { host.innerHTML = '<div class="vacio">No se pudo cargar el calendario de competiciones. ¿Hay conexión?</div>'; return; }
     const y = window.scrollY, abiertos = [...host.querySelectorAll('details[open] summary')].map(x => (x.querySelector('b') || x).textContent).concat([...host.querySelectorAll('details[open] summary')].map(x => x.textContent));
+    const abiertasP = [...host.querySelectorAll('details[open][data-pid]')].map(x => x.dataset.pid);
     const c = p.c ? d.competiciones.find(x => String(x.id) === String(p.c)) : null;
     const pie = `<p class="tiny muted" style="margin-top:12px">Datos de la Federación Andaluza (calendario y web de cada competición). Actualizado ${esc((d.actualizado || '').replace('T', ' a las '))}.${dirEnCurso(d) ? (DIR_PROXY ? ' Competición en curso: los resultados se leen al momento y la pantalla se refresca sola cada 30 segundos.' : ' Se refresca solo cada minuto; los resultados llegan con unos minutos de retraso.') : ''}</p>`;
     if (c && c.lenex && /^\d{3,12}$/.test(p.n || '')) {
       host.innerHTML = dirSeguirHTML(c, String(p.n)) + pie;
       if (abiertos.length) host.querySelectorAll('details').forEach(x => { if (abiertos.includes(x.querySelector('summary').textContent)) x.open = true; });
     } else if (c && c.lenex) {
-      host.innerHTML = dirDetalle(c, p.solo !== '0') + pie;
-      onChips(host, 'dsolo', v => { location.hash = `#directo?c=${Number(c.id)}${v ? '' : '&solo=0'}`; });
-      if (abiertos.length) host.querySelectorAll('details').forEach(x => { if (abiertos.includes(x.querySelector('summary b').textContent)) x.open = true; });
+      const f = {solo: p.solo !== '0', cat: /^[A-Z]{2,4}$/.test(p.cat || '') ? p.cat : '', sx: /^[FMX]$/.test(p.sx || '') ? p.sx : ''};
+      host.innerHTML = dirDetalle(c, f) + pie;
+      const ir = o => { const q = Object.assign({}, f, o); location.hash = `#directo?c=${Number(c.id)}${q.solo ? '' : '&solo=0'}${q.cat ? '&cat=' + q.cat : ''}${q.sx ? '&sx=' + q.sx : ''}`; };
+      onChips(host, 'dsolo', v => ir({solo: !!v}));
+      onChips(host, 'dcat', v => ir({cat: v}));
+      onChips(host, 'dsx', v => ir({sx: v}));
+      host.querySelectorAll('details[data-pid]').forEach(x => { if (abiertasP.includes(x.dataset.pid)) x.open = true; });
     } else {
       const g = e => d.competiciones.filter(x => x.estado === e);
       const sec = (t, L, inv) => L.length ? `<div class="h h-sub" style="margin-top:14px">${t}</div>${(inv ? [...L].reverse() : L).map(dirTarjeta).join('')}` : '';

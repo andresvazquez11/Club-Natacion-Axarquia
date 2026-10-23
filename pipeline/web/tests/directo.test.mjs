@@ -29,11 +29,34 @@ test('dirTarjeta: escapa el título y descarta enlaces que no son de la federaci
   assert.match(h, /#directo\?c=3220/);
 });
 
-test('dirDetalle: nuestros nadadores arriba y su ficha enlazada', () => {
-  const h = evalIn(ctx, 'dirDetalle(__c, true)');
+test('dirDetalle: cronograma con cada prueba (hora, quién del club nada) y su ficha enlazada', () => {
+  const h = evalIn(ctx, 'dirDetalle(__c, {solo: true})');
   assert.match(h, /href="#nadador\/6313922"/);
   assert.match(h, /35\.20/);
-  assert.match(h, /Nuestros nadadores/);
+  assert.match(h, /1 nadadores del club · 1 participaciones/);
+  assert.match(h, /<b>10:00<\/b>/);
+  assert.match(h, /<span>Lucía R\.<\/span>/);
+  assert.match(h, /data-chips="dsx"/);
+  assert.match(h, /Terminada/);
+});
+
+test('dirFiltrar: del club, por sexo y por categoría (año de nacimiento)', () => {
+  evalIn(ctx, "DATA.cats.push({key: 'BEN', label: 'Benjamín', yrs: [2016, 2017]}, {key: 'ALE', label: 'Alevín', yrs: [2014, 2015]})");
+  ctx.__c2 = { lenex: { pruebas: [
+    { num: 1, sexo: 'F', filas: [{ nac: 2016, rfen: '1' }] },
+    { num: 2, sexo: 'M', filas: [{ nac: 2015, rfen: null }] },
+    { num: 3, sexo: 'M', filas: [{ nac: 2019, rfen: '2' }] }] } };
+  const nums = f => JSON.parse(evalIn(ctx, `JSON.stringify(dirFiltrar(__c2, ${JSON.stringify(f)}).map(p => p.num))`));
+  assert.deepEqual(nums({ solo: true }), [1, 3]);
+  assert.deepEqual(nums({ solo: false, sx: 'M' }), [2, 3]);
+  assert.deepEqual(nums({ solo: false, cat: 'ALE' }), [2]);
+  assert.deepEqual(nums({ solo: false, cat: 'PRE' }), [3]);   // más pequeños que benjamín
+  assert.equal(evalIn(ctx, 'dirCatLabel("PRE")'), 'Prebenjamín');
+});
+
+test('dirEstadoHoy: el estado sale de la fecha de hoy, no de cuándo pasó GitHub', () => {
+  const r = JSON.parse(evalIn(ctx, `JSON.stringify(['2026-10-24', '2026-10-23', '2026-10-25'].map(h => dirEstadoHoy({desde: '2026-10-24', hasta: '2026-10-24'}, 'proxima', new Date(h + 'T10:00:00'))))`));
+  assert.deepEqual(r, ['en_curso', 'proxima', 'terminada']);
 });
 
 test('dirUnzip: descomprime el results.lxf (zip con deflate) como hace el navegador', async () => {
