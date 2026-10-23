@@ -227,15 +227,24 @@ function parseSegundos(txt) {
   return m[1] === '-' ? -v : v;
 }
 // Patrón de un bloque: «10, 10, 10, 4» o «+10 +10 +10 +4» → [1000, 1000, 1000, 400]
+// Trocea el patrón aunque vaya junto: «+10+10+10+4», «+10 +10 +10 +4», «10, 10, 10, 4» o «10,10,10,4».
+// La coma es decimal solo con una cifra detrás («4,5»); si alguna coma separa números («10,10») o va seguida de espacio, todas separan. Lo que no sean segundos queda en «resto».
+function trozosPatron(txt) {
+  let t = String(txt == null ? '' : txt).replace(/−/g, '-').replace(/″|"|''/g, '');
+  if (/,\d{2}|,\s/.test(t)) t = t.replace(/,/g, ' ');   // «10,10,10,4» o «10, 10»: las comas separan
+  const L = t.match(/[+-]?\d+(?:\.\d{1,2}|,\d(?!\d))?/g) || [];
+  const resto = t.replace(/[+-]?\d+(?:\.\d{1,2}|,\d(?!\d))?/g, ' ').split(/[,;\s]+/).filter(Boolean);
+  return {L, resto};
+}
 function parsePatron(txt) {
-  const L = String(txt == null ? '' : txt).split(/[,;\s]+/).filter(Boolean).map(parseSegundos);
-  return L.length && L.length <= 12 && L.every(v => v !== null) ? L : null;
+  const {L, resto} = trozosPatron(txt), V = L.map(parseSegundos);
+  return !resto.length && V.length && V.length <= 12 && V.every(v => v !== null) ? V : null;
 }
 // Qué falla en un bloque (para avisar al entrenador); '' si está bien
 function errorBloque(b) {
-  const L = String(b.patron == null ? '' : b.patron).split(/[,;\s]+/).filter(Boolean);
-  if (!L.length) return 'Escribe los segundos de cada serie, por ejemplo +10 +10 +10 +4.';
-  const malo = L.find(x => parseSegundos(x) === null);
+  const {L, resto} = trozosPatron(b.patron);
+  if (!L.length && !resto.length) return 'Escribe los segundos de cada serie, por ejemplo +10 +10 +10 +4.';
+  const malo = resto[0] || L.find(x => parseSegundos(x) === null);
   if (malo) return `No entiendo «${malo}». Escribe segundos (como mucho 60), por ejemplo +10 +10 +10 +4 o -2.`;
   if (L.length > 12) return 'Como mucho 12 series por vuelta.';
   const reps = Math.round(Number(b.reps));

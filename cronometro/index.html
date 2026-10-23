@@ -1814,7 +1814,7 @@ function renderHome() {
 const NOVEDADES_HASTA = new Date(2026, 10, 8).getTime();   // hasta el sábado 7 de noviembre incluido
 const NOVEDADES = [
   // El 4º campo marca lo nuevo de esta versión (sale primero y con la etiqueta «Nuevo»)
-  ['✍', 'Cómo escribir los segundos', 'en «Sumar al ritmo» vale +10, 10, 4,5 o -2 (más rápido que el ritmo), hasta 60 s; vacío = el ritmo tal cual. En el bloque, los de una vuelta en orden y separados por espacios o comas: +10 +10 +10 +4 (hasta 12 por vuelta y 60 series). El margen, de 0,1 a 10 s. Si algo no se entiende, el cronómetro avisa.', true],
+  ['✍', 'Cómo escribir los segundos', 'en «Sumar al ritmo» vale +10, 10, 4,5 o -2 (más rápido que el ritmo), hasta 60 s; vacío = el ritmo tal cual. En el bloque, los de una vuelta en orden, juntos o separados: +10+10+10+4 o +10 +10 +10 +4 (hasta 12 por vuelta y 60 series). El margen, de 0,1 a 10 s. Si algo no se entiende, el cronómetro avisa.', true],
   ['⏱', 'Ritmo pedido: «ritmo de 200 + 10″»', 'al preparar la serie escribe los segundos que se suman al ritmo (+10, +4…) y el margen (±1 s). Cada uno ve si fue ● en el ritmo, ▲ más rápido o ▼ más lento de lo pedido. En el entreno preparado, «Añadir bloque a ritmo» crea series como 20×100 «3 a +10″ y 1 a +4″» de una vez. El PDF termina con la cuadrícula «¿Fueron al ritmo?».', true],
   ['🎯', 'Ritmo de 200 y de 400', 'al preparar la serie elige «Comparar cada tiempo con»: mejor marca, ritmo de 200 o ritmo de 400. Cada nadador tiene su objetivo (su mejor 200 o 400 llevado a la distancia de la serie); en la tarjeta ves si va por delante o por detrás en cada 50 y en el resumen, cuánto y en qué %. Sin marca: el ritmo que escribas tú o la media del grupo.', true],
   ['📊', 'Gráficas más claras en la web', 'nueva gráfica «¿Quién va a su ritmo?»: cada nadador en su fila, en % de su ritmo, con zonas dentro / cerca / fuera. Se puede cambiar entre ritmo de 200, de 400 o mejor marca. Todas las gráficas muestran el tiempo al tocar un punto.', true],
@@ -2268,7 +2268,7 @@ function renderSeriesPlan() {
 }
 // Bloque a ritmo: p. ej. 20×100 = 5 vueltas a «+10 +10 +10 +4» sobre el ritmo de 200 → 20 series, cada una con su objetivo
 function renderBloquePlan() {
-  const b = PS.bloque = PS.bloque || {reps: 5, patron: '+10 +10 +10 +4', dist: 100, estilo: 'libre', ref: '200', tol: '1'};
+  const b = PS.bloque = PS.bloque || {reps: 1, patron: '+10 +10 +10 +4', dist: 100, estilo: 'libre', ref: '200', tol: '1'};
   const err = errorBloque(b), n = err ? 0 : bloqueSeries({...b, tol: Math.abs(parseSegundos(b.tol) || RITMO_TOL_DEF)}).length;
   return `<details class="card mb16" ${PS.bloqueAbierto?'open':''}><summary data-action="bloque-toggle" style="cursor:pointer;font-weight:700">🎯 Añadir bloque a ritmo <span class="muted" style="font-weight:500">(p. ej. 20×100: 3 a +10″ y 1 a +4″)</span></summary>
     <div class="bloque-grid">
@@ -2276,7 +2276,7 @@ function renderBloquePlan() {
       <label><span class="muted">Distancia</span><select class="input" data-bloque="dist">${DISTS.map(d=>`<option value="${d}"${Number(b.dist)===d?' selected':''}>${d} m</option>`).join('')}</select></label>
       <label><span class="muted">Estilo</span><select class="input" data-bloque="estilo">${misEstilos().map(e=>`<option value="${esc(e)}"${b.estilo===e?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>
       <label><span class="muted">Ritmo de</span><select class="input" data-bloque="ref"><option value="200"${b.ref==='200'?' selected':''}>200</option><option value="400"${b.ref==='400'?' selected':''}>400</option></select></label>
-      <label style="grid-column:1/-1"><span class="muted">Segundos que se suman al ritmo en cada serie de una vuelta, en orden (separados por espacios o comas; -2 = más rápido que el ritmo; como mucho 60 s)</span><input class="input" data-bloque="patron" value="${esc(b.patron)}" placeholder="+10 +10 +10 +4"></label>
+      <label style="grid-column:1/-1"><span class="muted">Segundos que se suman al ritmo en cada serie de una vuelta, en orden (juntos o separados: +10+10+10+4 o +10 +10 +10 +4; -2 = más rápido que el ritmo; como mucho 60 s)</span><input class="input" data-bloque="patron" value="${esc(b.patron)}" placeholder="+10 +10 +10 +4"></label>
       <label><span class="muted">Margen ± (s)</span><input class="input" inputmode="decimal" data-bloque="tol" value="${esc(b.tol)}"></label>
     </div>
     ${err ? `<div class="aviso-bloque">⚠ ${esc(err)}</div>` : ''}

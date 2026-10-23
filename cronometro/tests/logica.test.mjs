@@ -271,3 +271,13 @@ test('ritmo pedido: avisos al escribir los segundos del bloque', () => {
   assert.match(ev('errorBloque', { reps: 20, patron: '10 10 10 4', tol: '1' }), /Serían 80 series/);
   assert.match(ev('errorBloque', { reps: 5, patron: '10 4', tol: '15' }), /margen va de 0,1 a 10/);
 });
+
+test('patrón del bloque: vale escrito junto, con espacios o con comas', () => {
+  for (const t of ['+10+10+10+4', '+10 +10 +10 +4', '10, 10, 10, 4', '10,10,10,4', '+10+10 +10,+4'])
+    assert.deepEqual(ev('parsePatron', t), [1000, 1000, 1000, 400], t);
+  assert.deepEqual(ev('parsePatron', '+4,5-2'), [450, -200]);
+  assert.deepEqual(ev('parsePatron', '+10″+4″'), [1000, 400]);
+  assert.equal(ev('parsePatron', '+10+segundos'), null);
+  assert.match(ev('errorBloque', { reps: 1, patron: '+10+10 seg', tol: '1' }), /No entiendo «seg»/);
+  assert.equal(ev('errorBloque', { reps: 1, patron: '+10+10+10+4', tol: '1' }), '');
+});
