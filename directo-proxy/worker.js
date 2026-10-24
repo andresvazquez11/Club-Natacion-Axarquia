@@ -2,6 +2,8 @@
    La web del club no puede leer directamente la web de la federación (su servidor no lo permite desde
    otra web). Este pequeño servicio lo pide por ella. Solo hace dos cosas y solo responde a la web del club:
    - ?p=/resultados/…/results.lxf → el archivo de resultados de una web de competición de la FAN, tal cual (20 s en caché).
+   - ?p=/resultados/…/ (la página de la competición) y ?p=/resultados/…/ResultList_N.pdf o StartList_N.pdf → para las
+     competiciones que no publican results.lxf sino un PDF por prueba; la web los lee en el móvil (15-30 s en caché).
    - ?evento=/index.php/natacion/…/eventodetalle/ID/… → mira la página del evento en fan.es y devuelve SOLO el enlace
      a su «web campeonato» ({"web": "https://fanatacion.es/resultados/…/"} o {"web": null}), 2 min en caché.
      Así la web enlaza la competición en cuanto la federación la publica, sin esperar al proceso de GitHub.
@@ -12,6 +14,9 @@
 const ORIGEN_FAN = 'https://fanatacion.es';
 const ORIGEN_EVENTOS = 'https://www.fan.es';
 const RUTA_OK = /^\/resultados\/[A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*\/results\.lxf$/;
+const RUTA_WEB = /^\/resultados\/[A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*\/$/;                        // página de la competición
+const RUTA_PDF = /^\/resultados\/[A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*\/(Result|Start)List_\d{1,4}\.pdf$/;   // un PDF por prueba
+const TIPO = ruta => RUTA_OK.test(ruta) ? ['application/zip', 20] : RUTA_PDF.test(ruta) ? ['application/pdf', 30] : RUTA_WEB.test(ruta) ? ['text/html; charset=utf-8', 15] : null;
 const EVENTO_OK = /^\/index\.php\/natacion\/[a-z0-9\-]+(\/[a-z0-9\-]+)*\/eventodetalle\/\d{1,7}\/\d{1,4}\/[a-z0-9\-]{1,200}$/;
 const WEB_RE = /href="(https?:\/\/(?:www\.)?fanatacion\.es\/resultados\/[A-Za-z0-9_\-\/.]+)"/;
 const WEBS_CLUB = ['https://andresvazquez11.github.io', 'http://localhost:8771', 'http://localhost:8772'];
@@ -76,12 +81,14 @@ export default {
     }
 
     const ruta = q.get('p') || '';
-    if (!RUTA_OK.test(ruta) || ruta.includes('..')) return new Response('Ruta no permitida', {status: 400, headers: cors});
+    const tipo = TIPO(ruta);
+    if (!tipo || ruta.includes('..')) return new Response('Ruta no permitida', {status: 400, headers: cors});
+    const [ct, ttl] = tipo;
     const r = await fetch(ORIGEN_FAN + ruta, {
       headers: {'User-Agent': UA, 'Accept': '*/*'},
-      cf: {cacheTtl: 20, cacheEverything: true},
+      cf: {cacheTtl: ttl, cacheEverything: true},
     });
     if (!r.ok) return new Response('Sin resultados todavía', {status: r.status === 404 ? 404 : 502, headers: cors});
-    return new Response(r.body, {headers: {...cors, 'Content-Type': 'application/zip', 'Cache-Control': 'public, max-age=20'}});
+    return new Response(r.body, {headers: {...cors, 'Content-Type': ct, 'Cache-Control': `public, max-age=${ttl}`}});
   },
 };

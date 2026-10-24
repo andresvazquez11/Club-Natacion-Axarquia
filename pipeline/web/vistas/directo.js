@@ -96,6 +96,123 @@ function dirLeerLenex(xml) {
   return {nombre: meet ? meet.getAttribute('name') : '', lugar: meet ? meet.getAttribute('city') : '',
     piscina: {SCM: '25 m', LCM: '50 m'}[meet && meet.getAttribute('course')] || '', sesiones, pruebas};
 }
+/* ── Competiciones que no publican results.lxf: SPLASH pone un PDF por prueba (ResultList_N.pdf) ──
+   La página de la competición y sus PDF llegan por el intermediario; el texto se saca aquí con pdf.js (cdnjs, solo se
+   carga si hace falta) y se lee como dirLeerResultadosTexto ↔ leer_resultados_texto de pipeline/fan_directo.py.
+   Cada PDF se guarda y solo se vuelve a pedir a los 3 minutos (los resultados provisionales casi nunca cambian). */
+const DIR_PDFJS = ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'];
+const DIR_RES_PDF = new Map();      // url del PDF → {t, pruebas}
+const DIR_TPDF = String.raw`(NT|\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2})`;
+const DIR_RE = {
+  prueba: /^Prueba (\d+),? (Fem|Masc|Mixto)\.?,? (\d+(?:\s*x\s*\d+)?)m ([A-Za-zÁÉÍÓÚáéíóúÑñ]+)/i,
+  hora: /^(\d{2})\/(\d{2})\/(\d{4}) - (\d{1,2}):(\d{2})\b/,
+  res: new RegExp(String.raw`^(\d+)\. ([^,]+), (.+?) (\d{2}) (.+?) ${DIR_TPDF}(?: [\d.,]+)?(?: .*)?$`),
+  resEq: new RegExp(String.raw`^(\d+)\. (.+?) ${DIR_TPDF}(?: [\d.,]+)?(?: .*)?$`),
+  sin: /^(?:\d+\.\s*)?([^,\d][^,]*), (.+?) (\d{2}) (.+?) (DSQ|DNS|DNF|BAJA|NP|Desc\w*)\b/i,
+  parc: new RegExp(String.raw`(\d+)m: ${DIR_TPDF}`, 'g'),
+};
+const dirCsTexto = t => { const m = /^(?:(\d+):)?(\d+)\.(\d{2})$/.exec(t || ''); return m ? ((+m[1] || 0) * 60 + +m[2]) * 100 + +m[3] : null; };
+const dirTitulo = s => s.toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (a, b, c) => b + c.toUpperCase());
+const dirAnio = yy => (+yy < 50 ? 2000 : 1900) + +yy;
+/* nadadores del club por nombre y año → licencia (como nuestros_de en Python) */
+let DIR_NUESTROS = null;
+const dirNuestro = (nombre, nac, club) => {
+  if (!/AXARQ/i.test(club || '')) return null;
+  if (!DIR_NUESTROS) DIR_NUESTROS = new Map(Object.values(SW).map(s => [dirNorm(s.n) + '|' + s.y, String(s.id)]));
+  return DIR_NUESTROS.get(dirNorm(nombre) + '|' + nac) || '?';
+};
+function dirLeerResultadosTexto(texto, grupo) {
+  const pruebas = new Map(); let actual = null, ultima = null;
+  const fila = o => Object.assign({serie: 0, calle: 0, nac: null, t: null, ins: null, puesto: null, cat: '', estado: '', rfen: null, parc: null}, o);
+  for (const linea of String(texto).split('\n').map(l => l.trim().replace(/\s+/g, ' '))) {
+    let m = DIR_RE.prueba.exec(linea);
+    if (m) {
+      const num = +m[1], dist = m[3].toLowerCase().replace(/\s*x\s*/, 'x');
+      if (!pruebas.has(num)) pruebas.set(num, {id: `${grupo}-${num}`, num, nombre: `${dist} ${m[4].charAt(0).toUpperCase()}${m[4].slice(1).toLowerCase()}`,
+        sexo: ({fem: 'F', masc: 'M', mixto: 'X'})[m[2].toLowerCase()] || '', hora: '', fecha: '', sesion: grupo, estado: '', filas: [], src: 'res'});
+      actual = pruebas.get(num); ultima = null; continue;
+    }
+    if (!actual) continue;
+    if ((m = DIR_RE.hora.exec(linea))) { actual.fecha = `${m[3]}-${m[2]}-${m[1]}`; actual.hora = `${m[4].padStart(2, '0')}:${m[5]}`; continue; }
+    if (/^\d+m: /.test(linea) && ultima) { ultima.parc = [...linea.matchAll(DIR_RE.parc)].map(x => dirCsTexto(x[2])); continue; }
+    const relevo = actual.nombre.includes('x');
+    if (!relevo && (m = DIR_RE.res.exec(linea))) {
+      const nombre = `${m[3].trim()} ${dirTitulo(m[2].trim())}`, nac = dirAnio(m[4]), club = m[5].trim();
+      actual.filas.push(ultima = fila({n: nombre, club, nac, t: dirCsTexto(m[6]), puesto: +m[1], rfen: dirNuestro(nombre, nac, club)})); continue;
+    }
+    if (relevo && (m = DIR_RE.resEq.exec(linea))) {
+      const club = m[2].trim();
+      actual.filas.push(ultima = fila({n: `${club} (relevo)`, club, t: dirCsTexto(m[3]), puesto: +m[1], rfen: /AXARQ/i.test(club) ? 'club' : null})); continue;
+    }
+    if ((m = DIR_RE.sin.exec(linea))) {
+      const nombre = `${m[2].trim()} ${dirTitulo(m[1].trim())}`, nac = dirAnio(m[3]), club = m[4].trim(), e = m[5].toLowerCase();
+      actual.filas.push(ultima = fila({n: nombre, club, nac, estado: e.startsWith('desc') ? 'DSQ' : e === 'baja' ? 'SICK' : e === 'np' ? 'DNS' : e.toUpperCase(), rfen: dirNuestro(nombre, nac, club)}));
+    }
+  }
+  return [...pruebas.values()].filter(p => p.filas.length).map(p => Object.assign(p, {nadadas: p.filas.filter(f => f.t || f.estado).length}));
+}
+/* Página de la competición → [lugar, números de las pruebas con resultados] */
+function dirIndice(html) {
+  const t = html.replace(/<(style|script)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const m = /([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ .\-]+?) \([A-Z]{3}\) \d{2}\/\d{2}\/\d{4}/.exec(t);
+  return [m ? dirTitulo(m[1].trim()) : '', [...new Set([...html.matchAll(/href="ResultList_(\d+)\.pdf"/g)].map(x => +x[1]))].sort((a, b) => a - b)];
+}
+let DIR_PDFLIB = null;
+function dirPdfjs() {
+  if (!DIR_PDFLIB) DIR_PDFLIB = new Promise((ok, ko) => {
+    if (window.pdfjsLib) return ok(window.pdfjsLib);
+    const el = document.createElement('script'); el.src = DIR_PDFJS[0];
+    el.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = DIR_PDFJS[1]; ok(window.pdfjsLib); };
+    el.onerror = () => { DIR_PDFLIB = null; ko(new Error('pdf.js')); };
+    document.head.appendChild(el);
+  });
+  return DIR_PDFLIB;
+}
+/* Texto de un PDF en líneas (cada línea = trozos con la misma altura, de izquierda a derecha) */
+async function dirTextoPdf(buf) {
+  const lib = await dirPdfjs(), pdf = await lib.getDocument({data: new Uint8Array(buf)}).promise, lineas = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const items = (await (await pdf.getPage(i)).getTextContent()).items.filter(x => x.str && x.str.trim());
+    const filas = new Map();
+    items.forEach(x => { const y = Math.round(x.transform[5]); const k = [...filas.keys()].find(z => Math.abs(z - y) <= 2) ?? y;
+      (filas.get(k) || filas.set(k, []).get(k)).push(x); });
+    [...filas.entries()].sort((a, b) => b[0] - a[0]).forEach(([, xs]) => lineas.push(xs.sort((a, b) => a.transform[4] - b.transform[4]).map(x => x.str.trim()).join(' ')));
+  }
+  return lineas.join('\n');
+}
+/* Resultados al momento de una competición sin results.lxf: añade (o reemplaza) en c.lenex las pruebas ya nadadas */
+async function dirPdfAlMomento(c) {
+  const ruta = new URL(c.web).pathname.replace(/\/?$/, '/');
+  const r = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(ruta)}`, {cache: 'no-store'});
+  if (!r.ok) return;
+  const [lugar, nums] = dirIndice(await r.text());
+  if (!nums.length) return;
+  const base = c.lenex && c.lenex.origen === 'web-pdf' ? c.lenex : {nombre: '', lugar, piscina: '', sesiones: [], pruebas: [], origen: 'web-pdf'};
+  const sesiones = [...new Set(base.pruebas.map(p => p.sesion))];
+  const grupo = sesiones.length === 1 ? sesiones[0] : lugar || 'Resultados';
+  const nuevas = [];
+  for (let i = 0; i < nums.length; i += 4) {          // de 4 en 4 para no saturar
+    await Promise.all(nums.slice(i, i + 4).map(async n => {
+      const url = `${ruta}ResultList_${n}.pdf`, ya = DIR_RES_PDF.get(url);
+      if (ya && Date.now() - ya.t < 180e3) { nuevas.push(...ya.pruebas); return; }
+      try {
+        const rp = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(url)}`);
+        if (!rp.ok) { if (ya) nuevas.push(...ya.pruebas); return; }
+        const pruebas = dirLeerResultadosTexto(await dirTextoPdf(await rp.arrayBuffer()), grupo);
+        DIR_RES_PDF.set(url, {t: Date.now(), pruebas}); nuevas.push(...pruebas);
+      } catch (e) { if (ya) nuevas.push(...ya.pruebas); }
+    }));
+  }
+  if (!nuevas.length) return;
+  const porId = new Map(base.pruebas.map(p => [p.id, p]));
+  nuevas.forEach(p => {
+    const antes = porId.get(p.id);
+    if (antes) p.filas.forEach(f => { const s = antes.filas.find(x => x.n === f.n); if (s) Object.assign(f, {serie: s.serie, calle: s.calle, ins: s.ins}); });  // serie y calle de la lista de salida
+    porId.set(p.id, p);
+  });
+  c.lenex = Object.assign({}, base, {lugar: base.lugar || lugar, pruebas: [...porId.values()].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || (a.hora || '').localeCompare(b.hora || '') || a.num - b.num)});
+  c.alMomento = new Date();
+}
 /* Web de la competición al momento: si una competición de los próximos días aún no la tiene en directo.json,
    se pregunta al intermediario por la página del evento en la FAN (devuelve solo el enlace). Así se enlaza en cuanto
    la federación la publica, sin esperar al proceso de GitHub. Cada evento se vuelve a mirar como mucho cada 2 minutos. */
@@ -127,6 +244,7 @@ async function dirAlMomento(d) {
     try {
       const ruta = new URL(c.web).pathname.replace(/\/?$/, '/') + 'results.lxf';
       const r = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(ruta)}`, {cache: 'no-store'});
+      if (r.status === 404) return await dirPdfAlMomento(c);     // sin results.lxf: un PDF por prueba
       if (!r.ok) return;
       c.lenex = dirLeerLenex(await dirUnzip(await r.arrayBuffer()));
       c.alMomento = new Date();
