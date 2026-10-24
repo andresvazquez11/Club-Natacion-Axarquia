@@ -25,6 +25,8 @@ async function dirCargar(forzar) {
   return DIR;
 }
 const dirDePdf = c => !!(c && c.lenex && c.lenex.origen === 'pdf');
+/* sesiones con nombre (series en PDF o resultados en PDF de cada sede): se muestran tal cual, no como «Sesión N» */
+const dirSesTexto = c => !!(c && c.lenex && ['pdf', 'web-pdf'].includes(c.lenex.origen));
 const DIR_AVISO_PDF = '<p class="small dir-aviso">Series publicadas por la federación. Los tiempos y puestos aparecerán aquí en cuanto se nade.</p>';
 const dirEnCurso = d => !!d && d.competiciones.some(c => c.estado === 'en_curso');
 
@@ -221,7 +223,7 @@ function dirSeguirHTML(c, rfen) {
       : `<div class="dir-res pend">Por nadar</div>`;
     return `<div class="card dir-seg dir-seg-${x.estado}">
       <div class="dir-seg-top"><div class="dir-hora"><small>${varios && x.p.fecha ? dfmt(x.p.fecha) : 'empieza'}</small><b>${esc(x.p.hora || '--:--')}</b></div>
-        <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirDePdf(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
+        <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirSesTexto(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
       ${dirCuentaHTML(c, x)}
       ${est}
@@ -308,7 +310,7 @@ function dirDetalle(c, f) {
   // agrupadas por día y sesión, en orden de hora
   let ant = '', cuerpo = '';
   pruebas.forEach(p => { const g = `${p.fecha || ''}|${p.sesion || ''}`;
-    if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirDePdf(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
+    if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirSesTexto(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
     cuerpo += fila(p); });
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1>

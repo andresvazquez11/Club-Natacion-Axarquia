@@ -272,6 +272,143 @@ def leer_series_pdf(docs, nuestros):
     return {'nombre': '', 'lugar': '', 'piscina': '', 'sesiones': [], 'pruebas': pruebas, 'origen': 'pdf'}
 
 
+# ── Web de la competición sin results.lxf: SPLASH publica un PDF por prueba ──
+# La página (index) enlaza «StartList_N.pdf» (lista de salida) y, cuando la prueba ya se ha nadado, «ResultList_N.pdf»:
+#   «Prueba 16 Masc., 200m Estilos Alevín» · «24/10/2026 - 9:49 Resultados» · «1. CAPELLI, Thomas 14 C.N. Axarquia 2:43.87 19,00 -»
+#   y debajo los parciales «50m: 34.38 34.38 100m: 1:16.95 42.57 …» (acumulado y del tramo).
+RE_RES = re.compile(r'^(\d+)\. ([^,]+), (.+?) (\d{2}) (.+?) ' + RE_TIEMPO + r'(?: [\d.,]+)?(?: .*)?$')
+RE_RES_EQ = re.compile(r'^(\d+)\. (.+?) ' + RE_TIEMPO + r'(?: [\d.,]+)?(?: .*)?$')
+RE_SIN = re.compile(r'^(?:\d+\.\s*)?([^,\d][^,]*), (.+?) (\d{2}) (.+?) (DSQ|DNS|DNF|BAJA|Baja|NP|Desc\w*|Desca\w*)\b', re.I)
+RE_PARC = re.compile(r'(\d+)m: ' + RE_TIEMPO)
+ESTADO_TXT = {'dsq': 'DSQ', 'dns': 'DNS', 'dnf': 'DNF', 'baja': 'SICK', 'np': 'DNS'}
+
+
+def leer_resultados_texto(texto, grupo, nuestros):
+    """Texto de un ResultList de SPLASH → [pruebas] como leer_lenex (con tiempo, puesto y parciales; sin serie ni calle)"""
+    pruebas, actual, ultima = {}, None, None
+    for linea in (l.strip() for l in texto.splitlines()):
+        m = RE_PRUEBA.match(linea)
+        if m:
+            num = int(m.group(1))
+            dist = re.sub(r'\s*x\s*', 'x', m.group(3).lower())
+            actual = pruebas.setdefault(num, {'id': f'{grupo}-{num}', 'num': num, 'nombre': f'{dist} {m.group(4).capitalize()}',
+                                              'sexo': SEXO_PDF.get(m.group(2).lower(), ''), 'hora': '', 'fecha': '', 'sesion': grupo,
+                                              'estado': '', 'filas': [], 'src': 'res'})
+            ultima = None
+            continue
+        if actual is None:
+            continue
+        m = RE_HORA.match(linea)
+        if m:
+            actual['fecha'], actual['hora'] = f'{m.group(3)}-{m.group(2)}-{m.group(1)}', f'{int(m.group(4)):02d}:{m.group(5)}'
+            continue
+        if RE_PARC.match(linea) and ultima is not None:          # parciales del último nadador (acumulados)
+            ultima['parc'] = [cs_texto(t) for _, t in re.findall(r'(\d+)m: ' + RE_TIEMPO, linea)] or None
+            continue
+        relevo = 'x' in actual['nombre']
+        m = None if relevo else RE_RES.match(linea)
+        if m:
+            nombre, nac, club = f'{m.group(3).strip()} {m.group(2).strip().title()}', 2000 + int(m.group(4)) if int(m.group(4)) < 50 else 1900 + int(m.group(4)), m.group(5).strip()
+            ultima = {'serie': 0, 'calle': 0, 'n': nombre, 'club': club, 'nac': nac, 't': cs_texto(m.group(6)), 'ins': None,
+                      'puesto': int(m.group(1)), 'cat': '', 'estado': '', 'rfen': (nuestros.get((norm(nombre), nac)) or '?') if CLUB in club.upper() else None, 'parc': None}
+            actual['filas'].append(ultima)
+            continue
+        m = RE_RES_EQ.match(linea) if relevo else None
+        if m:
+            club = m.group(2).strip()
+            ultima = {'serie': 0, 'calle': 0, 'n': f'{club} (relevo)', 'club': club, 'nac': None, 't': cs_texto(m.group(3)), 'ins': None,
+                      'puesto': int(m.group(1)), 'cat': '', 'estado': '', 'rfen': 'club' if CLUB in club.upper() else None, 'parc': None}
+            actual['filas'].append(ultima)
+            continue
+        m = RE_SIN.match(linea)
+        if m:
+            nombre, nac, club = f'{m.group(2).strip()} {m.group(1).strip().title()}', 2000 + int(m.group(3)) if int(m.group(3)) < 50 else 1900 + int(m.group(3)), m.group(4).strip()
+            est = m.group(5).lower()
+            ultima = {'serie': 0, 'calle': 0, 'n': nombre, 'club': club, 'nac': nac, 't': None, 'ins': None, 'puesto': None, 'cat': '',
+                      'estado': ESTADO_TXT.get(est[:4] if est.startswith('baja') else est[:3] if est in ('dsq', 'dns', 'dnf') else est, 'DSQ' if est.startswith('desc') else est.upper()),
+                      'rfen': (nuestros.get((norm(nombre), nac)) or '?') if CLUB in club.upper() else None, 'parc': None}
+            actual['filas'].append(ultima)
+    for p in pruebas.values():
+        p['nadadas'] = sum(1 for f in p['filas'] if f['t'] or f['estado'])
+    return [p for p in pruebas.values() if p['filas']]
+
+
+def existe(url):
+    """¿Responde la página? (una sola vez, sin reintentos: para buscar otras sedes FAN_2, FAN_3…)"""
+    try:
+        return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=20).status == 200
+    except Exception:
+        return False
+
+
+def cabecera_web(html_txt):
+    """Índice de SPLASH → (lugar, fecha) para distinguir sedes («TORRE DEL MAR (ESP) 24/10/2026»)"""
+    t = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', re.sub(r'<(style|script).*?</\1>', '', html_txt, flags=re.S)))
+    m = re.search(r'\(25m\)|\(50m\)', t)
+    m2 = re.search(r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ .\-]+?) \([A-Z]{3}\) (\d{2}/\d{2}/\d{4})', t)
+    piscina = '25 m' if m and '25' in m.group(0) else '50 m' if m else ''
+    return (m2.group(1).strip().title() if m2 else ''), (m2.group(2) if m2 else ''), piscina
+
+
+def leer_web_pdf(web, nuestros, previo=None):
+    """Web de la competición sin results.lxf → lenex con los ResultList (resultados) y, en las pruebas aún sin nadar, los
+    StartList (series y calles). Busca también otras sedes (…/FAN_2/, FAN_3…) y solo suma las de otra piscina u otro día.
+    previo: lenex anterior de esta competición, para no volver a descargar las listas de salida ya leídas."""
+    from pypdf import PdfReader
+    webs = [web]
+    m = re.match(r'^(.*/)FAN_(\d+)/$', web)
+    if m:
+        for k in range(1, 9):
+            u = f'{m.group(1)}FAN_{k}/'
+            if u != web and existe(u):
+                webs.append(u)
+            elif u != web and k > int(m.group(2)):
+                break
+    ya = {p['id']: p for p in (previo or {}).get('pruebas', []) if p.get('src') == 'series'}
+    pruebas, vistas, lugares, piscina = [], set(), [], ''
+    for w in webs:
+        try:
+            idx = obtener(w)
+        except Exception as e:
+            print('Aviso web', w, e, file=sys.stderr)
+            continue
+        lugar, fecha, pisc = cabecera_web(idx)
+        if (lugar, fecha) in vistas:          # otra copia de la misma sede y día (SPLASH a veces publica dos): se ignora
+            continue
+        vistas.add((lugar, fecha))
+        piscina = piscina or pisc
+        if lugar and lugar not in lugares:
+            lugares.append(lugar)
+        grupo = lugar or w.rstrip('/').rsplit('/', 1)[-1]
+        if len(webs) > 1 and fecha:
+            grupo = f'{lugar} · {fecha}' if lugar else fecha
+        res = sorted({int(n) for n in re.findall(r'href="ResultList_(\d+)\.pdf"', idx)})
+        sal = sorted({int(n) for n in re.findall(r'href="StartList_(\d+)\.pdf"', idx)} - set(res))
+        for tipo, nums in (('ResultList', res), ('StartList', sal)):
+            for n in nums:
+                pid = f'{grupo}-{n}'
+                if tipo == 'StartList' and pid in ya:
+                    pruebas.append(ya[pid])
+                    continue
+                try:
+                    pdf = PdfReader(io.BytesIO(obtener(f'{w}{tipo}_{n}.pdf', binario=True)))
+                    texto = '\n'.join(pag.extract_text() or '' for pag in pdf.pages)
+                except Exception as e:
+                    print('Aviso', tipo, n, e, file=sys.stderr)
+                    continue
+                if tipo == 'ResultList':
+                    pruebas += leer_resultados_texto(texto, grupo, nuestros)
+                else:
+                    for p in leer_series_texto(texto, grupo, nuestros):
+                        p['src'] = 'series'
+                        pruebas.append(p)
+                time.sleep(0.2)
+    if not pruebas:
+        return None
+    pruebas.sort(key=lambda p: (p['fecha'], p['hora'], p['num']))
+    return {'nombre': '', 'lugar': ' · '.join(lugares), 'piscina': piscina, 'sesiones': [], 'pruebas': pruebas, 'origen': 'web-pdf'}
+
+
 def estado_de(c, hoy):
     if c['desde'] > hoy.isoformat():
         return 'proxima'
@@ -294,13 +431,15 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
     if solo_resultados and previo:
         comps = [{k: v for k, v in c.items() if k != 'lenex'} for c in previo.get('competiciones', [])]
     else:
-        comps, vistos = [], set()
+        comps, vistos, fallos = [], set(), set()
+        anteriores = {c['id']: c for c in (previo or {}).get('competiciones', [])}
         for ruta, cat, ambito in CALENDARIOS:
             for anio in sorted({hoy.year, (hoy + timedelta(days=DESPUES)).year, (hoy - timedelta(days=ANTES)).year}):
                 try:
                     pag = obtener(f'{FAN}{ruta}/eventosanual/{anio}/{cat}')
                 except Exception as e:
                     print('Aviso calendario', ruta, anio, e, file=sys.stderr)
+                    fallos.add(ambito)
                     continue
                 for ev in eventos_calendario(pag, cat, ambito):
                     if ev['id'] in vistos:
@@ -308,20 +447,31 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
                     vistos.add(ev['id'])
                     if ev['hasta'] >= (hoy - timedelta(days=ANTES)).isoformat() and ev['desde'] <= (hoy + timedelta(days=DESPUES)).isoformat():
                         comps.append(ev)
+        # si no se pudo leer el calendario de un ámbito, se conservan sus competiciones de la vez anterior (no desaparecen)
+        for c in anteriores.values():
+            if c.get('ambito') in fallos and c['id'] not in vistos and c['hasta'] >= (hoy - timedelta(days=ANTES)).isoformat():
+                vistos.add(c['id'])
+                comps.append({k: v for k, v in c.items() if k not in ('lenex', 'estado')})
         for c in comps:
             try:
                 c['web'], c['docs'] = documentos(obtener(c['url']))
-            except Exception as e:
+            except Exception as e:      # página del evento caída: se conserva la web y los documentos que ya se conocían
                 print('Aviso evento', c['url'], e, file=sys.stderr)
-                c['web'], c['docs'] = None, []
+                ant = anteriores.get(c['id']) or {}
+                c['web'], c['docs'] = c.get('web') or ant.get('web'), c.get('docs') or ant.get('docs') or []
     for c in comps:
         c['estado'] = estado_de(c, hoy)
         # los resultados se leen de la web de la competición (SPLASH); si aún no la hay, de las series en PDF
         if c.get('web'):
             try:
-                c['lenex'] = leer_lenex(obtener(c['web'] + 'results.lxf', binario=True), nuestros)
-            except Exception as e:
-                print('Sin resultados todavía', c['web'], e, file=sys.stderr)
+                c['lenex'] = leer_lenex(obtener(c['web'] + 'results.lxf', binario=True, intentos=0), nuestros)
+            except Exception as e:      # muchas competiciones no publican results.lxf: los PDF de cada prueba
+                print('Sin results.lxf', c['web'], e, file=sys.stderr)
+                ant = next((x.get('lenex') for x in (previo or {}).get('competiciones', []) if x.get('id') == c.get('id')), None)
+                try:
+                    c['lenex'] = leer_web_pdf(c['web'], nuestros, ant if ant and ant.get('origen') == 'web-pdf' else None)
+                except Exception as e2:
+                    print('Sin resultados todavía', c['web'], e2, file=sys.stderr)
         if not c.get('lenex') and c['estado'] != 'terminada' and c.get('docs'):
             series = leer_series_pdf(c['docs'], nuestros)
             if series:
