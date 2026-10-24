@@ -56,7 +56,7 @@ class TestDirecto(unittest.TestCase):
 
     def test_documentos_y_web_campeonato(self):
         web, docs = F.documentos(EVENTO)
-        self.assertEqual(web, 'https://fanatacion.es/resultados/malaga/2526/PBA/FINAL_PBA/')
+        self.assertEqual(web, ['https://fanatacion.es/resultados/malaga/2526/PBA/FINAL_PBA/'])
         self.assertEqual(docs[0]['t'], 'Series FAN Grupo 1')
         self.assertTrue(docs[0]['url'].startswith('https://www.fan.es/index.php/component/phocadownload'))
 

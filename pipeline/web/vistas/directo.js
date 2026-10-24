@@ -180,28 +180,35 @@ async function dirTextoPdf(buf) {
   }
   return lineas.join('\n');
 }
-/* Resultados al momento de una competición sin results.lxf: añade (o reemplaza) en c.lenex las pruebas ya nadadas */
+/* …/1_LIGA_PBA/FAN_1/ → «FAN 1»; …/IMPULSO/ → «Impulso» (como etiqueta_web en Python: nombre del grupo si hay varias webs) */
+const dirEtiquetaWeb = w => { const f = w.replace(/\/+$/, '').split('/').pop().replace(/_/g, ' ').trim(); return /\d/.test(f) ? f : dirTitulo(f); };
+const dirWebsDe = c => (Array.isArray(c.webs) && c.webs.length ? c.webs : [c.web]).filter(dirUrlOk);
+/* Resultados al momento de una competición sin results.lxf (o con varios grupos, cada uno con su web): lee la página de
+   cada web y sus ResultList, y añade (o reemplaza) en c.lenex las pruebas ya nadadas */
 async function dirPdfAlMomento(c) {
-  const ruta = new URL(c.web).pathname.replace(/\/?$/, '/');
-  const r = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(ruta)}`, {cache: 'no-store'});
-  if (!r.ok) return;
-  const [lugar, nums] = dirIndice(await r.text());
-  if (!nums.length) return;
-  const base = c.lenex && c.lenex.origen === 'web-pdf' ? c.lenex : {nombre: '', lugar, piscina: '', sesiones: [], pruebas: [], origen: 'web-pdf'};
-  const sesiones = [...new Set(base.pruebas.map(p => p.sesion))];
-  const grupo = sesiones.length === 1 ? sesiones[0] : lugar || 'Resultados';
-  const nuevas = [];
-  for (let i = 0; i < nums.length; i += 4) {          // de 4 en 4 para no saturar
-    await Promise.all(nums.slice(i, i + 4).map(async n => {
-      const url = `${ruta}ResultList_${n}.pdf`, ya = DIR_RES_PDF.get(url);
-      if (ya && Date.now() - ya.t < 180e3) { nuevas.push(...ya.pruebas); return; }
-      try {
-        const rp = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(url)}`);
-        if (!rp.ok) { if (ya) nuevas.push(...ya.pruebas); return; }
-        const pruebas = dirLeerResultadosTexto(await dirTextoPdf(await rp.arrayBuffer()), grupo);
-        DIR_RES_PDF.set(url, {t: Date.now(), pruebas}); nuevas.push(...pruebas);
-      } catch (e) { if (ya) nuevas.push(...ya.pruebas); }
-    }));
+  const webs = dirWebsDe(c), varias = webs.length > 1;
+  const base = c.lenex && c.lenex.origen === 'web-pdf' ? c.lenex : {nombre: '', lugar: '', piscina: '', sesiones: [], pruebas: [], origen: 'web-pdf'};
+  const nuevas = []; let lugarWeb = '';
+  for (const web of webs) {
+    const ruta = new URL(web).pathname.replace(/\/?$/, '/');
+    let html;
+    try { const r = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(ruta)}`, {cache: 'no-store'}); if (!r.ok) continue; html = await r.text(); } catch (e) { continue; }
+    const [lugar, nums] = dirIndice(html);
+    lugarWeb = lugarWeb || lugar;
+    const unaSes = [...new Set(base.pruebas.map(p => p.sesion))];
+    const grupo = varias ? dirEtiquetaWeb(web) : unaSes.length === 1 ? unaSes[0] : lugar || dirEtiquetaWeb(web);
+    for (let i = 0; i < nums.length; i += 4) {          // de 4 en 4 para no saturar
+      await Promise.all(nums.slice(i, i + 4).map(async n => {
+        const url = `${ruta}ResultList_${n}.pdf`, ya = DIR_RES_PDF.get(url);
+        if (ya && Date.now() - ya.t < 180e3) { nuevas.push(...ya.pruebas); return; }
+        try {
+          const rp = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(url)}`);
+          if (!rp.ok) { if (ya) nuevas.push(...ya.pruebas); return; }
+          const pruebas = dirLeerResultadosTexto(await dirTextoPdf(await rp.arrayBuffer()), grupo);
+          DIR_RES_PDF.set(url, {t: Date.now(), pruebas}); nuevas.push(...pruebas);
+        } catch (e) { if (ya) nuevas.push(...ya.pruebas); }
+      }));
+    }
   }
   if (!nuevas.length) return;
   const porId = new Map(base.pruebas.map(p => [p.id, p]));
@@ -210,7 +217,7 @@ async function dirPdfAlMomento(c) {
     if (antes) p.filas.forEach(f => { const s = antes.filas.find(x => x.n === f.n); if (s) Object.assign(f, {serie: s.serie, calle: s.calle, ins: s.ins}); });  // serie y calle de la lista de salida
     porId.set(p.id, p);
   });
-  c.lenex = Object.assign({}, base, {lugar: base.lugar || lugar, pruebas: [...porId.values()].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || (a.hora || '').localeCompare(b.hora || '') || a.num - b.num)});
+  c.lenex = Object.assign({}, base, {lugar: base.lugar || lugarWeb, pruebas: [...porId.values()].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || (a.hora || '').localeCompare(b.hora || '') || a.num - b.num)});
   c.alMomento = new Date();
 }
 /* Web de la competición al momento: si una competición de los próximos días aún no la tiene en directo.json,
@@ -242,6 +249,7 @@ async function dirAlMomento(d) {
   await dirBuscarWebs(d);
   await Promise.all(d.competiciones.filter(c => (c.estado === 'en_curso' || c.webAlMomento) && dirUrlOk(c.web)).map(async c => {
     try {
+      if (dirWebsDe(c).length > 1) return await dirPdfAlMomento(c);   // varios grupos (FAN 1, FAN 2, Impulso…): los PDF de cada web
       const ruta = new URL(c.web).pathname.replace(/\/?$/, '/') + 'results.lxf';
       const r = await fetch(`${DIR_PROXY}/?p=${encodeURIComponent(ruta)}`, {cache: 'no-store'});
       if (r.status === 404) return await dirPdfAlMomento(c);     // sin results.lxf: un PDF por prueba

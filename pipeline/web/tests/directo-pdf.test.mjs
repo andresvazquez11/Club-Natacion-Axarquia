@@ -33,3 +33,10 @@ test('dirIndice: lugar y pruebas con resultados de la página de la competición
   ctx.__h = '<style>a{}</style>TORRE DEL MAR (ESP) 24/10/2026 <a href="StartList_16.pdf">x</a><a href="ResultList_17.pdf">r</a><a href="ResultList_16.pdf">r</a><a href="ResultList_16.pdf">r</a>';
   assert.deepEqual(JSON.parse(evalIn(ctx, 'JSON.stringify(dirIndice(__h))')), ['Torre Del Mar', [16, 17]]);
 });
+
+test('dirEtiquetaWeb y dirWebsDe: un grupo por cada web de la jornada', () => {
+  ctx.__c = { web: 'https://fanatacion.es/resultados/m/1_LIGA_PBA/FAN_1/', webs: ['https://fanatacion.es/resultados/m/1_LIGA_PBA/FAN_1/', 'https://fanatacion.es/resultados/m/1_LIGA_PBA/FAN_2/', 'https://fanatacion.es/resultados/m/1_LIGA_PBA/IMPULSO/', 'https://otra.web/x/'] };
+  assert.deepEqual(JSON.parse(evalIn(ctx, 'JSON.stringify(dirWebsDe(__c).map(dirEtiquetaWeb))')), ['FAN 1', 'FAN 2', 'Impulso']);
+  ctx.__c = { web: 'https://fanatacion.es/resultados/m/X/' };
+  assert.equal(evalIn(ctx, 'dirWebsDe(__c).length'), 1);
+});

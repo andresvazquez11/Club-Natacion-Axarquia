@@ -41,11 +41,22 @@ class TestResultadosPdf(unittest.TestCase):
         self.assertEqual(F.cabecera_web(html), ('Torre Del Mar', '24/10/2026', '25 m'))
 
 
+class TestVariasWebs(unittest.TestCase):
+    def test_documentos_devuelve_todas_las_webs(self):
+        h = ('<a href="https://fanatacion.es/resultados/malaga/2627/PBA/1_LIGA_PBA/FAN_1/">G1</a>'
+             '<a href="https://fanatacion.es/resultados/malaga/2627/PBA/1_LIGA_PBA/FAN_2/index.html">G2</a>'
+             '<a href="https://fanatacion.es/resultados/malaga/2627/PBA/1_LIGA_PBA/IMPULSO">G3</a>'
+             '<a href="https://fanatacion.es/resultados/malaga/2627/PBA/1_LIGA_PBA/FAN_1/">otra vez</a>')
+        webs, _ = F.documentos(h)
+        self.assertEqual([w.rsplit('/', 2)[-2] for w in webs], ['FAN_1', 'FAN_2', 'IMPULSO'])
+        self.assertEqual([F.etiqueta_web(w) for w in webs], ['FAN 1', 'FAN 2', 'Impulso'])
+
+
 class TestSinConexion(unittest.TestCase):
     def test_si_falla_la_fan_se_conserva_lo_anterior(self):
         from datetime import date
         previo = {'competiciones': [{'id': 7, 'titulo': 'Liga', 'ambito': 'Málaga', 'desde': '2026-10-24', 'hasta': '2026-10-24',
-                                     'url': 'https://www.fan.es/x/eventodetalle/7/77/liga', 'web': 'https://fanatacion.es/resultados/x/', 'docs': []}]}
+                                     'url': 'https://www.fan.es/x/eventodetalle/7/77/liga', 'web': 'https://fanatacion.es/resultados/x/', 'webs': ['https://fanatacion.es/resultados/x/'], 'docs': []}]}
         orig = (F.obtener, F.leer_web_pdf)
         def caido(url, binario=False, intentos=3):
             raise RuntimeError('sin conexión')
