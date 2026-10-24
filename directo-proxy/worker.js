@@ -4,7 +4,10 @@
    - ?p=/resultados/…/results.lxf → el archivo de resultados de una web de competición de la FAN, tal cual (20 s en caché).
    - ?evento=/index.php/natacion/…/eventodetalle/ID/… → mira la página del evento en fan.es y devuelve SOLO el enlace
      a su «web campeonato» ({"web": "https://fanatacion.es/resultados/…/"} o {"web": null}), 2 min en caché.
-     Así la web enlaza la competición en cuanto la federación la publica, sin esperar al proceso de GitHub. */
+     Así la web enlaza la competición en cuanto la federación la publica, sin esperar al proceso de GitHub.
+   Además, con horario propio (wrangler.toml → [triggers]), lanza el proceso «Directo FAN» de GitHub: el horario de
+   GitHub se salta muchas ejecuciones y en plena competición los resultados no llegaban. Necesita el secreto GH_TOKEN
+   (token de GitHub con permiso «Actions: read and write» solo en este repositorio): npx wrangler secret put GH_TOKEN */
 
 const ORIGEN_FAN = 'https://fanatacion.es';
 const ORIGEN_EVENTOS = 'https://www.fan.es';
@@ -35,7 +38,22 @@ function webDe(html) {
   return w.endsWith('/') ? w : w.split('/').pop().includes('.') ? w.slice(0, w.lastIndexOf('/') + 1) : w + '/';
 }
 
+const REPO = 'andresvazquez11/Club-Natacion-Axarquia';
+const PROCESO = 'directo-fan.yml';
+
 export default {
+  // Horario de Cloudflare: pide a GitHub que ejecute ya el proceso del directo (lee la FAN y publica directo.json)
+  async scheduled(evento, env, ctx) {
+    if (!env.GH_TOKEN) return;
+    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${PROCESO}/dispatches`, {
+      method: 'POST',
+      headers: {'Authorization': `Bearer ${env.GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'User-Agent': 'cna-directo',
+                'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'},
+      body: JSON.stringify({ref: 'main'}),
+    });
+    if (!r.ok) console.log('GitHub no aceptó el aviso', r.status, await r.text());
+  },
+
   async fetch(req, env, ctx) {
     const origen = req.headers.get('Origin') || '';
     const cors = {'Access-Control-Allow-Origin': WEBS_CLUB.includes(origen) ? origen : WEBS_CLUB[0], 'Vary': 'Origin'};
