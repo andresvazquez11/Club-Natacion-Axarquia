@@ -64,7 +64,8 @@ jobs:
     env:
       TZ: Europe/Madrid
       # automática = la lanzó el horario; manual = botón «Run workflow» (o un disparo a mano)
-      TIPO: ${{ github.event_name == 'schedule' && 'automática' || 'manual' }}
+      # «tras competición» = la lanza el directo de la FAN al terminar un grupo con nadadores del club
+      TIPO: ${{ github.event_name == 'schedule' && 'automática' || github.actor == 'github-actions[bot]' && 'tras competición' || 'manual' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -115,7 +116,9 @@ jobs:
             echo "fecha=$(date '+%d/%m/%Y %H:%M')"
             d="EOF_$(openssl rand -hex 8)"
             echo "cuerpo<<$d"
-            if [ "$TIPO" = "manual" ]; then
+            if [ "$TIPO" = "tras competición" ]; then
+              echo "🏊 ACTUALIZACIÓN TRAS COMPETICIÓN — ha terminado un grupo con nadadores del club: sus tiempos de la FAN ya están en las fichas (provisionales hasta que los publique la RFEN)."
+            elif [ "$TIPO" = "manual" ]; then
               echo "🖐️ ACTUALIZACIÓN MANUAL — lanzada a mano (botón «Run workflow»), no por el horario automático."
             else
               echo "✅ ACTUALIZACIÓN AUTOMÁTICA — la semanal, lanzada por el horario. El sistema funciona."
@@ -135,7 +138,7 @@ jobs:
           password: ${{ secrets.GMAIL_APP_PASSWORD }}
           from: Natación C.N. Axarquía <andrescovidelpi@gmail.com>
           to: andrescovidelpi@gmail.com
-          subject: "${{ github.event_name == 'schedule' && '✅ Actualización automática' || '🖐️ Actualización MANUAL' }} del informe de natación 26-27 — ${{ steps.correo.outputs.fecha }}"
+          subject: "${{ github.event_name == 'schedule' && '✅ Actualización automática' || github.actor == 'github-actions[bot]' && '🏊 Tiempos de la competición en las fichas —' || '🖐️ Actualización MANUAL' }} del informe de natación 26-27 — ${{ steps.correo.outputs.fecha }}"
           body: ${{ steps.correo.outputs.cuerpo }}
 
       - name: Correo de error

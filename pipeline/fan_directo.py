@@ -198,7 +198,7 @@ def leer_lenex(datos, nuestros):
 # Cada prueba empieza con «Prueba 17 Fem., 50m Libre Benjamin 2017» y «24/10/2026 - 9:52 Lista de salida»; luego
 # «Serie 2 de 3» y una línea por calle: «4 LASIERRA FERNANDEZ, Ana Lourdes 17 C.N. Axarquia 1:03.33 25m».
 SEXO_PDF = {'fem': 'F', 'masc': 'M', 'mixto': 'X'}
-RE_PRUEBA = re.compile(r'^Prueba (\d+),? (Fem|Masc|Mixto)\.?,? (\d+(?:\s*x\s*\d+)?)m ([A-Za-zÁÉÍÓÚáéíóúÑñ]+)', re.I)
+RE_PRUEBA = re.compile(r'^Prueba (\d+),? (Fem|Masc|Mixto)\.?,? (\d+(?:\s*x\s*\d+)?)m ([A-Za-zÁÉÍÓÚáéíóúÑñ]+)(?:\s+(.+?))?\s*$', re.I)   # 5: categoría («Alevín»)
 RE_HORA = re.compile(r'^(\d{2})/(\d{2})/(\d{4}) - (\d{1,2}):(\d{2})\b')
 RE_SERIE = re.compile(r'^Serie (\d+) de (\d+)')
 RE_TIEMPO = r'(NT|\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2})'
@@ -223,7 +223,7 @@ def leer_series_texto(texto, grupo, nuestros):
             dist = re.sub(r'\s*x\s*', 'x', m.group(3).lower())
             nombre = f'{dist} {estilo}'
             actual = pruebas.setdefault(num, {'id': f'{grupo}-{num}', 'num': num, 'nombre': nombre, 'sexo': SEXO_PDF.get(m.group(2).lower(), ''),
-                                              'hora': '', 'fecha': '', 'sesion': grupo, 'estado': '', 'filas': []})
+                                              'hora': '', 'fecha': '', 'sesion': grupo, 'estado': '', 'filas': [], 'categoria': (m.group(5) or '').strip()})
             serie = 0
             continue
         if actual is None:
@@ -306,7 +306,7 @@ def leer_resultados_texto(texto, grupo, nuestros):
             dist = re.sub(r'\s*x\s*', 'x', m.group(3).lower())
             actual = pruebas.setdefault(num, {'id': f'{grupo}-{num}', 'num': num, 'nombre': f'{dist} {m.group(4).capitalize()}',
                                               'sexo': SEXO_PDF.get(m.group(2).lower(), ''), 'hora': '', 'fecha': '', 'sesion': grupo,
-                                              'estado': '', 'filas': [], 'src': 'res'})
+                                              'estado': '', 'filas': [], 'src': 'res', 'categoria': (m.group(5) or '').strip()})
             ultima = None
             continue
         if actual is None:
@@ -361,7 +361,7 @@ def leer_web_pdf(webs, nuestros, previo=None):
     previo: lenex anterior de esta competición, para no volver a descargar las listas de salida ya leídas."""
     from pypdf import PdfReader
     webs = [webs] if isinstance(webs, str) else list(webs)
-    ya = {p['id']: p for p in (previo or {}).get('pruebas', []) if p.get('src') == 'series'}
+    ya = {p['id']: p for p in (previo or {}).get('pruebas', []) if p.get('src') == 'series' and 'categoria' in p}   # sin categoría = leída con la versión anterior: se relee
     pruebas, lugares, piscina = [], [], ''
     for w in webs:
         try:
@@ -478,16 +478,46 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
     return {'competiciones': comps}
 
 
+def grupos_terminados(d):
+    """Grupos ya nadados con tiempos del club → claves «id|grupo» (p.ej. «3220|FAN 1»): un grupo está terminado cuando
+    todas sus pruebas tienen la clasificación publicada (cada nadador con tiempo o estado: baja, descalificado…)."""
+    claves = []
+    for c in d.get('competiciones', []):
+        por = {}
+        for p in (c.get('lenex') or {}).get('pruebas', []):
+            por.setdefault(p.get('sesion') or '', []).append(p)
+        for g, ps in por.items():
+            hechas = all(p['filas'] and all(f.get('t') or f.get('estado') for f in p['filas']) for p in ps)
+            if hechas and any(f.get('rfen') and f.get('t') for p in ps for f in p['filas']):
+                claves.append(f"{c['id']}|{g}")
+    return claves
+
+
 def main():
     ap = argparse.ArgumentParser()
     raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument('--salida', default=os.path.join(raiz, 'directo.json'))
     ap.add_argument('--nadadores', default=os.path.join(raiz, 'cronometro', 'nadadores.json'))
     ap.add_argument('--solo-resultados', action='store_true', help='no vuelve a leer el calendario de la FAN')
+    ap.add_argument('--volcar', help='archivo donde escribir «si» si algún grupo con nadadores del club acaba de terminar '
+                    '(entonces hay que regenerar la web para que sus tiempos entren en las fichas)')
     a = ap.parse_args()
     previo = json.load(open(a.salida, encoding='utf-8')) if os.path.exists(a.salida) else None
+    if a.volcar:   # se apunta en directo.json qué grupos ya se volcaron a las fichas, para avisar una sola vez
+        d = previo or {}
+        nuevos = [k for k in grupos_terminados(d) if k not in d.get('volcados', [])]
+        if nuevos:
+            d['volcados'] = d.get('volcados', []) + nuevos
+            with open(a.salida, 'w', encoding='utf-8') as f:
+                json.dump(d, f, ensure_ascii=False, separators=(',', ':'))
+        with open(a.volcar, 'w') as f:
+            f.write('si' if nuevos else 'no')
+        print('Grupos terminados nuevos:', ', '.join(nuevos) or 'ninguno')
+        return
     hoy = date.today()
     nuevo = construir(hoy, nuestros_de(a.nadadores), a.solo_resultados and previo is not None, previo)
+    if previo and previo.get('volcados'):
+        nuevo['volcados'] = previo['volcados']
     if previo and {k: v for k, v in previo.items() if k != 'actualizado'} == nuevo:
         print('Directo: sin cambios')
         return

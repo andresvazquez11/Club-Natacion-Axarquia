@@ -40,3 +40,26 @@ test('dirEtiquetaWeb y dirWebsDe: un grupo por cada web de la jornada', () => {
   ctx.__c = { web: 'https://fanatacion.es/resultados/m/X/' };
   assert.equal(evalIn(ctx, 'dirWebsDe(__c).length'), 1);
 });
+
+test('dirParciales: acumulado y tramo, con o sin el tiempo final en la lista', () => {
+  ctx.__f = { t: 12818, parc: [2851, 5981, 9360] };
+  const h = evalIn(ctx, 'dirParciales(__f, dirDist("200 Libre"))').replace(/<[^>]+>/g, '');
+  assert.match(h, /^50 m 28\.51 · 100 m 59\.81 \(31\.30\) · 150 m 1:33\.60 \(33\.79\) · 200 m 2:08\.18 \(34\.58\)$/);
+  ctx.__f = { t: 16109, parc: [3470, 7761, 12225, 16109] };
+  assert.match(evalIn(ctx, 'dirParciales(__f, 200)').replace(/<[^>]+>/g, ''), /^50 m 34\.70/);
+  ctx.__f = { t: 3816, parc: [3816] };
+  assert.equal(evalIn(ctx, 'dirParciales(__f, 50)'), '');
+  assert.equal(evalIn(ctx, 'dirDist("4x50 Estilos")'), 200);
+});
+
+test('dirConjunta: FAN 1 + FAN 2 juntos por prueba, sexo y categoría; Impulso aparte', () => {
+  const fila = (n, t) => ({ n, t, estado: '', puesto: null });
+  ctx.__c = { lenex: { pruebas: [
+    { sesion: 'FAN 1', nombre: '50 Libre', sexo: 'M', categoria: 'Benjamín', filas: [fila('a', 3500), fila('b', 3900)] },
+    { sesion: 'FAN 2', nombre: '50 Libre', sexo: 'M', categoria: 'Benjamin', filas: [fila('c', 3600), fila('d', 3300)] },
+    { sesion: 'FAN 2', nombre: '50 Libre', sexo: 'M', categoria: 'Alevín', filas: [fila('e', 3000)] },
+    { sesion: 'Impulso', nombre: '50 Libre', sexo: 'M', categoria: 'Benjamín', filas: [fila('f', 3100)] },
+  ] } };
+  const r = JSON.parse(evalIn(ctx, 'dirConjunta(__c), JSON.stringify(__c.lenex.pruebas.flatMap(p => p.filas.map(f => [f.n, f.conj || 0, f.conjN || 0])))'));
+  assert.deepEqual(r, [['a', 2, 4], ['b', 4, 4], ['c', 3, 4], ['d', 1, 4], ['e', 0, 0], ['f', 0, 0]]);
+});

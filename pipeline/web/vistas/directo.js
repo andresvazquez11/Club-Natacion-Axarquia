@@ -104,7 +104,7 @@ const DIR_PDFJS = ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.m
 const DIR_RES_PDF = new Map();      // url del PDF → {t, pruebas}
 const DIR_TPDF = String.raw`(NT|\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2})`;
 const DIR_RE = {
-  prueba: /^Prueba (\d+),? (Fem|Masc|Mixto)\.?,? (\d+(?:\s*x\s*\d+)?)m ([A-Za-zÁÉÍÓÚáéíóúÑñ]+)/i,
+  prueba: /^Prueba (\d+),? (Fem|Masc|Mixto)\.?,? (\d+(?:\s*x\s*\d+)?)m ([A-Za-zÁÉÍÓÚáéíóúÑñ]+)(?:\s+(.+?))?\s*$/i,   // 5: categoría
   hora: /^(\d{2})\/(\d{2})\/(\d{4}) - (\d{1,2}):(\d{2})\b/,
   res: new RegExp(String.raw`^(\d+)\. ([^,]+), (.+?) (\d{2}) (.+?) ${DIR_TPDF}(?: [\d.,]+)?(?: .*)?$`),
   resEq: new RegExp(String.raw`^(\d+)\. (.+?) ${DIR_TPDF}(?: [\d.,]+)?(?: .*)?$`),
@@ -129,7 +129,7 @@ function dirLeerResultadosTexto(texto, grupo) {
     if (m) {
       const num = +m[1], dist = m[3].toLowerCase().replace(/\s*x\s*/, 'x');
       if (!pruebas.has(num)) pruebas.set(num, {id: `${grupo}-${num}`, num, nombre: `${dist} ${m[4].charAt(0).toUpperCase()}${m[4].slice(1).toLowerCase()}`,
-        sexo: ({fem: 'F', masc: 'M', mixto: 'X'})[m[2].toLowerCase()] || '', hora: '', fecha: '', sesion: grupo, estado: '', filas: [], src: 'res'});
+        sexo: ({fem: 'F', masc: 'M', mixto: 'X'})[m[2].toLowerCase()] || '', hora: '', fecha: '', sesion: grupo, estado: '', filas: [], src: 'res', categoria: (m[5] || '').trim()});
       actual = pruebas.get(num); ultima = null; continue;
     }
     if (!actual) continue;
@@ -329,10 +329,54 @@ const dirDelClub = c => !c || !c.lenex ? [] : [...new Map(dirNuestras(c).filter(
   .sort((a, b) => a.n.localeCompare(b.n));
 const dirSelector = (c, actual) => { const L = dirDelClub(c); return L.length ? `<label class="dir-sel">Ver solo a un nadador del club: sus pruebas, horas, series y calles
   <select data-dir-seguir="${Number(c.id)}"><option value="">Elige un nadador…</option>${L.map(s => `<option value="${esc(String(s.id))}"${String(s.id) === actual ? ' selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label>` : ''; };
-const dirTablaFilas = (filas, marcar) => `<div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Inscrito</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
-  ${filas.map(f => `<tr${marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : ''}><td class="num">${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
-    <td class="tiny">${esc(f.club)}</td><td class="num tiny">${f.ins ? fmt(f.ins) : '—'}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}</td></tr>`).join('')}</table></div>`;
+/* Clasificación conjunta de los grupos de una misma jornada (FAN 1 + FAN 2…): la misma prueba, sexo y categoría en grupos
+   del mismo nombre salvo el número se ordena junta por tiempo → f.conj (puesto entre todos) y f.conjN (cuántos con tiempo).
+   Impulso no se mezcla con FAN; sin categoría en el título no se junta nada (para no comparar edades distintas). */
+function dirConjunta(c) {
+  if (!c || !c.lenex) return;
+  const base = g => String(g || '').replace(/\s*\d+$/, '').trim(), grupos = new Map();
+  c.lenex.pruebas.forEach(p => { delete p.conjCon; delete p.conjPend; p.filas.forEach(f => { delete f.conj; delete f.conjN; });
+    if (!p.categoria || !/\d$/.test(p.sesion || '')) return;
+    const k = [base(p.sesion), p.nombre, p.sexo, dirNorm(p.categoria)].join('|');
+    grupos.set(k, (grupos.get(k) || []).concat([p])); });
+  grupos.forEach(ps => {
+    if (new Set(ps.map(p => p.sesion)).size < 2) return;
+    const todos = [...new Set(ps.map(p => p.sesion))].sort(), pend = [...new Set(ps.filter(p => dirMarcha(p).estado !== 'hecha').map(p => p.sesion))].sort();
+    ps.forEach(p => { p.conjCon = todos; p.conjPend = pend; });
+    const filas = ps.flatMap(p => p.filas.filter(f => f.t && !f.estado)).sort((a, b) => a.t - b.t);
+    filas.forEach((f, i) => { f.conj = i && filas[i - 1].t === f.t ? filas[i - 1].conj : i + 1; f.conjN = filas.length; });
+  });
+}
+/* Parciales acumulados (con o sin el tiempo final) → «50 m 28.51 · 100 m 59.81 (31.30) · …»: cada paso, su acumulado y entre paréntesis el tramo */
+function dirParciales(f, dist) {
+  if (!f.t || !f.parc || !f.parc.length) return '';
+  const acu = f.parc[f.parc.length - 1] === f.t ? f.parc : [...f.parc, f.t];
+  if (acu.length < 2) return '';
+  const paso = dist && dist % acu.length === 0 ? dist / acu.length : 0;
+  return acu.map((t, i) => `${paso ? `<span class="muted">${paso * (i + 1)} m</span> ` : ''}${fmt(t)}${i ? ` <span class="muted">(${fmt(t - acu[i - 1])})</span>` : ''}`).join(' · ');
+}
+const dirDist = nombre => { const m = /^(?:(\d+)\s*[x×]\s*)?(\d+)/i.exec(nombre || ''); return m ? (+m[1] || 1) * +m[2] : 0; };   // «4x50 Libre» → 200
+const dirTablaFilas = (filas, marcar, dist = 0) => `<div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Inscrito</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
+  ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', parc = dirParciales(f, dist);
+    return `<tr${cls}><td class="num"${parc ? ' rowspan="2"' : ''}>${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
+    <td class="tiny">${esc(f.club)}</td><td class="num tiny">${f.ins ? fmt(f.ins) : '—'}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td></tr>${parc ? `<tr${cls}><td colspan="5" class="tiny dir-parc">Parciales: ${parc}</td></tr>` : ''}`; }).join('')}</table></div>`;
+/* Prueba terminada: clasificación por año de nacimiento (del más pequeño al mayor) y, dentro, por puesto/tiempo;
+   las bajas y descalificados al final de su año */
+const dirOrdenClasif = (a, b) => (!a.t - !b.t) || (a.puesto || 999) - (b.puesto || 999) || (a.t || 0) - (b.t || 0);
+const dirTablaClasif = (filas, marcar, dist = 0) => `<div class="tw"><table class="rt"><tr><th class="num">Puesto</th><th>Nadador</th><th>Club</th><th class="num">Tiempo</th></tr>
+  ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', parc = dirParciales(f, dist);
+    return `<tr${cls}><td class="num"${parc ? ' rowspan="2"' : ''}><b>${f.puesto ? `${f.puesto}º` : '—'}</b>${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td>
+    <td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td><td class="tiny">${esc(f.club)}</td><td class="num"><b>${dirTiempo(f)}</b></td></tr>${parc ? `<tr${cls}><td colspan="3" class="tiny dir-parc">Parciales: ${parc}</td></tr>` : ''}`; }).join('')}</table></div>`;
+function dirClasificacion(p, marcar, ano) {
+  const dist = dirDist(p.nombre), anos = [...new Set(p.filas.map(f => f.nac || 0))].sort((a, b) => b - a).filter(y => !ano || y === Number(ano));
+  return anos.map(y => `<div class="ent-sel">${y ? `Nacidos en ${y}` : 'Sin año'}</div>${dirTablaClasif(p.filas.filter(f => (f.nac || 0) === y).sort(dirOrdenClasif), marcar, dist)}`).join('');
+}
+// Aviso de la clasificación conjunta: con qué grupos se compara y si falta alguno por nadar
+const dirAvisoConj = p => !p.conjCon ? '' : `<div class="tiny dir-aviso-conj">«Total» = puesto entre ${p.conjCon.join(' y ')}${p.conjPend.length
+  ? ` · <b>provisional: pendiente de finalizar ${p.conjPend.join(' y ')}</b>` : ' · definitivo'}</div>`;
+const dirNombrePrueba = p => `<b class="dir-prueba">${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}${p.categoria ? ` · ${esc(p.categoria)}` : ''}</span>`;
 function dirSeguirHTML(c, rfen) {
+  dirConjunta(c);
   const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}</span>
@@ -344,17 +388,17 @@ function dirSeguirHTML(c, rfen) {
   const resumen = `<p class="small" style="margin:10px 2px">${L.length} ${L.length === 1 ? 'prueba' : 'pruebas'}${prim ? ` · la próxima, <b>${esc(prim.p.nombre)}</b>${prim.p.hora ? ` (empieza a las <b>${esc(prim.p.hora)}</b>)` : ''}` : ' · todas nadadas'}.</p>`;
   const tarjeta = x => {
     const series = [...new Set(x.p.filas.map(f => f.serie))].sort((a, b) => a - b);
-    const est = x.estado === 'hecha' ? `<div class="dir-res">Resultado <b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : '')}` : ''}${x.f.parc && x.f.parc.length > 1 ? `<div class="tiny muted">Parciales: ${x.f.parc.map(fmt).join(' · ')}</div>` : ''}</div>`
+    const est = x.estado === 'hecha' ? `<div class="dir-res">Resultado <b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : x.f.conj ? `en ${x.p.sesion}` : '')}` : ''}${x.f.conj ? ` · <b>${x.f.conj}º de ${x.f.conjN}</b> entre ${x.p.conjCon.join(' y ')}${x.p.conjPend.length ? ` <span class="muted">(provisional: pendiente de finalizar ${x.p.conjPend.join(' y ')})</span>` : ''}` : ''}${dirParciales(x.f, dirDist(x.p.nombre)) ? `<div class="tiny dir-parc">Parciales: ${dirParciales(x.f, dirDist(x.p.nombre))}</div>` : ''}</div>`
       : x.estado === 'en_marcha' ? `<div class="dir-res vivo">Se está nadando: van ${x.hechas} de ${x.series} series. La suya es la ${x.posSerie}ª.</div>`
       : `<div class="dir-res pend">Por nadar</div>`;
     return `<div class="card dir-seg dir-seg-${x.estado}">
       <div class="dir-seg-top"><div class="dir-hora"><small>${varios && x.p.fecha ? dfmt(x.p.fecha) : 'empieza'}</small><b>${esc(x.p.hora || '--:--')}</b></div>
-        <div><b class="dir-prueba">${esc(x.p.nombre)}</b> <span class="muted">${dirSexo(x.p.sexo)}</span><div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirSesTexto(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
+        <div>${dirNombrePrueba(x.p)}<div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirSesTexto(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
       ${dirCuentaHTML(c, x)}
       ${est}
-      <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => f.rfen === rfen)}</details>
-      <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} nadadores)</summary>${series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => f.rfen === rfen)}`).join('')}</details>
+      <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => f.rfen === rfen, dirDist(x.p.nombre))}</details>
+      <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} nadadores)${x.estado === 'hecha' ? ' · clasificación' : ''}</summary>${x.estado === 'hecha' ? dirAvisoConj(x.p) + dirClasificacion(x.p, f => f.rfen === rfen) : series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => f.rfen === rfen, dirDist(x.p.nombre))}`).join('')}</details>
     </div>`;
   };
   return cab + resumen + L.map(tarjeta).join('') + `<a class="btn" href="#directo?c=${Number(c.id)}&solo=0" style="margin-top:6px">Ver toda la competición</a>
@@ -404,7 +448,10 @@ function dirFiltrar(c, f) {
   const vale = x => (!f.solo || x.rfen) && (!f.cat || dirCatDeNac(x.nac) === f.cat) && (!f.ano || x.nac === Number(f.ano));
   return c.lenex.pruebas.filter(p => (!f.sx || p.sexo === f.sx || p.sexo === 'X') && p.filas.some(vale));
 }
+// Series de una prueba, cada una con sus calles (la que se está nadando, marcada)
+const dirSeries = (p, m, vivo) => m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false, dirDist(p.nombre))}`).join('');
 function dirDetalle(c, f) {
+  dirConjunta(c);
   f = Object.assign({solo: true, cat: '', sx: '', ano: ''}, f);
   const L = c.lenex, nos = dirNuestras(c), del = dirDelClub(c), pruebas = dirFiltrar(c, f);
   const cats = [...new Set(L.pruebas.flatMap(p => p.filas.map(x => dirCatDeNac(x.nac))).filter(Boolean))]
@@ -427,10 +474,10 @@ function dirDetalle(c, f) {
     const est = m.estado === 'hecha' ? '<span class="dir-est hecha">Terminada</span>' : vivo ? `<span class="dir-est vivo"><span class="dir-punto"></span>Serie ${m.hechas + 1} de ${m.series.length}</span>` : `<span class="dir-est">${m.series.length} ${m.series.length === 1 ? 'serie' : 'series'}</span>`;
     return `<details class="card dir-p dir-p-${m.estado}" data-pid="${esc(String(p.id || p.num))}">
       <summary><div class="dir-hora"><small>${varios && p.fecha ? dfmt(p.fecha) : 'hora'}</small><b>${esc(p.hora || '--:--')}</b></div>
-        <div class="dir-p-txt"><b>${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}</span>
+        <div class="dir-p-txt">${dirNombrePrueba(p)}
           <div class="tiny muted">Prueba ${p.num}${p.sesion ? ` · ${esc(p.sesion)}` : ''} · ${p.filas.length} nadadores ${est}</div>${quien}</div>
         <span class="dir-chev" aria-hidden="true">›</span></summary>
-      ${m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false)}`).join('')}
+      ${m.estado === 'hecha' ? `${dirAvisoConj(p)}${dirClasificacion(p, () => false, f.ano)}${m.series.some(n => n) ? `<details class="dir-mas"><summary>Ver por series</summary>${dirSeries(p, m, vivo)}</details>` : ''}` : dirSeries(p, m, vivo)}
     </details>`;
   };
   // agrupadas por día y sesión, en orden de hora

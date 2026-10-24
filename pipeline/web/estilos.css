@@ -658,6 +658,11 @@ tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
 .dir-datos small{font-size:.62rem;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px}
 .dir-datos b{font-size:1.05rem;font-variant-numeric:tabular-nums}
 .dir-res{font-size:.95rem;margin:4px 0}
+.rt td.dir-parc{padding:0 8px 8px;color:var(--ink2);line-height:1.6}
+.rt tr:has(+ tr > td.dir-parc) td:not([rowspan]){border-bottom:0;padding-bottom:3px}
+.dir-aviso-conj{margin:8px 2px 2px;color:var(--ink2)}
+.rt .dir-conj{color:var(--ink2);white-space:nowrap;font-weight:600}
+.dir-res .dir-parc{color:var(--ink2);margin-top:2px}
 .dir-res.vivo{color:#e5484d;font-weight:700}
 .dir-res.pend{color:var(--ink2)}
 .dir-mas{margin-top:6px}

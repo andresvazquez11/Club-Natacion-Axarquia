@@ -71,3 +71,29 @@ class TestSinConexion(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestVolcarYProvisionales(unittest.TestCase):
+    def _d(self):
+        fila = lambda n, t, rfen=None, nac=2015: {'n': n, 't': t, 'estado': '', 'rfen': rfen, 'nac': nac, 'puesto': None}
+        return {'competiciones': [{'id': 9, 'titulo': 'Liga', 'lenex': {'piscina': '25 m', 'lugar': 'Torre Del Mar', 'pruebas': [
+            {'sesion': 'FAN 1', 'nombre': '50 Libre', 'sexo': 'M', 'fecha': '2026-10-24', 'filas': [fila('A', 3327, '1'), fila('B', 3200)]},
+            {'sesion': 'FAN 2', 'nombre': '50 Libre', 'sexo': 'M', 'fecha': '2026-10-24', 'filas': [fila('C', 3100), fila('D', None)]},
+        ]}}]}
+
+    def test_grupos_terminados(self):
+        from fan_directo import grupos_terminados
+        self.assertEqual(grupos_terminados(self._d()), ['9|FAN 1'])   # FAN 2 aún a medias
+        d = self._d(); d['competiciones'][0]['lenex']['pruebas'][1]['filas'][1].update(t=3500, rfen='2')
+        self.assertEqual(grupos_terminados(d), ['9|FAN 1', '9|FAN 2'])
+
+    def test_marcas_provisionales(self):
+        from generar import marcas_directo
+        base = {'profile_id': 1, 'nombre': 'X', 'genero': 'M', 'fecha_nacimiento': 2015, 'club': 'C.N. AXARQUIA', 'estilo': '50 Libre',
+                'date': '01/10/2026', 'id_tipo_piscina': '25m', 'record_mundo': 1990, 'valor_original': 3400}
+        n = marcas_directo([base], self._d())
+        self.assertEqual(len(n), 1)
+        self.assertEqual((n[0]['value'], n[0]['date'], n[0]['cpos'], n[0]['cn']), ('00:00:33.27', '24/10/2026', 3, 3))   # suma los dos grupos
+        self.assertIn('provisional', n[0]['competition_name'])
+        oficial = dict(base, date='24/10/2026')                    # ya publicada por la RFEN: no se duplica
+        self.assertEqual(marcas_directo([base, oficial], self._d()), [])

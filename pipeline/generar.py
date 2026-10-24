@@ -101,10 +101,62 @@ def load(raw_dir):
     return rows
 
 
+DIRECTO = os.environ.get('CNA_DIRECTO', os.path.join(os.path.dirname(BASE_DIR), 'directo.json'))
+
+
+def marcas_directo(rows, directo):
+    """Tiempos del club en las competiciones del directo de la FAN que la RFEN aún no ha publicado → filas con la forma
+    de las de la RFEN, para que entren ya en las fichas (marcas, mínimas, evolución, rankings). La competición lleva
+    «(provisional)» en el nombre; cuando la RFEN la publica (mismo nadador, prueba, día y piscina) la suya manda.
+    Puesto: entre los del mismo año de nacimiento en esa prueba y sexo, sumando todos los grupos de la jornada."""
+    plantilla, wr, ya = {}, {}, set()
+    for r in rows:
+        if r.get('profile_id'):
+            plantilla[r['profile_id']] = r
+            ya.add((r['profile_id'], r.get('estilo'), iso(r.get('date')), r.get('id_tipo_piscina')))
+        if r.get('record_mundo'):
+            wr[(r.get('genero'), r.get('estilo'), r.get('id_tipo_piscina'))] = r['record_mundo']
+    nuevas = []
+    for c in directo.get('competiciones', []):
+        L = c.get('lenex') or {}
+        pool = {'25 m': '25m', '50 m': '50m'}.get(L.get('piscina'))
+        if not pool:
+            continue
+        juntas = defaultdict(list)          # (prueba, sexo) → filas con tiempo de todos los grupos
+        for p in L.get('pruebas', []):
+            juntas[(p['nombre'], p['sexo'])] += [f for f in p['filas'] if f.get('t') and not f.get('estado')]
+        for p in L.get('pruebas', []):
+            if p['nombre'] not in PRUEBA_ORDER or not p.get('fecha'):
+                continue
+            for f in p['filas']:
+                rf = str(f.get('rfen') or '')
+                if not rf.isdigit() or not f.get('t') or f.get('estado') or int(rf) not in plantilla:
+                    continue
+                pid, base = int(rf), plantilla[int(rf)]
+                if (pid, p['nombre'], p['fecha'], pool) in ya:
+                    continue
+                rivales = [x['t'] for x in juntas[(p['nombre'], p['sexo'])] if x.get('nac') == f.get('nac')]
+                t = f['t']
+                nuevas.append(dict(base, estilo=p['nombre'], valor_original=t, id_tipo_piscina=pool,
+                                   value=f'00:{t // 6000:02d}:{t // 100 % 60:02d}.{t % 100:02d}',
+                                   record_mundo=wr.get((base.get('genero'), p['nombre'], pool)) or base.get('record_mundo'),
+                                   id_tipo_crono='Electrónico', competition_name=f"{c.get('titulo', '')} (provisional)",
+                                   location=L.get('lugar') or '', date=datetime.strptime(p['fecha'], '%Y-%m-%d').strftime('%d/%m/%Y'),
+                                   parcial=False, id_competicion=f"fan{c.get('id')}", posicion=f.get('puesto'),
+                                   cpos=1 + sum(1 for x in rivales if x < t), cn=len(rivales) or 1, _ss='26-27'))
+                ya.add((pid, p['nombre'], p['fecha'], pool))
+    return nuevas
+
+
 def main():
     rows = [dict(r, _ss='25-26') for r in load(RAW_DIR)]
     rows_new = [dict(r, _ss='26-27') for r in load(RAW_NEW)] if os.path.exists(RAW_NEW) else []
     rows += rows_new
+    if os.path.exists(DIRECTO):
+        with open(DIRECTO, encoding='utf-8') as fh:
+            prov = marcas_directo(rows, json.load(fh))
+        rows += prov
+        print(f'{len(prov)} marcas provisionales del directo de la FAN (aún no en la RFEN)')
     print(f'{len(rows):,} marcas cargadas ({len(rows_new):,} de la 26-27)')
 
     # ── Puesto en cada competición ─────────────────────────────────────────────

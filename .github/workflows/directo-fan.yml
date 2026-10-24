@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      actions: write                # para lanzar «Actualizar informe» cuando termina un grupo con nadadores del club
     env:
       TZ: Europe/Madrid
     steps:
@@ -37,6 +38,11 @@ jobs:
       - name: Leer calendario y resultados de la FAN
         run: python pipeline/fan_directo.py
 
+      # Al terminar un grupo (o la competición) con nadadores del club, sus tiempos pasan a las fichas como provisionales
+      # (mínimas, marcas, rankings) sin esperar a que la RFEN los publique: se regenera la web una vez por grupo.
+      - name: ¿Terminó algún grupo con nadadores del club?
+        run: python pipeline/fan_directo.py --volcar "$RUNNER_TEMP/volcar"
+
       - name: Publicar si cambió
         run: |
           if git diff --quiet -- directo.json && git ls-files --error-unmatch directo.json >/dev/null 2>&1; then
@@ -48,3 +54,11 @@ jobs:
           git commit -m "Directo FAN — $(date +'%d/%m/%Y %H:%M')"
           for i in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 5; done
           exit 1
+
+      - name: Pasar los tiempos a las fichas
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(cat "$RUNNER_TEMP/volcar")" = "si" ]; then
+            gh workflow run actualizar-temporada.yml --ref main && echo "Lanzada la actualización de la web"
+          fi
