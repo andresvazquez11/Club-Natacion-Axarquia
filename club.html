@@ -671,6 +671,7 @@ tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
 .dir-aviso-conj{margin:8px 2px 2px;color:var(--ink2)}
 .rt .dir-conj{color:var(--ink2);white-space:nowrap;font-weight:600}
 .dir-res .dir-parc{color:var(--ink2);margin-top:2px}
+.dir-rel-yo{color:var(--ink);font-weight:700}
 .dir-res.vivo{color:#e5484d;font-weight:700}
 .dir-res.pend{color:var(--ink2)}
 .dir-mas{margin-top:6px}
@@ -4192,6 +4193,9 @@ async function dirUnzip(buf) {
 const dirNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean).join(' ');
 const dirCs = t => { const m = /(\d+):(\d+):(\d+)\.(\d+)/.exec(t || ''); if (!m) return null;
   const v = ((+m[1] * 60 + +m[2]) * 60 + +m[3]) * 100 + +String(m[4]).slice(0, 2).padEnd(2, '0'); return v || null; };
+/* Tiempo de cada relevista: parciales acumulados (Map distancia → cs) y tiempo final → [4 tiempos] (null si falta un parcial) */
+const dirPostas = (acu, total, dist) => { const fin = [1, 2, 3].map(i => acu.get(dist * i) ?? null).concat(total);
+  return fin.map((b, i) => { const a = i ? fin[i - 1] : 0; return a !== null && b ? b - a : null; }); };
 const DIR_ESTILO = {FREE: 'Libre', BACK: 'Espalda', BREAST: 'Braza', FLY: 'Mariposa', MEDLEY: 'Estilos'};
 /* XML Lenex → {nombre, lugar, piscina, sesiones, pruebas} (como leer_lenex de pipeline/fan_directo.py).
    Nuestros nadadores: club «Axarquía» y nombre + año de nacimiento iguales a los de la web. */
@@ -4213,27 +4217,36 @@ function dirLeerLenex(xml) {
         ag.querySelectorAll('RANKING').forEach(rk => { const l = +rk.getAttribute('place') || 0; cats.set(rk.getAttribute('resultid'), [et, l > 0 ? l : null]); }); });
       eventos.set(ev.getAttribute('eventid'), {id: ev.getAttribute('eventid'), num: +ev.getAttribute('number') || 0, nombre: (rel > 1 ? `${rel}x${dist} ${estilo}` : `${dist} ${estilo}`).trim(),
         sexo: ev.getAttribute('gender') || '', hora: ev.getAttribute('daytime') || '', sesion: ses.getAttribute('number'), fecha: ses.getAttribute('date'),
-        estado: ev.getAttribute('status') || '', _heats: heats, _cats: cats, filas: []});
+        estado: ev.getAttribute('status') || '', _heats: heats, _cats: cats, _dist: +dist || 0, filas: []});
     });
   });
-  const fila = (res, nombre, club, nac, rfen) => { const ev = eventos.get(res.getAttribute('eventid')); if (!ev) return;
+  const fila = (res, nombre, club, nac, rfen, atletas) => { const ev = eventos.get(res.getAttribute('eventid')); if (!ev) return;
     const [cat, puesto] = ev._cats.get(res.getAttribute('resultid')) || ['', null];
     const parc = [...res.querySelectorAll('SPLIT')].map(x => dirCs(x.getAttribute('swimtime')));
-    ev.filas.push({serie: ev._heats.get(res.getAttribute('heatid')) || 0, calle: +res.getAttribute('lane') || 0, n: nombre, club, nac,
-      t: dirCs(res.getAttribute('swimtime')), ins: dirCs(res.getAttribute('entrytime')), puesto, cat, estado: res.getAttribute('status') || '', rfen, parc: parc.length ? parc : null}); };
+    const f = {serie: ev._heats.get(res.getAttribute('heatid')) || 0, calle: +res.getAttribute('lane') || 0, n: nombre, club, nac,
+      t: dirCs(res.getAttribute('swimtime')), ins: dirCs(res.getAttribute('entrytime')), puesto, cat, estado: res.getAttribute('status') || '', rfen, parc: parc.length ? parc : null};
+    // relevos: los 4 relevistas en orden, con el tiempo de su posta (sale de los parciales), como leer_lenex en Python
+    const pos = [...res.querySelectorAll('RELAYPOSITION')].sort((a, b) => (+a.getAttribute('number') || 0) - (+b.getAttribute('number') || 0));
+    if (pos.length && atletas) {
+      const acu = new Map([...res.querySelectorAll('SPLIT')].map(x => [+x.getAttribute('distance') || 0, dirCs(x.getAttribute('swimtime'))]));
+      const t = ev._dist ? dirPostas(acu, f.t, ev._dist) : [];
+      f.rel = pos.map((p, i) => { const [n, nac, rfen] = atletas.get(p.getAttribute('athleteid')) || ['?', null, null]; return {n, nac, rfen, t: t[i] ?? null}; });
+    }
+    ev.filas.push(f); };
   doc.querySelectorAll('CLUB').forEach(club => {
-    const nc = club.getAttribute('name') || '', es = /AXARQ/i.test(nc);
+    const nc = club.getAttribute('name') || '', es = /AXARQ/i.test(nc), atletas = new Map();   // athleteid → [nombre, año, licencia]
     club.querySelectorAll('ATHLETE').forEach(a => {
       const nombre = `${a.getAttribute('firstname') || ''} ${a.getAttribute('lastname') || ''}`.trim(), nac = +(a.getAttribute('birthdate') || '').slice(0, 4) || null;
       const rfen = es ? (nuestros.get(dirNorm(nombre) + '|' + nac) || '?') : null;
+      atletas.set(a.getAttribute('athleteid'), [nombre, nac, rfen]);
       const hechas = new Set([...a.querySelectorAll('RESULT')].map(r => r.getAttribute('eventid')));
       a.querySelectorAll('RESULT').forEach(r => fila(r, nombre, nc, nac, rfen));
       a.querySelectorAll('ENTRY').forEach(en => { if (!hechas.has(en.getAttribute('eventid'))) fila(en, nombre, nc, nac, rfen); });
     });
-    club.querySelectorAll('RELAY').forEach(rl => rl.querySelectorAll('RESULT').forEach(r => fila(r, `${nc} (relevo)`, nc, null, es ? 'club' : null)));
+    club.querySelectorAll('RELAY').forEach(rl => rl.querySelectorAll('RESULT').forEach(r => fila(r, `${nc} (relevo)`, nc, null, es ? 'club' : null, atletas)));
   });
   const pruebas = [...eventos.values()].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || a.num - b.num)
-    .map(ev => { const {_heats, _cats, ...x} = ev; x.filas.sort((a, b) => a.serie - b.serie || a.calle - b.calle);
+    .map(ev => { const {_heats, _cats, _dist, ...x} = ev; x.filas.sort((a, b) => a.serie - b.serie || a.calle - b.calle);
       x.nadadas = x.filas.filter(f => f.t || f.estado).length; return x; }).filter(x => x.filas.length);
   return {nombre: meet ? meet.getAttribute('name') : '', lugar: meet ? meet.getAttribute('city') : '',
     piscina: {SCM: '25 m', LCM: '50 m'}[meet && meet.getAttribute('course')] || '', sesiones, pruebas};
@@ -4252,6 +4265,8 @@ const DIR_RE = {
   resEq: new RegExp(String.raw`^(\d+)\. (.+?) ${DIR_TPDF}(?: [\d.,]+)?(?: .*)?$`),
   sin: /^(?:\d+\.\s*)?([^,\d][^,]*), (.+?) (\d{2}) (.+?) (DSQ|DNS|DNF|BAJA|NP|Desc\w*)\b/i,
   parc: new RegExp(String.raw`(\d+)m: ${DIR_TPDF}`, 'g'),
+  // relevistas, dos por línea y por columnas (1.ª línea: postas 1 y 3; 2.ª: 2 y 4), como RE_RELEVISTA en Python
+  relevista: /([^,\d]+?), ([^,\d]+?) ?(\d{2})((?: (?:\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2}))+)/g,
 };
 const dirCsTexto = t => { const m = /^(?:(\d+):)?(\d+)\.(\d{2})$/.exec(t || ''); return m ? ((+m[1] || 0) * 60 + +m[2]) * 100 + +m[3] : null; };
 const dirTitulo = s => s.toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (a, b, c) => b + c.toUpperCase());
@@ -4283,14 +4298,23 @@ function dirLeerResultadosTexto(texto, grupo) {
       actual.filas.push(ultima = fila({n: nombre, club, nac, t: dirCsTexto(m[6]), puesto: +m[1], rfen: dirNuestro(nombre, nac, club)})); continue;
     }
     if (relevo && (m = DIR_RE.resEq.exec(linea))) {
-      const club = m[2].trim();
+      const club = m[2].trim().replace(/^(.+?) \d+ \1$/, '$1');      // «C.N. Axarquia 14 C.N. Axarquia» → «C.N. Axarquia»
       actual.filas.push(ultima = fila({n: `${club} (relevo)`, club, t: dirCsTexto(m[3]), puesto: +m[1], rfen: /AXARQ/i.test(club) ? 'club' : null})); continue;
+    }
+    if (relevo && ultima && (ultima.rel || []).length < 4) {      // relevistas del último equipo
+      const nad = [...linea.matchAll(DIR_RE.relevista)];
+      if (nad.length) {
+        nad.forEach(x => { const nombre = `${x[2].trim()} ${dirTitulo(x[1].trim())}`, nac = dirAnio(x[3]);
+          (ultima.rel = ultima.rel || []).push({n: nombre, nac, rfen: dirNuestro(nombre, nac, ultima.club), t: dirCsTexto(x[4].trim().split(' ').pop())}); });
+        continue;
+      }
     }
     if ((m = DIR_RE.sin.exec(linea))) {
       const nombre = `${m[2].trim()} ${dirTitulo(m[1].trim())}`, nac = dirAnio(m[3]), club = m[4].trim(), e = m[5].toLowerCase();
       actual.filas.push(ultima = fila({n: nombre, club, nac, estado: e.startsWith('desc') ? 'DSQ' : e === 'baja' ? 'SICK' : e === 'np' ? 'DNS' : e.toUpperCase(), rfen: dirNuestro(nombre, nac, club)}));
     }
   }
+  pruebas.forEach(p => p.filas.forEach(f => { if ((f.rel || []).length === 4) f.rel = [0, 2, 1, 3].map(i => f.rel[i]); }));   // por columnas → orden de nado
   return [...pruebas.values()].filter(p => p.filas.length).map(p => Object.assign(p, {nadadas: p.filas.filter(f => f.t || f.estado).length}));
 }
 /* Página de la competición → [lugar, números de las pruebas con resultados] */
@@ -4409,6 +4433,14 @@ const dirTiempo = f => f.t ? fmt(f.t) : f.estado ? `<span class="muted">${esc(DI
 const dirNuestras = c => !c.lenex ? [] : c.lenex.pruebas.flatMap(p => p.filas.filter(f => f.rfen).map(f => Object.assign({p}, f)));
 const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.hasOwn(SW, f.rfen)
   ? `<a href="#nadador/${f.rfen}">${esc(f.n)}</a>` : esc(f.n);
+/* ¿Nada este nadador en esta fila? (la suya o, en un relevo, como relevista) */
+const dirEsDe = (f, rfen) => f.rfen === rfen || (f.rel || []).some(r => r.rfen === rfen);
+/* Relevistas de un equipo: «1. Nombre 26.35 · 2. …» (tiempo de su posta); el que se sigue, en negrita */
+const dirRelevistas = (f, rfen) => (f.rel || []).map((r, i) => { const t = `${i + 1}. ${dirNombre(r)}${r.t ? ` <b>${fmt(r.t)}</b>` : ''}`;
+  return rfen && r.rfen === rfen ? `<span class="dir-rel-yo">${t}</span>` : t; }).join(' · ');
+/* Su posta en un relevo → «2.ª posta: 1:02.81» ('' si no es relevista de esa fila) */
+const dirSuPosta = (f, rfen) => { const i = (f.rel || []).findIndex(r => r.rfen === rfen);
+  return i < 0 ? '' : `${i + 1}.ª posta${f.rel[i].t ? `: <b>${fmt(f.rel[i].t)}</b>` : ''}`; };
 
 /* Categorías a las que va una competición, según su nombre (null si el nombre no lo dice).
    «Absoluto» incluye a infantiles y júniors (pueden nadarlo); «Máster» no es de ninguna categoría del club. */
@@ -4433,7 +4465,7 @@ const dirEsDeSuCat = (c, s) => { const cats = dirCatsDe(c.titulo); return !cats 
 function dirSusPruebas(c, rfen) {
   if (!c || !c.lenex || !rfen) return [];
   return c.lenex.pruebas.map(p => {
-    const f = p.filas.find(x => x.rfen === rfen); if (!f) return null;
+    const f = p.filas.find(x => dirEsDe(x, rfen)); if (!f) return null;
     const series = [...new Set(p.filas.map(x => x.serie))].sort((a, b) => a - b);
     const hechas = series.filter(n => p.filas.some(x => x.serie === n && (x.t || x.estado)));
     const estado = f.t || f.estado ? 'hecha' : hechas.length ? 'en_marcha' : 'pendiente';
@@ -4467,7 +4499,7 @@ function dirCuentaTic() {
 const dirCuentaArrancar = () => { clearInterval(DIR_CUENTA); if (dirCuentaTic()) DIR_CUENTA = setInterval(() => { if (!dirCuentaTic()) clearInterval(DIR_CUENTA); }, 1000); };
 
 /* Nadadores del club (emparejados con su ficha) que nadan en una competición */
-const dirDelClub = c => !c || !c.lenex ? [] : [...new Map(dirNuestras(c).filter(f => f.rfen && Object.hasOwn(SW, f.rfen)).map(f => [f.rfen, SW[f.rfen]])).values()]
+const dirDelClub = c => !c || !c.lenex ? [] : [...new Map(dirNuestras(c).flatMap(f => [f, ...(f.rel || [])]).filter(f => f.rfen && Object.hasOwn(SW, f.rfen)).map(f => [f.rfen, SW[f.rfen]])).values()]
   .sort((a, b) => a.n.localeCompare(b.n));
 const dirSelector = (c, actual) => { const L = dirDelClub(c); return L.length ? `<label class="dir-sel">Ver solo a un nadador del club: sus pruebas, horas, series y calles
   <select data-dir-seguir="${Number(c.id)}"><option value="">Elige un nadador…</option>${L.map(s => `<option value="${esc(String(s.id))}"${String(s.id) === actual ? ' selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label>` : ''; };
@@ -4498,20 +4530,24 @@ function dirParciales(f, dist) {
   return acu.map((t, i) => `${paso ? `<span class="muted">${paso * (i + 1)} m</span> ` : ''}${fmt(t)}${i ? ` <span class="muted">(${fmt(t - acu[i - 1])})</span>` : ''}`).join(' · ');
 }
 const dirDist = nombre => { const m = /^(?:(\d+)\s*[x×]\s*)?(\d+)/i.exec(nombre || ''); return m ? (+m[1] || 1) * +m[2] : 0; };   // «4x50 Libre» → 200
-const dirTablaFilas = (filas, marcar, dist = 0) => `<div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Inscrito</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
-  ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', parc = dirParciales(f, dist);
-    return `<tr${cls}><td class="num"${parc ? ' rowspan="2"' : ''}>${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
-    <td class="tiny">${esc(f.club)}</td><td class="num tiny">${f.ins ? fmt(f.ins) : '—'}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td></tr>${parc ? `<tr${cls}><td colspan="5" class="tiny dir-parc">Parciales: ${parc}</td></tr>` : ''}`; }).join('')}</table></div>`;
+/* Filas debajo de un resultado: relevistas (en los relevos) y parciales; n = columnas que ocupan */
+const dirDebajo = (f, dist, cls, n, rfen) => { const rel = dirRelevistas(f, rfen), parc = dirParciales(f, dist);
+  return {filas: (rel ? 1 : 0) + (parc ? 1 : 0), html: `${rel ? `<tr${cls}><td colspan="${n}" class="tiny dir-parc dir-rel">Relevistas: ${rel}</td></tr>` : ''}${parc ? `<tr${cls}><td colspan="${n}" class="tiny dir-parc">Parciales: ${parc}</td></tr>` : ''}`}; };
+const dirRowspan = d => d.filas ? ` rowspan="${d.filas + 1}"` : '';
+const dirTablaFilas = (filas, marcar, dist = 0, rfen) => `<div class="tw"><table class="rt"><tr><th class="num">Calle</th><th>Nadador</th><th>Club</th><th class="num">Inscrito</th><th class="num">Tiempo</th><th class="num">Puesto</th></tr>
+  ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', d = dirDebajo(f, dist, cls, 5, rfen);
+    return `<tr${cls}><td class="num"${dirRowspan(d)}>${f.calle}</td><td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td>
+    <td class="tiny">${esc(f.club)}</td><td class="num tiny">${f.ins ? fmt(f.ins) : '—'}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td></tr>${d.html}`; }).join('')}</table></div>`;
 /* Prueba terminada: clasificación por año de nacimiento (del más pequeño al mayor) y, dentro, por puesto/tiempo;
    las bajas y descalificados al final de su año */
 const dirOrdenClasif = (a, b) => (!a.t - !b.t) || (a.puesto || 999) - (b.puesto || 999) || (a.t || 0) - (b.t || 0);
-const dirTablaClasif = (filas, marcar, dist = 0) => `<div class="tw"><table class="rt"><tr><th class="num">Puesto</th><th>Nadador</th><th>Club</th><th class="num">Tiempo</th></tr>
-  ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', parc = dirParciales(f, dist);
-    return `<tr${cls}><td class="num"${parc ? ' rowspan="2"' : ''}><b>${f.puesto ? `${f.puesto}º` : '—'}</b>${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td>
-    <td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td><td class="tiny">${esc(f.club)}</td><td class="num"><b>${dirTiempo(f)}</b></td></tr>${parc ? `<tr${cls}><td colspan="3" class="tiny dir-parc">Parciales: ${parc}</td></tr>` : ''}`; }).join('')}</table></div>`;
-function dirClasificacion(p, marcar, ano) {
+const dirTablaClasif = (filas, marcar, dist = 0, rfen) => `<div class="tw"><table class="rt"><tr><th class="num">Puesto</th><th>Nadador</th><th>Club</th><th class="num">Tiempo</th></tr>
+  ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', d = dirDebajo(f, dist, cls, 3, rfen);
+    return `<tr${cls}><td class="num"${dirRowspan(d)}><b>${f.puesto ? `${f.puesto}º` : '—'}</b>${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td>
+    <td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td><td class="tiny">${esc(f.club)}</td><td class="num"><b>${dirTiempo(f)}</b></td></tr>${d.html}`; }).join('')}</table></div>`;
+function dirClasificacion(p, marcar, ano, rfen) {
   const dist = dirDist(p.nombre), anos = [...new Set(p.filas.map(f => f.nac || 0))].sort((a, b) => b - a).filter(y => !ano || y === Number(ano));
-  return anos.map(y => `<div class="ent-sel">${y ? `Nacidos en ${y}` : 'Sin año'}</div>${dirTablaClasif(p.filas.filter(f => (f.nac || 0) === y).sort(dirOrdenClasif), marcar, dist)}`).join('');
+  return anos.map(y => `<div class="ent-sel">${y ? `Nacidos en ${y}` : 'Sin año'}</div>${dirTablaClasif(p.filas.filter(f => (f.nac || 0) === y).sort(dirOrdenClasif), marcar, dist, rfen)}`).join('');
 }
 // Aviso de la clasificación conjunta: con qué grupos se compara y si falta alguno por nadar
 const dirAvisoConj = p => !p.conjCon ? '' : `<div class="tiny dir-aviso-conj">«Total» = puesto entre ${p.conjCon.join(' y ')}${p.conjPend.length
@@ -4530,7 +4566,8 @@ function dirSeguirHTML(c, rfen) {
   const resumen = `<p class="small" style="margin:10px 2px">${L.length} ${L.length === 1 ? 'prueba' : 'pruebas'}${prim ? ` · la próxima, <b>${esc(prim.p.nombre)}</b>${prim.p.hora ? ` (empieza a las <b>${esc(prim.p.hora)}</b>)` : ''}` : ' · todas nadadas'}.</p>`;
   const tarjeta = x => {
     const series = [...new Set(x.p.filas.map(f => f.serie))].sort((a, b) => a - b);
-    const est = x.estado === 'hecha' ? `<div class="dir-res">Resultado <b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : x.f.conj ? `en ${x.p.sesion}` : '')}` : ''}${x.f.conj ? ` · <b>${x.f.conj}º de ${x.f.conjN}</b> entre ${x.p.conjCon.join(' y ')}${x.p.conjPend.length ? ` <span class="muted">(provisional: pendiente de finalizar ${x.p.conjPend.join(' y ')})</span>` : ''}` : ''}${dirParciales(x.f, dirDist(x.p.nombre)) ? `<div class="tiny dir-parc">Parciales: ${dirParciales(x.f, dirDist(x.p.nombre))}</div>` : ''}</div>`
+    const posta = dirSuPosta(x.f, rfen);
+    const est = x.estado === 'hecha' ? `<div class="dir-res">${posta ? `Relevo · ${posta} · equipo ` : 'Resultado '}<b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : x.f.conj ? `en ${x.p.sesion}` : '')}` : ''}${x.f.conj ? ` · <b>${x.f.conj}º de ${x.f.conjN}</b> entre ${x.p.conjCon.join(' y ')}${x.p.conjPend.length ? ` <span class="muted">(provisional: pendiente de finalizar ${x.p.conjPend.join(' y ')})</span>` : ''}` : ''}${posta ? `<div class="tiny dir-parc">Relevistas: ${dirRelevistas(x.f, rfen)}</div>` : ''}${dirParciales(x.f, dirDist(x.p.nombre)) ? `<div class="tiny dir-parc">Parciales: ${dirParciales(x.f, dirDist(x.p.nombre))}</div>` : ''}</div>`
       : x.estado === 'en_marcha' ? `<div class="dir-res vivo">Se está nadando: van ${x.hechas} de ${x.series} series. La suya es la ${x.posSerie}ª.</div>`
       : `<div class="dir-res pend">Por nadar</div>`;
     return `<div class="card dir-seg dir-seg-${x.estado}">
@@ -4539,8 +4576,8 @@ function dirSeguirHTML(c, rfen) {
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
       ${dirCuentaHTML(c, x)}
       ${est}
-      <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => f.rfen === rfen, dirDist(x.p.nombre))}</details>
-      <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} nadadores)${x.estado === 'hecha' ? ' · clasificación' : ''}</summary>${x.estado === 'hecha' ? dirAvisoConj(x.p) + dirClasificacion(x.p, f => f.rfen === rfen) : series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => f.rfen === rfen, dirDist(x.p.nombre))}`).join('')}</details>
+      <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}</details>
+      <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} ${x.f.rel ? 'equipos' : 'nadadores'})${x.estado === 'hecha' ? ' · clasificación' : ''}</summary>${x.estado === 'hecha' ? dirAvisoConj(x.p) + dirClasificacion(x.p, f => dirEsDe(f, rfen), null, rfen) : series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}`).join('')}</details>
     </div>`;
   };
   return cab + resumen + L.map(tarjeta).join('') + `<a class="btn" href="#directo?c=${Number(c.id)}&solo=0" style="margin-top:6px">Ver toda la competición</a>
@@ -4682,14 +4719,17 @@ async function pintarDirectoNadador(app, s) {
   if (!d || !app.isConnected) return;
   const id = String(s.id);
   // Las suyas (aparece en las series) y, del calendario sin series, solo las de su categoría
-  const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => f.rfen === id)}))
+  const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => dirEsDe(f, id))}))
     .filter(x => x.filas.length || (x.c.estado !== 'terminada' && !x.c.lenex && dirEsDeSuCat(x.c, s)));
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
   if (!prox.length && !rec.length) return;
   const nombre = esc(s.n.split(' ')[0]);
   const linea = x => x.filas.length ? `<div class="dir-f"><b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
-      <div class="tiny">${dirSusPruebas(x.c, id).map(y => `${esc(y.p.nombre)}${y.p.hora ? ` (${y.estado === 'hecha' ? esc(y.p.hora) : `<b class="dir-h-mio">${esc(y.p.hora)}</b>`})` : ''}: serie ${y.posSerie}, calle ${y.f.calle}${y.f.t || y.f.estado ? ` · <b>${dirTiempo(y.f)}</b>${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`).join(' · ')}</div>
+      <div class="tiny">${dirSusPruebas(x.c, id).map(y => { const posta = dirSuPosta(y.f, id);
+        return `${esc(y.p.nombre)}${posta ? ' (relevo)' : ''}${y.p.hora ? ` (${y.estado === 'hecha' ? esc(y.p.hora) : `<b class="dir-h-mio">${esc(y.p.hora)}</b>`})` : ''}: ${posta
+          ? `${posta}${y.f.t || y.f.estado ? ` · equipo ${dirTiempo(y.f)}${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`
+          : `serie ${y.posSerie}, calle ${y.f.calle}${y.f.t || y.f.estado ? ` · <b>${dirTiempo(y.f)}</b>${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`}`; }).join(' · ')}</div>
       ${dirSusPruebas(x.c, id).map(y => dirCuentaHTML(x.c, y)).find(Boolean) || ''}
       <div class="dir-f-acc"><a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(id)}">Seguir a ${nombre}: pruebas, horarios y rivales</a>
         <a href="#directo?c=${Number(x.c.id)}&solo=0">Toda la competición</a></div></div>`

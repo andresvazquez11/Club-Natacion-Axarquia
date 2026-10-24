@@ -663,6 +663,7 @@ tr.dir-nuestro td{background:color-mix(in srgb,var(--hl) 14%,transparent)}
 .dir-aviso-conj{margin:8px 2px 2px;color:var(--ink2)}
 .rt .dir-conj{color:var(--ink2);white-space:nowrap;font-weight:600}
 .dir-res .dir-parc{color:var(--ink2);margin-top:2px}
+.dir-rel-yo{color:var(--ink);font-weight:700}
 .dir-res.vivo{color:#e5484d;font-weight:700}
 .dir-res.pend{color:var(--ink2)}
 .dir-mas{margin-top:6px}

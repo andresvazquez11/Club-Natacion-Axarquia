@@ -102,6 +102,26 @@ test('dirSeguirHTML: su nombre, la hora de cada prueba y su fila marcada', () =>
   assert.match(h, /#directo\?c=1&solo=0/);
 });
 
+test('relevos: el relevista lo ve como prueba suya, con su posta y los cuatro relevistas', () => {
+  ctx.__c4 = { id: 2, titulo: 'Clubes', ambito: 'Málaga', desde: '2026-10-18', hasta: '2026-10-18', estado: 'terminada', lenex: { lugar: 'MALAGA', pruebas: [
+    { num: 17, nombre: '4x50 Libre', sexo: 'M', hora: '13:36', fecha: '2026-10-18', filas: [
+      { serie: 1, calle: 6, n: 'C.N. Axarquia (relevo)', club: 'C.N. Axarquia', t: 10160, puesto: 3, rfen: 'club', parc: [2635, 5188, 7675], rel: [
+        { n: 'Miguel Chica', nac: 2009, rfen: '?', t: 2635 }, { n: 'Lucía Romero', nac: 2009, rfen: '6313922', t: 2553 },
+        { n: 'Luis Anaya', nac: 2010, rfen: '?', t: 2487 }, { n: 'Iván Barranquero', nac: 2009, rfen: '?', t: 2485 }] },
+      { serie: 1, calle: 4, n: 'C.N. Mijas (relevo)', club: 'C.N. Mijas', t: 9830, puesto: 2, rfen: null }] }] } };
+  const L = JSON.parse(evalIn(ctx, 'JSON.stringify(dirSusPruebas(__c4, "6313922").map(x => [x.p.nombre, x.estado]))'));
+  assert.deepEqual(L, [['4x50 Libre', 'hecha']]);
+  assert.equal(evalIn(ctx, 'dirSuPosta(__c4.lenex.pruebas[0].filas[0], "6313922")'), '2.ª posta: <b>25.53</b>');
+  const h = evalIn(ctx, 'dirSeguirHTML(__c4, "6313922")');
+  assert.match(h, /Relevo · 2\.ª posta: <b>25\.53<\/b> · equipo <b>1:41\.60<\/b>/);
+  assert.match(h, /Relevistas: 1\. Miguel Chica <b>26\.35<\/b> · <span class="dir-rel-yo">2\. <a href="#nadador\/6313922">Lucía Romero<\/a> <b>25\.53<\/b><\/span>/);
+  assert.match(h, /class="dir-yo"/);                    // la fila de su equipo, marcada
+  assert.match(h, /rowspan="3"/);                      // puesto + relevistas + parciales
+  // los demás equipos no llevan línea de relevistas si la federación no los da
+  assert.equal(evalIn(ctx, 'dirRelevistas(__c4.lenex.pruebas[0].filas[1])'), '');
+  assert.match(evalIn(ctx, 'dirClasificacion(__c4.lenex.pruebas[0], () => false)'), /Relevistas: 1\. Miguel Chica/);
+});
+
 test('dirCatsDe y dirEsDeSuCat: un alevín solo ve las competiciones de alevines (o sin categoría en el nombre)', () => {
   const cats = t => JSON.parse(evalIn(ctx, `JSON.stringify(dirCatsDe(${JSON.stringify(t)}) && [...dirCatsDe(${JSON.stringify(t)})].sort())`));
   assert.deepEqual(cats('1ª Jornada Liga Prebenjamín – Benjamín – Alevín - Málaga'), ['ALE', 'BEN']);

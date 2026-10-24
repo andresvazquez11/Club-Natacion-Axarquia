@@ -36,6 +36,20 @@ class TestResultadosPdf(unittest.TestCase):
         self.assertEqual((r['nombre'], r['sexo']), ('4x50 Libre', 'X'))
         self.assertEqual([(x['n'], x['t'], x['rfen']) for x in r['filas']], [('C.N. Axarquia (relevo)', 14050, 'club'), ('C.N. Mijas (relevo)', 14500, None)])
 
+    def test_relevistas(self):
+        # texto real: dos relevistas por línea, por columnas (1.ª línea postas 1 y 3; 2.ª, 2 y 4); a veces el año va pegado
+        with open(os.path.join(os.path.dirname(__file__), 'datos', 'fan_resultlist_relevo.txt'), encoding='utf-8') as fh:
+            est, lib = F.leer_resultados_texto(fh.read(), 'M', {('carlos ramirez porras', 2009): '111'})
+        ax = est['filas'][0]
+        self.assertEqual((ax['n'], ax['t'], ax['puesto']), ('C.N. Axarquia (relevo)', 24712, 4))
+        self.assertEqual([(r['n'], r['nac'], r['t'], r['rfen']) for r in ax['rel']],
+                         [('Javier Diaz Guerra', 2010, 6501, '?'), ('Luis Anaya Carrion', 2010, 6281, '?'),
+                          ('Carlos Ramirez Porras', 2009, 6316, '111'), ('Miguel Angel Chica Mata', 2009, 5614, '?')])
+        self.assertTrue(all(r['rfen'] is None for r in est['filas'][1]['rel']))      # de otro club
+        self.assertEqual([(r['n'], r['nac'], r['t']) for r in lib['filas'][0]['rel']],
+                         [('Adrian Fikry Reina', 2006, 2497), ('Marcos Honorato Lopez', 2006, 2295),
+                          ('Francisco Sanjorge Nodar', 1996, 2471), ('Samuel Maldonado Alcantara', 2010, 2449)])
+
     def test_cabecera_de_la_web(self):
         html = '<style>x{}</style><h1>LIGA</h1> Piscina Corta (25m) <b>TORRE DEL MAR</b>  (ESP) 24/10/2026 Resultados'
         self.assertEqual(F.cabecera_web(html), ('Torre Del Mar', '24/10/2026', '25 m'))

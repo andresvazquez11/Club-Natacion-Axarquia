@@ -118,9 +118,15 @@ def cs_de(t):
     m = re.match(r'(\d+):(\d+):(\d+)\.(\d+)', t or '')
     if not m:
         return None
-    h, mi, s, c = (int(x) for x in m.groups())
-    v = ((h * 60 + mi) * 60 + s) * 100 + int(str(c)[:2].ljust(2, '0'))
+    h, mi, s = (int(x) for x in m.groups()[:3])
+    v = ((h * 60 + mi) * 60 + s) * 100 + int(m.group(4)[:2].ljust(2, '0'))     # «.02» son 2 centésimas (no 20)
     return v or None
+
+
+def postas(parc, total, dist):
+    """Tiempo de cada relevista: parciales acumulados {distancia: cs} y tiempo final → [4 tiempos] (None si falta un parcial)"""
+    fin = [parc.get(dist * i) for i in (1, 2, 3)] + [total]
+    return [b - a if a is not None and b else None for a, b in zip([0] + fin[:3], fin)]
 
 
 def leer_lenex(datos, nuestros):
@@ -150,27 +156,38 @@ def leer_lenex(datos, nuestros):
                     cats[rk.get('resultid')] = (etiqueta, lugar if lugar > 0 else None)   # -1 = sin puesto (baja, descalificado…)
             eventos[ev.get('eventid')] = {'id': ev.get('eventid'), 'num': int(ev.get('number') or 0), 'nombre': nombre.strip(),
                                           'sexo': ev.get('gender') or '', 'hora': ev.get('daytime') or '', 'sesion': ses.get('number'),
-                                          'fecha': ses.get('date'), 'estado': ev.get('status') or '', '_heats': heats, '_cats': cats, 'filas': []}
+                                          'fecha': ses.get('date'), 'estado': ev.get('status') or '', '_heats': heats, '_cats': cats,
+                                          '_dist': int(dist) if str(dist).isdigit() else 0, 'filas': []}
 
-    def fila(res, nombre, club, nac, licencia, rfen):
+    def fila(res, nombre, club, nac, licencia, rfen, atletas=None):
         ev = eventos.get(res.get('eventid'))
         if not ev:
             return
         cat, puesto = ev['_cats'].get(res.get('resultid'), ('', None))
-        ev['filas'].append({'serie': ev['_heats'].get(res.get('heatid'), 0), 'calle': int(res.get('lane') or 0), 'n': nombre, 'club': club,
-                            'nac': nac, 't': cs_de(res.get('swimtime')), 'ins': cs_de(res.get('entrytime')), 'puesto': puesto, 'cat': cat,
-                            'estado': res.get('status') or '', 'rfen': rfen,
-                            'parc': [cs_de(sp.get('swimtime')) for sp in res.iter('SPLIT')] or None})
+        f = {'serie': ev['_heats'].get(res.get('heatid'), 0), 'calle': int(res.get('lane') or 0), 'n': nombre, 'club': club,
+             'nac': nac, 't': cs_de(res.get('swimtime')), 'ins': cs_de(res.get('entrytime')), 'puesto': puesto, 'cat': cat,
+             'estado': res.get('status') or '', 'rfen': rfen,
+             'parc': [cs_de(sp.get('swimtime')) for sp in res.iter('SPLIT')] or None}
+        # relevos: los 4 relevistas en orden, con el tiempo de su posta (sale de los parciales)
+        pos = sorted(res.iter('RELAYPOSITION'), key=lambda p: int(p.get('number') or 0))
+        if pos and atletas is not None:
+            parc = {int(sp.get('distance') or 0): cs_de(sp.get('swimtime')) for sp in res.iter('SPLIT')}
+            tiempos = postas(parc, f['t'], ev['_dist']) if ev['_dist'] else [None] * 4
+            f['rel'] = [dict(zip(('n', 'nac', 'rfen'), atletas.get(p.get('athleteid'), ('?', None, None))),
+                             t=tiempos[i] if i < 4 else None) for i, p in enumerate(pos)]
+        ev['filas'].append(f)
 
     for club in root.iter('CLUB'):
         nombre_club = club.get('name') or ''
         es_nuestro = CLUB in nombre_club.upper()
+        atletas = {}        # athleteid → (nombre, año, licencia): para poner nombre a los relevistas
         for a in club.iter('ATHLETE'):
             nombre = f"{a.get('firstname', '')} {a.get('lastname', '')}".strip()
             nac = int((a.get('birthdate') or '0')[:4] or 0) or None
             rfen = nuestros.get((norm(nombre), nac)) if es_nuestro else None
             if es_nuestro and not rfen:
                 rfen = '?'        # del club pero no emparejado con la web
+            atletas[a.get('athleteid')] = (nombre, nac, rfen)
             for res in a.iter('RESULT'):
                 fila(res, nombre, nombre_club, nac, a.get('license'), rfen)
             for en in a.iter('ENTRY'):      # inscripciones (lista de salida antes de nadar)
@@ -178,12 +195,12 @@ def leer_lenex(datos, nuestros):
                     fila(en, nombre, nombre_club, nac, a.get('license'), rfen)
         for rl in club.iter('RELAY'):
             for res in rl.iter('RESULT'):
-                fila(res, f"{nombre_club} (relevo)", nombre_club, None, None, 'club' if es_nuestro else None)
+                fila(res, f"{nombre_club} (relevo)", nombre_club, None, None, 'club' if es_nuestro else None, atletas)
 
     pruebas = []
     for ev in sorted(eventos.values(), key=lambda e: (e['fecha'] or '', e['num'])):
         filas = sorted(ev.pop('filas'), key=lambda f: (f['serie'], f['calle']))
-        ev.pop('_heats'); ev.pop('_cats')
+        ev.pop('_heats'); ev.pop('_cats'); ev.pop('_dist')
         if not filas:
             continue
         ev['filas'] = filas
@@ -292,6 +309,10 @@ def leer_series_pdf(docs, nuestros):
 RE_RES = re.compile(r'^(\d+)\. ([^,]+), (.+?) (\d{2}) (.+?) ' + RE_TIEMPO + r'(?: [\d.,]+)?(?: .*)?$')
 RE_RES_EQ = re.compile(r'^(\d+)\. (.+?) ' + RE_TIEMPO + r'(?: [\d.,]+)?(?: .*)?$')
 RE_SIN = re.compile(r'^(?:\d+\.\s*)?([^,\d][^,]*), (.+?) (\d{2}) (.+?) (DSQ|DNS|DNF|BAJA|Baja|NP|Desc\w*|Desca\w*)\b', re.I)
+# Relevistas, dos por línea bajo su equipo, con el parcial de 50 m (si la posta es más larga) y el tiempo de su posta:
+#   «DIAZ GUERRA, Javier 10 31.02 1:05.01 RAMIREZ PORRAS, Carlos 09 28.81 1:03.16» (a veces el año va pegado: «Samuel10»).
+# SPLASH los pone por columnas: la 1.ª línea trae las postas 1 y 3; la 2.ª, la 2 y la 4.
+RE_RELEVISTA = re.compile(r'([^,\d]+?), ([^,\d]+?) ?(\d{2})((?: (?:\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2}))+)')
 RE_PARC = re.compile(r'(\d+)m: ' + RE_TIEMPO)
 ESTADO_TXT = {'dsq': 'DSQ', 'dns': 'DNS', 'dnf': 'DNF', 'baja': 'SICK', 'np': 'DNS'}
 
@@ -329,10 +350,21 @@ def leer_resultados_texto(texto, grupo, nuestros):
         m = RE_RES_EQ.match(linea) if relevo else None
         if m:
             club = m.group(2).strip()
+            dup = re.match(r'^(.+?) \d+ \1$', club)      # «C.N. Axarquia 14 C.N. Axarquia» → «C.N. Axarquia»
+            club = dup.group(1) if dup else club
             ultima = {'serie': 0, 'calle': 0, 'n': f'{club} (relevo)', 'club': club, 'nac': None, 't': cs_texto(m.group(3)), 'ins': None,
                       'puesto': int(m.group(1)), 'cat': '', 'estado': '', 'rfen': 'club' if CLUB in club.upper() else None, 'parc': None}
             actual['filas'].append(ultima)
             continue
+        if relevo and ultima is not None and len(ultima.get('rel') or []) < 4:      # relevistas del último equipo
+            nadadores = RE_RELEVISTA.findall(linea)
+            if nadadores:
+                es_nuestro = CLUB in ultima['club'].upper()
+                for ap, nom, yy, tiempos in nadadores:
+                    nombre, nac = f'{nom.strip()} {ap.strip().title()}', 2000 + int(yy) if int(yy) < 50 else 1900 + int(yy)
+                    ultima.setdefault('rel', []).append({'n': nombre, 'nac': nac, 'rfen': (nuestros.get((norm(nombre), nac)) or '?') if es_nuestro else None,
+                                                         't': cs_texto(tiempos.split()[-1])})
+                continue
         m = RE_SIN.match(linea)
         if m:
             nombre, nac, club = f'{m.group(2).strip()} {m.group(1).strip().title()}', 2000 + int(m.group(3)) if int(m.group(3)) < 50 else 1900 + int(m.group(3)), m.group(4).strip()
@@ -343,6 +375,9 @@ def leer_resultados_texto(texto, grupo, nuestros):
             actual['filas'].append(ultima)
     for p in pruebas.values():
         p['nadadas'] = sum(1 for f in p['filas'] if f['t'] or f['estado'])
+        for f in p['filas']:
+            if len(f.get('rel') or []) == 4:        # por columnas → orden de nado
+                f['rel'] = [f['rel'][i] for i in (0, 2, 1, 3)]
     return [p for p in pruebas.values() if p['filas']]
 
 

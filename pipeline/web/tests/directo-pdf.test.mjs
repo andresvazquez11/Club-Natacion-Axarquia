@@ -29,6 +29,18 @@ test('dirLeerResultadosTexto: descalificados y relevos', () => {
   assert.deepEqual([r.nombre, r.sexo, r.filas[0].n, r.filas[0].t, r.filas[0].rfen], ['4x50 Libre', 'X', 'C.N. Axarquia (relevo)', 14050, 'club']);
 });
 
+test('dirLeerResultadosTexto: relevistas en orden de nado con su posta (igual que en Python)', () => {
+  const REL = fs.readFileSync(path.join(AQUI, '..', '..', 'tests', 'datos', 'fan_resultlist_relevo.txt'), 'utf8');
+  const [est, lib] = leer(REL, 'M');
+  const ax = est.filas[0];
+  assert.deepEqual([ax.n, ax.t, ax.puesto], ['C.N. Axarquia (relevo)', 24712, 4]);
+  assert.deepEqual(ax.rel.map(r => [r.n, r.nac, r.t, r.rfen]), [['Javier Diaz Guerra', 2010, 6501, '?'], ['Luis Anaya Carrion', 2010, 6281, '?'],
+    ['Carlos Ramirez Porras', 2009, 6316, '?'], ['Miguel Angel Chica Mata', 2009, 5614, '?']]);
+  assert.ok(est.filas[1].rel.every(r => r.rfen === null));      // de otro club
+  assert.deepEqual(lib.filas[0].rel.map(r => [r.n, r.nac, r.t]), [['Adrian Fikry Reina', 2006, 2497], ['Marcos Honorato Lopez', 2006, 2295],
+    ['Francisco Sanjorge Nodar', 1996, 2471], ['Samuel Maldonado Alcantara', 2010, 2449]]);
+});
+
 test('dirIndice: lugar y pruebas con resultados de la página de la competición', () => {
   ctx.__h = '<style>a{}</style>TORRE DEL MAR (ESP) 24/10/2026 <a href="StartList_16.pdf">x</a><a href="ResultList_17.pdf">r</a><a href="ResultList_16.pdf">r</a><a href="ResultList_16.pdf">r</a>';
   assert.deepEqual(JSON.parse(evalIn(ctx, 'JSON.stringify(dirIndice(__h))')), ['Torre Del Mar', [16, 17]]);

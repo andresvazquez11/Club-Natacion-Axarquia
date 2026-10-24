@@ -62,6 +62,9 @@ class TestDirecto(unittest.TestCase):
 
     def test_tiempos(self):
         self.assertEqual(F.cs_de('00:01:05.32'), 6532)
+        self.assertEqual(F.cs_de('00:00:31.02'), 3102)       # «.02» son 2 centésimas
+        self.assertEqual(F.postas({50: 2635, 100: 5188, 150: 7675}, 10160, 50), [2635, 2553, 2487, 2485])
+        self.assertEqual(F.postas({50: 2635}, 10160, 50), [2635, None, None, None])
         self.assertIsNone(F.cs_de('00:00:00.00'))
         self.assertIsNone(F.cs_de(''))
 
@@ -76,6 +79,31 @@ class TestDirecto(unittest.TestCase):
         self.assertEqual(p['filas'][0]['rfen'], '?')     # del club pero sin emparejar con la web
         self.assertIsNone(p['filas'][2]['rfen'])        # de otro club
         self.assertIsNone(p['filas'][0]['t'])           # aún sin nadar
+
+    def test_lenex_relevistas(self):
+        xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+<LENEX version="3.0"><MEETS><MEET name="Clubes" city="MALAGA" course="SCM">
+<SESSIONS><SESSION date="2026-10-18" number="1"><EVENTS>
+<EVENT eventid="20" number="17" gender="M" daytime="13:36"><SWIMSTYLE distance="50" stroke="FREE" relaycount="4"/></EVENT>
+</EVENTS></SESSION></SESSIONS>
+<CLUBS><CLUB name="C.N. Axarquia"><ATHLETES>
+<ATHLETE athleteid="1" firstname="Miguel Angel" lastname="Chica Mata" birthdate="2009-01-01"/>
+<ATHLETE athleteid="2" firstname="Carlos" lastname="Ramirez Porras" birthdate="2009-01-01"/>
+<ATHLETE athleteid="3" firstname="Luis" lastname="Anaya Carrion" birthdate="2010-01-01"/>
+<ATHLETE athleteid="4" firstname="Ivan" lastname="Barranquero Barba" birthdate="2009-01-01"/>
+</ATHLETES><RELAYS><RELAY gender="M" number="1"><RESULTS>
+<RESULT eventid="20" resultid="9" lane="6" swimtime="00:01:41.60"><SPLITS>
+<SPLIT distance="50" swimtime="00:00:26.35"/><SPLIT distance="100" swimtime="00:00:51.88"/><SPLIT distance="150" swimtime="00:01:16.75"/></SPLITS>
+<RELAYPOSITIONS><RELAYPOSITION athleteid="4" number="4"/><RELAYPOSITION athleteid="1" number="1"/>
+<RELAYPOSITION athleteid="2" number="2"/><RELAYPOSITION athleteid="3" number="3"/></RELAYPOSITIONS>
+</RESULT></RESULTS></RELAY></RELAYS></CLUB></CLUBS></MEET></MEETS></LENEX>"""
+        L = F.leer_lenex(zip_de(xml), {('carlos ramirez porras', 2009): '111'})
+        f = L['pruebas'][0]['filas'][0]
+        self.assertEqual((L['pruebas'][0]['nombre'], f['n'], f['t'], f['rfen']), ('4x50 Libre', 'C.N. Axarquia (relevo)', 10160, 'club'))
+        self.assertEqual([(r['n'], r['nac'], r['rfen'], r['t']) for r in f['rel']],
+                         [('Miguel Angel Chica Mata', 2009, '?', 2635), ('Carlos Ramirez Porras', 2009, '111', 2553),
+                          ('Luis Anaya Carrion', 2010, '?', 2487), ('Ivan Barranquero Barba', 2009, '?', 2485)])
+        self.assertNotIn('_dist', L['pruebas'][0])
 
     def test_lenex_con_entidades_se_rechaza(self):
         with self.assertRaises(ValueError):
