@@ -9,7 +9,10 @@
      Así la web enlaza la competición en cuanto la federación la publica, sin esperar al proceso de GitHub.
    Además, con horario propio (wrangler.toml → [triggers]), lanza el proceso «Directo FAN» de GitHub: el horario de
    GitHub se salta muchas ejecuciones y en plena competición los resultados no llegaban. Necesita el secreto GH_TOKEN
-   (token de GitHub con permiso «Actions: read and write» solo en este repositorio): npx wrangler secret put GH_TOKEN */
+   (token de GitHub con permiso «Actions: read and write» solo en este repositorio): npx wrangler secret put GH_TOKEN
+   - ?actualizar → actualización manual de la web con los datos de la RFEN (proceso «Actualizar informe temporada»),
+     desde el botón discreto de la web («Actualizado …»). Pide la clave en la cabecera X-Clave (secreto ACTUALIZAR_CLAVE:
+     npx wrangler secret put ACTUALIZAR_CLAVE). GET = estado de la última actualización; POST = lanzarla (si no hay otra en marcha). */
 
 const ORIGEN_FAN = 'https://fanatacion.es';
 const ORIGEN_EVENTOS = 'https://www.fan.es';
@@ -45,6 +48,19 @@ function webDe(html) {
 
 const REPO = 'andresvazquez11/Club-Natacion-Axarquia';
 const PROCESO = 'directo-fan.yml';
+const ACTUALIZAR = 'actualizar-temporada.yml';
+const github = (env, ruta, opt = {}) => fetch(`https://api.github.com/repos/${REPO}${ruta}`, Object.assign({}, opt, {
+  headers: {'Authorization': `Bearer ${env.GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'User-Agent': 'cna-directo',
+            'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'}}));
+// comparación de la clave sin atajos (no deja adivinarla por lo que tarda en responder)
+const mismaClave = (a, b) => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
+// la última actualización: {estado: 'queued'|'in_progress'|'completed', resultado: 'success'|'failure'|…, inicio, fin, url}
+async function ultimaActualizacion(env) {
+  const r = await github(env, `/actions/workflows/${ACTUALIZAR}/runs?per_page=1`);
+  if (!r.ok) return null;
+  const x = ((await r.json()).workflow_runs || [])[0];
+  return x ? {estado: x.status, resultado: x.conclusion, inicio: x.run_started_at || x.created_at, fin: x.updated_at, url: x.html_url, manual: x.event === 'workflow_dispatch'} : null;
+}
 
 export default {
   // Horario de Cloudflare: pide a GitHub que ejecute ya el proceso del directo (lee la FAN y publica directo.json)
@@ -62,9 +78,26 @@ export default {
   async fetch(req, env, ctx) {
     const origen = req.headers.get('Origin') || '';
     const cors = {'Access-Control-Allow-Origin': WEBS_CLUB.includes(origen) ? origen : WEBS_CLUB[0], 'Vary': 'Origin'};
-    if (req.method === 'OPTIONS') return new Response(null, {headers: {...cors, 'Access-Control-Allow-Methods': 'GET'}});
-    if (req.method !== 'GET') return new Response('Método no permitido', {status: 405, headers: cors});
+    if (req.method === 'OPTIONS') return new Response(null, {headers: {...cors, 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'X-Clave'}});
     const q = new URL(req.url).searchParams;
+
+    if (q.has('actualizar')) {
+      const json = (o, status = 200) => new Response(JSON.stringify(o), {status, headers: {...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store'}});
+      if (!env.GH_TOKEN || !env.ACTUALIZAR_CLAVE) return json({error: 'La actualización manual no está configurada.'}, 503);
+      if (!WEBS_CLUB.includes(origen)) return json({error: 'Solo desde la web del club.'}, 403);
+      if (!mismaClave(req.headers.get('X-Clave') || '', env.ACTUALIZAR_CLAVE)) {
+        await new Promise(ok => setTimeout(ok, 800));   // frena a quien pruebe claves
+        return json({error: 'Clave incorrecta.'}, 401);
+      }
+      const u = await ultimaActualizacion(env);
+      if (req.method === 'GET') return json({ultima: u});
+      if (req.method !== 'POST') return json({error: 'Método no permitido.'}, 405);
+      if (u && u.estado !== 'completed') return json({error: 'Ya hay una actualización en marcha.', ultima: u}, 409);
+      const r = await github(env, `/actions/workflows/${ACTUALIZAR}/dispatches`, {method: 'POST', body: JSON.stringify({ref: 'main'})});
+      if (!r.ok) return json({error: `GitHub no aceptó la orden (${r.status}).`}, 502);
+      return json({ok: true}, 202);
+    }
+    if (req.method !== 'GET') return new Response('Método no permitido', {status: 405, headers: cors});
 
     const evento = q.get('evento');
     if (evento !== null) {

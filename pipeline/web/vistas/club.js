@@ -348,7 +348,7 @@ function clubInicio(app) {
 
   app.innerHTML = `
     <div class="portada" style="--foto:url(img/club.jpg)">
-      <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · actualizado ${DATA.fecha}</p></div></div>
+      <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · ${actBtn(`actualizado ${DATA.fecha}`)}</p></div></div>
     </div>
     <div class="accesos dos">${accesos}</div>
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
