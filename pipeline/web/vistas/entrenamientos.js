@@ -275,8 +275,7 @@ function entGraficoRango(CR, colorDe) {
     const u = [...CR.slots].reverse().find(s => l.t[s.k]);
     if (pocos && u) puntos += `<text x="${X(CR.slots.indexOf(u)) + 8}" y="${Y(l.t[u.k].cs) + 4}" class="ent-etq">${fmt(l.t[u.k].cs)}</text>`;
   });
-  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}${puntos}</svg>
-    ${entLeyenda(CR.lineas.map(l => [colorDe(l.nId), l.n]))}</div>`;
+  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}${puntos}</svg></div>`;
 }
 
 /* ── Piezas comunes de las gráficas ──
@@ -458,16 +457,18 @@ function entRelevosHTML(sesId) {
 /* ── Selector de nadadores con casillas ──
    Marcar o desmarcar no redibuja la página (la lista no vuelve al principio). Con «Todos» marcado,
    desmarcar uno deja a todos menos ese. onCambio(Set de nIds) redibuja solo la gráfica y su tabla. */
+/* Selector de nadadores siempre a la vista: un botón por nadador con su color (hace también de leyenda de la gráfica) */
 function entSelNadHTML(id, lista, sel) {
   const txt = k => k === lista.length ? 'todos' : `${k} de ${lista.length}`;
-  return `<details class="ent-pick" id="${id}"><summary>Nadadores: <b data-cuenta>${txt(lista.filter(x => sel.has(x.nId)).length)}</b> <span class="muted">· toca para elegir</span></summary>
-    <div class="ent-pick-acc"><button type="button" class="chip" data-todos>Todos</button><button type="button" class="chip" data-ninguno>Ninguno</button></div>
-    <div class="ent-pick-list">${lista.map(x => `<label><input type="checkbox" value="${esc(x.nId)}"${sel.has(x.nId) ? ' checked' : ''}><i class="ent-pt" style="background:${x.color}"></i>${esc(x.n)}</label>`).join('')}</div></details>`;
+  return `<div class="ent-pick" id="${id}"><div class="ent-pick-cab"><span>Nadadores: <b data-cuenta>${txt(lista.filter(x => sel.has(x.nId)).length)}</b> <span class="muted">· toca para quitar o poner</span></span>
+    <button type="button" class="chip" data-todos>Todos</button><button type="button" class="chip" data-ninguno>Ninguno</button></div>
+    <div class="ent-pick-list">${lista.map(x => `<label class="${sel.has(x.nId) ? 'on' : ''}"><input type="checkbox" value="${esc(x.nId)}"${sel.has(x.nId) ? ' checked' : ''}><i class="ent-pt" style="background:${x.color}"></i>${esc(x.n)}</label>`).join('')}</div></div>`;
 }
 function entSelNadBind(root, id, onCambio) {
   const d = root.querySelector('#' + id); if (!d) return;
   const ins = () => [...d.querySelectorAll('.ent-pick-list input')];
   const avisar = () => { const k = ins().filter(i => i.checked).length;
+    ins().forEach(i => i.parentElement.classList.toggle('on', i.checked));
     d.querySelector('[data-cuenta]').textContent = k === ins().length ? 'todos' : `${k} de ${ins().length}`;
     onCambio(new Set(ins().filter(i => i.checked).map(i => i.value))); };
   d.querySelector('.ent-pick-list').addEventListener('change', avisar);
@@ -498,8 +499,8 @@ function entRefDeSeries(tabla, rondas) {
   return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || null;
 }
 function entMontarGraficaDia(host, G) {
-  const out = host.querySelector('#ent-graf-dia'); if (!out) return;
-  const outR = host.querySelector('#ent-ritmo');
+  const out = host.querySelector('#ent-graf-dia'), outR = host.querySelector('#ent-ritmo');   // (la gráfica de series está en «Comparar series»)
+  if (!out && !outR) return;
   let rondas = [...G.gs], sel = new Set(G.gf.length ? G.gf : G.tabla.filas.map(x => x.nId)), ref = G.gr || '', tol = G.gt || 0;
   const pintarRitmo = () => {
     if (!outR) return;
@@ -519,7 +520,7 @@ function entMontarGraficaDia(host, G) {
     onChips(outR, 'gr', v => { ref = v === creada ? '' : v; entRecordar({gr: ref}); pintarRitmo(); });
   };
   const pintar = () => {
-    out.innerHTML = !sel.size ? '<p class="empty">Elige al menos un nadador.</p>'
+    if (out) out.innerHTML = !sel.size ? '<p class="empty">Elige al menos un nadador.</p>'
       : entGraficoSeries(G.tabla, rondas, [...sel]) + entTablaSeries(G.tabla, rondas, sel, G.serieTxt, G.fichaA);
     const todos = sel.size === G.tabla.filas.length;
     entRecordar({gs: rondas.length ? rondas.join(',') : '-', gf: todos || !sel.size ? '' : [...sel].join(',')});
@@ -664,11 +665,18 @@ function entMontarComparar(host, C) {
           <td class="num">${L.length}</td><td class="num"><b>${fmt(Math.min(...L.map(t => t.cs)))}</b></td><td class="num">${fmt(media)}</td>
           <td class="num">${fmt(primera.cs)} → ${fmt(ultima.cs)} ${L.length > 1 ? entDif((ultima.cs - primera.cs) / 100) : ''}</td><td class="num">${c ? fmt(c.cs) : '—'}</td></tr>`; }).join('')}</table></div>
       <p class="tiny muted">Todas las series de ${esc(C.cev)} entre el ${dfmt(cd)} y el ${dfmt(ch)}, en orden. Las de simulación de competición, en dorado.</p>` : '');
-    entRecordar({cev: C.cev, cn: sel.size ? [...sel].join(',') : '', cd: cd === C.min ? '' : cd, ch: ch === C.max ? '' : ch});
+    entRecordar({cev: C.cev, cn: sel.size === C.nads.length ? '' : [...sel].join(',') || '-', cd: cd === C.dia ? '' : cd, ch: ch === C.dia ? '' : ch});
   };
   entSelNadBind(host, 'ent-cn', s2 => { sel = s2; pintar(); });
-  ['cd', 'ch'].forEach(k => { const el = host.querySelector('#ent-' + k); if (el) el.onchange = () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(el.value)) return; if (k === 'cd') cd = el.value; else ch = el.value; pintar(); }; });
+  const inD = host.querySelector('#ent-cd'), inH = host.querySelector('#ent-ch'), per = host.querySelector('[data-cper]');
+  // atajos de periodo: el entreno del día, la última semana o el último mes (hasta el último día con tiempos) o todo
+  const hace = n => { const d = new Date(Date.parse(C.max) - (n - 1) * 864e5).toISOString().slice(0, 10); return d < C.min ? C.min : d; };
+  const PER = {dia: () => [C.dia, C.dia], 7: () => [hace(7), C.max], 30: () => [hace(30), C.max], todo: () => [C.min, C.max]};
+  const marcarPer = () => { if (per) per.querySelectorAll('.chip').forEach(b => { const [a, z] = PER[b.dataset.v](); b.classList.toggle('on', a === cd && z === ch); }); };
+  if (per) per.querySelectorAll('.chip').forEach(b => b.onclick = () => { [cd, ch] = PER[b.dataset.v](); if (inD) inD.value = cd; if (inH) inH.value = ch; marcarPer(); pintar(); });
+  [[inD, 'cd'], [inH, 'ch']].forEach(([el, k]) => { if (el) el.onchange = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(el.value)) return; if (k === 'cd') cd = el.value; else ch = el.value; marcarPer(); pintar(); }; });
+  marcarPer();
   pintar();
 }
 
@@ -855,13 +863,10 @@ function pintarEntrenamientos(host, f) {
           return t ? `<td class="num${c}">${t.cs === mejorDe[s.ronda] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}</tr>`).join('')}</table></div>
       <p class="tiny muted" style="margin-top:4px">En verde, el más rápido de cada serie. Pulsa un nombre para abrir su ficha.</p>
       ${entRelevosHTML(sesSel.sesId)}
-      <div class="h h-sub">${ico('tendencia')}Gráfica del entreno</div>
-      <div class="ent-sel">Series a comparar (por ejemplo 1, 2 y 3) para ver cómo progresa cada nadador</div>
-      <div class="ent-pick-series" id="ent-gs">${tabla.series.map(s => `<label class="chip${gs.includes(s.ronda) ? ' on' : ''}${s.comp ? ' ent-chip-comp' : ''}"><input type="checkbox" value="${s.ronda}"${gs.includes(s.ronda) ? ' checked' : ''}>${serieTxt(s)}</label>`).join('')}</div>
-      ${entSelNadHTML('ent-gf', tabla.filas.map(x => ({nId: x.nId, n: x.n, color: entColorNad(tabla, x.nId)})), new Set(gf.length ? gf : tabla.filas.map(x => x.nId)))}
-      <div id="ent-graf-dia"></div>
+      <p class="tiny" style="margin-top:4px"><button type="button" class="ent-x-link" data-ir-comparar>Ver la gráfica de cada nadador serie a serie ›</button></p>
       <div class="h h-sub">${ico('tendencia')}Ritmo: ¿quién va a su ritmo?</div>
-      <div class="ent-sel">Cada nadador frente a su propio ritmo de 200 o de 400 (de su mejor marca) en las series elegidas arriba. Se marca el que se eligió al crear la serie; puedes cambiarlo.</div>
+      <div class="ent-sel">Cada nadador frente a su propio ritmo de 200 o de 400 (de su mejor marca) en las series elegidas. Se marca el que se eligió al crear la serie; puedes cambiarlo.</div>
+      <div class="ent-pick-series" id="ent-gs">${tabla.series.map(s => `<label class="chip${gs.includes(s.ronda) ? ' on' : ''}${s.comp ? ' ent-chip-comp' : ''}"><input type="checkbox" value="${s.ronda}"${gs.includes(s.ronda) ? ' checked' : ''}>${serieTxt(s)}</label>`).join('')}</div>
       <div id="ent-ritmo"></div>
       ${entDatosParciales(tabla).length ? `<div class="h h-sub">${ico('crono')}Parciales: cómo reparte cada serie</div>
       <div class="ent-sel">Los parciales de cada 50 de un nadador en una serie: dónde gana y dónde pierde tiempo, frente al grupo y frente a sus otras series.</div>
@@ -909,17 +914,20 @@ function pintarEntrenamientos(host, f) {
           (${entPct((ultimo.mediana - primero.mediana) / primero.mediana * 100)}). Diferencia entre el más rápido y el más lento: ${fmt(primero.max - primero.min)} → ${fmt(ultimo.max - ultimo.min)}.</p>` : ''}` : ''}
     </div>`;
 
-  // Comparar nadadores en una prueba: rango de fechas y TODAS las series del rango (no solo el mejor de cada día)
-  const cev = R.pruebas.some(x => x.ev === f.cev) ? f.cev : (R.pruebas[0] || {}).ev;
+  // Comparar series: una prueba, un periodo (por defecto el entreno que se está viendo) y TODAS las series del periodo
+  const evDia = (() => { const c = {}; TD.forEach(t => { if (t.ev) c[t.ev] = (c[t.ev] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a])[0]; })();
+  const cev = R.pruebas.some(x => x.ev === f.cev) ? f.cev : R.pruebas.some(x => x.ev === evDia) ? evDia : (R.pruebas[0] || {}).ev;
   const prC = R.pruebas.find(x => x.ev === cev);
   const diasEv = prC ? [...new Set(F.filter(t => t.ev === cev).map(t => t.dia))].sort() : [];
-  const cd = f.cd || diasEv[0] || '', ch = f.ch || diasEv[diasEv.length - 1] || '';
+  const diaC = diasEv.includes(diaVer) ? diaVer : diasEv[diasEv.length - 1] || '';
+  const cd = f.cd || diaC, ch = f.ch || diaC;
   const elegidos = prC ? (f.cn ? f.cn.split(',') : prC.nads.map(m => m.nId)).filter(id => prC.nads.some(m => m.nId === id)) : [];   // por defecto, todo el grupo
   const colorDe = id => entColorIdx(Math.max(0, prC ? prC.nads.findIndex(m => m.nId === id) : 0));
-  const comparaDatos = prC ? {F, cev, nads: prC.nads.map(m => ({nId: m.nId, n: m.n, rfen: m.rfen, color: colorDe(m.nId)})), elegidos, cd, ch, min: diasEv[0] || '', max: diasEv[diasEv.length - 1] || ''} : null;
+  const comparaDatos = prC ? {F, cev, nads: prC.nads.map(m => ({nId: m.nId, n: m.n, rfen: m.rfen, color: colorDe(m.nId)})), elegidos, cd, ch, dia: diaC, min: diasEv[0] || '', max: diasEv[diasEv.length - 1] || ''} : null;
   const comparar = prC ? `
-    <div class="card" id="ent-comparar"><div class="h">${ico('balanza')}Comparar nadadores</div>
+    <div class="card" id="ent-comparar"><div class="h">${ico('balanza')}Comparar series <span class="h-n">· cada línea es un nadador; cada punto, una serie</span></div>
       ${chipsHTML('cev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.nads.length]), cev)}
+      <div class="chips sub" data-cper>${[['dia', diaC ? `Entreno del ${dfmt(diaC).slice(0, 5)}` : 'Último entreno'], ['7', 'Última semana'], ['30', 'Último mes'], ['todo', 'Todo']].map(([v, t]) => `<button class="chip" data-v="${v}">${t}</button>`).join('')}</div>
       <div class="ent-rango"><label>Desde <input type="date" id="ent-cd" value="${cd}" min="${comparaDatos.min}" max="${comparaDatos.max}"></label>
         <label>Hasta <input type="date" id="ent-ch" value="${ch}" min="${comparaDatos.min}" max="${comparaDatos.max}"></label></div>
       ${entSelNadHTML('ent-cn', comparaDatos.nads, new Set(elegidos))}
@@ -937,8 +945,8 @@ function pintarEntrenamientos(host, f) {
       <div class="kpi"><b>${R.pruebas.length}</b><span>pruebas distintas</span></div>
     </div>
     ${diaHTML}
-    ${grupo}
     ${comparar}
+    ${grupo}
     <div class="card"><div class="h">${ico('crono')}Entrenamientos <span class="h-n">(${R.entrenamientos.length})</span></div>${ents}</div>
     <div class="h h-sub" style="margin-top:16px">${ico('medalla')}Mejores tiempos por prueba</div>
     ${pruebas || '<div class="vacio">Sin pruebas con estilo y distancia.</div>'}
@@ -949,10 +957,12 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'dias', v => go({dias: v}));
   onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: ''}));
   onChips(host, 'gev', v => go({gev: v}));
-  onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: '', pr: ''}));
+  onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: '', pr: '', cev: '', cd: '', ch: ''}));
   onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}));
   if (graficaDia) { entMontarGraficaDia(host, graficaDia); entMontarParciales(host, graficaDia.tabla, f); }
   if (comparaDatos) entMontarComparar(host, comparaDatos);
+  const irC = host.querySelector('[data-ir-comparar]'), cC = host.querySelector('#ent-comparar');
+  if (irC && cC) irC.onclick = () => irAElemento(cC);
   host.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
   host.querySelector('#ent-salir').onclick = async e => { e.preventDefault(); await entSalir(); entPreparar(host, () => pintarEntrenamientos(host, f)); };
   host.querySelector('#ent-act').onclick = async e => { e.preventDefault(); await entCargar(true); pintarEntrenamientos(host, f); };

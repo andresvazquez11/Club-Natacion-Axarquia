@@ -710,8 +710,10 @@ function abrirUltimaComp(c) {
       const sig = tr.nextElementSibling; if (sig && sig.classList.contains('ult-det')) { sig.remove(); return; }
       const x = todas[Number(tr.dataset.cr)], dist = dirDist(x.p.nombre), r = gParcCarrera(dirAcu(x.f), dist), gr = x.ganador && gParcCarrera(dirAcu(x.ganador), dist);
       const ref = gr && gr.sp.length === r.sp.length ? gr.sp : null;
-      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6">${gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
-        ref, refNom: ref ? `Ganador de la serie (${String(x.ganador.n).split(' ')[0]}, ${fmt(x.ganador.t)})` : '', aria: `Parciales de ${x.nom} en ${x.p.nombre}`})}</td></tr>`);
+      // la tabla se desplaza en horizontal en el móvil: la gráfica, del ancho de lo que se ve y quieta al desplazarla
+      const ancho = (tr.closest('.tw') || box).clientWidth;
+      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6"><div style="position:sticky;left:0;width:${ancho}px">${gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
+        ref, refNom: ref ? `Ganador de la serie (${String(x.ganador.n).split(' ')[0]}, ${fmt(x.ganador.t)})` : '', aria: `Parciales de ${x.nom} en ${x.p.nombre}`})}</div></td></tr>`);
     });
     abrirModal();
   });
