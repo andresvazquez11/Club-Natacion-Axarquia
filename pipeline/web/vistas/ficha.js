@@ -207,7 +207,31 @@ function tabPruebas(s, sk, p) {
           <div class="pr-acc"><a class="chip" href="#comparar?ids=${s.id}&ev=${encodeURIComponent(e.e)}">${ico('balanza')}Comparar esta prueba</a>
             <a class="chip" href="${fichaHref(s, 'ranking')}?rev=${encodeURIComponent(e.e)}">${ico('barras')}Rivales y ranking</a>
             <a class="chip" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}">${ico('tendencia')}Por temporadas</a></div>
+          <div data-parc-host></div>
           ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>${p.ev && piscDestino() ? '' : notaConv()}${perfilActividadHTML(s)}`;
+}
+
+/* Parciales de sus carreras de competición en una prueba (parciales.json, desde la 26-27): cada tramo frente a la carrera
+   anterior y a su mejor carrera, y todas superpuestas. Solo las de la piscina de su última carrera (25 y 50 m no se mezclan). */
+function pintarParcFicha(app, s, ev) {
+  const host = app.querySelector('[data-parc-host]'); if (!host) return;
+  cargarParciales().then(P => {
+    if (!host.isConnected) return;
+    const dist = parseInt(ev, 10);
+    let C = ((P.n || {})[String(s.id)] || []).filter(x => x[2] === ev).map(x => {
+      const c = (P.c || {})[String(x[0])] || [], r = gParcCarrera(x[5], dist), gr = x[9] && gParcCarrera(x[9][1], dist);
+      return r && {nom: `${dfmt(x[1])} · ${c[0] || 'Competición'}`, corto: `${x[1].slice(8)}/${x[1].slice(5, 7)}`, sp: r.sp, paso: r.paso, t: x[4], pool: c[3],
+        kpis: [x[8] ? ['Frente a su inscripción', gDif(x[4] - x[8]), `inscrito con ${fmt(x[8])}`, x[4] <= x[8] ? 'good' : 'bad'] : null,
+          x[6] ? ['Puesto', `${x[6]}º`, x[7] ? `serie ${x[7]}` : ''] : null],
+        alt: gr && gr.sp.length === r.sp.length ? {nom: `Ganador de su serie (${x[9][0]}, ${fmt(x[9][1][x[9][1].length - 1])})`, sp: gr.sp} : null};
+    }).filter(Boolean);
+    if (C.length) C = C.filter(x => x.pool === C[C.length - 1].pool);
+    if (!C.length) return;
+    host.className = 'card'; host.style.margin = '0 0 12px';
+    host.innerHTML = `<h3>${ico('crono')}Parciales de sus carreras <span class="muted small">· piscina de ${esc(C[0].pool || '')} · ${C.length} carrera${C.length > 1 ? 's' : ''}</span></h3>
+      <div data-parc-panel></div><p class="tiny muted" style="margin-top:6px">Parciales publicados por la Federación Andaluza en sus competiciones (se guardan desde la temporada 26-27).</p>`;
+    gParcPanel(host.querySelector('[data-parc-panel]'), C);
+  });
 }
 
 /* Ranking: dónde está hoy (rivales por delante y por detrás) y, debajo, su puesto semana a semana */
@@ -551,6 +575,7 @@ function vistaSub(app, s, sub, p) {
   onChips(app, 'rev', v => keep({rev: v}));
   app.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => keep({ev: p.ev === b.dataset.pr ? '' : b.dataset.pr}));
   if (sub === 'entrenos') pintarEntrenosNadador(app, s, p);
+  if (sub === 'marcas' && p.ev) pintarParcFicha(app, s, p.ev);
   if (s.ev.length) {
     if (sub === 'evolucion') { pintarHistorial(s, 'historial', p, keep); pintarAnalisis(s); }
     if (sub === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);

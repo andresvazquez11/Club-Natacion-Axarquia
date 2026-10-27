@@ -22,7 +22,9 @@ function cmpMarca(x, y, i, r = 5) {   // forma distinta para cada nadador
   return `<polygon points="${x},${y - r - 1} ${x + r + 1},${y} ${x},${y + r + 1} ${x - r - 1},${y}"/>`;
 }
 
-/* Gráfico de varias líneas: xs = etiquetas del eje; series = [{nm, i, v: [cs|null por x]}]. Tiempo alto arriba, mejor abajo. */
+/* Gráfico de varias líneas: xs = etiquetas del eje; series = [{nm, i, v: [cs|null por x]}]. Tiempo alto arriba, mejor abajo.
+   Al pasar el dedo por una columna sale lo de todos en ese punto (y cuánto saca el más rápido); cada nadador tiene su
+   interruptor para quitar o poner su línea. Solo se escribe el último tiempo de cada uno, con su nombre. */
 function cmpChart(xs, series) {
   const movil = window.innerWidth < 600;
   const W = movil ? 400 : 860, H = movil ? 280 : 300, P = {l: 52, r: movil ? 122 : 180, t: 18, b: 36};
@@ -35,29 +37,32 @@ function cmpChart(xs, series) {
   for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.12)"/><text x="${P.l - 6}" y="${y + 4}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="end">${fmt(Math.round(c))}</text>`; }
   xs.forEach((x, i) => { g += `<text x="${X(i)}" y="${H - P.b + 18}" fill="rgba(202,240,248,.9)" font-size="11" text-anchor="middle">${x}</text>`; });
-  const etiquetas = [], puntos = [];
+  // columnas: al pasar el dedo, todos los tiempos de ese punto ordenados y la diferencia con el más rápido
+  const ancho = xs.length > 1 ? (W - P.l - P.r) / (xs.length - 1) : W - P.l - P.r;
+  xs.forEach((x, i) => {
+    const L = series.filter(s => s.v[i]).sort((a, b) => a.v[i] - b.v[i]); if (!L.length) return;
+    const tip = [String(x), ...L.map((s, k) => `${corto(s.nm)}: ${fmt(s.v[i])}${k ? ` (+${secs(s.v[i] - L[0].v[i])} s)` : ''}`)].join('\n');
+    g += `<g class="ent-col-g g-cmp-col"${tipAttr(tip)}><rect x="${X(i) - ancho / 2}" y="${P.t}" width="${ancho}" height="${H - P.t - P.b}" class="ent-col-hit"/><line x1="${X(i)}" x2="${X(i)}" y1="${P.t}" y2="${H - P.b}" class="g-guia"/></g>`;
+  });
+  const etiquetas = [];
   series.forEach(s => {
     const pts = s.v.map((v, i) => v ? [X(i), Y(v), v, i] : null).filter(Boolean);
-    if (pts.length > 1) g += `<polyline fill="none" stroke="${CMP_COL[s.i]}" stroke-width="2.5" stroke-dasharray="${CMP_DASH[s.i]}" stroke-linejoin="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
-    pts.forEach(p => { g += `<g fill="${CMP_COL[s.i]}" stroke="#023e8a" stroke-width="1.5"><title>${esc(s.nm)} · ${xs[p[3]]} · ${fmt(p[2])}</title>${cmpMarca(p[0], p[1], s.i)}</g>`;
-      if (p !== pts[pts.length - 1]) puntos.push({x: p[0], y: p[1], i: s.i, txt: fmt(p[2]), col: p[3]}); });
+    let h = '';
+    if (pts.length > 1) h += `<polyline fill="none" stroke="${CMP_COL[s.i]}" stroke-width="2.5" stroke-dasharray="${CMP_DASH[s.i]}" stroke-linejoin="round" class="g-cmp-l" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
+    pts.forEach(p => { h += `<g fill="${CMP_COL[s.i]}" stroke="#023e8a" stroke-width="1.5" style="pointer-events:none">${cmpMarca(p[0], p[1], s.i)}</g>`; });
+    g += `<g class="g-capa-c${s.i}">${h}</g>`;
     const u = pts[pts.length - 1];
     if (u) etiquetas.push({x: u[0], y: u[1], i: s.i, txt: `${corto(s.nm)} ${fmt(u[2])}`});
   });
-  // tiempo en cada punto (salvo el último de cada nadador, que lleva nombre + tiempo): en cada columna
-  // se ordenan por altura y se separan para que no se pisen; van a la derecha del punto, en el color del nadador
-  const porCol = {};
-  puntos.forEach(q => (porCol[q.col] = porCol[q.col] || []).push(q));
-  Object.values(porCol).forEach(L => { L.sort((a, b) => a.y - b.y); L.forEach((q, k) => { q.ly = k ? Math.max(q.y, L[k - 1].ly + 13) : q.y; });
-    L.forEach(q => { g += `<text x="${q.x + 8}" y="${q.ly + 4}" fill="#fff" font-size="10.5" font-weight="700" stroke="#023e8a" stroke-width="3" paint-order="stroke">${q.txt}</text>`; }); });
   // nombres al final de cada línea sin que se monten (separación mínima de 15 px)
   etiquetas.sort((a, b) => a.y - b.y);
   etiquetas.forEach((e, k) => { e.ly = k ? Math.max(e.y, etiquetas[k - 1].ly + 15) : e.y; });
   etiquetas.forEach(e => {
-    if (Math.abs(e.ly - e.y) > 2) g += `<line x1="${e.x + 6}" y1="${e.y}" x2="${e.x + 12}" y2="${e.ly}" stroke="${CMP_COL[e.i]}" stroke-width="1"/>`;
-    g += `<g fill="${CMP_COL[e.i]}">${cmpMarca(e.x + 18, e.ly, e.i, 4)}</g><text x="${e.x + 26}" y="${e.ly + 4}" fill="#fff" font-size="11.5" font-weight="700">${e.txt}</text>`;
+    g += `<g class="g-capa-c${e.i}">${Math.abs(e.ly - e.y) > 2 ? `<line x1="${e.x + 6}" y1="${e.y}" x2="${e.x + 12}" y2="${e.ly}" stroke="${CMP_COL[e.i]}" stroke-width="1"/>` : ''}`
+      + `<g fill="${CMP_COL[e.i]}">${cmpMarca(e.x + 18, e.ly, e.i, 4)}</g><text x="${e.x + 26}" y="${e.ly + 4}" fill="#fff" font-size="11.5" font-weight="700">${e.txt}</text></g>`;
   });
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Comparación de marcas">${g}</svg>`;
+  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Comparación de marcas">${g}</svg>
+    ${series.length > 1 ? `<div class="ent-leyenda g-cmp-ley">${series.map(s => `<label class="ent-sw"><input type="checkbox" data-g-capa="c${s.i}" checked><i class="ent-pt" style="background:${CMP_COL[s.i]}"></i>${esc(corto(s.nm))}</label>`).join('')}</div>` : ''}</div>`;
 }
 
 /* marca de un nadador en una prueba y temporada según la piscina elegida */

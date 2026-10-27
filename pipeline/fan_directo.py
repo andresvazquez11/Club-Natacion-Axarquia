@@ -528,6 +528,42 @@ def grupos_terminados(d):
     return claves
 
 
+def archivar_parciales(d, previo=None):
+    """Guarda los parciales de las carreras del club: directo.json solo tiene las competiciones de los últimos días
+    y la RFEN no publica parciales, así que se van juntando aquí durante la temporada (lo lee la web: ficha y club).
+    → {'c': {id: [título, desde, lugar, piscina]},
+       'n': {licencia: [[id, fecha, prueba, sexo, tiempo, [acumulados… hasta el final], puesto, serie, inscripción,
+                         [nombre, [acumulados]] del ganador de su serie o None si ganó él]]}}
+    Solo carreras individuales con tiempo y al menos dos acumulados que crecen. Lo ya guardado se conserva."""
+    arch = {'c': dict((previo or {}).get('c', {})), 'n': {k: list(v) for k, v in (previo or {}).get('n', {}).items()}}
+    for c in d.get('competiciones', []):
+        L = c.get('lenex') or {}
+        pool = {'25 m': '25m', '50 m': '50m'}.get(L.get('piscina'))
+        if not pool:
+            continue
+        for p in L.get('pruebas', []):
+            if not re.match(r'^\d+ [A-Za-zÁÉÍÓÚáéíóú]+$', p.get('nombre') or '') or not p.get('fecha'):
+                continue   # relevos («4x50 …») y pruebas sin fecha
+            for f in p.get('filas', []):
+                rf, t, parc = str(f.get('rfen') or ''), f.get('t'), f.get('parc') or []
+                if not rf.isdigit() or not t or f.get('estado'):
+                    continue
+                acu = [int(x) for x in parc if x] + ([] if parc and parc[-1] == t else [int(t)])
+                if len(acu) < 2 or any(b <= a for a, b in zip(acu, acu[1:])):
+                    continue
+                arch['c'][str(c['id'])] = [c.get('titulo') or '', c.get('desde') or '', L.get('lugar') or '', pool]
+                rivales = [y for y in p.get('filas', []) if y.get('serie') == f.get('serie') and y.get('t') and not y.get('estado')]
+                g = min(rivales, key=lambda y: y['t']) if rivales else None
+                ga = g and [int(x) for x in (g.get('parc') or []) if x] + ([] if g.get('parc') and g['parc'][-1] == g['t'] else [int(g['t'])])
+                gan = [(g.get('n') or '').split(' ')[0], ga] if g and g is not f and len(ga) == len(acu) else None
+                fila = [c['id'], p['fecha'], p['nombre'], p.get('sexo') or '', int(t), acu, f.get('puesto'), f.get('serie'), f.get('ins'), gan]
+                L2 = arch['n'].setdefault(rf, [])
+                # la misma carrera (competición, prueba, día y tiempo) se reemplaza: puesto y parciales pueden corregirse
+                L2[:] = [x for x in L2 if x[:5] != fila[:5] and not (x[:4] == fila[:4] and x[7] == fila[7])] + [fila]
+                L2.sort(key=lambda x: (x[1], x[2]))
+    return arch
+
+
 def main():
     ap = argparse.ArgumentParser()
     raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -551,6 +587,13 @@ def main():
         return
     hoy = date.today()
     nuevo = construir(hoy, nuestros_de(a.nadadores), a.solo_resultados and previo is not None, previo)
+    ruta_arch = os.path.join(os.path.dirname(a.salida), 'parciales.json')
+    arch0 = json.load(open(ruta_arch, encoding='utf-8')) if os.path.exists(ruta_arch) else None
+    arch = archivar_parciales(nuevo, arch0)
+    if arch != arch0:
+        with open(ruta_arch, 'w', encoding='utf-8') as f:
+            json.dump(arch, f, ensure_ascii=False, separators=(',', ':'))
+        print(f"Parciales del club: {sum(len(v) for v in arch['n'].values())} carreras → {ruta_arch}")
     if previo and previo.get('volcados'):
         nuevo['volcados'] = previo['volcados']
     if previo and {k: v for k, v in previo.items() if k != 'actualizado'} == nuevo:

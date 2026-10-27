@@ -282,36 +282,12 @@ function entGraficoRango(CR, colorDe) {
 /* ── Piezas comunes de las gráficas ──
    Rejilla fina y discreta; puntos con un aro del color del fondo (se leen aunque se crucen); el valor de cada punto
    en un aviso al pasar el dedo o el ratón (zona de toque más grande que el punto); leyenda siempre con 2 o más nadadores. */
-function entEjeY(lo, hi, Y, P, W) {
-  let g = '';
-  for (let k = 0; k <= 4; k++) { const c = lo + (hi - lo) * k / 4, y = Y(c);
-    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="ent-eje"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end" class="ent-tx">${fmt(Math.round(c))}</text>`; }
-  return g;
-}
-const entTip = txt => ` data-tip="${esc(txt)}" tabindex="0" aria-label="${esc(txt.replace(/\n/g, ' · '))}"`;
+const entEjeY = gEjeY;
+const entTip = tipAttr;
 const entPunto = (x, y, col, tip, comp) => `<g class="ent-pt-g"${entTip(tip)}><circle cx="${x}" cy="${y}" r="14" class="ent-hit"/><circle cx="${x}" cy="${y}" r="${comp ? 6 : 4.5}" fill="${col}" class="ent-dot${comp ? ' ent-punto-comp' : ''}"/></g>`;
 const entLeyenda = L => L.length < 2 ? '' : `<div class="ent-leyenda">${L.map(([c, n]) => `<span><i class="ent-l-linea" style="background:${c}"></i>${esc(n)}</span>`).join('')}</div>`;
-/* Aviso flotante de las gráficas: uno solo para toda la página; el texto entra con textContent (nunca HTML) */
-let ENT_TIP = null;
-function entTips(root) {
-  if (!root || root.dataset.tips) return; root.dataset.tips = '1';
-  const mostrar = el => {
-    if (!ENT_TIP) { ENT_TIP = document.createElement('div'); ENT_TIP.className = 'ent-tip'; ENT_TIP.setAttribute('role', 'tooltip'); document.body.appendChild(ENT_TIP); }
-    ENT_TIP.textContent = '';
-    el.dataset.tip.split('\n').forEach((l, i) => { const d = document.createElement(i ? 'div' : 'b'); d.textContent = l; ENT_TIP.appendChild(d); });
-    const r = el.getBoundingClientRect();
-    ENT_TIP.style.display = 'block';
-    const w = ENT_TIP.offsetWidth;
-    ENT_TIP.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
-    ENT_TIP.style.top = (r.top + window.scrollY - ENT_TIP.offsetHeight - 6) + 'px';
-  };
-  const ocultar = () => { if (ENT_TIP) ENT_TIP.style.display = 'none'; };
-  root.addEventListener('pointerover', e => { const el = e.target.closest('[data-tip]'); if (el) mostrar(el); });
-  root.addEventListener('pointerout', e => { if (e.target.closest('[data-tip]')) ocultar(); });
-  root.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el) mostrar(el); });
-  root.addEventListener('focusout', ocultar);
-  window.addEventListener('scroll', ocultar, {passive: true});
-}
+/* El aviso flotante de las gráficas es común a toda la web (graficos.js): ya no hace falta engancharlo a cada pantalla */
+function entTips() {}
 
 /* ── Ritmo de 200 y de 400 ──
    Cada tiempo se compara con el ritmo medio de la mejor marca del nadador (en piscina de 25 m) en 200 o en 400 del mismo estilo,
@@ -558,6 +534,122 @@ function entMontarGraficaDia(host, G) {
   entSelNadBind(host, 'ent-gf', s2 => { sel = s2; pintar(); });
   pintar();
 }
+
+/* ── Parciales de cada 50, al estilo de los medidores de brazada (eo SwimBETTER) ──
+   Tres vistas de una serie: cada 50 en barras con la media del grupo encima (y su serie anterior al lado),
+   la constancia (sus series, o todo el grupo, superpuestas) y las mitades (segunda menos primera, todo el grupo).
+   Arriba el nadador y sus números; abajo el selector de series. Todo con aviso al pasar el dedo.
+   El cronómetro guarda los parciales acumulados en milésimas cada 50 m (el último es el tiempo final; null = no tomado).
+   Solo valen las series completas de más de 50 m que no son rota (en la rota cada parcial es el final de un tramo). */
+function entParciales(t) {
+  if (!t || t.rota || !Array.isArray(t.parciales) || !(t.dist > 50) || t.dist % 50) return null;
+  const p = t.parciales.map(v => v == null ? NaN : Number(v));
+  if (p.length !== t.dist / 50 || p.some((v, i) => !Number.isFinite(v) || v <= (i ? p[i - 1] : 0))) return null;
+  return p.map((v, i) => entCs(v - (i ? p[i - 1] : 0)));
+}
+/* Series del entreno con parciales: [{ronda, ev, filas: [{nId, n, t, sp}]}] (sp = centésimas de cada 50) */
+function entDatosParciales(tabla) {
+  return tabla.series.map(s => ({ronda: s.ronda, ev: s.ev,
+    filas: tabla.filas.map(f => ({nId: f.nId, n: f.n, t: f.t[s.ronda], sp: entParciales(f.t[s.ronda])})).filter(x => x.sp)}))
+    .filter(s => s.filas.length);
+}
+const entMedia = gMedia, entSuma = gSuma, entTramo = gTramo, entDifTip = gDif, entMovil = gMovil;
+/* Cada 50 en barras (azul; su serie anterior en naranja al lado) y la media del grupo en ese 50 como línea */
+function entGraficoBarrasParc(S, x, prev) {
+  const grupo = S.filas.filter(y => y.sp.length === x.sp.length);
+  return gBarrasParc({sp: x.sp, nom: `Serie ${S.ronda}`, quien: x.n, ref: x.sp.map((_, i) => gMedia(grupo.map(y => y.sp[i]))), refNom: 'Media del grupo',
+    prev: prev && {nom: `Serie ${prev.ronda}`, sp: prev.sp}, aria: `Tiempo de cada 50 de ${x.n} en la serie ${S.ronda}`});
+}
+/* Constancia: sus series (o el grupo) superpuestas; la elegida, gruesa y encima (graficos.js) */
+const entGraficoConstancia = (L, pie) => gConstancia(L, pie, 50);
+/* Mitades: segunda mitad menos primera de cada nadador, en barras a los dos lados de una línea central */
+function entGraficoMitades(S, nSel) {
+  const n = S.filas.find(y => y.nId === nSel).sp.length;
+  if (n % 2) return '<p class="empty">Con un número impar de 50 (por ejemplo 150 m) no hay dos mitades iguales.</p>';
+  const R = S.filas.filter(y => y.sp.length === n).map(y => { const a = entSuma(y.sp.slice(0, n / 2)), b = entSuma(y.sp.slice(n / 2)); return {y, a, b, d: b - a}; })
+    .sort((p, q) => p.d - q.d);
+  const movil = entMovil(), W = movil ? 400 : 760, FH = 30, P = {l: movil ? 96 : 150, r: movil ? 56 : 70, t: 30, b: 8}, H = P.t + R.length * FH + P.b;
+  const m = Math.max(50, ...R.map(r => Math.abs(r.d))), x0 = P.l + (W - P.l - P.r) / 2, k = (W - P.l - P.r) / 2 / m;
+  let g = `<text x="${x0 - 8}" y="16" text-anchor="end" class="ent-tx">← termina más rápido</text><text x="${x0 + 8}" y="16" class="ent-tx">termina más lento →</text>`;
+  R.forEach((r, i) => {
+    const y = P.t + i * FH, yc = y + FH / 2, w = Math.abs(r.d) * k, bx = r.d < 0 ? x0 - w : x0, sel = r.y.nId === nSel;
+    const nom = r.y.n.length > (movil ? 12 : 22) ? r.y.n.slice(0, movil ? 10 : 21) + '…' : r.y.n;
+    const tip = `${r.y.n}\n1ª mitad ${fmt(r.a)} · 2ª mitad ${fmt(r.b)}\n${r.d < 0 ? 'Split negativo' : r.d > 0 ? 'Split positivo' : 'Mitades iguales'} (${entDifTip(r.d)})`;
+    g += `<g class="ent-col-g" data-pn="${esc(r.y.nId)}"${entTip(tip)}><rect x="0" y="${y}" width="${W}" height="${FH}" class="${sel ? 'ent-mit-sel' : 'ent-col-hit'}"/>`
+      + `<text x="${P.l - 8}" y="${yc + 4}" text-anchor="end" class="ent-tx${sel ? ' ent-tx-sel' : ''}">${esc(nom)}</text>`
+      + `<rect x="${bx}" y="${y + 6}" width="${Math.max(w, 1.5)}" height="${FH - 12}" rx="3" class="ent-mb ${r.d < 0 ? 'ent-mit-neg' : 'ent-mit-pos'}" style="transform-origin:${x0}px 0;animation-delay:${i * 35}ms"/>`
+      + `<text x="${r.d < 0 ? bx - 6 : bx + w + 6}" y="${yc + 4}" text-anchor="${r.d < 0 ? 'end' : 'start'}" class="ent-etq">${entDifTip(r.d).replace(' s', '')}</text></g>`;
+  });
+  g += `<line x1="${x0}" x2="${x0}" y1="${P.t - 4}" y2="${H - P.b}" class="ent-cien"/>`;
+  return `<div class="ent-graf"><svg class="chart ent-chart ent-chart-ritmo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Segunda mitad frente a la primera en la serie ${S.ronda}">${g}</svg></div>`;
+}
+const ENT_PV = [['barras', 'Cada 50'], ['constancia', 'Constancia'], ['mitades', 'Mitades']];
+const ENT_PV_AYUDA = {
+  barras: 'Cada barra es lo que tardó en ese 50 (más alta = más lenta); la línea, la media del grupo en ese mismo 50. El primer 50 lleva la salida, por eso suele ser el más rápido. Pasa el dedo por una columna para ver los números.',
+  constancia: 'Cada línea es una serie: si van juntas, nada siempre igual; si se abren al final, se cansa. Toca un nombre de abajo para quitarlo o ponerlo.',
+  mitades: 'Segunda mitad menos primera. A la izquierda, terminó más rápido de lo que empezó (split negativo). Toca un nadador para verlo en las otras gráficas.'};
+/* Monta el bloque de parciales del entreno del día. st = {pn, pr, pv} de la dirección (nadador, serie y vista elegidos) */
+function entMontarParciales(host, tabla, st) {
+  const out = host.querySelector('#ent-parc'); if (!out) return;
+  const D = entDatosParciales(tabla); if (!D.length) return;
+  let ronda = D.some(s => s.ronda === Number(st.pr)) ? Number(st.pr) : D[0].ronda, nId = st.pn || '',
+    vista = ENT_PV.some(([v]) => v === st.pv) ? st.pv : 'barras', ant = true, grupo = false;
+  const ocultas = new Set();
+  const pintar = () => {
+    tipOcultar();
+    const S = D.find(s => s.ronda === ronda), x = S.filas.find(y => y.nId === nId) || S.filas[0];
+    nId = x.nId;
+    const n = x.sp.length, mismos = S.filas.filter(y => y.sp.length === n);
+    // su serie anterior con parciales de la misma distancia (para las barras naranjas)
+    const prevS = [...D].reverse().find(s => s.ronda < ronda && s.filas.some(y => y.nId === nId && y.sp.length === n));
+    const prev = prevS && {ronda: prevS.ronda, sp: prevS.filas.find(y => y.nId === nId).sp};
+    const mejor = Math.min(...x.sp), peor = Math.max(...x.sp), medG = entMedia(mismos.map(y => entSuma(y.sp)));
+    let graf;
+    if (vista === 'barras') graf = (prev ? `<label class="ent-sw"><input type="checkbox" data-ant${ant ? ' checked' : ''}>Ver al lado su serie ${prev.ronda}</label>` : '')
+      + entGraficoBarrasParc(S, x, ant ? prev : null);
+    else if (vista === 'mitades') graf = entGraficoMitades(S, nId);
+    else {
+      const L = grupo
+        ? mismos.map(y => ({k: y.nId, nombre: y.n, sp: y.sp, col: entColorNad(tabla, y.nId), on: y.nId === nId}))
+        : D.filter(s => s.filas.some(y => y.nId === nId && y.sp.length === n))
+          .map(s => ({k: 'r' + s.ronda, ronda: s.ronda, nombre: `Serie ${s.ronda}`, sp: s.filas.find(y => y.nId === nId).sp, col: entColorIdx(D.indexOf(s)), on: s.ronda === ronda}));
+      graf = `<div class="chips sub"><button class="chip${grupo ? '' : ' on'}" data-pg="0">Sus series</button><button class="chip${grupo ? ' on' : ''}" data-pg="1">Todo el grupo en la serie ${ronda}</button></div>`
+        + entGraficoConstancia(L.filter(l => l.on || !ocultas.has(l.k)), grupo ? `serie ${ronda}` : x.n)
+        + `<div class="ent-ocultar">${L.map(l => `<button class="chip${l.on || !ocultas.has(l.k) ? ' on' : ''}"${l.on ? (grupo ? ` data-pn="${esc(l.k)}"` : ` data-pr="${l.ronda}"`) : ` data-oc="${esc(l.k)}"`}><i class="ent-pt" style="background:${l.col}"></i>${esc(l.nombre)}</button>`).join('')}</div>`;
+    }
+    const i = D.findIndex(s => s.ronda === ronda);
+    out.innerHTML = `
+      <div class="chips" aria-label="Nadador">${S.filas.map(y => `<button class="chip${y.nId === nId ? ' on' : ''}" data-pn="${esc(y.nId)}"><i class="ent-pt" style="background:${entColorNad(tabla, y.nId)}"></i>${esc(y.n)}</button>`).join('')}</div>
+      <div class="ent-pk">
+        <div><span>Serie ${ronda}</span><b>${fmt(x.t.cs)}</b><i>${esc(S.ev || '')}</i></div>
+        <div><span>Mejor 50</span><b>${fmt(mejor)}</b><i>${entTramo(x.sp.indexOf(mejor))}</i></div>
+        <div><span>Peor 50</span><b>${fmt(peor)}</b><i>${entTramo(x.sp.indexOf(peor))}</i></div>
+        <div><span>Caída</span><b>+${secs(peor - mejor)} s</b><i>del mejor al peor 50</i></div>
+        <div><span>Frente al grupo</span><b class="${x.t.cs <= medG ? 'good' : 'bad'}">${entDifTip(x.t.cs - medG)}</b><i>media ${fmt(Math.round(medG))} (${mismos.length})</i></div>
+      </div>
+      <div class="ent-tabs" role="tablist">${ENT_PV.map(([v, t]) => `<button role="tab" aria-selected="${v === vista}" class="${v === vista ? 'on' : ''}" data-pv="${v}">${t}</button>`).join('')}</div>
+      ${graf}
+      <p class="tiny muted" style="margin-top:4px">${ENT_PV_AYUDA[vista]}</p>
+      <div class="ent-nav-s" aria-label="Serie"><button data-paso="-1" aria-label="Serie anterior"${i ? '' : ' disabled'}>‹</button>${D.map(s => `<button class="${s.ronda === ronda ? 'on' : ''}${s.filas.some(y => y.nId === nId) ? '' : ' sin'}" data-pr="${s.ronda}" title="Serie ${s.ronda}${s.ev ? ' · ' + esc(s.ev) : ''}">${s.ronda}</button>`).join('')}<button data-paso="1" aria-label="Serie siguiente"${i < D.length - 1 ? '' : ' disabled'}>›</button></div>`;
+    const on = out.querySelector('.chips .chip.on');   // el nadador elegido, a la vista en la fila de nombres
+    if (on) on.parentElement.scrollLeft = on.offsetLeft - (on.parentElement.clientWidth - on.offsetWidth) / 2;
+    entRecordar({pn: nId, pr: String(ronda), pv: vista === 'barras' ? '' : vista});
+  };
+  out.addEventListener('click', e => {
+    const b = e.target.closest('[data-pn],[data-pr],[data-pv],[data-paso],[data-oc],[data-pg]'); if (!b || b.disabled) return;
+    const d = b.dataset;
+    if (d.pn) nId = d.pn;
+    else if (d.pr) ronda = Number(d.pr);
+    else if (d.paso) ronda = D[Math.max(0, Math.min(D.length - 1, D.findIndex(s => s.ronda === ronda) + Number(d.paso)))].ronda;
+    else if (d.pv) vista = d.pv;
+    else if (d.oc) { if (ocultas.has(d.oc)) ocultas.delete(d.oc); else ocultas.add(d.oc); }
+    else if (d.pg) { grupo = d.pg === '1'; ocultas.clear(); }
+    pintar();
+  });
+  out.addEventListener('keydown', e => { const g = e.key === 'Enter' && e.target.closest('g[data-pn]'); if (g) g.dispatchEvent(new MouseEvent('click', {bubbles: true})); });
+  out.addEventListener('change', e => { if (e.target.matches('[data-ant]')) { ant = e.target.checked; pintar(); } });
+  pintar();
+}
 function entMontarComparar(host, C) {
   const out = host.querySelector('#ent-comparar-out'); if (!out) return;
   entTips(host);
@@ -708,7 +800,8 @@ function vistaEntrenamientos(app, p) {
   const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || '', gev: p.gev || '',
     sem: ok(p.sem, /^\d{4}-\d{2}-\d{2}$/), dia: ok(p.dia, /^\d{4}-\d{2}-\d{2}$/), ses: ok(p.ses, /^[A-Za-z0-9_-]{1,64}$/),
     sa: ok(p.sa, /^\d{1,3}$/), sb: ok(p.sb, /^\d{1,3}$/), gs: ok(p.gs, /^(-|\d{1,3}(,\d{1,3}){0,30})$/), gf: ok(p.gf, /^[A-Za-z0-9_-]{1,64}(,[A-Za-z0-9_-]{1,64}){0,40}$/), gr: ok(p.gr, /^(200|400|mejor)$/), gt: ok(p.gt, /^\d{2,3}$/),
-    cd: ok(p.cd, /^\d{4}-\d{2}-\d{2}$/), ch: ok(p.ch, /^\d{4}-\d{2}-\d{2}$/)};
+    cd: ok(p.cd, /^\d{4}-\d{2}-\d{2}$/), ch: ok(p.ch, /^\d{4}-\d{2}-\d{2}$/),
+    pn: ok(p.pn, /^[A-Za-z0-9_-]{1,64}$/), pr: ok(p.pr, /^\d{1,3}$/), pv: ok(p.pv, /^(constancia|mitades)$/)};
   app.innerHTML = `
     <div class="card sub-cab"><span class="ante">Modo entrenador</span><h1>Entrenamientos</h1></div>
     <div id="ent-host" style="margin-top:12px"></div>`;
@@ -770,6 +863,9 @@ function pintarEntrenamientos(host, f) {
       <div class="h h-sub">${ico('tendencia')}Ritmo: ¿quién va a su ritmo?</div>
       <div class="ent-sel">Cada nadador frente a su propio ritmo de 200 o de 400 (de su mejor marca) en las series elegidas arriba. Se marca el que se eligió al crear la serie; puedes cambiarlo.</div>
       <div id="ent-ritmo"></div>
+      ${entDatosParciales(tabla).length ? `<div class="h h-sub">${ico('crono')}Parciales: cómo reparte cada serie</div>
+      <div class="ent-sel">Los parciales de cada 50 de un nadador en una serie: dónde gana y dónde pierde tiempo, frente al grupo y frente a sus otras series.</div>
+      <div id="ent-parc"></div>` : ''}
     </div>`;
   }
   const vacio = !T.length
@@ -853,9 +949,9 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'dias', v => go({dias: v}));
   onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: ''}));
   onChips(host, 'gev', v => go({gev: v}));
-  onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: ''}));
-  onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: '', gr: ''}));
-  if (graficaDia) entMontarGraficaDia(host, graficaDia);
+  onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: '', pr: ''}));
+  onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}));
+  if (graficaDia) { entMontarGraficaDia(host, graficaDia); entMontarParciales(host, graficaDia.tabla, f); }
   if (comparaDatos) entMontarComparar(host, comparaDatos);
   host.querySelectorAll('[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
   host.querySelector('#ent-salir').onclick = async e => { e.preventDefault(); await entSalir(); entPreparar(host, () => pintarEntrenamientos(host, f)); };
@@ -895,10 +991,16 @@ function pintarEntrenosNadador(app, s, p) {
           <div class="kpi"><b>${comp ? fmt(comp.cs) : '—'}</b><span>mejor en competición (25 m)${comp ? `<br>${entOrigen(comp)} · ${dfmt(comp.fecha)}` : ''}</span></div>
         </div>
         ${filas.length >= 2 ? evoChart(filas.map(t => [t.dia, t.cs, '', 'Entrenamiento']), null) : '<p class="empty">Con dos días de tiempos en esta prueba se verá su evolución.</p>'}
+        <div id="ent-parc-nad"></div>
         <table class="rt" style="margin-top:8px"><tr><th>Entreno</th><th class="num">Tiempo</th><th>Parciales 50 m</th></tr>
           ${[...T.filter(t => t.ev === ev)].sort((a, b) => b.fecha - a.fecha || b.ronda - a.ronda).map(t => `<tr${t.comp ? ' class="ent-fila-comp"' : ''}><td><b>${dfmt(t.dia)}</b> <span class="muted">${t.horaSerie || t.hora} · </span><b>serie ${esc(t.ronda)}</b>${entCompTag(t)}${t.sim ? ' <span class="tag ent-sim">Simulación</span>' : ''}${t.nota ? `<div class="tiny ent-nota">Nota: ${esc(t.nota)}</div>` : ''}${entCompararHTML(entComparar(T, t))}</td><td class="num"><b>${fmt(t.cs)}</b>${t.cs === mejor ? ' <span class="good tiny">mejor</span>' : ''}</td>
             <td class="tiny">${t.parciales && t.parciales.length > 1 ? t.parciales.map((v, i, a) => v == null || (i && a[i - 1] == null) ? '—' : fmt(entCs(i ? v - a[i - 1] : v))).join(' · ') : ''}</td></tr>`).join('')}</table>
       </div>` : ''}`;
     onChips(host, 'ev', v => { location.hash = fichaHref(s, 'entrenos') + '?ev=' + encodeURIComponent(v); });
+    // sus series de esta prueba con parciales: cada 50 frente a la anterior y a su mejor, y todas superpuestas
+    const C = T.filter(t => t.ev === ev && entParciales(t)).sort((a, b) => a.fecha - b.fecha || a.ronda - b.ronda)
+      .map(t => ({nom: `${dfmt(t.dia)} · serie ${t.ronda}`, corto: `${t.dia.slice(8)}/${t.dia.slice(5, 7)}·${t.ronda}`, sp: entParciales(t), paso: 50, t: t.cs}));
+    const hp = host.querySelector('#ent-parc-nad');
+    if (C.length && hp) { hp.innerHTML = `<div class="h h-sub">${ico('crono')}Parciales de sus series</div><div></div>`; gParcPanel(hp.lastElementChild, C, {que: 'Serie', etiqueta: 'Serie'}); }
   });
 }

@@ -336,7 +336,15 @@ function clubInicio(app) {
     const m = c.ids.filter(id => SW[String(id)].g === 'M').length;
     return [`${c.label} <span class="of">${catYrs(c)}</span>`, c.ids.length, `${c.ids.length} <span class="of">${m} chicos · ${c.ids.length - m} chicas</span>`, `data-go="#club/${c.key}"`];
   });
-  const kpi = ([v, l, c, st, cls]) => `<button class="kpi ${cls || ''}" data-stat="${st}"><b>${v}</b><span>${l}</span>${cmpLines(c)}<span class="vd">Ver detalle ›</span></button>`;
+  // tendencia de cada número en las temporadas cerradas (historia del club): minigráfica y media de las 5 últimas
+  const temps = (DATA.historia || []).filter(h => !h.curso);
+  const serie = f => temps.map(h => [`Temporada ${tLbl(h.t)}`, f(h)]);
+  const SERIE = {'sw||': serie(h => h.n), 'pos|es10|': serie(h => h.t10), 'pos|an3|': serie(h => h.an3), 'pos|ma1|': serie(h => h.ma1),
+    'cto|3|': serie(h => h.cto.es.pod + h.cto.an.pod)};
+  const tend = st => { const L = SERIE[st]; if (!L || L.length < 3) return '';
+    const m = Math.round(gMedia(L.slice(-5).map(x => x[1])));
+    return `<span class="kpi-tend">${gSpark(L)}<small>por temporada · media de las 5 últimas: <b>${m}</b></small></span>`; };
+  const kpi = ([v, l, c, st, cls]) => `<button class="kpi ${cls || ''}" data-stat="${st}"><b>${v}</b><span>${l}</span>${tend(st)}${cmpLines(c)}<span class="vd">Ver detalle ›</span></button>`;
 
   app.innerHTML = `
     <div class="portada" style="--foto:url(img/club.jpg)">
@@ -353,6 +361,7 @@ function clubInicio(app) {
         ? `La RFEN ya tiene <b>${DATA.new_marks.toLocaleString('es')}</b> marcas de la temporada 26-27 (de todos los clubes). Para cada nadador se usa su mejor marca entre la 25-26 y la 26-27.`
         : 'Todavía no hay marcas de la 26-27: se usa lo mejor de la 25-26 como punto de partida.'}</div></div>
     ${estaSemanaCard()}
+    <div id="ult-comp"></div>
 
     <div class="card" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
       ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>
@@ -371,22 +380,30 @@ function clubInicio(app) {
 
   cmpBind(app);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => { location.hash = el.dataset.go; });
+  const sem = app.querySelector('[data-sem-detalle]'); if (sem) sem.onclick = abrirSemana;
+  pintarUltimaComp(app);   // última competición del club (directo de la FAN)
 }
 
 /* Esta semana: mejores marcas de los últimos 8 días, subidas en el ranking de España y top-10 en campeonatos.
-   Si hay nadador elegido, primero lo suyo. */
-function estaSemanaCard() {
+   Datos comunes al resumen de la portada y a su ventana de detalle. */
+function estaSemanaDatos() {
   const [d, m, y] = DATA.fecha.split('/'), hoy = `${y}-${m}-${d}`;
   const desde = new Date(Date.parse(hoy) - 8 * 864e5).toISOString().slice(0, 10);
-  const mejoras = [];      // [nadador, prueba, marca, mejora, piscina, fecha]
+  const mejoras = [];      // [nadador, prueba, marca, mejora, piscina, fecha, competición]
+  const nadadas = [];      // todas las marcas de la semana: [nadador, prueba, marca, piscina, fecha, competición]
   DATA.swimmers.forEach(s => s.ev.forEach(e => {
     const b = {}; [...e.h].filter(x => !x[8]).sort((a, c) => a[0] < c[0] ? -1 : 1).forEach(x => {
-      if (x[0] >= desde && b[x[2]] !== undefined && x[1] < b[x[2]]) mejoras.push([s, e.e, x[1], b[x[2]] - x[1], x[2], x[0]]);
+      if (x[0] >= desde) nadadas.push([s, e.e, x[1], x[2], x[0], x[3]]);
+      if (x[0] >= desde && b[x[2]] !== undefined && x[1] < b[x[2]]) mejoras.push([s, e.e, x[1], b[x[2]] - x[1], x[2], x[0], x[3]]);
       if (b[x[2]] === undefined || x[1] < b[x[2]]) b[x[2]] = x[1]; }); }));
   mejoras.sort((a, b) => b[3] / b[2] - a[3] / a[2]);
-  const porNad = {}, variadas = mejoras.filter(x => (porNad[x[0].id] = (porNad[x[0].id] || 0) + 1) <= 2);   // como mucho 2 por nadador
   const subidas = (DATA.mov || []).filter(x => x[0] > 0);
   const ctos = (DATA.destacados || []).filter(x => x.date >= desde).sort((a, b) => a.pos - b.pos);
+  return {hoy, desde, mejoras, nadadas, subidas, ctos};
+}
+function estaSemanaCard() {
+  const {hoy, desde, mejoras, nadadas, subidas, ctos} = estaSemanaDatos();
+  const porNad = {}, variadas = mejoras.filter(x => (porNad[x[0].id] = (porNad[x[0].id] || 0) + 1) <= 2);   // como mucho 2 por nadador
   const linea = (i, t, href) => `<li${href ? ` class="click" data-go="${href}"` : ''}><i class="ins-i">${ico(i)}</i>${t}</li>`;
   let mio = '';
   if (BEN) {
@@ -399,6 +416,44 @@ function estaSemanaCard() {
   const cl = [...ctos.slice(0, 4).map(x => linea('copa', `<b>${corto(x.n)}</b> ${x.pos}º en ${x.ev} · ${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'}`, '#campeonatos')),
     ...variadas.slice(0, 6).map(x => linea('crono', `<b>${corto(x[0].n)}</b> · ${x[1]} <span class="of">${x[4]}</span> <b class="sun">${fmt(x[2])}</b> <span class="good">−${secs(x[3])} s</span>`, fichaHref(x[0], 'pruebas') + '?ev=' + encodeURIComponent(x[1]))),
     ...subidas.slice(0, 4).map(x => linea('tendencia', `<b>${esc(String(x[1]).split(' ').slice(0, 2).join(' '))}</b> sube ${x[0]} puestos en España en ${x[2]} (${x[3]}º → ${x[4]}º)`, SW[String(x[5])] ? fichaHref(SW[String(x[5])], 'ranking') + '?rev=' + encodeURIComponent(x[2]) : ''))];
+  const nNad = new Set(nadadas.map(x => x[0].id)).size, nMej = new Set(mejoras.map(x => x[0].id)).size;
+  const hay = nadadas.length || subidas.length || ctos.length;
   return `<div class="card sem" style="margin-top:12px"><div class="h">${ico('historia')}Esta semana <span class="h-n">· del ${dfmt(desde)} al ${dfmt(hoy)}</span></div>${mio}
-    ${cl.length ? `<ul class="ins">${cl.join('')}</ul>` : '<p class="small muted">Semana tranquila: no hay marcas nuevas del club en los últimos 8 días. Las novedades aparecerán aquí después de cada competición.</p>'}</div>`;
+    ${hay ? gKpis([['Nadadores', nNad, 'han competido'], ['Marcas', nadadas.length, 'tiempos nuevos'], ['Mejores marcas', mejoras.length, `de ${nMej} nadador${nMej === 1 ? '' : 'es'}`, mejoras.length ? 'good' : ''],
+      ['Top-10 campeonatos', ctos.length, 'Andalucía y España'], ['Suben en España', subidas.length, 'en el ranking']]) : ''}
+    ${cl.length ? `<ul class="ins">${cl.join('')}</ul>` : '<p class="small muted">Semana tranquila: no hay marcas nuevas del club en los últimos 8 días. Las novedades aparecerán aquí después de cada competición.</p>'}
+    ${hay ? '<button class="btn ghost sem-mas" data-sem-detalle>Ver todo el detalle de la semana ›</button>' : ''}</div>`;
+}
+/* Ventana con todo lo de la semana: cuánto mejoró cada uno (barras), qué se nadó en cada competición, subidas y top-10 */
+function abrirSemana() {
+  const {hoy, desde, mejoras, nadadas, subidas, ctos} = estaSemanaDatos();
+  const ir = h => h ? ` data-go="${h}"` : '';
+  const pct = x => x[3] / (x[2] + x[3]) * 100;
+  const barras = mejoras.length ? barsHTML(mejoras.map(x => [`${corto(x[0].n)} <span class="of">${x[1]} · ${x[4]}</span>`, pct(x),
+    `<span class="good">−${secs(x[3])} s</span> <span class="of">${pct(x).toFixed(1)}%</span>`,
+    `${ir(fichaHref(x[0], 'pruebas') + '?ev=' + encodeURIComponent(x[1]))}${tipAttr(`${x[0].n}\n${x[1]} (${x[4]}): ${fmt(x[2])}\nMejora ${secs(x[3])} s (${pct(x).toFixed(1)} %) sobre ${fmt(x[2] + x[3])}\n${dfmt(x[5])} · ${x[6] || ''}`)}`]))
+    : '<p class="empty">Ninguna mejor marca personal esta semana.</p>';
+  // cada competición de la semana: cuántos nadaron, cuántas marcas y cuántas mejoras
+  const comps = {}; nadadas.forEach(x => { const k = x[5] || 'Competición'; (comps[k] = comps[k] || {n: new Set(), m: 0, pb: 0, f: x[4]}).n.add(x[0].id); comps[k].m++; });
+  mejoras.forEach(x => { if (comps[x[6] || 'Competición']) comps[x[6] || 'Competición'].pb++; });
+  const compTabla = Object.entries(comps).sort((a, b) => a[1].f < b[1].f ? 1 : -1).map(([k, c]) => `<tr><td><b>${esc(k)}</b><div class="tiny muted">${dfmt(c.f)}</div></td><td class="num">${c.n.size}</td><td class="num">${c.m}</td><td class="num"><b class="${c.pb ? 'good' : ''}">${c.pb}</b></td></tr>`).join('');
+  const porNad = {}; nadadas.forEach(x => (porNad[x[0].id] = porNad[x[0].id] || {s: x[0], L: []}).L.push(x));
+  const nadTabla = Object.values(porNad).sort((a, b) => b.L.length - a.L.length || a.s.n.localeCompare(b.s.n)).map(({s, L}) => {
+    const pbs = mejoras.filter(x => x[0].id === s.id);
+    return `<tr class="click"${ir(fichaHref(s))}><td><b>${corto(s.n)}</b><div class="tiny muted">${L.map(x => `${x[1]} ${fmt(x[2])}${pbs.some(p => p[1] === x[1] && p[2] === x[2]) ? ' ★' : ''}`).join(' · ')}</div></td><td class="num">${L.length}</td><td class="num"><b class="${pbs.length ? 'good' : ''}">${pbs.length}</b></td></tr>`; }).join('');
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.25rem;font-weight:900">Esta semana en el club</h1>
+      <p class="muted small" style="margin:2px 0 10px">Del ${dfmt(desde)} al ${dfmt(hoy)} · datos RFEN y resultados provisionales de la Federación Andaluza</p>
+      ${gKpis([['Nadadores', new Set(nadadas.map(x => x[0].id)).size, 'han competido'], ['Marcas', nadadas.length, ''], ['Mejores marcas', mejoras.length, '', 'good'], ['Top-10 campeonatos', ctos.length, ''], ['Suben en España', subidas.length, '']])}
+      <div class="h h-sub" style="margin-top:14px">${ico('crono')}Mejores marcas personales <span class="h-n">· de más a menos mejora (en %)</span></div>${barras}
+      ${compTabla ? `<div class="h h-sub" style="margin-top:14px">${ico('copa')}Competiciones</div><table class="rt"><tr><th>Competición</th><th class="num">Nad.</th><th class="num">Marcas</th><th class="num">Mejoras</th></tr>${compTabla}</table>` : ''}
+      ${ctos.length ? `<div class="h h-sub" style="margin-top:14px">${ico('medalla')}Top-10 en campeonatos</div><ul class="ins">${ctos.map(x => `<li><i class="ins-i">${ico('copa')}</i><b>${corto(x.n)}</b> ${x.pos}º de ${x.of} en ${x.ev} · ${esc(x.comp)}</li>`).join('')}</ul>` : ''}
+      ${subidas.length ? `<div class="h h-sub" style="margin-top:14px">${ico('tendencia')}Suben en el ranking de España</div><ul class="ins">${subidas.map(x => `<li><i class="ins-i">${ico('tendencia')}</i><b>${esc(String(x[1]).split(' ').slice(0, 2).join(' '))}</b> sube ${x[0]} puestos en ${x[2]} (${x[3]}º → ${x[4]}º)</li>`).join('')}</ul>` : ''}
+      ${nadTabla ? `<div class="h h-sub" style="margin-top:14px">${ico('grupo')}Cada nadador</div><table class="rt"><tr><th>Nadador</th><th class="num">Marcas</th><th class="num">Mejoras</th></tr>${nadTabla}</table>` : ''}
+      <p class="tiny muted" style="margin-top:8px">★ = mejor marca personal (misma prueba y piscina). Pulsa una barra o un nadador para abrir su ficha.</p>`;
+    box.querySelectorAll('[data-go]').forEach(el => el.onclick = () => { closeEvo(); location.hash = el.dataset.go; });
+    abrirModal();
+  });
 }

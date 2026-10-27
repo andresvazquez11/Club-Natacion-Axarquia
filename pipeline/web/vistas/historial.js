@@ -176,8 +176,8 @@ function rankChart(pts, modo, zoom = 1) {
   pts.forEach((x, i) => { if (i % paso === 0 || i === n - 1) g += `<text x="${X(i)}" y="${Hh - P.b + 18}" fill="rgba(202,240,248,.85)" font-size="11" text-anchor="middle">${dfmt(x[0]).slice(0, 5)}</text>`; });
   // la línea se corta donde no hay marca (inicio de temporada en modo T)
   let seg = [], lines = '';
-  pts.forEach((x, i) => { if (x[1]) seg.push(`${X(i)},${Y(x[1])}`); else { if (seg.length > 1) lines += `<polyline fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" points="${seg.join(' ')}"/>`; seg = []; } });
-  if (seg.length > 1) lines += `<polyline fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" points="${seg.join(' ')}"/>`;
+  pts.forEach((x, i) => { if (x[1]) seg.push(`${X(i)},${Y(x[1])}`); else { if (seg.length > 1) lines += `<polyline fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" pathLength="1" class="g-traza" points="${seg.join(' ')}"/>`; seg = []; } });
+  if (seg.length > 1) lines += `<polyline fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" pathLength="1" class="g-traza" points="${seg.join(' ')}"/>`;
   g += lines;
   const mejor = Math.min(...pts.filter(x => x[1]).map(x => x[1]));
   let ultEtiq = -99;
@@ -192,7 +192,8 @@ function rankChart(pts, modo, zoom = 1) {
     // ampliado (4× u 8×) se escribe el puesto en todos los puntos que caben
     const etiq = (zoom >= 4 || cambia || (b && !pts.slice(0, i).some(y => y[1] === mejor))) && (cx - ultEtiq > (movil ? 20 : 17) || i === n - 1);
     if (etiq) ultEtiq = cx;
-    g += `<g class="rk-pt" data-rk="${i}" style="cursor:pointer"><title>${dfmt(x[0])} · ${x[1]}º de ${x[2]} · pulsa para ver el detalle</title>
+    const antP = prevP ? (prevP[1] > x[1] ? `\nSube ${prevP[1] - x[1]} puesto${prevP[1] - x[1] > 1 ? 's' : ''}` : prevP[1] < x[1] ? `\nBaja ${x[1] - prevP[1]} puesto${x[1] - prevP[1] > 1 ? 's' : ''}` : '\nIgual que la semana anterior') : '';
+    g += `<g class="rk-pt" data-rk="${i}" style="cursor:pointer"${tipAttr(`${x[1]}º de ${x[2]}${b ? ' · su mejor puesto' : ''}\nSemana del ${dfmt(x[0])}${antP}\nPulsa para ver el detalle`)}>
       <circle cx="${cx}" cy="${cy}" r="14" class="tip-hit"/><circle cx="${cx}" cy="${cy}" r="${b ? 5.5 : 3.5}" fill="${b ? '#ffd60a' : '#fff'}" stroke="#023e8a" stroke-width="1.5"/>
       ${etiq ? `<text x="${cx}" y="${cy - 9}" fill="${b ? '#ffd60a' : '#fff'}" font-size="${movil ? 11 : 11}" font-weight="800" text-anchor="middle">${x[1]}º</text>` : ''}</g>`; });
   return `<svg class="chart" viewBox="0 0 ${W} ${Hh}" style="width:${zoom * 100}%;max-width:none" role="img" aria-label="Puesto en el ranking cada semana">${g}</svg>`;

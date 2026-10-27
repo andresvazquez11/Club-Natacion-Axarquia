@@ -299,3 +299,32 @@ test('ritmo pedido: objetivo = su ritmo + los segundos de la serie; casillas en 
   const h = evalIn(c, `entGraficoPedido(entDatosPedido(__tb, [1, 2, 3, 4], new Set(['a']), '200', 0), '200', (r, t) => t)`);
   assert.match(h, /\+10″/); assert.match(h, /\+4″/); assert.match(h, /2\/4/);
 });
+
+test('parciales: de acumulados en milésimas a cada 50 en centésimas; incompletos, rota y 50 m no valen', () => {
+  const t = o => Object.assign({ dist: 200, rota: null, parciales: [31000, 65500, 100200, 135000] }, o);
+  assert.deepEqual(ev('entParciales', t({})), [3100, 3450, 3470, 3480]);
+  assert.equal(ev('entParciales', t({ parciales: [31000, null, 100200, 135000] })), null);   // un parcial sin tomar
+  assert.equal(ev('entParciales', t({ parciales: [31000, 65500, 135000] })), null);          // faltan
+  assert.equal(ev('entParciales', t({ parciales: [31000, 30000, 100200, 135000] })), null);  // no crecen
+  assert.equal(ev('entParciales', t({ rota: { tramos: [100, 100], desc: [10] } })), null);
+  assert.equal(ev('entParciales', t({ dist: 50, parciales: [31000] })), null);
+});
+
+test('parciales: series con parciales del entreno y sus tres gráficas', () => {
+  const T = (nId, n, r, p) => ({ nId, n, ronda: r, dist: 100, cs: Math.round(p[1] / 10), parciales: p });
+  ctx.__tb = { series: [{ ronda: 1, ev: '100 Libre' }, { ronda: 2, ev: '100 Libre' }, { ronda: 3, ev: '50 Libre' }],
+    filas: [{ nId: 'a', n: 'Ana', t: { 1: T('a', 'Ana', 1, [33000, 70000]), 2: T('a', 'Ana', 2, [34000, 68000]), 3: { dist: 50, cs: 3000 } } },
+      { nId: 'b', n: 'Bea', t: { 1: T('b', 'Bea', 1, [32000, 66000]), 2: { dist: 100, cs: 6900, parciales: [null, 69000] } } }] };
+  const D = JSON.parse(evalIn(ctx, 'JSON.stringify(entDatosParciales(__tb))'));
+  assert.deepEqual(D.map(s => [s.ronda, s.filas.map(x => x.nId)]), [[1, ['a', 'b']], [2, ['a']]]);
+  ctx.__D = D;
+  const barras = evalIn(ctx, 'entGraficoBarrasParc(__D[1], __D[1].filas[0], {ronda: 1, sp: __D[0].filas[0].sp})');
+  assert.equal((barras.match(/class="ent-pb"/g) || []).length, 2);
+  assert.equal((barras.match(/ent-pb-ant/g) || []).length, 2);
+  assert.match(barras, /Serie 1: 33\.00 \(\+1\.00 s\)/);   // 34.00 frente a 33.00 de su serie 1
+  const mit = evalIn(ctx, 'entGraficoMitades(__D[0], "a")');
+  assert.ok(mit.indexOf('Bea') < mit.indexOf('Ana'));        // Bea +2.00 s, Ana +4.00 s: primero la que menos cae
+  assert.match(mit, /1ª mitad 33\.00 · 2ª mitad 37\.00/);
+  const cons = evalIn(ctx, 'entGraficoConstancia([{k: "r1", nombre: "Serie 1", sp: [3300, 3700], col: "red", on: true}, {k: "r2", nombre: "Serie 2", sp: [3400, 3400], col: "blue", on: false}], "Ana")');
+  assert.equal((cons.match(/<polyline/g) || []).length, 2);
+});

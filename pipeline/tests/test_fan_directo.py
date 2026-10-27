@@ -153,5 +153,38 @@ class TestSeriesPdf(unittest.TestCase):
         self.assertIsNone(F.cs_texto('NT'))
 
 
+class TestArchivarParciales(unittest.TestCase):
+    def d(self, filas, nombre='200 Libre'):
+        return {'competiciones': [{'id': 7, 'titulo': 'Jornada', 'desde': '2026-10-18', 'lenex': {'lugar': 'MALAGA', 'piscina': '25 m',
+                'pruebas': [{'nombre': nombre, 'sexo': 'M', 'fecha': '2026-10-18', 'filas': filas}]}}]}
+
+    def test_guarda_solo_carreras_del_club_con_parciales(self):
+        a = F.archivar_parciales(self.d([
+            {'rfen': '1', 't': 16054, 'parc': [3626, 7838, 12043], 'puesto': 60, 'serie': 2, 'ins': 15947},   # sin el final: se añade
+            {'rfen': '2', 't': 9000, 'parc': [4000, 9000]},                                                     # con el final
+            {'rfen': None, 't': 9000, 'parc': [4000, 9000]},                                                    # de otro club
+            {'rfen': '3', 't': 9000, 'parc': None}, {'rfen': '4', 't': None, 'parc': [4000]},
+            {'rfen': '5', 't': 9000, 'parc': [5000, 4000], 'estado': ''}, {'rfen': '6', 't': 9000, 'parc': [4000], 'estado': 'DSQ'}]))
+        self.assertEqual(a['c'], {'7': ['Jornada', '2026-10-18', 'MALAGA', '25m']})
+        self.assertEqual(a['n']['1'], [[7, '2026-10-18', '200 Libre', 'M', 16054, [3626, 7838, 12043, 16054], 60, 2, 15947, None]])
+        self.assertEqual(a['n']['2'][0][5], [4000, 9000])
+        self.assertEqual(sorted(a['n']), ['1', '2'])
+
+    def test_conserva_lo_anterior_y_no_duplica(self):
+        a = F.archivar_parciales(self.d([{'rfen': '1', 't': 9000, 'parc': [4000], 'serie': 1}], '100 Libre'))
+        a = F.archivar_parciales({'competiciones': []}, a)                 # la competición ya no está en el directo
+        a = F.archivar_parciales(self.d([{'rfen': '1', 't': 8990, 'parc': [4000], 'serie': 1}], '100 Libre'), a)   # tiempo corregido
+        self.assertEqual([x[4] for x in a['n']['1']], [8990])
+
+    def test_ganador_de_su_serie(self):
+        a = F.archivar_parciales(self.d([{'rfen': '1', 't': 9000, 'parc': [4000], 'serie': 1},
+                                         {'rfen': None, 'n': 'Eva Sol', 't': 8500, 'parc': [3900, 8500], 'serie': 1},
+                                         {'rfen': None, 'n': 'Otra', 't': 8000, 'parc': [3800], 'serie': 2}], '100 Libre'))
+        self.assertEqual(a['n']['1'][0][9], ['Eva', [3900, 8500]])
+
+    def test_relevos_fuera(self):
+        self.assertEqual(F.archivar_parciales(self.d([{'rfen': '1', 't': 9000, 'parc': [4000]}], '4x50 Libre'))['n'], {})
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -601,3 +601,120 @@ async function pintarDirectoNadador(app, s) {
   if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
   dirCuentaArrancar();
 }
+
+/* ── Última competición del club (portada de Club) ──
+   La última competición del directo con resultados de nuestros nadadores: números, lo más destacado y, en una ventana,
+   cómo le fue a cada uno en su prueba y su serie (puesto en la serie, frente a su mejor marca y a su inscripción)
+   y sus parciales frente a los del ganador de su serie. Solo carreras individuales. */
+function dirCarrerasClub(c) {
+  const L = c.lenex, pool = {'25 m': '25m', '50 m': '50m'}[L.piscina] || null, R = [];
+  L.pruebas.forEach(p => {
+    if (/\dx\d|x\s*\d/i.test(p.nombre)) return;   // relevos
+    p.filas.forEach(f => {
+      if (!/^\d+$/.test(String(f.rfen || '')) || (!f.t && !f.estado)) return;
+      const s = Object.hasOwn(SW, f.rfen) ? SW[f.rfen] : null, e = s && s.ev.find(x => x.e === p.nombre);
+      const antes = e ? e.h.filter(x => !x[8] && x[2] === pool && x[0] < (p.fecha || c.desde)).map(x => x[1]) : [];
+      const mejor = antes.length ? Math.min(...antes) : null, ok = !!f.t && !f.estado;
+      const serie = p.filas.filter(y => y.serie === f.serie && y.t && !y.estado).sort((a, b) => a.t - b.t);
+      R.push({p, f, s, pool, nom: s ? s.n : f.n, mejor, ok, pb: ok && mejor != null && f.t < mejor, primera: ok && mejor == null,
+        dif: ok && mejor != null ? f.t - mejor : null, enSerie: ok ? serie.indexOf(f) + 1 : null, deSerie: serie.length,
+        ganador: ok && serie[0] !== f ? serie[0] : null, conSeries: p.filas.some(y => y.serie > 0)});
+    });
+  });
+  return R;
+}
+const dirUltimaDelClub = d => !d ? null : d.competiciones.filter(c => c.lenex && c.estado !== 'proxima' && dirCarrerasClub(c).some(x => x.ok))
+  .sort((a, b) => (b.hasta || b.desde || '').localeCompare(a.hasta || a.desde || ''))[0] || null;
+const dirPct = x => (x.f.t - x.mejor) / x.mejor * 100;
+/* Números del resumen y lo más destacado (podios, mejores marcas que más mejoran, series ganadas) */
+function dirResumenComp(c) {
+  const R = dirCarrerasClub(c), H = R.filter(x => x.ok);
+  const pbs = H.filter(x => x.pb).sort((a, b) => dirPct(a) - dirPct(b)), pods = H.filter(x => x.f.puesto && x.f.puesto <= 3).sort((a, b) => a.f.puesto - b.f.puesto);
+  const ganadas = H.filter(x => x.enSerie === 1 && x.conSeries && x.deSerie > 1);
+  const kpis = [['Nadadores', new Set(H.map(x => x.f.rfen)).size, `${H.length} carreras`], ['Mejores marcas', pbs.length, H.length ? `${Math.round(pbs.length / H.length * 100)} % de las carreras` : '', pbs.length ? 'good' : ''],
+    ['Podios', pods.length, 'puestos 1º a 3º'], H.some(x => x.conSeries) ? ['Series ganadas', ganadas.length, 'primero de su serie'] : null, ['Primera vez', H.filter(x => x.primera).length, 'sin marca previa en esa piscina']];
+  const dest = [...pods.slice(0, 4).map(x => ['copa', `<b>${corto(x.nom)}</b> ${x.f.puesto}º en ${esc(x.p.nombre)} <span class="of">${fmt(x.f.t)}</span>`]),
+    ...pbs.slice(0, 4).map(x => ['crono', `<b>${corto(x.nom)}</b> mejor marca en ${esc(x.p.nombre)}: <b class="sun">${fmt(x.f.t)}</b> <span class="good">−${secs(-x.dif)} s</span>`]),
+    ...ganadas.filter(x => !pods.includes(x)).slice(0, 3).map(x => ['medalla', `<b>${corto(x.nom)}</b> gana su serie de ${esc(x.p.nombre)} <span class="of">${fmt(x.f.t)}</span>`])];
+  return {R, H, pbs, pods, ganadas, kpis, dest};
+}
+async function pintarUltimaComp(app) {
+  const host = app.querySelector('#ult-comp'); if (!host) return;
+  const d = await dirCargar(false); if (!host.isConnected) return;
+  const c = dirUltimaDelClub(d); if (!c) return;
+  const {kpis, dest} = dirResumenComp(c);
+  host.innerHTML = `<div class="card" style="margin-top:12px"><div class="h">${ico('copa')}Última competición ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}</div>
+    <p class="small" style="margin:-2px 0 6px"><b>${esc(c.titulo)}</b> <span class="muted">· ${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
+    ${gKpis(kpis)}
+    ${dest.length ? `<ul class="ins">${dest.map(([i, t]) => `<li><i class="ins-i">${ico(i)}</i>${t}</li>`).join('')}</ul>` : ''}
+    <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
+    <p class="tiny muted" style="margin-top:6px">Resultados de la Federación Andaluza${c.estado === 'en_curso' ? ' (provisionales, se van actualizando)' : ''} · <a href="#directo?c=${Number(c.id)}">Toda la competición</a></p></div>`;
+  host.querySelector('[data-ult-detalle]').onclick = () => abrirUltimaComp(c);
+}
+/* Ventana de detalle: frente a su mejor marca (barras a los dos lados), y cada prueba con sus nadadores; al tocar uno, sus parciales */
+function abrirUltimaComp(c) {
+  const {H, pbs, kpis} = dirResumenComp(c);
+  const conMejor = H.filter(x => x.mejor != null).sort((a, b) => dirPct(a) - dirPct(b));
+  // barras a los dos lados de su mejor marca (en %): a la izquierda, mejoró
+  const graf = (() => {
+    if (!conMejor.length) return '<p class="empty">Nadie tenía marca previa en estas pruebas y esta piscina.</p>';
+    const movil = gMovil(), W = movil ? 400 : 760, FH = 24, P = {l: movil ? 130 : 230, r: 58, t: 26, b: 6}, Hh = P.t + conMejor.length * FH + P.b;
+    // escala a cada lado según lo que haga falta (casi siempre hay más mejoras que lo contrario); el % va al otro lado de la línea
+    // con tope del 8 %: una mejora enorme (p. ej. un benjamín que baja 15 s) no deja las demás barras en nada; esas van cortadas
+    const TOPE = 8, neg = Math.min(TOPE, Math.max(.5, ...conMejor.map(x => -dirPct(x)))), pos = Math.min(TOPE, Math.max(.5, ...conMejor.map(x => dirPct(x))));
+    const k = (W - P.l - P.r - 50) / (neg + pos), x0 = P.l + neg * k;
+    let g = `<text x="${x0 - 8}" y="15" text-anchor="end" class="ent-tx">← mejor marca</text><text x="${x0 + 8}" y="15" class="ent-tx">más lento →</text>`;
+    conMejor.forEach((x, i) => {
+      const y = P.t + i * FH, yc = y + FH / 2, pc = dirPct(x), corta = Math.abs(pc) > TOPE, w = Math.min(Math.abs(pc), TOPE) * k, bx = pc < 0 ? x0 - w : x0;
+      const et = `${String(x.nom).split(' ').slice(0, 2).join(' ')} · ${x.p.nombre}`, nom = et.length > (movil ? 20 : 34) ? et.slice(0, movil ? 19 : 33) + '…' : et;
+      g += `<g class="ent-col-g"${tipAttr(`${x.nom}\n${x.p.nombre}: ${fmt(x.f.t)}\nSu mejor antes: ${fmt(x.mejor)} (${gDif(x.dif)}, ${pc > 0 ? '+' : ''}${pc.toFixed(1)} %)${x.f.puesto ? `\n${x.f.puesto}º` : ''}`)}><rect x="0" y="${y}" width="${W}" height="${FH}" class="ent-col-hit"/>`
+        + `<text x="${P.l - 8}" y="${yc + 4}" text-anchor="end" class="ent-tx">${esc(nom)}</text>`
+        + `<rect x="${bx}" y="${y + 5}" width="${Math.max(w, 1.5)}" height="${FH - 10}" rx="3" class="ent-mb ${pc < 0 ? 'ent-mit-neg' : 'ent-mit-pos'}" style="transform-origin:${x0}px 0;animation-delay:${Math.min(i, 30) * 25}ms"/>`
+        + (corta ? `<path d="M${pc < 0 ? bx + 7 : bx + w - 7} ${y + 5}l${pc < 0 ? -5 : 5} ${(FH - 10) / 2}l${pc < 0 ? 5 : -5} ${(FH - 10) / 2}" class="g-corte"/>` : '')
+        + `<text x="${pc < 0 ? x0 + 6 : bx + w + 6}" y="${yc + 4}" class="ent-etq">${pc > 0 ? '+' : '−'}${Math.abs(pc).toFixed(1)}%</text></g>`;
+    });
+    g += `<line x1="${x0}" x2="${x0}" y1="${P.t - 4}" y2="${Hh - P.b}" class="ent-cien"/>`;
+    const largo = conMejor.length > 14;   // muchas carreras: se ven las primeras y un botón para verlas todas
+    return `<div class="ent-graf${largo ? ' g-plegada' : ''}" data-plegable><svg class="chart ent-chart ent-chart-ritmo" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Cada carrera frente a su mejor marca">${g}</svg></div>
+      ${largo ? `<button class="btn ghost sem-mas" data-desplegar>Ver las ${conMejor.length} carreras</button>` : ''}`;
+  })();
+  // cada prueba: sus nadadores (serie, puesto en la serie, tiempo, puesto, frente a su mejor y a su inscripción); al tocar, parciales
+  const porPrueba = new Map(); H.concat(dirCarrerasClub(c).filter(x => !x.ok)).forEach(x => { if (!porPrueba.has(x.p)) porPrueba.set(x.p, []); porPrueba.get(x.p).push(x); });
+  const todas = [];
+  const secciones = [...porPrueba.entries()].sort((a, b) => (a[0].fecha || '').localeCompare(b[0].fecha || '') || a[0].num - b[0].num).map(([p, L]) => {
+    L.sort((a, b) => (a.f.serie || 0) - (b.f.serie || 0) || (a.f.t || 9e9) - (b.f.t || 9e9));
+    const npb = L.filter(x => x.pb).length, mejorP = Math.min(...L.map(x => x.f.puesto || 999));
+    return `<details class="ult-pr"><summary><b>${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}${p.categoria ? ' · ' + esc(p.categoria) : ''}</span>
+      <span class="ult-pr-r">${L.length} nad.${npb ? ` · <b class="good">${npb} mejor${npb > 1 ? 'es' : ''} marca${npb > 1 ? 's' : ''}</b>` : ''}${mejorP < 999 ? ` · mejor puesto ${mejorP}º` : ''}</span></summary>
+      <div class="tw"><table class="rt"><tr><th>Nadador</th><th>${L[0].conSeries ? 'Serie' : 'Prueba'}</th><th class="num">Tiempo</th><th class="num">Puesto</th><th class="num">Frente a su mejor</th><th class="num">Inscripción</th></tr>
+      ${L.map(x => { todas.push(x); const j = todas.length - 1, parc = x.ok && gParcCarrera(dirAcu(x.f), dirDist(p.nombre));
+        return `<tr class="${parc ? 'click' : ''}"${parc ? ` data-cr="${j}"` : ''}><td><b>${corto(x.nom)}</b>${parc ? ' <span class="tiny muted">· parciales ›</span>' : ''}</td>
+          <td>${x.ok ? `${x.conSeries ? `${x.f.serie}ª · ` : ''}<b>${x.enSerie}º</b> <span class="of">de ${x.deSerie}</span>` : '—'}</td>
+          <td class="num"><b>${x.pb ? '<span class="sun">★ </span>' : ''}${dirTiempo(x.f)}</b></td><td class="num">${x.f.puesto ? x.f.puesto + 'º' : '—'}</td>
+          <td class="num">${x.dif != null ? `<b class="${x.dif < 0 ? 'good' : 'bad'}">${gDif(x.dif)}</b>` : x.primera ? '<span class="tiny muted">primera vez</span>' : '—'}</td>
+          <td class="num">${x.ok && x.f.ins ? `<span class="${x.f.t <= x.f.ins ? 'good' : 'bad'}">${gDif(x.f.t - x.f.ins)}</span>` : '—'}</td></tr>`; }).join('')}</table></div></details>`;
+  }).join('');
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">${esc(c.titulo)}</h1>
+      <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
+      ${gKpis(kpis)}
+      <div class="h h-sub" style="margin-top:14px">${ico('tendencia')}Cada carrera frente a su mejor marca <span class="h-n">· ${conMejor.length} con marca previa en piscina de ${esc(c.lenex.piscina || '')}</span></div>${graf}
+      <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· toca un nadador para ver sus parciales</span></div>${secciones}
+      <p class="tiny muted" style="margin-top:8px">★ = mejor marca personal (antes de esta competición, misma piscina). «Serie»: en qué serie nadó y en qué puesto quedó dentro de ella. Inscripción: frente al tiempo con el que se inscribió. ${pbs.length} mejores marcas en ${H.length} carreras.</p>
+      <p style="margin-top:10px"><a class="btn ghost" href="#directo?c=${Number(c.id)}" onclick="closeEvo()">Ver toda la competición →</a></p>`;
+    const dsp = box.querySelector('[data-desplegar]');
+    if (dsp) dsp.onclick = () => { box.querySelector('[data-plegable]').classList.remove('g-plegada'); dsp.remove(); };
+    box.querySelectorAll('tr[data-cr]').forEach(tr => tr.onclick = () => {
+      const sig = tr.nextElementSibling; if (sig && sig.classList.contains('ult-det')) { sig.remove(); return; }
+      const x = todas[Number(tr.dataset.cr)], dist = dirDist(x.p.nombre), r = gParcCarrera(dirAcu(x.f), dist), gr = x.ganador && gParcCarrera(dirAcu(x.ganador), dist);
+      const ref = gr && gr.sp.length === r.sp.length ? gr.sp : null;
+      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6">${gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
+        ref, refNom: ref ? `Ganador de la serie (${String(x.ganador.n).split(' ')[0]}, ${fmt(x.ganador.t)})` : '', aria: `Parciales de ${x.nom} en ${x.p.nombre}`})}</td></tr>`);
+    });
+    abrirModal();
+  });
+}
+/* Acumulados de una fila del directo hasta el final (el último parcial puede ser ya el tiempo final) */
+const dirAcu = f => !f || !f.t || !f.parc || !f.parc.length ? null : f.parc[f.parc.length - 1] === f.t ? f.parc : [...f.parc, f.t];
