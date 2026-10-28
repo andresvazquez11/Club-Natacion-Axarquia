@@ -856,3 +856,36 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .act-l{display:block;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--lab);margin-bottom:4px}
 .act-fila{display:flex;flex-wrap:wrap;gap:8px}
 .act-fila input{flex:1 1 180px;min-width:0;font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--ln);border-radius:10px;padding:8px 10px}
+/* Historia: temporadas plegables; «Lo último» de la portada */
+.hist-t>summary.hist-sum{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.hist-t>summary.hist-sum::-webkit-details-marker{display:none}
+.hist-t>summary .bar-row{flex:1;min-width:0}
+.hist-t>summary .dir-chev{transition:transform .2s}
+.hist-t[open]>summary .dir-chev{transform:rotate(90deg)}
+.lu .ent-tabs{margin-top:2px}
+/* Glosario («?» junto a un término técnico) y familia */
+.glos{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;padding:0;border-radius:50%;border:1px solid var(--ink2);background:none;color:var(--ink2);font:700 10px/1 inherit;cursor:pointer;vertical-align:1px;flex:none}
+.glos:hover,.glos:focus-visible{color:var(--ink);border-color:var(--ink);outline:none}
+.glos-pop{display:block!important;pointer-events:auto;max-width:280px}
+.fam{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none;margin:0 calc(-1 * var(--gut));padding-left:var(--gut);padding-right:var(--gut)}
+.fam button,.fam a{flex:none;font:inherit;text-align:left;border:1px solid var(--ln);background:var(--surf);color:var(--ink);border-radius:14px;padding:8px 12px;cursor:pointer;text-decoration:none;min-width:132px}
+.fam .on{border-color:var(--hl)}
+.fam b{display:block;font-size:.85rem}.fam small{display:block;font-size:.68rem;color:var(--ink2)}
+.fam .mas-hijo{display:flex;align-items:center;justify-content:center;color:var(--link);min-width:96px;font-weight:700;font-size:.8rem}
+.obj-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.obj-f input{flex:1 1 110px;min-width:0;max-width:150px;font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--ln);border-radius:10px;padding:7px 10px}
+.obj-est{font-size:.82rem;margin-top:6px}
+.ent-chart .g-obj{stroke:var(--good);stroke-width:1.8;stroke-dasharray:2 4;fill:none}
+.ent-chart .g-obj-t{fill:var(--good);font-size:11px;font-weight:800}
+.ent-ajustes{margin-top:8px;border:1px solid var(--ln);border-radius:12px;padding:8px 12px}
+.ent-ajustes>summary{cursor:pointer;font-size:.82rem;color:var(--ink2);list-style:none}
+.ent-ajustes>summary::-webkit-details-marker{display:none}
+.ent-ajustes[open]>summary{margin-bottom:8px}
+/* Mapa de asistencia (nadador × entrenamiento) */
+.ent-mapa{border-collapse:separate;border-spacing:2px;font-size:.72rem;font-variant-numeric:tabular-nums;width:100%}
+.ent-mapa th{font-weight:700;color:var(--ink2);text-align:center;padding:2px 0;white-space:nowrap}
+.ent-mapa td.nm{white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;padding-right:6px}
+.ent-mapa td.si,.ent-mapa td.no{width:16px;min-width:16px;height:16px;border-radius:4px}
+.ent-mapa td.si{background:var(--s1)} .ent-mapa td.no{background:var(--ln)}
+.ent-mapa td.num{text-align:right;padding-left:6px}
+.ent-mapa tr.click{cursor:pointer}

@@ -597,8 +597,8 @@ async function pintarDirectoNadador(app, s) {
     ${conSeries.length ? `<div class="ent-sel">Próximas de ${nombre}</div>${conSeries.map(linea).join('')}` : ''}
     ${calendario.length ? `<div class="ent-sel">Próximas para ${esc((catOf(s.cat) || {}).label || 'su categoría')}</div>${calendario.map(linea).join('')}` : ''}
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
-  const ancla = app.querySelector('.card');
-  if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
+  const slot = app.querySelector('#res-prox'), ancla = app.querySelector('.card');
+  if (slot) slot.innerHTML = html; else if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
   dirCuentaArrancar();
 }
 
@@ -641,14 +641,14 @@ function dirResumenComp(c) {
 async function pintarUltimaComp(app) {
   const host = app.querySelector('#ult-comp'); if (!host) return;
   const d = await dirCargar(false); if (!host.isConnected) return;
-  const c = dirUltimaDelClub(d); if (!c) return;
+  const c = dirUltimaDelClub(d);
+  if (!c) { const t = app.querySelector('.lu [data-lu="comp"]'); if (t) t.remove(); host.closest('[data-lu-p]').remove(); return; }   // sin competición: sin pestaña
   const {kpis, dest} = dirResumenComp(c);
-  host.innerHTML = `<div class="card" style="margin-top:12px"><div class="h">${ico('copa')}Última competición ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}</div>
-    <p class="small" style="margin:-2px 0 6px"><b>${esc(c.titulo)}</b> <span class="muted">· ${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
+  host.innerHTML = `<p class="small" style="margin:0 0 6px"><b>${esc(c.titulo)}</b> ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}<span class="muted"> · ${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
     ${gKpis(kpis)}
     ${dest.length ? `<ul class="ins">${dest.map(([i, t]) => `<li><i class="ins-i">${ico(i)}</i>${t}</li>`).join('')}</ul>` : ''}
     <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
-    <p class="tiny muted" style="margin-top:6px">Resultados de la Federación Andaluza${c.estado === 'en_curso' ? ' (provisionales, se van actualizando)' : ''} · <a href="#directo?c=${Number(c.id)}">Toda la competición</a></p></div>`;
+    <p class="tiny muted" style="margin-top:6px">Resultados de la Federación Andaluza${c.estado === 'en_curso' ? ' (provisionales, se van actualizando)' : ''} · <a href="#directo?c=${Number(c.id)}">Toda la competición</a></p>`;
   host.querySelector('[data-ult-detalle]').onclick = () => abrirUltimaComp(c);
 }
 /* Ventana de detalle: frente a su mejor marca (barras a los dos lados), y cada prueba con sus nadadores; al tocar uno, sus parciales */

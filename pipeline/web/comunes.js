@@ -44,11 +44,48 @@ if (BEN_ID) SW[BEN_ID].benicio = true;
 const BEN = BEN_ID ? SW[BEN_ID] : null;
 const ESTRELLA_ELEGIBLE = !DATA.estrella_fija;
 const nombreCorto = s => esc(String(s.n).split(' ')[0]);
+/* Familia: una misma familia puede seguir a varios hijos; el «activo» es la ★ de siempre. Se guarda solo en este dispositivo. */
+const FAMILIA_LS = 'cna_familia';
+function familiaIds() {
+  try { const L = JSON.parse(localStorage.getItem(FAMILIA_LS) || '[]'); return (Array.isArray(L) ? L : []).map(String).filter(x => Object.hasOwn(SW, x)).slice(0, 6); } catch (e) { return []; }
+}
+function guardarFamilia(L) { try { localStorage.setItem(FAMILIA_LS, JSON.stringify([...new Set(L.map(String))].slice(0, 6))); } catch (e) {} }
 function elegirEstrella(id) {
   try { if (id) localStorage.setItem(ESTRELLA_LS, String(id)); else localStorage.removeItem(ESTRELLA_LS); } catch (e) {}
+  if (id) guardarFamilia([...familiaIds(), id]);
   location.hash = '#mi';   // con nadador, su pantalla; sin él (Cambiar), el selector
   location.reload();
 }
+function quitarDeFamilia(id) {
+  guardarFamilia(familiaIds().filter(x => x !== String(id)));
+  try { if (String(id) === String(BEN_ID)) localStorage.removeItem(ESTRELLA_LS); } catch (e) {}
+  location.hash = '#mi'; location.reload();
+}
+/* Objetivos privados: un tiempo que la familia se pone para una prueba y piscina; se guardan solo en este dispositivo y no
+   salen en ningún ranking. {«prueba|piscina»: centésimas} */
+const objLS = id => 'cna_obj_' + id;
+function objPriv(id) { try { const o = JSON.parse(localStorage.getItem(objLS(id)) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } }
+function objFijar(id, ev, pool, cs) { const o = objPriv(id), k = ev + '|' + pool; if (cs > 0) o[k] = cs; else delete o[k]; try { localStorage.setItem(objLS(id), JSON.stringify(o)); } catch (e) {} }
+/* «2:50.00», «50.5», «1:05,30» → centésimas (null si no es un tiempo) */
+function parseCs(t) {
+  const m = /^\s*(?:(\d{1,2})[:.])?(\d{1,2})[.,](\d{1,2})\s*$/.exec(String(t || '')) || /^\s*(?:(\d{1,2}):)?(\d{1,2})\s*$/.exec(String(t || ''));
+  if (!m) return null;
+  const min = m[1] ? +m[1] : 0, seg = +m[2], cen = m[3] ? +String(m[3]).padEnd(2, '0') : 0;
+  return seg < 60 && cen < 100 ? (min * 60 + seg) * 100 + cen : null;
+}
+/* Glosario: un «?» junto a un término técnico abre su explicación en una línea (se maneja en graficos.js) */
+const GLOSARIO = {
+  pts: ['Puntos World Aquatics', 'Una escala internacional que permite comparar marcas de pruebas, piscinas y edades distintas. 1000 puntos = récord del mundo.'],
+  nivel: ['Nivel', 'Media de los puntos World Aquatics de sus 3 mejores pruebas en esa temporada. Sirve para ver su evolución global.'],
+  mediana: ['Mediana', 'El tiempo del nadador del medio del grupo: la mitad nada más rápido y la otra mitad más lento. Se ve menos afectada por casos extremos que la media.'],
+  ritmo: ['Ritmo de 200 / de 400', 'Lo que tardaría en cada tramo si nadara a la velocidad media de su mejor 200 o 400. Sirve para saber si una serie va a su ritmo.'],
+  caida: ['Caída', 'La diferencia entre su tramo más rápido y el más lento. Una caída pequeña indica que reparte bien el esfuerzo.'],
+  split: ['Split negativo', 'Nadar la segunda mitad más rápido que la primera. Es la señal de una carrera bien repartida.'],
+  parcial: ['Parciales', 'El tiempo en cada tramo de la carrera (por ejemplo, cada 50 m). El primer tramo es más rápido porque lleva la salida.'],
+  rota: ['Rota', 'Una serie partida en tramos con descansos. El tiempo que se guarda es el neto, sin contar los descansos.'],
+  puesto: ['Puesto', 'Siempre entre los nadadores de su mismo sexo y año de nacimiento, que es como se compite en estas edades.'],
+};
+const glos = (k, txt) => GLOSARIO[k] ? `<span role="button" tabindex="0" class="glos" data-glos="${k}" aria-label="Qué es: ${esc(txt || GLOSARIO[k][0])}">?</span>` : '';
 const SEXO = {M: 'Masc.', F: 'Fem.'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
 /* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */

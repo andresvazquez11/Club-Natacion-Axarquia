@@ -168,8 +168,7 @@ function perfilActividadHTML(s) {
 const liAnalisis = arr => frasesCortas(arr, arr.length).map(([i, t]) => `<li><i class="ins-i">${icoDe(i)}</i>${t}</li>`).join('');
 function analisisCompletoHTML(s) {
   const {F, M} = analisis(s);
-  return bloque('medalla', 'Puntos fuertes', `<ul class="ins">${liAnalisis(F) || '<li>—</li>'}</ul>`) +
-    bloque('diana', 'A mejorar', `<ul class="ins" id="an-malo">${liAnalisis(M) || '<li>—</li>'}</ul>`);
+  return '';   // «Puntos fuertes» y «A mejorar» son los de «Dónde destaca» y «Para seguir mejorando» del Resumen: una sola versión
 }
 
 /* y el análisis de varias temporadas, de historial.json */
@@ -177,11 +176,8 @@ function pintarAnalisis(s) {
   cargarHistorial().then(H => {
     const A = H.an[String(s.id)], host = document.getElementById('an-host'); if (!A || !host) return;
     const li = liAnalisis;
-    if ((A.malo || []).length) { const ul = document.getElementById('an-malo');
-      if (ul) { if (ul.textContent.trim() === '—') ul.innerHTML = ''; ul.insertAdjacentHTML('beforeend', li(A.malo)); } }
-    const evo = [...(A.evo || []), ...(A.bueno || [])], comp = A.comp || [];
-    host.insertAdjacentHTML('beforeend', (evo.length ? bloque('tendencia', 'Su evolución', `<ul class="ins">${li(evo)}</ul>`, 'Desde su primera temporada.') : '') +
-      (comp.length ? bloque('balanza', 'Comparado con los demás', `<ul class="ins">${li(comp)}</ul>
+    const comp = A.comp || [];
+    host.insertAdjacentHTML('beforeend', (comp.length ? bloque('balanza', 'Comparado con los demás', `<ul class="ins">${li(comp)}</ul>
         <p class="tiny muted" style="margin-top:8px">«Los demás» = todos los nadadores de España de su sexo y año con marca esa temporada, y sus compañeros del club de su sexo y año.</p>`) : ''));
   }).catch(() => {});
 }
@@ -189,8 +185,9 @@ function pintarAnalisis(s) {
 /* Pruebas: una fila por prueba; al pulsarla se despliega su evolución (todas sus marcas) ahí mismo */
 function tabPruebas(s, sk, p) {
   const open = p.ev;
-  return `<div class="card"><div class="bar-row"><p class="small muted">De su mejor a su peor prueba (puesto en España). Comparando con: <b>${scopeLbl(s, sk)}</b>. <b>Pulsa una prueba</b> para ver todas sus marcas.</p>${segScope(s, sk)}</div>
-    <div class="bar-row" style="margin-bottom:0">${piscSeg()}</div></div>
+  return `<div class="card"><p class="small muted">De su mejor a su peor prueba (puesto en España entre ${esc(scopeLbl(s, sk))}). <b>Pulsa una prueba</b> para ver su evolución, sus marcas y sus parciales.</p>
+    <details class="ent-ajustes"><summary>Ajustes de comparación${glos('puesto')}</summary>
+      <div class="bar-row">${segScope(s, sk)}</div><div class="bar-row" style="margin-bottom:0">${piscSeg()}</div></details></div>
     <div class="prs" style="margin-top:10px">${s.ev.map(e => { const r = e.rk[sk] || {}, m = mejorConv(s, e), mej = e.first - e.cs, ab = open === e.e;
       return `<div class="pr ${ab ? 'open' : ''}" id="pr-${e.e.replace(/ /g, '-')}">
         <button class="pr-h" data-pr="${esc(e.e)}" aria-expanded="${ab}">
@@ -211,27 +208,89 @@ function tabPruebas(s, sk, p) {
           ${evolucionHTML(s, e)}</div>` : ''}</div>`; }).join('')}</div>${p.ev && piscDestino() ? '' : notaConv()}${perfilActividadHTML(s)}`;
 }
 
-/* Parciales de sus carreras de competición en una prueba (parciales.json, desde la 26-27): cada tramo frente a la carrera
-   anterior y a su mejor carrera, y todas superpuestas. Solo las de la piscina de su última carrera (25 y 50 m no se mezclan). */
+/* Sus carreras de competición con parciales en una prueba (parciales.json, desde la 26-27), en la piscina de la última:
+   25 y 50 m no se mezclan. [{nom, corto, sp, paso, t, pool, kpis, alt}] en orden de fecha */
+function parcCarreras(P, s, ev) {
+  const dist = parseInt(ev, 10);
+  let C = ((P.n || {})[String(s.id)] || []).filter(x => x[2] === ev).map(x => {
+    const c = (P.c || {})[String(x[0])] || [], r = gParcCarrera(x[5], dist), gr = x[9] && gParcCarrera(x[9][1], dist);
+    return r && {nom: `${dfmt(x[1])} · ${c[0] || 'Competición'}`, corto: `${x[1].slice(8)}/${x[1].slice(5, 7)}`, sp: r.sp, paso: r.paso, t: x[4], pool: c[3],
+      kpis: [x[8] ? ['Frente a su inscripción', gDif(x[4] - x[8]), `inscrito con ${fmt(x[8])}`, x[4] <= x[8] ? 'good' : 'bad'] : null,
+        x[6] ? ['Puesto', `${x[6]}º`, x[7] ? `serie ${x[7]}` : ''] : null],
+      alt: gr && gr.sp.length === r.sp.length ? {nom: `Ganador de su serie (${x[9][0]}, ${fmt(x[9][1][x[9][1].length - 1])})`, sp: gr.sp} : null};
+  }).filter(Boolean);
+  if (C.length) C = C.filter(x => x.pool === C[C.length - 1].pool);
+  return C;
+}
 function pintarParcFicha(app, s, ev) {
   const host = app.querySelector('[data-parc-host]'); if (!host) return;
   cargarParciales().then(P => {
     if (!host.isConnected) return;
-    const dist = parseInt(ev, 10);
-    let C = ((P.n || {})[String(s.id)] || []).filter(x => x[2] === ev).map(x => {
-      const c = (P.c || {})[String(x[0])] || [], r = gParcCarrera(x[5], dist), gr = x[9] && gParcCarrera(x[9][1], dist);
-      return r && {nom: `${dfmt(x[1])} · ${c[0] || 'Competición'}`, corto: `${x[1].slice(8)}/${x[1].slice(5, 7)}`, sp: r.sp, paso: r.paso, t: x[4], pool: c[3],
-        kpis: [x[8] ? ['Frente a su inscripción', gDif(x[4] - x[8]), `inscrito con ${fmt(x[8])}`, x[4] <= x[8] ? 'good' : 'bad'] : null,
-          x[6] ? ['Puesto', `${x[6]}º`, x[7] ? `serie ${x[7]}` : ''] : null],
-        alt: gr && gr.sp.length === r.sp.length ? {nom: `Ganador de su serie (${x[9][0]}, ${fmt(x[9][1][x[9][1].length - 1])})`, sp: gr.sp} : null};
-    }).filter(Boolean);
-    if (C.length) C = C.filter(x => x.pool === C[C.length - 1].pool);
-    if (!C.length) return;
+    const C = parcCarreras(P, s, ev); if (!C.length) return;
     host.className = 'card'; host.style.margin = '0 0 12px';
-    host.innerHTML = `<h3>${ico('crono')}Parciales de sus carreras <span class="muted small">· piscina de ${esc(C[0].pool || '')} · ${C.length} carrera${C.length > 1 ? 's' : ''}</span></h3>
+    host.innerHTML = `<h3>${ico('crono')}Parciales de sus carreras <span class="muted small">· piscina de ${esc(C[0].pool || '')} · ${C.length} carrera${C.length > 1 ? 's' : ''}</span>${glos('parcial')}</h3>
       <div data-parc-panel></div><p class="tiny muted" style="margin-top:6px">Parciales publicados por la Federación Andaluza en sus competiciones (se guardan desde la temporada 26-27).</p>`;
     gParcPanel(host.querySelector('[data-parc-panel]'), C);
   });
+}
+/* Resumen: su última carrera con parciales (de la prueba que sea) */
+function pintarUltimaCarrera(app, s) {
+  const host = app.querySelector('#res-ult'); if (!host) return;
+  cargarParciales().then(P => {
+    const L = ((P.n || {})[String(s.id)] || []).filter(x => gParcCarrera(x[5], parseInt(x[2], 10)));
+    if (!host.isConnected || !L.length) return;
+    const u = L.reduce((a, b) => b[1] >= a[1] ? b : a), C = parcCarreras(P, s, u[2]);
+    if (!C.length) return;
+    host.className = 'card';
+    host.innerHTML = `<div class="h">${ico('crono')}Su última carrera <span class="h-n">· ${esc(u[2])} · ${dfmt(u[1])}</span>${glos('parcial')}</div>
+      <div data-parc-panel></div><a class="mas" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(u[2])}">Ver todas sus marcas en ${esc(u[2])} ›</a>`;
+    gParcPanel(host.querySelector('[data-parc-panel]'), C);
+  });
+}
+
+/* Resumen: su evolución en una prueba (cambia con las pastillas) y su objetivo privado en ella */
+function resEvoHTML(s, evName, poolSel) {
+  const e = s.ev.find(x => x.e === evName) || s.ev[0];
+  const pools = [...new Set(e.h.filter(x => !x[8]).map(x => x[2]))].sort(), pool = pools.includes(poolSel) ? poolSel : e.pool;
+  const rows = e.h.filter(x => x[2] === pool && !x[8]).sort((a, b) => a[0] < b[0] ? -1 : 1);
+  const obj = objPriv(s.id)[e.e + '|' + pool] || null, best = rows.length ? Math.min(...rows.map(x => x[1])) : null;
+  const est = !obj ? '' : best <= obj ? `<b class="good">Objetivo conseguido</b> con ${fmt(best)}.` : `Le faltan <b>${secs(best - obj)} s</b> para su objetivo de ${fmt(obj)}.`;
+  return `${pools.length > 1 ? `<div class="chips sub" data-chips="evp">${pools.map(pl => `<button class="chip${pl === pool ? ' on' : ''}" data-v="${pl}">Piscina de ${pl.replace('m', ' m')}</button>`).join('')}</div>`
+      : `<p class="tiny muted" style="margin:0 0 4px">${esc(e.e)} · piscina de ${esc(pool)}</p>`}${rows.length ? evoKpis(rows) : ''}
+    ${rows.length > 1 ? evoChart(rows, s, entrenosDe(s, e.e), obj) : '<p class="empty">Con dos marcas en esta prueba se verá su evolución.</p>'}
+    <div class="obj-est" aria-live="polite">${est}</div>
+    <div class="obj-f"><label class="tiny muted" for="res-obj">${ico('diana')} Mi objetivo</label><input id="res-obj" inputmode="decimal" autocomplete="off" placeholder="${best ? fmt(Math.max(1, best - 100)) : '1:05.00'}" value="${obj ? fmt(obj) : ''}">
+      <button type="button" class="chip" data-obj-set>${obj ? 'Cambiar' : 'Fijar'}</button>${obj ? '<button type="button" class="chip" data-obj-del>Quitar</button>' : ''}</div>
+    <p class="tiny muted" style="margin-top:4px">El objetivo es privado: se guarda solo en este dispositivo.</p>`;
+}
+function bindResEvo(app, s) {
+  const card = app.querySelector('#res-evo'), c = app.querySelector('#res-evo-c'); if (!card || !c) return;
+  let ev = (card.querySelector('.chip.on') || {dataset: {}}).dataset.v || s.ev[0].e, pool = null;
+  const pinta = () => { c.innerHTML = resEvoHTML(s, ev, pool); onChips(c, 'evp', v => { pool = v; pinta(); }); };
+  c.addEventListener('click', e => {
+    const b = e.target.closest('[data-obj-set],[data-obj-del]'); if (!b) return;
+    const x = s.ev.find(y => y.e === ev) || s.ev[0], pl = pool || x.pool;
+    if (b.hasAttribute('data-obj-del')) { objFijar(s.id, x.e, pl, 0); pinta(); return; }
+    const v = parseCs(c.querySelector('#res-obj').value);
+    if (v == null || v < 1000) { c.querySelector('.obj-est').textContent = 'Escribe un tiempo como 2:50.00 o 38.50'; return; }
+    objFijar(s.id, x.e, pl, v); pinta();
+  });
+  onChips(card.querySelector('[data-chips="evr"]') ? card : c, 'evr', v => { ev = v; pool = null; card.querySelectorAll('[data-chips="evr"] .chip').forEach(b => b.classList.toggle('on', b.dataset.v === v)); pinta(); });
+  onChips(c, 'evp', v => { pool = v; pinta(); });
+}
+/* Familia: un botón por cada hijo que se sigue en este dispositivo, con su última marca; cambiar de hijo recarga su pantalla */
+function familiaHTML(s) {
+  if (!ESTRELLA_ELEGIBLE || !s.benicio) return '';
+  const ids = familiaIds();
+  const chip = id => { const x = SW[id]; if (!x) return ''; const on = String(x.id) === String(s.id);
+    return `<button type="button" class="${on ? 'on' : ''}" data-fam="${esc(id)}"${on ? ' aria-current="true"' : ''}><b>${esc(String(x.n).split(' ')[0])}</b><small>${x.last ? 'última marca ' + dfmt(x.last).slice(0, 5) : 'sin marcas'}</small></button>`; };
+  return `<div class="fam" aria-label="Mi familia">${ids.map(chip).join('')}<a class="mas-hijo" href="#elegir">+ Añadir otro hijo o hija</a></div>`;
+}
+/* y el análisis de varias temporadas de «Para seguir mejorando» (historial.json) */
+function pintarAnalisisResumen(app, s) {
+  if (!app.querySelector('#res-malo')) return;
+  cargarHistorial().then(H => { const A = H.an[String(s.id)], l = app.querySelector('#res-malo');
+    if (A && l && (A.malo || []).length) l.insertAdjacentHTML('beforeend', filasFrase(frasesCortas(A.malo, 2))); }).catch(() => {});
 }
 
 /* Ranking: dónde está hoy (rivales por delante y por detrás) y, debajo, su puesto semana a semana */
@@ -495,19 +554,28 @@ function resumenHTML(s, cat) {
 
   const pd = podiosDe(s);
   const filaPod = pd.comps ? `<button class="fila" data-kd="pod">${ico('medalla')}<span><b>${pd.victorias}</b> victoria${pd.victorias === 1 ? '' : 's'} · <b>${pd.podios}</b> podio${pd.podios === 1 ? '' : 's'} en ${pd.comps} competicion${pd.comps === 1 ? '' : 'es'}</span><span class="dcha">›</span></button>` : '';
+  const evsRes = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6).map(e => e.e), mm = mejorMomento(s), evIni = mm && evsRes.includes(mm.e) ? mm.e : evsRes[0];
   return `${portada}
+    ${familiaHTML(s)}
     ${logrosHTML(s)}
     <div class="resumen">
     ${mejorMomentoHTML(s)}
+    <div class="card" id="res-evo"><div class="h">${ico('tendencia')}Su evolución</div>
+      ${evsRes.length > 1 ? chipsHTML('evr', evsRes.map(x => [x, esc(x)]), evIni) : ''}
+      <div id="res-evo-c">${resEvoHTML(s, evIni)}</div>
+      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
+    <div id="res-prox"></div>
+    <div id="res-ult"></div>
     <div class="accesos">${acc}</div>
-    <div class="card"><div class="lista"><button class="fila" data-kd="top3">${ico('tendencia')}<span>Suma de sus 3 mejores pruebas: <b>${s.top3} pts</b></span><span class="dcha">›</span></button></div></div>
+    <div class="card"><div class="lista"><button class="fila" data-kd="top3">${ico('tendencia')}<span>Suma de sus 3 mejores pruebas: <b>${s.top3} pts</b>${glos('pts')}</span><span class="dcha">›</span></button></div></div>
     ${destaca.length ? `<div class="card"><div class="h">${ico('medalla')}Dónde destaca</div><div class="lista">${filasFrase(destaca)}</div></div>` : ''}
     ${mejorar.length || O.length ? `<div class="card"><div class="h">${ico('diana')}Para seguir mejorando</div>
-      ${mejorar.length ? `<div class="lista">${filasFrase(mejorar)}</div>` : ''}
+      <div class="lista" id="res-malo">${filasFrase(mejorar)}</div>
       ${O.length ? `<div class="h h-sub">Próximos objetivos</div><div class="lista">${objetivosL}</div>` : ''}</div>` : ''}
     <div class="card"><div class="h">${ico('carriles')}Últimas competiciones</div><div class="lista">${comps}${filaPod}</div>
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     ${insigniasCard(s)}
+    ${s.benicio && ESTRELLA_ELEGIBLE ? `<p class="tiny muted" style="text-align:center;margin-top:10px"><button type="button" class="ent-x-link" data-quitar>Dejar de seguir a ${esc(String(s.n).split(' ')[0])} en este dispositivo</button></p>` : ''}
     </div>`;
 }
 
@@ -530,7 +598,12 @@ function vistaFicha(app, s, sub, params) {
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
+    bindResEvo(app, s);
+    app.querySelectorAll('[data-fam]').forEach(b => b.onclick = () => { if (b.dataset.fam !== String(s.id)) elegirEstrella(b.dataset.fam); });
+    const q = app.querySelector('[data-quitar]'); if (q) q.onclick = () => { if (confirm(`¿Dejar de seguir a ${s.n} en este dispositivo?`)) quitarDeFamilia(s.id); };
     pintarDirectoNadador(app, s);   // próximas competiciones y últimos resultados (directo de la FAN)
+    pintarUltimaCarrera(app, s);
+    pintarAnalisisResumen(app, s);
   } else vistaSub(app, s, sub, paramsSub(sub, params));
   app.querySelectorAll('.badge').forEach(b => b.onclick = () => { const i = document.getElementById('badge-info');
     if (i) i.innerHTML = `<b>${b.querySelector('small').textContent}</b>: ${esc(b.title)}${b.classList.contains('on') ? ' · <span class="good">conseguida</span>' : ''}`; });

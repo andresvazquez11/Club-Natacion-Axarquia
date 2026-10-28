@@ -67,7 +67,7 @@ function tabHistorial(s, p, H) {
   const vista = p.hv || 'total';
   const niv = ts.map(t => [tLbl(t) + ` <span class="of">${edadTemp(t, s.y)}${t === '2627' ? ' · en curso' : ''}</span>`, nivelTemp(T[t]), `${nivelTemp(T[t])} pts`, `data-hvt="${t}"`]);
   let h = `<p class="small muted" style="margin-bottom:10px">Su historia temporada a temporada (la RFEN tiene marcas desde la 13-14). Todas sus marcas están en <a class="sun" href="${fichaHref(s, 'marcas')}">Marcas</a>.</p>
-    <div class="card" style="margin-top:12px"><h3>${ico('barras')}Nivel por temporada <span class="muted small">· media de sus 3 mejores pruebas · pulsa una temporada para ver sus marcas</span></h3>${barsHTML(niv)}
+    <div class="card" style="margin-top:12px"><h3>${ico('barras')}Nivel por temporada${glos('nivel')} <span class="muted small">· media de sus 3 mejores pruebas · pulsa una temporada para ver sus marcas</span></h3>${barsHTML(niv)}
       <p class="tiny muted" style="margin-top:8px">Puntos World Aquatics: permiten comparar pruebas, piscinas y temporadas distintas.</p></div>
     <div class="bar-row" style="margin-top:16px"><div class="seg" data-hv><button data-v="total" class="${vista === 'total' ? 'on' : ''}">Por prueba</button><button data-v="temp" class="${vista === 'temp' ? 'on' : ''}">Por temporada</button></div></div>`;
   return h + (vista === 'temp' ? histTemporada(s, T, ts, p) : histTotal(s, T, ts, p));

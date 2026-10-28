@@ -27,6 +27,23 @@ if (typeof document !== 'undefined' && typeof window.scrollY === 'number') {   /
   document.addEventListener('change', e => { const i = e.target.closest && e.target.closest('[data-g-capa]');
     if (i) { const g = i.closest('.ent-graf'); if (g) g.classList.toggle('g-sin-' + i.dataset.gCapa, !i.checked); } });
 }
+/* Glosario: al tocar un «?» (button.glos) sale la explicación junto a él; se cierra al tocar fuera */
+if (typeof document !== 'undefined' && typeof window.scrollY === 'number') {
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-glos]'), viejo = document.getElementById('glos-pop');
+    if (viejo) viejo.remove();
+    if (!b || (viejo && viejo.dataset.k === b.dataset.glos && viejo.dataset.t === String(b.dataset.t || ''))) return;
+    e.preventDefault(); e.stopPropagation();
+    const [t, d] = GLOSARIO[b.dataset.glos] || []; if (!t) return;
+    const pop = document.createElement('div'); pop.id = 'glos-pop'; pop.className = 'ent-tip glos-pop'; pop.setAttribute('role', 'note'); pop.dataset.k = b.dataset.glos; pop.dataset.t = ''; pop._t = Date.now();
+    const h = document.createElement('b'); h.textContent = t; const p = document.createElement('div'); p.textContent = d; pop.append(h, p); document.body.appendChild(pop);
+    const r = b.getBoundingClientRect(), w = pop.offsetWidth;
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+  }, true);
+  document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('[data-glos]')) { e.preventDefault(); e.target.click(); } });
+  window.addEventListener('scroll', () => { const v = document.getElementById('glos-pop'); if (v && Date.now() - (v._t || 0) > 500) v.remove(); }, {passive: true});
+}
 const gMovil = () => typeof window !== 'undefined' && window.innerWidth < 600;
 const gSuma = L => L.reduce((a, b) => a + b, 0);
 const gMedia = L => gSuma(L) / L.length;
@@ -110,7 +127,7 @@ function gParcPanel(host, C, o = {}) {
     const mejorC = mismos.reduce((a, b) => b.t < a.t ? b : a);
     const mejor = Math.min(...x.sp), peor = Math.max(...x.sp);
     const kp = gKpis([[o.que || 'Tiempo', fmt(x.t), esc(x.nom)], ['Mejor tramo', fmt(mejor), gTramo(x.sp.indexOf(mejor), x.paso)],
-      ['Peor tramo', fmt(peor), gTramo(x.sp.indexOf(peor), x.paso)], ['Caída', `+${secs(peor - mejor)} s`, 'del mejor al peor tramo'], ...(x.kpis || [])]);
+      ['Peor tramo', fmt(peor), gTramo(x.sp.indexOf(peor), x.paso)], [`Caída${glos('caida')}`, `+${secs(peor - mejor)} s`, 'del mejor al peor tramo'], ...(x.kpis || [])]);
     const graf = vista === 'barras'
       ? (prevC ? gSwitch('data-ant', ant, `Ver al lado la anterior (${esc(prevC.corto)})`) : '')
         + gBarrasParc({sp: x.sp, paso: x.paso, nom: x.nom, prev: ant && prevC ? {nom: prevC.nom, sp: prevC.sp} : null,
@@ -152,11 +169,12 @@ const cargarParciales = () => PARC ? Promise.resolve(PARC)
    Tiempo más alto arriba, mejor marca abajo. Puntos amarillos = mejor marca personal en ese momento; la línea
    discontinua, su mejor marca en cada momento. Solo se escriben la primera, la última y la mejor; el resto, al pasar el dedo.
    ent = tiempos de entreno [[día, cs, texto]] (capa que se enseña u oculta con su interruptor). */
-function evoChart(rows, s, ent) {
+function evoChart(rows, s, ent, obj) {
   const movil = gMovil();   // en el móvil se dibuja más estrecho para que el texto se lea
   const W = movil ? 400 : 860, H = movil ? 260 : 280, P = {l: movil ? 50 : 58, r: movil ? 30 : 40, t: 22, b: 40};
   ent = (ent || []).filter(x => x[1] > 0);
   const ts = [...rows, ...ent].map(x => Date.parse(x[0])), v = [...rows, ...ent].map(x => x[1]);
+  if (obj) v.push(obj);
   const t0 = Math.min(...ts), t1 = Math.max(...ts), tr = (t1 - t0) || 1;
   const mn = Math.min(...v), mx = Math.max(...v), hi = mx + Math.max((mx - mn) * 0.12, 20), lo = mn - Math.max((mx - mn) * 0.3, 45);
   const X = t => ts.length === 1 ? W / 2 : P.l + (t - t0) / tr * (W - P.l - P.r);
@@ -170,6 +188,7 @@ function evoChart(rows, s, ent) {
   let best = Infinity; const pb = [];
   rows.forEach(x => { if (x[1] < best) best = x[1]; pb.push(X(Date.parse(x[0])) + ',' + Y(best)); });
   g += `<polyline points="${pb.join(' ')}" class="g-evo-pb"/>`;
+  if (obj) g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(obj)}" y2="${Y(obj)}" class="g-obj"/><text x="${W - P.r}" y="${Y(obj) - 5}" text-anchor="end" class="g-obj-t">Objetivo ${fmt(obj)}</text>`;
   g += `<polyline points="${rows.map(x => X(Date.parse(x[0])) + ',' + Y(x[1])).join(' ')}" pathLength="1" class="g-evo-l"/>`;
   if (ent.length) g += `<g class="g-capa-ent">${ent.map(x => `<g class="ent-pt-g"${tipAttr(`${fmt(x[1])} · entreno\n${dfmt(x[0])}${x[2] ? '\n' + x[2] : ''}`)}><circle cx="${X(Date.parse(x[0]))}" cy="${Y(x[1])}" r="12" class="ent-hit"/><circle cx="${X(Date.parse(x[0]))}" cy="${Y(x[1])}" r="3.5" class="g-evo-ent"/></g>`).join('')}</g>`;
   best = Infinity;
@@ -187,7 +206,7 @@ function evoChart(rows, s, ent) {
     } });
   return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de las marcas">${g}</svg>
     <div class="ent-leyenda"><span><i class="ent-l-linea" style="background:var(--ink)"></i>Cada marca</span><span><i class="ent-l-med"></i>Su mejor marca en cada momento</span>
-      ${ent.length ? gSwitch('data-g-capa="ent"', true, `Entrenos (${ent.length})`) : ''}</div></div>`;
+      ${obj ? '<span><i class="ent-l-linea" style="background:var(--good)"></i>Su objetivo</span>' : ''}${ent.length ? gSwitch('data-g-capa="ent"', true, `Entrenos (${ent.length})`) : ''}</div></div>`;
 }
 
 /* barras horizontales: arr = [[etiqueta, valor, texto derecho, data-attr?]] */

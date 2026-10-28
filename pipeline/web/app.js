@@ -60,7 +60,7 @@ function nombrePantalla(h, ben, sw) {
    No cuenta: la página personal de Andrés (estrella fija) ni los dispositivos marcados con ?no-contar
    (se guarda skipgc, que es lo que respeta GoatCounter; ?contar lo quita). Las estadísticas no se enlazan desde la
    página: el enlace va solo en el correo de cada actualización. */
-const NOM_SECC = {marcas: 'Marcas', evolucion: 'Evolución', ranking: 'Rankings', espana: 'Cto. España', andalucia: 'Cto. Andalucía',
+const NOM_SECC = {marcas: 'Marcas', evolucion: 'Temporadas', ranking: 'Rankings', espana: 'Cto. España', andalucia: 'Cto. Andalucía',
   relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen'};
 function seccionVisita(h, ben, sw) {
   const r = resolverRuta(h, ben, sw);

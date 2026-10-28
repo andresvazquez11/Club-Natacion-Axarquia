@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Cronómetro Natación</title>
 <meta name="description" content="Cronómetro de entrenamiento del Club Natación Axarquía">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#032a4d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<style>html,body{margin:0;padding:0}body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}/* iPhone con la app instalada: la barra de estado es transparente; esta franja fija (alto = zona de la hora) evita que el contenido pase por debajo al desplazarse */body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#0f172a;z-index:1000;pointer-events:none}[hidden]{display:none!important}</style>
+<style>html,body{margin:0;padding:0}body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}/* iPhone con la app instalada: la barra de estado es transparente; esta franja fija (alto = zona de la hora) evita que el contenido pase por debajo al desplazarse */body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#032a4d;z-index:1000;pointer-events:none}[hidden]{display:none!important}</style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
@@ -23,11 +23,11 @@
 <body>
 <style>
 :root{
-  --bg:#0f172a;--surf:#1e293b;--brd:#334155;
-  --txt:#e2e8f0;--mut:#94a3b8;
+  --bg:#032a4d;--surf:#04223f;--brd:rgba(255,255,255,.14);
+  --txt:#eaf6ff;--mut:#bcd8ea;
   --grn:#22c55e;--grn-l:#4ade80;--grn-s:#0c2a0c;
-  --blu:#3b82f6;--blu-l:#93c5fd;--blu-s:#0c1a2a;
-  --red:#ef4444;--amb:#f59e0b;
+  --blu:#2a78d6;--blu-l:#8fd0f2;--blu-s:#052b4f;
+  --red:#ef4444;--amb:#ffd400;
   color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -54,7 +54,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .input:focus{border-color:var(--blu);}
 .input::placeholder{color:var(--mut);}
 .pill{display:inline-flex;align-items:center;padding:7px 14px;border-radius:20px;font-size:14px;cursor:pointer;background:var(--surf);border:1px solid var(--brd);color:var(--mut);user-select:none;transition:all .12s;-webkit-tap-highlight-color:transparent;}
-.sim-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;color:#f59e0b;border:1px solid #f59e0b;vertical-align:middle}
+.sim-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;color:#ffd400;border:1px solid #ffd400;vertical-align:middle}
 .pill.sel{background:var(--blu);border-color:var(--blu);color:#fff;font-weight:600;}
 .pill-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:12px;font-size:13px;cursor:pointer;background:var(--bg);color:var(--mut);border:1px solid var(--brd);}
 .picker-row{display:grid;gap:8px;margin-bottom:16px;}
@@ -129,7 +129,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .salida-btn{display:block;width:100%;min-height:68px;border:none;border-radius:14px;background:var(--grn);color:#fff;font-size:22px;font-weight:800;letter-spacing:.5px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
 .salida-btn:active{filter:brightness(.85);transform:scale(.99);}
 .salida-btn[disabled]{opacity:.5;}
-.lane-tag{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 7px;border-radius:7px;font-size:12px;font-weight:800;color:#0f172a;flex-shrink:0;}
+.lane-tag{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 7px;border-radius:7px;font-size:12px;font-weight:800;color:#032a4d;flex-shrink:0;}
 .next-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;background:var(--bg);border-radius:9px;font-size:13px;font-weight:600;}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 8px;}
 .sec-hdr .label{margin:0;}
@@ -169,6 +169,11 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sum-cmp .cmp-f{opacity:.75;}
 .cmp-mej{color:var(--grn-l);} .cmp-peor{color:var(--amb);}
 .pb.pb-comp{background:#0c2a0c;color:var(--grn-l);}
+.ic{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.22em;margin-right:.1em}
+.ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.ti .ic{width:24px;height:24px;margin:0}
+.fr{display:inline-block;width:4px;height:.95em;border-radius:2px;margin-right:6px;vertical-align:-.1em}
+.mini-parc{display:block;margin-top:4px}
 .sum-parc{font-size:12px;font-weight:500;color:var(--mut);font-variant-numeric:tabular-nums;margin-top:2px;white-space:normal;}
 /* ── Tablero de calles ── */
 .b-hint{font-size:13px;color:var(--mut);background:var(--surf);border-radius:10px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -260,7 +265,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sw-prev{display:inline-block;padding:0 5px;border-radius:5px;background:var(--amb);color:#111;font-size:10px;font-weight:800;}
 .lanes-grid .sw-card{border-top:6px solid var(--sc,var(--lc));}
 .sw-card.prev{background:color-mix(in srgb,var(--sc) 14%,var(--surf));}
-.sw-ser{display:inline-block;padding:0 6px;border-radius:6px;background:var(--sc);color:#0f172a;font-size:10.5px;font-weight:900;margin-right:2px;}
+.sw-ser{display:inline-block;padding:0 6px;border-radius:6px;background:var(--sc);color:#032a4d;font-size:10.5px;font-weight:900;margin-right:2px;}
 .rel-team{margin:0 4px;padding:6px;border-radius:10px;background:var(--surf);border:2px solid var(--lc);font-size:12px;}
 .rel-clk b{display:block;text-align:center;font-size:20px;font-variant-numeric:tabular-nums;color:var(--grn-l);}
 .rel-posta{display:flex;justify-content:space-between;gap:4px;padding:3px 2px;border-top:1px solid var(--brd);font-variant-numeric:tabular-nums;}
@@ -699,7 +704,7 @@ function calcTrend(sessions) {
   const avgO = older.reduce((a,b)=>a+b,0)/older.length;
   const diff = avgO - avgR; // positive = improving (lower ms = better)
   const pct  = Math.abs(diff/avgO*100);
-  if (pct < 1) return {dir:'→',color:'#94a3b8',label:'Estable'};
+  if (pct < 1) return {dir:'→',color:'#bcd8ea',label:'Estable'};
   return diff > 0
     ? {dir:'↑',color:'#22c55e',label:`+${pct.toFixed(1)}%`}
     : {dir:'↓',color:'#ef4444',label:`${pct.toFixed(1)}%`};
@@ -717,17 +722,17 @@ function svgChart(points) {
   const line=points.map((p,i)=>`${px(i).toFixed(1)},${py(p.ms).toFixed(1)}`).join(' ');
   const ticks=[0.15,0.5,0.85].map(f=>{
     const ms=yMin+f*yRng, y=py(ms).toFixed(1);
-    return `<line x1="${pl}" y1="${y}" x2="${pl+cw}" y2="${y}" stroke="#334155" stroke-width="0.5" stroke-dasharray="3,3"/>
-<text x="${pl-4}" y="${(py(ms)+4).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${fmtTime(ms)}</text>`;
+    return `<line x1="${pl}" y1="${y}" x2="${pl+cw}" y2="${y}" stroke="rgba(255,255,255,.14)" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="${pl-4}" y="${(py(ms)+4).toFixed(1)}" text-anchor="end" font-size="9" fill="#bcd8ea">${fmtTime(ms)}</text>`;
   }).join('');
-  const dots=points.map((p,i)=>`<circle cx="${px(i).toFixed(1)}" cy="${py(p.ms).toFixed(1)}" r="${i===bestIdx?5:3}" fill="${i===bestIdx?'#f59e0b':'#3b82f6'}" stroke="var(--surf)" stroke-width="1.5"/>`).join('');
+  const dots=points.map((p,i)=>`<circle cx="${px(i).toFixed(1)}" cy="${py(p.ms).toFixed(1)}" r="${i===bestIdx?5:3}" fill="${i===bestIdx?'#ffd400':'#2a78d6'}" stroke="var(--surf)" stroke-width="1.5"/>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">
-<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ch}" stroke="#334155" stroke-width="1"/>
-<line x1="${pl}" y1="${pt+ch}" x2="${pl+cw}" y2="${pt+ch}" stroke="#334155" stroke-width="1"/>
+<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ch}" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+<line x1="${pl}" y1="${pt+ch}" x2="${pl+cw}" y2="${pt+ch}" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
 ${ticks}
-<text x="${px(0).toFixed(1)}" y="${H-6}" text-anchor="start" font-size="9" fill="#94a3b8">${fmtDateShort(points[0].fecha)}</text>
-<text x="${px(points.length-1).toFixed(1)}" y="${H-6}" text-anchor="end" font-size="9" fill="#94a3b8">${fmtDateShort(points[points.length-1].fecha)}</text>
-<polyline points="${line}" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="${px(0).toFixed(1)}" y="${H-6}" text-anchor="start" font-size="9" fill="#bcd8ea">${fmtDateShort(points[0].fecha)}</text>
+<text x="${px(points.length-1).toFixed(1)}" y="${H-6}" text-anchor="end" font-size="9" fill="#bcd8ea">${fmtDateShort(points[points.length-1].fecha)}</text>
+<polyline points="${line}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
 ${dots}
 </svg>`;
 }
@@ -897,7 +902,7 @@ async function iniciarSesion() {
 //   arranca con su propio t0, aunque otros sigan en el agua.
 // - LLEGÓ es individual: cada nadador en el agua tiene su botón.
 // Colores de calle bien distintos entre sí (fondo, texto sobre el color)
-const LANE_COLORS = ['#ef4444','#3b82f6','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899'];
+const LANE_COLORS = ['#ef4444','#2a78d6','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899'];
 const LANE_TXT    = ['#fff',   '#fff',   '#111',   '#06210f','#fff',   '#111',   '#04232a','#fff'];
 function laneTxt(color) { const i = LANE_COLORS.indexOf(color); return i<0 ? '#111' : LANE_TXT[i]; }
 function laneTag(label, color) { return `<span class="lane-tag" style="background:${color};color:${laneTxt(color)}">${esc(label)}</span>`; }
@@ -1064,6 +1069,14 @@ function deshacerParcial(key) {
 function tramosDe(parc) {
   return (parc||[]).map((v,i,arr)=> v==null ? null : i===0 ? v : (arr[i-1]==null ? null : v-arr[i-1]));
 }
+// Mini gráfica de los tramos de una serie: una barra por tramo (más alta = más lenta); verde el más rápido, amarillo el más lento
+function miniParc(parcAcu) {
+  const t = tramosDe(parcAcu), ok = t.filter(v => v != null && v > 0);
+  if (t.length < 2 || ok.length < 2) return '';
+  const mn = Math.min(...ok), mx = Math.max(...ok), rg = (mx - mn) || 1, W = t.length * 12 + 2;
+  const barras = t.map((v, i) => v == null ? '' : `<rect x="${1 + i * 12}" y="${22 - (6 + (v - mn) / rg * 14)}" width="9" height="${6 + (v - mn) / rg * 14}" rx="2" fill="${v === mn ? 'var(--grn-l)' : v === mx ? 'var(--amb)' : 'var(--blu-l)'}"/>`).join('');
+  return `<svg class="mini-parc" viewBox="0 0 ${W} 24" width="${W}" height="24" role="img" aria-label="Tiempo de cada tramo: el más rápido ${fmtTime(mn)}, el más lento ${fmtTime(mx)}">${barras}</svg>`;
+}
 function fmtTramos(parc) { return tramosDe(parc).map(v=>v==null?'—':fmtTime(v)).join(' · '); }
 // Estilo y distancia de cada tiempo (los antiguos, sin estilo propio, usan los de su sesión)
 function resCombo(r) {
@@ -1122,54 +1135,12 @@ function tablaEntreno(series) {
   return {filas: [...filas.values()].sort((a, b) => a.n.localeCompare(b.n)), mejor};
 }
 // ── Gráfica del entreno: una línea por nadador a lo largo de las series elegidas (series de progreso) ──
-const GRAF_COL = ['#60a5fa','#f87171','#fbbf24','#34d399','#c084fc','#fb923c','#22d3ee','#f472b6','#a3e635','#e2e8f0','#93c5fd','#fca5a5'];
-let GRAF = null;   // {sesId, sel: Set de series, foco: nId resaltado}
-function grafEstado(sesId, series) {
-  if (!GRAF || GRAF.sesId !== sesId) {
-    // Por defecto: todas las series de la prueba más repetida (las de progreso suelen ser iguales)
-    const cuenta = {}; series.forEach(x => { const k = x.estilo+'|'+x.dist; cuenta[k] = (cuenta[k]||0) + 1; });
-    const top = Object.keys(cuenta).sort((a,b)=>cuenta[b]-cuenta[a])[0];
-    GRAF = {sesId, sel: new Set(series.filter(x => x.estilo+'|'+x.dist === top).map(x => x.ronda)), foco: null};
-  }
-  return GRAF;
-}
-function renderGrafica(sesId, series) {
-  if (series.length < 1) return '';
-  const g = grafEstado(sesId, series), tb = tablaEntreno(series);
-  const elegidas = series.filter(x => g.sel.has(x.ronda));
-  const chips = series.map(x => `<button class="pill${g.sel.has(x.ronda)?' sel':''}" style="font-family:inherit" data-action="graf-serie" data-r="${x.ronda}">S${x.ronda} · ${esc(serieTexto(x))}</button>`).join('');
-  const filas = tb.filas.filter(f => elegidas.some(x => f.t[x.ronda]));
-  let svg = '<div class="muted" style="text-align:center;padding:16px;font-size:13px">Elige al menos una serie</div>';
-  if (elegidas.length && filas.length) {
-    const W = 340, H = 220, P = {l: 44, r: 12, t: 12, b: 26};
-    const vals = filas.flatMap(f => elegidas.map(x => f.t[x.ronda] && f.t[x.ronda].ms).filter(Boolean));
-    const mn = Math.min(...vals), mx = Math.max(...vals), pad = Math.max((mx-mn)*.1, 300), lo = mn - pad, hi = mx + pad;
-    const X = i => elegidas.length === 1 ? (P.l + W - P.r)/2 : P.l + i * (W - P.l - P.r) / (elegidas.length - 1);
-    const Y = ms => P.t + (hi - ms) / (hi - lo) * (H - P.t - P.b);   // más rápido abajo, como en la web
-    let s = '';
-    for (let k = 0; k <= 3; k++) { const ms = lo + (hi-lo)*k/3, y = Y(ms).toFixed(1);
-      s += `<line x1="${P.l}" x2="${W-P.r}" y1="${y}" y2="${y}" stroke="#334155" stroke-width=".5" stroke-dasharray="3,3"/><text x="${P.l-4}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${fmtTime(ms)}</text>`; }
-    elegidas.forEach((x, i) => { s += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#94a3b8">S${x.ronda}</text>`; });
-    filas.forEach((f, k) => {
-      const col = GRAF_COL[k % GRAF_COL.length], op = g.foco && g.foco !== f.nId ? .15 : 1, w = g.foco === f.nId ? 3.5 : 2;
-      const pts = elegidas.map((x, i) => f.t[x.ronda] ? [X(i), Y(f.t[x.ronda].ms)] : null);
-      // la línea se corta donde no nadó esa serie
-      let tramo = [];
-      const linea = () => { if (tramo.length > 1) s += `<polyline points="${tramo.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" stroke-linejoin="round"/>`; tramo = []; };
-      pts.forEach(p => { if (p) tramo.push(p); else linea(); }); linea();
-      pts.forEach(p => { if (p) s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${g.foco===f.nId?4.5:3}" fill="${col}" opacity="${op}"/>`; });
-    });
-    svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">${s}</svg>`;
-  }
-  const leyenda = filas.map((f, k) => `<button class="pill${g.foco===f.nId?' sel':''}" style="font-family:inherit;gap:6px${g.foco && g.foco!==f.nId?';opacity:.5':''}" data-action="graf-foco" data-nid="${esc(f.nId)}"><i style="width:10px;height:10px;border-radius:50%;background:${GRAF_COL[k % GRAF_COL.length]};display:inline-block"></i>${esc(f.n.split(' ')[0])} ${esc((f.n.split(' ')[1]||'').charAt(0))}.</button>`).join('');
-  return `<div class="card mt8">
-    <div style="font-weight:700;margin-bottom:4px">📈 Gráfica del entreno</div>
-    <div class="muted" style="font-size:12px;margin-bottom:8px">Elige las series a comparar (por ejemplo S1, S2 y S3) para ver cómo progresa cada nadador. Más abajo = más rápido.</div>
-    <div class="wrap" style="margin-bottom:8px">${chips}</div>
-    ${svg}
-    <div class="wrap" style="margin-top:8px;gap:6px">${leyenda}</div>
-    ${filas.length ? '<div class="muted" style="font-size:11px;margin-top:4px">Toca un nadador para resaltarlo.</div>' : ''}
-  </div>`;
+// Las gráficas del entreno (progreso por series, ritmo y parciales) están en la web del club: aquí solo el acceso
+function renderGraficaWeb(ses) {
+  const d = new Date(ses.fecha || Date.now()), dia = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `<a class="card mt8" style="display:block;text-decoration:none;color:inherit" href="../club.html#entrenamientos?dia=${dia}&ses=${encodeURIComponent(ses.id)}" target="_blank" rel="noopener">
+    <div style="font-weight:700">📈 Ver las gráficas de este entreno ›</div>
+    <div class="muted" style="font-size:12px;margin-top:2px">Progreso por series, ritmo y parciales de cada nadador, en la web del club.</div></a>`;
 }
 // ── Corregir el orden de salida después de la serie ──
 // ORDEN = {sesId, ronda, lanes: [{gId, nombre, color, ids}]}: el entrenador sube o baja nadadores y al guardar
@@ -1703,6 +1674,70 @@ function renderBienvenida() {
 }
 
 // ── Render ───────────────────────────────────────────────────
+
+// ── Iconos de línea (los de la web del club) en lugar de emojis ──
+const IC_P = {
+  trophy:'<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  repeat:'<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>',
+  swim:'<circle cx="16.5" cy="6" r="2"/><path d="M3 17c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1M5 13l5-3 4 2 3-2"/>',
+  flag:'<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>',
+  watch:'<circle cx="12" cy="13" r="8"/><path d="M12 13V8M9 2h6M12 2v3"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  note:'<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/>',
+  medal:'<circle cx="12" cy="15" r="5"/><path d="M8 3l2.5 6M16 3l-2.5 6"/>',
+  star:'<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>',
+  grid:'<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>',
+  chart:'<path d="M3 17l6-6 4 4 8-9M15 6h6v6"/>',
+  book:'<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11"/>',
+  bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4zM10 21a2 2 0 0 0 4 0"/>',
+  waves:'<path d="M2 8c2 0 2 2 5 2s3-2 5-2 3 2 5 2 3-2 5-2M2 15c2 0 2 2 5 2s3-2 5-2 3 2 5 2 3-2 5-2"/>',
+  pause:'<path d="M8 5v14M16 5v14"/>',
+  clip:'<path d="M9 4h6v3H9zM6 5h3M15 5h3v16H6V5M9 12h6M9 16h6"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 5.5a3 3 0 0 1 0 5M18 15c2 .8 3 2.4 3 5"/>',
+  disk:'<path d="M5 4h12l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/>',
+  rocket:'<path d="M5 19l3-1 8-8a6 6 0 0 0 3-6 6 6 0 0 0-6 3l-8 8-1 3zM9 15l-2 2"/>',
+  upload:'<path d="M12 15V4M7 9l5-5 5 5M4 15v5h16v-5"/>',
+  refresh:'<path d="M20 11a8 8 0 0 0-14-4M4 13a8 8 0 0 0 14 4M4 4v5h5M20 20v-5h-5"/>',
+  up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+  pen:'<path d="M4 20l1-4 11-11 3 3-11 11zM14 7l3 3"/>',
+  bars:'<path d="M5 20V10M12 20V4M19 20v-7"/>',
+  wifi:'<path d="M5 12a10 10 0 0 1 14 0M8 15a6 6 0 0 1 8 0M12 19h.01"/>',
+  spark:'<path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>',
+  search:'<circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/>',
+  warn:'<path d="M12 4l10 17H2zM12 10v5M12 18h.01"/>',
+  skip:'<path d="M5 5l9 7-9 7zM18 5v14"/>',
+  hourglass:'<path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', minus:'<path d="M5 12h14"/>',
+  bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+};
+const EMO_IC = {'🏆':'trophy','🔁':'repeat','🏊':'swim','🏁':'flag','⏱':'watch','🗑':'trash','📝':'note','🏅':'medal','⭐':'star','🧩':'grid','🧱':'grid','📈':'chart','📘':'book','🔔':'bell',
+  '🌊':'waves','⏸':'pause','📋':'clip','🌐':'globe','👥':'users','💾':'disk','🚀':'rocket','📤':'upload','🔄':'refresh','⬆':'up','✍':'pen','📊':'bars','📡':'wifi','✨':'spark',
+  '🔍':'search','⚠':'warn','⏭':'skip','⏳':'hourglass','➕':'plus','➖':'minus','⚡':'bolt','🎯':'target','📄':'note','🎨':'spark'};
+// los estilos no llevan icono: una franja de color (como en la web)
+const EMO_FR = {'🐸':'#e0861a','🦋':'#8b3fd9','🔴':'var(--red)'};
+const EMO_RE = new RegExp('(' + [...Object.keys(EMO_IC), ...Object.keys(EMO_FR)].join('|') + ')\\uFE0F?', 'g');
+const EMO_TEST = new RegExp(EMO_RE.source);
+function emojisASvg(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: n => /^(SCRIPT|STYLE|TEXTAREA|OPTION|TITLE)$/.test(n.parentNode.nodeName) || !EMO_TEST.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+  const nodos = []; while (w.nextNode()) nodos.push(w.currentNode);
+  nodos.forEach(n => {
+    const frag = document.createDocumentFragment(); let ult = 0, m; EMO_RE.lastIndex = 0;
+    while ((m = EMO_RE.exec(n.nodeValue))) {
+      if (m.index > ult) frag.appendChild(document.createTextNode(n.nodeValue.slice(ult, m.index)));
+      const k = m[1], el = document.createElement('span');
+      if (EMO_IC[k]) { el.className = 'ic'; el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${IC_P[EMO_IC[k]]}</svg>`; }
+      else { el.className = 'fr'; el.style.background = EMO_FR[k]; }
+      frag.appendChild(el); ult = m.index + m[0].length;
+    }
+    if (ult < n.nodeValue.length) frag.appendChild(document.createTextNode(n.nodeValue.slice(ult)));
+    n.parentNode.replaceChild(frag, n);
+  });
+}
+let EMO_PEND = false;
+new MutationObserver(() => { if (EMO_PEND) return; EMO_PEND = true; requestAnimationFrame(() => { EMO_PEND = false; emojisASvg(document.body); }); })
+  .observe(document.documentElement, {childList: true, subtree: true, characterData: true});
 function render() {
   const app = document.getElementById('app');
   const act = document.activeElement;
@@ -2762,7 +2797,7 @@ function renderResumenRonda() {
     <div class="sum-row" style="--lc:${l.color}${l.comp?';border:1px solid var(--amb)':''}">
       ${pos!=null?`<div class="rpos${pos===1?' gold':''}">${pos}</div>`:''}
       ${laneTag(l.lane, l.color)}
-      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>` : ''}${l.obj ? ritmoCmpHTML(l) : ''}${comparaHTML(cmpDe(l))}${SA.porNadador?` <span class="ini-tag">${estiloEmo(l.estilo)} ${esc(estiloNombre(l.estilo))}</span>`:''}${l.comp ? rankingHTML(rankingDe(l.nId, l.estilo, l.dist, l.ms)) : ''}</div>
+      <div class="sum-name">${esc(l.n)}${pbBadge(l)}${cmpBadge(l)}${SA.tramos>1 && l.parc ? `<div class="sum-parc">${fmtTramos([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}</div>${miniParc([...l.parc, ...Array(Math.max(0,SA.tramos-1-l.parc.length)).fill(null), l.ms])}` : ''}${l.obj ? ritmoCmpHTML(l) : ''}${comparaHTML(cmpDe(l))}${SA.porNadador?` <span class="ini-tag">${estiloEmo(l.estilo)} ${esc(estiloNombre(l.estilo))}</span>`:''}${l.comp ? rankingHTML(rankingDe(l.nId, l.estilo, l.dist, l.ms)) : ''}</div>
       <div style="text-align:right">
         <div class="sum-time">${fmtTime(l.ms)}</div>
         ${gap?`<div class="sum-gap">${gap}</div>`:''}
@@ -2882,7 +2917,7 @@ function renderResultados(sesId, backAction, backLabel) {
     ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
     ${ses.notas?`<div class="card mt8" style="font-size:13px">${esc(ses.notas)}</div>`:''}
     ${renderAsistencia(ses)}
-    ${renderGrafica(ses.id, series)}
+    ${renderGraficaWeb(ses)}
     ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
     <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
     ${puedeCompartirArchivos() ? `<button class="btn btn-blue mt8" style="min-height:50px;font-size:16px" data-action="pdf-compartir" data-ses="${esc(sesId)}">📤 Compartir PDF (WhatsApp, correo…)</button>` : ''}
@@ -2979,7 +3014,7 @@ function renderEvolucionNad() {
       </div>
       <div style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:10px;color:var(--mut);margin-bottom:3px;letter-spacing:.5px">TENDENCIA</div>
-        <div style="font-weight:700;font-size:20px;color:${trend?trend.color:'#94a3b8'}">${trend?trend.dir:'–'}</div>
+        <div style="font-weight:700;font-size:20px;color:${trend?trend.color:'#bcd8ea'}">${trend?trend.dir:'–'}</div>
       </div>
     </div>` : '';
   // Cada tiempo por separado: fecha, hora y serie (en un mismo entreno puede haber varias series de la misma prueba)
@@ -3284,8 +3319,6 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'logout':       await logout(); break;
     case 'entrenadores': nav({screen:'entrenadores'}); break;
     case 'limpieza':     abrirLimpieza(); break;
-    case 'graf-serie':   if (GRAF) { const r = Number(btn.dataset.r); GRAF.sel.has(r) ? GRAF.sel.delete(r) : GRAF.sel.add(r); render(); } break;
-    case 'graf-foco':    if (GRAF) { GRAF.foco = GRAF.foco === btn.dataset.nid ? null : btn.dataset.nid; render(); } break;
     case 'limpieza-borrar': await borrarLimpieza(); break;
     case 'papelera-recuperar': await recuperarSesion(btn.dataset.ses); break;
     case 'res-borrar':   await borrarTiempo(btn.dataset.id); break;

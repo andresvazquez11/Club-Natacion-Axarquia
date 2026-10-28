@@ -2,7 +2,7 @@
 
 /* Accesos de la pantalla: [sub, etiqueta, icono]. Los condicionales solo aparecen si hay datos. */
 function accesosDe(s) {
-  const out = [['marcas', 'Marcas', 'crono'], ['evolucion', 'Evolución', 'tendencia'], ['ranking', 'Rankings', 'barras']];
+  const out = [['marcas', 'Marcas', 'crono'], ['evolucion', 'Temporadas', 'tendencia'], ['ranking', 'Rankings', 'barras']];
   if (s.cat === 'ALE') out.push(['espana', 'Cto. España', 'meta']);
   if ((DATA.claves_by || {})[String(s.id)]) out.push(['andalucia', 'Cto. Andalucía', 'carriles']);
   if (REL.cats.some(c => c.key === s.cat)) out.push(['relevos', 'Sus relevos', 'relevo']);
