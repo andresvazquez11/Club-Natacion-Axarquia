@@ -2977,6 +2977,33 @@ function continuidadEntreno(ses) {
   }
   return null;
 }
+// Seguimiento de las notas puestas a un nadador en entrenos anteriores (últimos 30 días): ¿se nota hoy lo que se anotó?
+const NOTA_ALERTA = /dolor|molest|lesi|enferm|mareo|fiebre|hombro|rodilla|espalda|cuello|tobillo|lastim|golpe/i;
+function seguimientoNotas(ses, ind) {
+  const hoy = new Set(ind.flatMap(x => x.res.map(r => r.nId))), lineas = [], previas = new Map();
+  const antes = S.sesiones.filter(o => o.id !== ses.id && o.fecha < ses.fecha && ses.fecha - o.fecha < 30 * 864e5).sort((a, b) => b.fecha - a.fecha);
+  antes.forEach(o => S.resultados.filter(r => r.sesId === o.id && r.nota && !r.relevo).forEach(r => { if (!previas.has(r.nId)) previas.set(r.nId, {nota: r.nota, ses: o}); }));
+  const medias = (sid, nId) => { const m = new Map(); S.resultados.filter(r => r.sesId === sid && r.nId === nId && !r.relevo).forEach(r => { const k = condKey(r), e = m.get(k) || {s: 0, n: 0}; e.s += r.ms; e.n++; m.set(k, e); }); return m; };
+  previas.forEach((p, nId) => {
+    const cab = `Seguimiento · ${nombreDe(nId)} (nota del ${fmtDateShort(p.ses.fecha)}: «${p.nota}»): `;
+    const alerta = NOTA_ALERTA.test(p.nota) ? ' Conviene preguntarle cómo se encuentra.' : '';
+    if (!hoy.has(nId)) { lineas.push({k: 'seg', t: cab + 'hoy no ha nadado, sin datos para el seguimiento.' + alerta}); return; }
+    const difs = []; ind.forEach(x => x.res.filter(r => r.nId === nId).forEach(r => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id); if (c.ent) difs.push(c.difEnt); }));
+    const dif = difs.length ? difs.reduce((a, b) => a + b, 0) / difs.length : null;
+    const antes = medias(p.ses.id, nId), ahora = medias(ses.id, nId), dn = [...ahora].filter(([k]) => antes.has(k)).map(([k, a]) => (a.s / a.n - antes.get(k).s / antes.get(k).n) / 1000);
+    const vsDia = dn.length ? dn.reduce((a, b) => a + b, 0) / dn.length : null;
+    let t;
+    if (dif != null) t = dif <= -0.05 ? `hoy va ${_seg(dif)} más rápido que su mejor entreno: no se nota lo anotado.`
+      : dif < 0.3 ? 'hoy está en su nivel habitual (a menos de 0,3 s de su mejor entreno).'
+      : `hoy va ${_seg(dif)} más lento que su mejor entreno: seguir vigilando.`;
+    else t = 'todavía no hay un entreno parecido con el que compararlo.';
+    if (vsDia != null) t += ` Frente al día de la nota: ${Math.abs(vsDia) < 0.05 ? 'igual' : `${_seg(vsDia)} ${vsDia < 0 ? 'más rápido' : 'más lento'}`}.`;
+    lineas.push({k: 'seg', t: cab + t + alerta, nId});
+  });
+  const nuevas = ind.flatMap(x => x.res).filter(r => r.nota && !r.relevo).map(r => `${nombreDe(r.nId)} («${r.nota}»)`);
+  if (nuevas.length) lineas.push({k: 'segHoy', t: `Para seguir en el próximo entreno: ${[...new Set(nuevas)].slice(0, 5).join(', ')}${nuevas.length > 5 ? '…' : ''}.`});
+  return lineas;
+}
 let _ANC = null;   // guarda el último análisis mientras no cambien los tiempos (se pide varias veces al pintar el resumen)
 function analisisEntreno(sesId) {
   const clave = `${sesId}|${S.resultados.length}|${S.sesiones.length}`;
@@ -3007,6 +3034,7 @@ function calcularAnalisisEntreno(sesId) {
   if (cae.size) lineas.push({k: 'mitad', t: `Se hunden más que el resto del grupo en la segunda mitad: ${[...cae.entries()].slice(0, 4).map(([id, rs]) => `${nom(id)} (${rs.length > 1 ? 'series' : 'serie'} ${rs.join(', ')})`).join('; ')}.`});
   else if (parcAn) lineas.push({k: 'mitad', t: 'Nadie se hunde en la segunda mitad frente al resto del grupo.'});
   const cont = continuidadEntreno(ses); if (cont) lineas.push({k: 'cont', t: cont.texto});
+  seguimientoNotas(ses, ind).forEach(l => lineas.push(l));
   return {lineas, mej, evaluados, mayor, compMej, cae, analizadas, cont, d};
 }
 const conclusionesHTML = an => an && an.lineas.length ? `<div class="card mt8 concl"><div class="h">Conclusiones del entreno</div>
@@ -3068,7 +3096,7 @@ function renderResultados(sesId, backAction, backLabel) {
     </div>
     ${conclusionesHTML(analisisEntreno(sesId))}
     ${d.combos.length?`<div class="muted" style="font-size:13px;margin:8px 0 6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
-    ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
+    ${d.nads.length && !series.some(x => !x.relevo && callesDeSerie(x).length && x.res.some(r => r.gId)) ?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
     ${puedoBorrar(ses) ? `<div class="card mt8"><span class="label" style="margin-top:0">Notas del entreno</span>
         <textarea class="input" id="ses-notas" style="font-family:inherit" rows="3" placeholder="Qué salió bien, qué repetir, a quién mirar la próxima vez…" style="margin-top:6px">${esc(ses.notas||'')}</textarea>
         <button class="btn btn-surf mt8" style="min-height:44px" data-action="ses-notas">Guardar notas</button></div>`
