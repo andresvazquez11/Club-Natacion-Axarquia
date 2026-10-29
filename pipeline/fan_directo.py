@@ -392,13 +392,34 @@ def cabecera_web(html_txt):
     return (m2.group(1).strip().title() if m2 else ''), (m2.group(2) if m2 else ''), piscina
 
 
+def completar_series(p, previa, pedir):
+    """Los ResultList no traen serie ni calle (solo la lista de salida): se copian de la versión anterior de esa prueba (la lista de
+    salida leída antes, o el ResultList anterior ya completado) o, si no la hay, de su StartList (pedir() → {(nombre, año): (serie, calle)})."""
+    if re.search(r'\dx|x\d', p.get('nombre') or '', re.I):
+        return p   # relevos: sus equipos no se emparejan por nombre
+    mapa = {(norm(f['n']), f.get('nac')): (f['serie'], f.get('calle') or 0, f.get('ins')) for f in (previa or {}).get('filas', []) if f.get('serie')}
+    if not mapa and any(f.get('t') for f in p['filas']):
+        try:
+            mapa = {k: (v[0], v[1], None) for k, v in pedir().items()}
+        except Exception as e:
+            print('Aviso: sin lista de salida de', p.get('id'), e, file=sys.stderr)
+    for f in p['filas']:
+        sc = mapa.get((norm(f['n']), f.get('nac')))
+        if sc:
+            f['serie'], f['calle'] = sc[0], sc[1]
+            if sc[2] and not f.get('ins'):
+                f['ins'] = sc[2]
+    return p
+
+
 def leer_web_pdf(webs, nuestros, previo=None):
     """Webs de la competición (las que enlaza la FAN; una por grupo) → lenex con los ResultList (resultados) y, en las
     pruebas aún sin nadar, los StartList (series y calles). Con varias webs, cada una es un grupo («FAN 1», «Impulso»…).
     previo: lenex anterior de esta competición, para no volver a descargar las listas de salida ya leídas."""
     from pypdf import PdfReader
     webs = [webs] if isinstance(webs, str) else list(webs)
-    ya = {p['id']: p for p in (previo or {}).get('pruebas', []) if p.get('src') == 'series' and 'categoria' in p}   # sin categoría = leída con la versión anterior: se relee
+    ya = {p['id']: p for p in (previo or {}).get('pruebas', []) if p.get('src') == 'series' and 'categoria' in p}
+    antes = {p['id']: p for p in (previo or {}).get('pruebas', [])}   # versión anterior de cada prueba: de ahí salen su serie y su calle   # sin categoría = leída con la versión anterior: se relee
     pruebas, lugares, piscina = [], [], ''
     for w in webs:
         try:
@@ -426,7 +447,8 @@ def leer_web_pdf(webs, nuestros, previo=None):
                     print('Aviso', tipo, n, e, file=sys.stderr)
                     continue
                 if tipo == 'ResultList':
-                    pruebas += leer_resultados_texto(texto, grupo, nuestros)
+                    for p in leer_resultados_texto(texto, grupo, nuestros):
+                        pruebas.append(completar_series(p, antes.get(p['id']), lambda w=w, n=n: series_de_web(w, n, grupo, nuestros)))
                 else:
                     for p in leer_series_texto(texto, grupo, nuestros):
                         p['src'] = 'series'

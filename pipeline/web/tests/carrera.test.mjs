@@ -60,3 +60,15 @@ test('ccFalta: cuánto falta para una competición', () => {
   assert.deepEqual([f(dia(0)), f(dia(1)), f(dia(31)), f(dia(120)), f(dia(0), 'en_curso')], ['Hoy', 'Mañana', 'En 31 días', 'En 4 meses', 'En directo ahora']);
   void c;
 });
+
+test('carDeLenex: solo pruebas terminadas, con serie y calle, en el formato guardado', () => {
+  const f = (serie, t, estado = '') => ({serie, calle: 3, n: 'Eva Sol', club: 'C.N. Axarquia', nac: 2014, t, parc: [t / 2, t], puesto: 1, estado, rfen: '1'});
+  const c = { id: 7, titulo: 'Jornada', desde: '2026-10-24', lenex: { lugar: 'Torre', piscina: '25 m', pruebas: [
+    { num: 1, nombre: '100 Libre', sexo: 'M', sesion: 'FAN 1', filas: [f(1, 7000), f(1, null, 'DSQ')] },                 // terminada
+    { num: 2, nombre: '100 Libre', sexo: 'F', sesion: 'FAN 1', filas: [f(1, 7000), f(2, null)] },                        // falta una serie
+    { num: 3, nombre: '50 Libre', sexo: 'M', sesion: 'FAN 1', filas: [f(0, 3000)] },                                      // sin serie
+    { num: 4, nombre: '4x50 Libre', sexo: 'M', sesion: 'FAN 1', filas: [f(1, 7000)] }] } };
+  ctx.__c = c; const r = JSON.parse(evalIn(ctx, 'JSON.stringify(carDeLenex(__c))'));
+  assert.deepEqual(r.pruebas.map(p => p.num), [1]);
+  assert.deepEqual([r.piscina, r.fecha, r.pruebas[0].filas[0].slice(0, 3)], ['25m', '2026-10-24', [1, 3, 'Eva Sol']]);
+});

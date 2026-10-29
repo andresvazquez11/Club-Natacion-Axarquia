@@ -217,5 +217,27 @@ class TestGuardarCarreras(unittest.TestCase):
         self.assertEqual(F.guardar_carreras(self.comp('en_curso'), tmp, None, lambda *a, **k: {}), [])
 
 
+class TestCompletarSeries(unittest.TestCase):
+    def prueba(self):
+        return {'id': 'FAN 1-22', 'nombre': '100 Libre', 'filas': [{'n': 'Eva Sol', 'nac': 2014, 't': 7000, 'serie': 0, 'calle': 0, 'ins': None},
+                                                                    {'n': 'Ana Mar', 'nac': 2015, 't': 7100, 'serie': 0, 'calle': 0, 'ins': None}]}
+
+    def test_copia_de_la_version_anterior_sin_pedir_nada(self):
+        previa = {'filas': [{'n': 'Eva Sol', 'nac': 2014, 'serie': 4, 'calle': 2, 'ins': 7200}]}
+        p = F.completar_series(self.prueba(), previa, lambda: self.fail('no debía pedir la lista de salida'))
+        self.assertEqual([(f['serie'], f['calle'], f['ins']) for f in p['filas']], [(4, 2, 7200), (0, 0, None)])
+
+    def test_sin_version_anterior_pide_la_lista_de_salida_y_si_falla_sigue(self):
+        p = F.completar_series(self.prueba(), None, lambda: {(F.norm('Ana Mar'), 2015): (3, 5)})
+        self.assertEqual([(f['serie'], f['calle']) for f in p['filas']], [(0, 0), (3, 5)])
+        def cae():
+            raise OSError('sin red')
+        self.assertEqual(F.completar_series(self.prueba(), None, cae)['filas'][0]['serie'], 0)
+
+    def test_relevos_no_se_tocan(self):
+        r = {'id': 'x', 'nombre': '4x50 Libre', 'filas': [{'n': 'C.N. X (relevo)', 'nac': None, 't': 1, 'serie': 0}]}
+        self.assertEqual(F.completar_series(r, None, lambda: self.fail('no'))['filas'][0]['serie'], 0)
+
+
 if __name__ == '__main__':
     unittest.main()
