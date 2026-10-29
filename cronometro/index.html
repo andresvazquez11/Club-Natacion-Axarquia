@@ -177,6 +177,11 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .concl{border-color:var(--blu)}
 .concl-l{margin:4px 0 8px;padding-left:18px;font-size:14px;line-height:1.45}
 .concl-l li{margin:5px 0}
+.rs-serie>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;margin-bottom:8px;min-height:36px}
+.rs-serie>summary::-webkit-details-marker{display:none}
+.rs-res{font-size:11px;white-space:nowrap}
+.rs-fl{font-size:14px;color:var(--mut);transition:transform .15s}
+.rs-serie:not([open]) .rs-fl{transform:rotate(-90deg)}
 .rs-fila{background:var(--surf);border:1px solid var(--brd);border-radius:10px;margin-bottom:6px}
 .rs-fila summary{display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;min-height:44px}
 .rs-fila summary::-webkit-details-marker{display:none}
@@ -3041,6 +3046,8 @@ const conclusionesHTML = an => an && an.lineas.length ? `<div class="card mt8 co
   <ul class="concl-l">${an.lineas.map(l => `<li class="concl-${l.k}">${esc(l.t)}</li>`).join('')}</ul>
   <div class="muted" style="font-size:11px">Mejor y último entreno: de entrenos anteriores, en las mismas condiciones (misma prueba, salida y tipo de serie).</div></div>` : '';
 let RES_VISTA = 'series';
+const RES_CERRADAS = new Set();   // series plegadas del resumen (se recuerdan al repintar)
+function resSerieToggle(el, k) { if (el.open) RES_CERRADAS.delete(k); else RES_CERRADAS.add(k); }
 // Cada nadador con todas sus series del entreno (sus tiempos, cómo van frente a su mejor entreno y los tramos)
 function porNadadorHTML(d) {
   const ind = d.series.filter(x => !x.relevo && x.res.length), tb = tablaEntreno(ind), ses = d.ses, an = analisisEntreno(ses.id);
@@ -3083,10 +3090,13 @@ function renderResultados(sesId, backAction, backLabel) {
           <div style="text-align:right"><div class="rtime">${fmtTime(e.ms)}</div>${i?`<div style="font-size:11px;color:var(--mut)">+${((e.ms-eqs[0].ms)/1000).toFixed(1)}</div>`:''}</div></div>`).join('')
           || '<div class="muted" style="font-size:13px">Relevo sin terminar.</div>'}`; }
     if (ORDEN && ORDEN.sesId===ses.id && ORDEN.ronda===x.ronda) return `<span class="label mt16">Serie ${x.ronda} · ${serieLabel(x)}</span>${renderOrdenEditor()}`;
-    return `<div class="row mt16" style="align-items:baseline;gap:8px;margin-bottom:8px"><span class="label" style="flex:1;margin:0">Serie ${x.ronda} · ${serieLabel(x)}${x.hora?` · ${esc(x.hora)}`:''} ${iniTag(x)}${tot?` · <span style="color:var(--txt)">total ${fmtNado(tot.ms)}</span>`:''}</span>
-      ${editable && x.res.some(r=>r.ts) ? `<button class="edit-link" data-action="orden-abrir" data-ses="${esc(ses.id)}" data-r="${x.ronda}">↕ Orden</button>` : ''}</div>
+    const k = ses.id + '|' + x.ronda, mejor = x.res[0] ? fmtTime(x.res[0].ms) : '';
+    return `<details class="rs-serie mt16"${RES_CERRADAS.has(k) ? '' : ' open'} ontoggle="resSerieToggle(this,'${esc(k)}')">
+      <summary><span class="label" style="flex:1;margin:0">Serie ${x.ronda} · ${serieLabel(x)}${x.hora?` · ${esc(x.hora)}`:''} ${iniTag(x)}${tot?` · <span style="color:var(--txt)">total ${fmtNado(tot.ms)}</span>`:''}</span>
+        <span class="rs-res muted">${x.res.length} · mejor ${mejor}</span><span class="rs-fl">▾</span></summary>
+      ${editable && x.res.some(r=>r.ts) ? `<div class="row" style="justify-content:flex-end;margin:6px 0"><button class="edit-link" data-action="orden-abrir" data-ses="${esc(ses.id)}" data-r="${x.ronda}">↕ Orden</button></div>` : ''}
       ${callesHTML(x)}
-      ${x.res.map((r,i)=>filaSerieHTML(r,i,best,ses,editable)).join('')}`;
+      ${x.res.map((r,i)=>filaSerieHTML(r,i,best,ses,editable)).join('')}</details>`;
   }).join('');
   return `
     <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}${sesEsComp(ses.id)?' <span class="comp-tag">🏆 Competición</span>':''}</div>
