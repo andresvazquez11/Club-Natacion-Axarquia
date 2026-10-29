@@ -72,3 +72,17 @@ test('carDeLenex: solo pruebas terminadas, con serie y calle, en el formato guar
   assert.deepEqual(r.pruebas.map(p => p.num), [1]);
   assert.deepEqual([r.piscina, r.fecha, r.pruebas[0].filas[0].slice(0, 3)], ['25m', '2026-10-24', [1, 3, 'Eva Sol']]);
 });
+
+test('dirColores: morado el mejor de la prueba (y su mejor tramo), verde marca personal, amarillo sin mejora', () => {
+  const ctx3 = cargar(['comunes.js', 'iconos.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
+  evalIn(ctx3, `Object.assign(SW, {
+    '1': { id: 1, n: 'Eva', ev: [{ e: '100 Libre', h: [['2026-09-01', 7200, '25m', 'x']] }] },
+    '2': { id: 2, n: 'Ana', ev: [{ e: '100 Libre', h: [['2026-09-01', 7100, '25m', 'x']] }] } })`);
+  const f = (rfen, t, parc) => ({ rfen, n: 'X', t, parc, estado: '' });
+  const c = { desde: '2026-10-24', lenex: { piscina: '25 m', pruebas: [{ nombre: '100 Libre', fecha: '2026-10-24', filas: [
+    f(null, 6800, [3300, 6800]), f('1', 7000, [3450, 7000]), f('2', 7300, [3400, 7300]), f(null, 7500, [3600, 7500])] }] } };
+  ctx3.__c = c; evalIn(ctx3, 'dirColores(__c)');
+  const r = JSON.parse(evalIn(ctx3, 'JSON.stringify(__c.lenex.pruebas[0].filas.map(f => [f.tt, f.tm]))'));
+  assert.deepEqual(r.map(x => x[0]), ['mor', 'ver', 'ama', '']);     // Eva baja su marca (7200 → 7000); Ana no (7100 → 7300)
+  assert.deepEqual([r[0][1], r[1][1], r[2][1], r[3][1]], [[true, true], [false, false], [false, false], [false, false]]);   // el ganador hizo los dos mejores tramos
+});

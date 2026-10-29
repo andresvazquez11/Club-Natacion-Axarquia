@@ -194,6 +194,10 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .serie-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .serie-chip{background:var(--bg);border:1px solid var(--brd);border-radius:10px;padding:6px 9px;font-size:12px;min-width:104px}
 .serie-chip.top{border-color:var(--grn)}
+.tt{border-radius:8px;padding:1px 8px;display:inline-block}
+.tt-mor{background:#a855f7;color:#fff}.tt-ver{background:#22c55e;color:#06260f}.tt-ama{background:#facc15;color:#3a2e00}
+.tt-ley{font-size:11px;color:var(--mut);margin:10px 0 2px;line-height:2}.tt-ley .tt{font-weight:700;font-size:11px;padding:1px 7px;margin-right:2px}
+.serie-chip b.tt{display:inline-block}
 .serie-chip b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
 .serie-chip small{display:block}
 .calles-s{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
@@ -1654,13 +1658,16 @@ async function generarPDF(sesId, btn, compartir) {
           headStyles: {fillColor: AZUL, textColor: 255, fontSize: 7.5},
           columnStyles: {0: {halign: 'left', fontStyle: 'bold'}},
           didParseCell: h => { if (h.section !== 'body' || !h.column.index) return;
-            const x = cols[h.column.index - 1], f = tb.filas[h.row.index];
-            if (f && f.t[x.ronda] && f.t[x.ronda].ms === tb.mejor[x.ronda]) { h.cell.styles.textColor = [10,122,67]; h.cell.styles.fontStyle = 'bold'; } },
+            const x = cols[h.column.index - 1], f = tb.filas[h.row.index], r = f && f.t[x.ronda]; if (!r) return;
+            const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id), tt = ttDe(c, r.ms === tb.mejor[x.ronda] && x.res.length >= 2);
+            if (tt) { h.cell.styles.fillColor = TT_PDF[tt].f; h.cell.styles.textColor = TT_PDF[tt].t; h.cell.styles.fontStyle = 'bold'; } },
         });
         y = doc.lastAutoTable.finalY + 4;
       }
       doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...GRIS);
-      doc.text('En verde, el más rápido de cada serie. Detalle de cada serie en las páginas siguientes.', M, y + 1);
+      let lx = M; [['mor', 'el más rápido de la serie'], ['ver', 'mejor que su mejor entreno (mismas condiciones)'], ['ama', 'sin mejora']].forEach(([k, t]) => {
+        doc.setFillColor(...TT_PDF[k].f); doc.roundedRect(lx, y - 2.2, 4, 3.2, .8, .8, 'F'); doc.setTextColor(...GRIS); doc.text(t, lx + 5.5, y + .4); lx += 8 + doc.getTextWidth(t); });
+      doc.text('Detalle de cada serie en las páginas siguientes.', M, y + 5);
       // Cómo estaban las calles en cada serie (el número es el orden de salida dentro de la calle)
       const sinRel = series.filter(x => !x.relevo && x.res.length);
       const calles = [...new Set(sinRel.flatMap(x => callesDeSerie(x).map(c => c.nombre)))].sort((a, b) => String(a).localeCompare(String(b), 'es', {numeric: true}));
@@ -1838,7 +1845,7 @@ function render() {
 const MANUAL_URL = 'manual.pdf';
 const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank" rel="noopener">📘 ¿Primera vez? Lee el manual de uso</a>`;
 // Versión de la app: la misma cifra que la caché de sw.js (crono-vN). Al publicar cambios se suben las dos.
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v22';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {'planes-todos':'home', home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
 // Aviso temporal abajo (hasta el sábado 31/10/2026); «Entendido» lo oculta para siempre en ese móvil
@@ -3063,7 +3070,8 @@ function porNadadorHTML(d) {
   return tb.filas.map(f => {
     const chips = ind.map(x => { const r = f.t[x.ronda]; if (!r) return '';
       const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id);
-      return `<div class="serie-chip${r.ms === tb.mejor[x.ronda] ? ' top' : ''}"><span>S${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${r.comp ? ' · plataforma' : ''}</span><b>${fmtTime(r.ms)}</b>
+      const tt = ttDe(c, r.ms === tb.mejor[x.ronda] && x.res.length >= 2);
+      return `<div class="serie-chip"><span>S${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${r.comp ? ' · plataforma' : ''}</span><b class="${tt ? 'tt tt-' + tt : ''}">${fmtTime(r.ms)}</b>
         ${c.ent ? `<small class="${c.difEnt <= 0 ? 'cmp-mej' : 'cmp-peor'}">${difTxt(c.difEnt)} s</small>` : '<small class="muted">sin referencia</small>'}${r.parciales && r.parciales.length > 1 ? miniParc(r.parciales) : ''}</div>`; }).join('');
     const calles = [...new Set(Object.values(f.t).map(calleDe).filter(Boolean))].join(' · ');
     const cae = an && an.cae.has(f.nId) ? `<div class="cmp-peor" style="font-size:12px;margin-top:4px">Cae en la segunda mitad (serie ${an.cae.get(f.nId).join(', ')})</div>` : '';
@@ -3071,8 +3079,13 @@ function porNadadorHTML(d) {
       <div class="serie-chips">${chips}</div>${cae}</div>`; }).join('') || '<div class="center-msg"><p>Sin tiempos individuales en este entrenamiento</p></div>';
 }
 // Fila compacta de una serie: posición, nombre, tiempo y cómo va frente a su mejor entreno; el detalle se despliega al tocarla
-function filaSerieHTML(r, i, best, ses, editable) {
-  const cb = resCombo(r), c = comparaciones(r.nId, cb.estilo, cb.dist, r.ms, r.id, ses.fecha, ses.id);
+/* Colores de los tiempos (como los sectores de la F1): morado = el más rápido de la serie; verde = mejor que su mejor entreno en las mismas
+   condiciones; amarillo = sin mejora; sin color = todavía no hay un entreno parecido con el que comparar */
+const ttDe = (c, rapido) => rapido ? 'mor' : c && c.ent ? (c.difEnt < 0 ? 'ver' : 'ama') : '';
+const TT_PDF = {mor: {f: [168,85,247], t: [255,255,255]}, ver: {f: [34,197,94], t: [6,38,15]}, ama: {f: [250,204,21], t: [58,46,0]}};
+const leyendaColoresHTML = () => '<div class="tt-ley"><span class="tt tt-mor">Morado</span> el más rápido de la serie <span class="tt tt-ver">Verde</span> mejor que su mejor entreno <span class="tt tt-ama">Amarillo</span> sin mejora</div>';
+function filaSerieHTML(r, i, best, ses, editable, n) {
+  const cb = resCombo(r), c = comparaciones(r.nId, cb.estilo, cb.dist, r.ms, r.id, ses.fecha, ses.id), tt = ttDe(c, i === 0 && n >= 2);
   const vs = c.ent ? `<span class="rs-vs ${c.difEnt <= 0 ? 'cmp-mej' : 'cmp-peor'}">${c.difEnt <= 0 ? '▼' : '▲'} ${difTxt(c.difEnt)} s</span>` : '';
   const parc = r.parciales && r.parciales.length > 1;
   const detalle = comparaHTML(c) + (parc ? `<div class="muted" style="font-size:11px;margin-top:4px">50 m: ${fmtTramos(r.parciales)}</div>${miniParc(r.parciales)}` : '')
@@ -3080,7 +3093,7 @@ function filaSerieHTML(r, i, best, ses, editable) {
   return `<details class="rs-fila"${r.comp ? ' style="border-color:var(--amb)"' : ''}><summary>
       <div class="rpos${i===0?' gold':''}">${i+1}</div>
       <div class="rname">${esc(nombreDe(r.nId))}<div class="rs-sub">${esc(calleDe(r))}${vs}</div></div>
-      <div style="text-align:right"><div class="rtime">${fmtTime(r.ms)}</div>${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}</div></summary>
+      <div style="text-align:right"><div class="rtime${tt ? ' tt tt-' + tt : ''}">${fmtTime(r.ms)}</div>${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}</div></summary>
     <div class="rs-det">${detalle}<div class="row mt8" style="gap:8px"><button class="edit-link" data-action="evolucion-nad" data-nid="${esc(r.nId)}">Ver su evolución ›</button>${editable?`<button class="tiempo-x" data-action="res-borrar" data-id="${esc(r.id)}" aria-label="Borrar este tiempo">✕</button>`:''}</div></div></details>`;
 }
 function renderResultados(sesId, backAction, backLabel) {
@@ -3105,7 +3118,7 @@ function renderResultados(sesId, backAction, backLabel) {
         <span class="rs-res muted">${x.res.length} · mejor ${mejor}</span><span class="rs-fl">▾</span></summary>
       ${editable && x.res.some(r=>r.ts) ? `<div class="row" style="justify-content:flex-end;margin:6px 0"><button class="edit-link" data-action="orden-abrir" data-ses="${esc(ses.id)}" data-r="${x.ronda}">↕ Orden</button></div>` : ''}
       ${callesHTML(x)}
-      ${x.res.map((r,i)=>filaSerieHTML(r,i,best,ses,editable)).join('')}</details>`;
+      ${x.res.map((r,i)=>filaSerieHTML(r,i,best,ses,editable,x.res.length)).join('')}</details>`;
   }).join('');
   return `
     <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}${sesEsComp(ses.id)?' <span class="comp-tag">🏆 Competición</span>':''}</div>
@@ -3114,6 +3127,7 @@ function renderResultados(sesId, backAction, backLabel) {
       ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${ses.nado&&ses.nado.length?stat(fmtNado(msNadando(ses.nado, Date.now())),'nadando'):''}${d.min?stat(d.min,'minutos'):''}
     </div>
     ${conclusionesHTML(analisisEntreno(sesId))}
+    ${series.some(x => !x.relevo && x.res.length > 1) ? leyendaColoresHTML() : ''}
     ${d.combos.length?`<div class="muted" style="font-size:13px;margin:8px 0 6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
     ${d.nads.length && !series.some(x => !x.relevo && callesDeSerie(x).length && x.res.some(r => r.gId)) ?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
     ${puedoBorrar(ses) ? `<div class="card mt8"><span class="label" style="margin-top:0">Notas del entreno</span>

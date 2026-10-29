@@ -924,6 +924,9 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .car-abrir{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 12px 10px;width:calc(100% - 24px);min-height:48px;font-size:15px;font-weight:800;background:var(--sun);color:var(--sun-ink);border:0;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .car-abrir .ico{width:20px;height:20px}
 .car-pill{display:inline-flex;align-items:center;gap:5px;margin-top:6px;background:var(--sun);color:var(--sun-ink);border-radius:20px;padding:4px 11px;font-weight:800;font-size:12px;cursor:pointer;width:fit-content}.car-pill .ico{width:14px;height:14px}
+.tt{border-radius:6px;padding:0 6px;display:inline-block;font-weight:800}
+.tt-mor{background:#a855f7;color:#fff}.tt-ver{background:#22c55e;color:#06260f}.tt-ama{background:#facc15;color:#3a2e00}
+.tt-ley{font-size:12px;color:var(--mut);margin:8px 2px;line-height:2}.tt-ley .tt{font-size:11px;margin-right:2px}
 
 </style>
 </head>
@@ -5428,7 +5431,7 @@ async function dirAlMomento(d) {
 const dirFechas = c => c.desde === c.hasta ? dfmt(c.desde) : `${dfmt(c.desde)} – ${dfmt(c.hasta)}`;
 const dirSexo = x => ({F: 'Fem.', M: 'Masc.', X: 'Mixto'})[x] || '';
 const DIR_ESTADO = {DSQ: 'Descalificado', DNS: 'No presentado', DNF: 'No terminó', SICK: 'Baja', WDR: 'Retirado', EXH: 'Exhibición'};
-const dirTiempo = f => f.t ? fmt(f.t) : f.estado ? `<span class="muted">${esc(DIR_ESTADO[f.estado] || f.estado)}</span>` : '<span class="muted">—</span>';
+const dirTiempo = f => f.t ? (f.tt ? `<span class="tt tt-${f.tt}">${fmt(f.t)}</span>` : fmt(f.t)) : f.estado ? `<span class="muted">${esc(DIR_ESTADO[f.estado] || f.estado)}</span>` : '<span class="muted">—</span>';
 /* Filas de nuestros nadadores (rfen = su licencia en la web; '?' = del club sin emparejar; 'club' = relevo del club) */
 const dirNuestras = c => !c.lenex ? [] : c.lenex.pruebas.flatMap(p => p.filas.filter(f => f.rfen).map(f => Object.assign({p}, f)));
 const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.hasOwn(SW, f.rfen)
@@ -5521,13 +5524,38 @@ function dirConjunta(c) {
     filas.forEach((f, i) => { f.conj = i && filas[i - 1].t === f.t ? filas[i - 1].conj : i + 1; f.conjN = filas.length; });
   });
 }
+/* Colores de los tiempos (como los sectores de la F1): morado = el mejor de la prueba; verde = mejor marca personal (frente a lo que tenía el nadador
+   del club antes de esta competición, misma piscina); amarillo = sin mejora; sin color = sin marca anterior (o nadador de otro club). En los parciales,
+   morado = el mejor tramo de esa prueba. Se calcula al pintar y se deja en cada fila: f.tt (tiempo) y f.tm (tramos). */
+function dirColores(c) {
+  const L = c.lenex || {}, pool = {'25 m': '25m', '50 m': '50m'}[L.piscina] || null;
+  (L.pruebas || []).forEach(p => {
+    if (/\dx|x\d/i.test(p.nombre || '')) return;      // relevos: sin colores
+    const ok = p.filas.filter(f => f.t && !f.estado), min = ok.length ? Math.min(...ok.map(f => f.t)) : null;
+    const tramos = f => { const a = f.parc && f.parc.length ? (f.parc[f.parc.length - 1] === f.t ? f.parc : [...f.parc, f.t]) : null; return a && a.length > 1 && a.every((t, i) => !i || t > a[i - 1]) ? a.map((t, i) => t - (i ? a[i - 1] : 0)) : null; };   // parciales que no crecen: se ignoran
+    const mejor = {};
+    ok.forEach(f => { const t = tramos(f); if (t) t.forEach((v, i) => { const k = `${t.length}|${i}`; if (mejor[k] == null || v < mejor[k]) mejor[k] = v; }); });
+    p.filas.forEach(f => {
+      f.tt = ''; f.tm = null;
+      if (!f.t || f.estado) return;
+      const t = tramos(f); if (t && ok.length >= 3) f.tm = t.map((v, i) => v === mejor[`${t.length}|${i}`]);
+      if (ok.length >= 3 && f.t === min) { f.tt = 'mor'; return; }
+      if (!/^\d+$/.test(String(f.rfen || ''))) return;
+      const s = Object.hasOwn(SW, f.rfen) ? SW[f.rfen] : null, e = s && s.ev && s.ev.find(x => x.e === p.nombre);
+      const antes = e ? e.h.filter(x => !x[8] && x[2] === pool && x[0] < (p.fecha || c.desde)).map(x => x[1]) : [];
+      if (antes.length) f.tt = f.t < Math.min(...antes) ? 'ver' : 'ama';
+    });
+  });
+}
+const dirLeyenda = () => '<p class="tt-ley"><span class="tt tt-mor">Morado</span> el mejor de la prueba (o su mejor tramo) <span class="tt tt-ver">Verde</span> mejor marca personal <span class="tt tt-ama">Amarillo</span> sin mejora. Las marcas personales solo se calculan para nadadores del club.</p>';
 /* Parciales acumulados (con o sin el tiempo final) → «50 m 28.51 · 100 m 59.81 (31.30) · …»: cada paso, su acumulado y entre paréntesis el tramo */
 function dirParciales(f, dist) {
   if (!f.t || !f.parc || !f.parc.length) return '';
   const acu = f.parc[f.parc.length - 1] === f.t ? f.parc : [...f.parc, f.t];
   if (acu.length < 2) return '';
   const paso = dist && dist % acu.length === 0 ? dist / acu.length : 0;
-  return acu.map((t, i) => `${paso ? `<span class="muted">${paso * (i + 1)} m</span> ` : ''}${fmt(t)}${i ? ` <span class="muted">(${fmt(t - acu[i - 1])})</span>` : ''}`).join(' · ');
+  const mor = (txt, i) => f.tm && f.tm[i] ? `<span class="tt tt-mor">${txt}</span>` : txt;
+  return acu.map((t, i) => `${paso ? `<span class="muted">${paso * (i + 1)} m</span> ` : ''}${i ? fmt(t) : mor(fmt(t), 0)}${i ? ` <span class="muted">(${mor(fmt(t - acu[i - 1]), i)})</span>` : ''}`).join(' · ');
 }
 const dirDist = nombre => { const m = /^(?:(\d+)\s*[x×]\s*)?(\d+)/i.exec(nombre || ''); return m ? (+m[1] || 1) * +m[2] : 0; };   // «4x50 Libre» → 200
 /* Filas debajo de un resultado: relevistas (en los relevos) y parciales; n = columnas que ocupan */
@@ -5554,7 +5582,7 @@ const dirAvisoConj = p => !p.conjCon ? '' : `<div class="tiny dir-aviso-conj">«
   ? ` · <b>provisional: pendiente de finalizar ${p.conjPend.join(' y ')}</b>` : ' · definitivo'}</div>`;
 const dirNombrePrueba = p => `<b class="dir-prueba">${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}${p.categoria ? ` · ${esc(p.categoria)}` : ''}</span>`;
 function dirSeguirHTML(c, rfen) {
-  dirConjunta(c);
+  dirConjunta(c); dirColores(c);
   const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}</span>
@@ -5630,7 +5658,7 @@ function dirFiltrar(c, f) {
 // Series de una prueba, cada una con sus calles (la que se está nadando, marcada)
 const dirSeries = (p, m, vivo) => m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false, dirDist(p.nombre))}`).join('');
 function dirDetalle(c, f) {
-  dirConjunta(c);
+  dirConjunta(c); dirColores(c);
   f = Object.assign({solo: true, cat: '', sx: '', ano: ''}, f);
   const L = c.lenex, nos = dirNuestras(c), del = dirDelClub(c), pruebas = dirFiltrar(c, f);
   const cats = [...new Set(L.pruebas.flatMap(p => p.filas.map(x => dirCatDeNac(x.nac))).filter(Boolean))]
@@ -5670,6 +5698,7 @@ function dirDetalle(c, f) {
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, '')}
     ${filtros}
+    ${dirLeyenda()}
     <p class="tiny muted" style="margin:8px 2px">${pruebas.length} de ${L.pruebas.length} pruebas. Toca una para ver sus series y calles.</p>
     ${cuerpo || '<div class="vacio">Ninguna prueba con estos filtros.</div>'}`;
 }
@@ -5757,7 +5786,7 @@ function dirCarrerasClub(c) {
     if (/\dx\d|x\s*\d/i.test(p.nombre)) return;   // relevos
     p.filas.forEach(f => {
       if (!/^\d+$/.test(String(f.rfen || '')) || (!f.t && !f.estado)) return;
-      const s = Object.hasOwn(SW, f.rfen) ? SW[f.rfen] : null, e = s && s.ev.find(x => x.e === p.nombre);
+      const s = Object.hasOwn(SW, f.rfen) ? SW[f.rfen] : null, e = s && s.ev && s.ev.find(x => x.e === p.nombre);
       const antes = e ? e.h.filter(x => !x[8] && x[2] === pool && x[0] < (p.fecha || c.desde)).map(x => x[1]) : [];
       const mejor = antes.length ? Math.min(...antes) : null, ok = !!f.t && !f.estado;
       const serie = p.filas.filter(y => y.serie === f.serie && y.t && !y.estado).sort((a, b) => a.t - b.t);
@@ -5826,6 +5855,7 @@ async function pintarCompClub(app) {
 
 /* Ventana de detalle: frente a su mejor marca (barras a los dos lados), y cada prueba con sus nadadores; al tocar uno, sus parciales */
 function abrirUltimaComp(c) {
+  dirColores(c);
   const {H, pbs, kpis} = dirResumenComp(c);
   const conMejor = H.filter(x => x.mejor != null).sort((a, b) => dirPct(a) - dirPct(b));
   // barras a los dos lados de su mejor marca (en %): a la izquierda, mejoró
@@ -5874,7 +5904,7 @@ function abrirUltimaComp(c) {
       <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
       ${gKpis(kpis)}
       <div class="h h-sub" style="margin-top:14px">${ico('tendencia')}Cada carrera frente a su mejor marca <span class="h-n">· ${conMejor.length} con marca previa en piscina de ${esc(c.lenex.piscina || '')}</span></div>${graf}
-      <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· toca un nadador para ver sus parciales</span></div>${secciones}
+      <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· toca un nadador para ver sus parciales</span></div>${dirLeyenda()}${secciones}
       <p class="tiny muted" style="margin-top:8px">★ = mejor marca personal (antes de esta competición, misma piscina). «Serie»: en qué serie nadó y en qué puesto quedó dentro de ella. Inscripción: frente al tiempo con el que se inscribió. ${pbs.length} mejores marcas en ${H.length} carreras.</p>
       <p style="margin-top:10px"><a class="btn ghost" href="#directo?c=${Number(c.id)}" onclick="closeEvo()">Ver toda la competición →</a></p>`;
     const dsp = box.querySelector('[data-desplegar]');
