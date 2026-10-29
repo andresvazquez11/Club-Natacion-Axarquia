@@ -916,6 +916,13 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .car-clk{font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;min-width:70px}.car-vel{display:inline-flex;gap:6px}
 .car-acc{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .car-sel{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--mut)}.car-sel select{flex:1;min-width:0;font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--surf-bd);background:var(--surf);color:var(--ink)}
+.car-filtros{display:flex;gap:8px;flex-wrap:wrap}.car-filtros select{flex:1 1 140px;min-width:0;font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--surf-bd);background:var(--surf);color:var(--ink)}
+.car-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.car-card{display:flex;flex-direction:column;gap:4px;text-align:left;font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--surf-bd);border-radius:12px;padding:10px 12px;cursor:pointer}
+.car-card.oro{border-color:#f2c94c;box-shadow:inset 3px 0 0 #f2c94c}.car-card:active{transform:scale(.99)}
+.car-c-t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.car-c-t b{font-size:15px}.car-c-t span{font-size:12px;color:var(--mut)}
+.car-c-g{font-size:13px}.car-c-cl{color:var(--mut);font-size:12px}.car-c-tm{font-variant-numeric:tabular-nums;font-weight:700;float:right}
+.car-c-n{font-size:12px;color:var(--mut)}.car-volver{margin-bottom:8px}.car-tit{font-size:16px;margin:2px 0 6px}
 
 </style>
 </head>
@@ -4868,10 +4875,11 @@ function carProa(x, k, ph, largo) {
   for (let i = 0; i < 5; i++) { x.fillStyle = `rgba(255,255,255,${.55 - .09 * i})`; x.beginPath(); x.arc((-22 - i * 6) * k, Math.sin(ph * 2 + i * 1.7) * 2.6 * k, (2.3 - .28 * i) * k, 0, 7); x.fill(); }
 }
 /* Nadador visto desde arriba: gorro del color del club, gafas, brazos de crol y patada; anillo dorado si es del CNA */
-function carNadador(x, px, py, dir, col, k, ph, cna) {
+function carNadador(x, px, py, dir, col, k, ph, cna, quieto) {
   x.save(); x.translate(px, py); x.scale(dir, 1); x.lineCap = 'round'; x.lineJoin = 'round';
-  carProa(x, k, ph, 17);
-  const pk = Math.sin(ph * 2.4) * 2.4 * k; x.strokeStyle = '#e9c9a6'; x.lineWidth = 2 * k;
+  if (quieto) ph = 1.1;   // ya ha llegado: brazos y piernas quietos y sin estela
+  else carProa(x, k, ph, 17);
+  const pk = quieto ? 0 : Math.sin(ph * 2.4) * 2.4 * k; x.strokeStyle = '#e9c9a6'; x.lineWidth = 2 * k;
   x.beginPath(); x.moveTo(-8 * k, -1.3 * k); x.lineTo(-22 * k, -1.3 * k + pk); x.moveTo(-8 * k, 1.3 * k); x.lineTo(-22 * k, 1.3 * k - pk); x.stroke();
   x.fillStyle = cna ? '#173f78' : '#2a384f'; x.beginPath(); x.moveTo(8 * k, -5.4 * k); x.quadraticCurveTo(-1 * k, -6.2 * k, -9 * k, -3 * k); x.lineTo(-9 * k, 3 * k); x.quadraticCurveTo(-1 * k, 6.2 * k, 8 * k, 5.4 * k); x.closePath(); x.fill();
   x.fillStyle = col; x.globalAlpha = .9; x.fillRect(-5 * k, -.9 * k, 10 * k, 1.8 * k); x.globalAlpha = 1;
@@ -4893,69 +4901,121 @@ function carLienzo(c, h, dpr) {
 const carPos = (d, LP, D) => { const k = Math.min(D / LP - 1, Math.floor(d / LP)), w = d - k * LP; return {x: k % 2 === 0 ? w : LP - w, dir: k % 2 === 0 ? 1 : -1}; };
 
 /* ── Componente ──
-   carPintar(host, c, {num, destacar}): c = contenido de carreras/<id>.json; num = número de prueba a abrir; destacar = licencia a resaltar */
+   carPintar(host, c, {num, destacar}): c = contenido de carreras/<id>.json.
+   Sin num: lista de pruebas en tarjetas con filtros; al tocar una, su detalle. Con num: directamente el detalle (ficha del nadador).
+   Detalle: pestañas «Resultado final» y «Serie 1…n»; la foto finish y la repetición siguen la pestaña elegida. */
+const carCat = c => String(c || '').replace(/^Benjamin\b/, 'Benjamín').replace(/^Prebenjamin\b/, 'Prebenjamín').replace(/^Alev$/, 'Alevín');
+const carSexo = s => s === 'F' ? 'chicas' : s === 'M' ? 'chicos' : '';
 function carPintar(host, c, op = {}) {
   const P = carPruebas(c);
   if (!P.length) { host.innerHTML = '<p class="empty">No hay carreras completas guardadas de esta competición.</p>'; return; }
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const mas = P.reduce((m, x, k) => x.todos.filter(n => n.club === 'CNA').length > P[m].todos.filter(n => n.club === 'CNA').length ? k : m, 0);   // por defecto, la prueba con más nadadores del CNA
-  const E = {pi: P.some(x => x.p.num === op.num) ? P.findIndex(x => x.p.num === op.num) : mas, se: 0, modo: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : ''};
-  const pr = () => P[E.pi], series = () => [...new Set(pr().todos.map(n => n.serie))].sort((a, b) => a - b).filter(s => pr().todos.filter(n => n.serie === s).length >= 2);
-  const serie = () => pr().todos.filter(n => n.serie === series()[E.se]).sort((a, b) => a.calle - b.calle);
-  const T0 = () => Math.max(...serie().map(n => n.t)), LP = c.piscina === '50m' ? 50 : 25;
-  host.innerHTML = `<div class="car">
-    <div class="chips" data-car-pr></div><div class="chips sub" data-car-se></div><div class="car-leg" data-car-leg></div>
-    <div class="car-panel"><div class="chips sub" data-car-modo></div><canvas data-car-ff></canvas><p class="tiny" data-car-nota></p></div>
-    <div class="h h-sub" style="margin-top:14px">${ico('crono')}Repetición de la carrera <span class="h-n">· serie elegida, distancia al líder en directo</span></div>
-    <div class="car-panel"><div class="car-row"><div class="car-pool"><canvas data-car-an></canvas></div><div class="car-tw" data-car-tw></div></div>
-      <div class="car-ctrl"><button class="btn" data-car-play>Pausa</button><button class="btn ghost" data-car-rest>Reiniciar</button><span class="car-clk" data-car-clk>0.00</span>
-        <input type="range" min="0" max="1000" value="0" data-car-sl aria-label="Momento de la carrera"><span class="car-vel" data-car-vel></span></div></div></div>`;
-  const q = s => host.querySelector(s), ff = q('[data-car-ff]'), an = q('[data-car-an]');
-  const centro = () => E.modo !== 'calle';
+  const dpr = Math.min(2, window.devicePixelRatio || 1), LP = c.piscina === '50m' ? 50 : 25;
+  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : '', f: {sexo: '', cat: '', prueba: ''}, ancho: 0, vivo: 0};
+  const pr = () => P[E.pi], serieIds = () => [...new Set(pr().todos.map(n => n.serie))].sort((a, b) => a - b).filter(s => pr().todos.filter(n => n.serie === s).length >= 2);
+  /* serie que se anima: la elegida; en «Resultado final», la del nadador destacado o, si no, la del mejor del CNA */
+  const serieAnim = () => {
+    if (E.tab !== 'final') return E.tab;
+    const d = E.dest && pr().todos.find(n => n.rfen === E.dest), cna = pr().todos.filter(n => n.club === 'CNA').sort((a, b) => a.t - b.t)[0];
+    const s = (d || cna || pr().todos[0]).serie; return serieIds().includes(s) ? s : serieIds()[0];
+  };
+  const serie = () => pr().todos.filter(n => n.serie === serieAnim()).sort((a, b) => a.calle - b.calle);
+  const T0 = () => Math.max(...serie().map(n => n.t));
+  const q = s => host.querySelector(s);
+
+  /* ── Lista de pruebas ── */
+  const lista = () => {
+    const cats = [...new Set(P.map(x => carCat(x.p.cat)))], pruebas = [...new Set(P.map(x => x.p.nombre))];
+    const opts = (v, arr, todos) => `<option value="">${todos}</option>` + arr.map(a => `<option value="${esc(a)}"${a === v ? ' selected' : ''}>${esc(a)}</option>`).join('');
+    const ok = x => (!E.f.sexo || x.p.sexo === E.f.sexo) && (!E.f.cat || carCat(x.p.cat) === E.f.cat) && (!E.f.prueba || x.p.nombre === E.f.prueba);
+    const tarjeta = x => {
+      const o = x.todos.slice().sort((a, b) => a.t - b.t), g = o[0], cna = o.map((n, i) => ({...n, lugar: i + 1})).filter(n => n.club === 'CNA');
+      return `<button class="car-card${g.club === 'CNA' ? ' oro' : ''}" data-ver="${x.i}"><span class="car-c-t"><b>${esc(x.p.nombre)}</b><span>${carSexo(x.p.sexo)} · ${esc(carCat(x.p.cat))}</span></span>
+        <span class="car-c-g">Gana ${g.club === 'CNA' ? '★ ' : ''}<b>${esc(g.n)}</b> <span class="car-c-cl">${esc(g.club)}</span> <span class="car-c-tm">${fmt(g.t)}</span></span>
+        <span class="car-c-n">${cna.length} del CNA · mejor: <b>${esc(cna[0].n)}</b> ${cna[0].lugar}º</span></button>`;
+    };
+    const vis = P.filter(ok);
+    host.innerHTML = `<div class="car"><div class="car-filtros">
+        <select data-f="sexo" aria-label="Sexo">${opts(E.f.sexo, [], 'Chicas y chicos').replace('</option>', '</option><option value="F"' + (E.f.sexo === 'F' ? ' selected' : '') + '>Chicas</option><option value="M"' + (E.f.sexo === 'M' ? ' selected' : '') + '>Chicos</option>')}</select>
+        <select data-f="cat" aria-label="Categoría">${opts(E.f.cat, cats, 'Todas las categorías')}</select>
+        <select data-f="prueba" aria-label="Prueba">${opts(E.f.prueba, pruebas, 'Todas las pruebas')}</select></div>
+      <p class="tiny muted" style="margin:6px 0">${vis.length} prueba${vis.length === 1 ? '' : 's'} con nadadores del CNA · toca una para ver la foto finish y la repetición</p>
+      <div class="car-cards">${vis.map(tarjeta).join('') || '<p class="empty">Ninguna prueba con esos filtros.</p>'}</div></div>`;
+    E.vivo++; 
+  };
+
+  /* ── Detalle ── */
+  function detalle(i) {
+    E.pi = i; E.tab = 'final'; E.T = 0; E.play = true; E.last = null; const my = ++E.vivo;
+    host.innerHTML = `<div class="car">
+      ${op.num != null ? '' : '<button class="btn ghost car-volver" data-car-lista>‹ Todas las pruebas</button>'}
+      <div class="car-tit"><b>${esc(pr().titulo)}</b></div>
+      <div class="chips sub car-tabs" data-car-tabs></div><div class="car-leg" data-car-leg></div>
+      <div class="car-panel"><canvas data-car-ff></canvas><p class="tiny" data-car-nota></p></div>
+      <div class="h h-sub" style="margin-top:14px">${ico('crono')}<span data-car-rtit></span></div>
+      <div class="car-panel"><div class="car-row"><div class="car-pool"><canvas data-car-an></canvas></div><div class="car-tw" data-car-tw></div></div>
+        <div class="car-ctrl"><button class="btn" data-car-play>Pausa</button><button class="btn ghost" data-car-rest>Reiniciar</button><span class="car-clk" data-car-clk>0.00</span>
+          <input type="range" min="0" max="1000" value="0" data-car-sl aria-label="Momento de la carrera"><span class="car-vel" data-car-vel></span></div></div></div>`;
+    const d = E.dest && pr().todos.find(n => n.rfen === E.dest); if (d && serieIds().includes(d.serie)) E.tab = 'final';
+    pestañas(); foto();
+    q('[data-car-sl]').oninput = ev => { E.T = ev.target.value / 1000 * T0(); E.play = false; q('[data-car-play]').textContent = 'Seguir'; };
+    E.ancho = 0; requestAnimationFrame(ts => bucle(ts, my));
+  }
+  function pestañas() {
+    q('[data-car-tabs]').innerHTML = `<button class="chip${E.tab === 'final' ? ' on' : ''}" data-tab="final">Resultado final</button>` + serieIds().map(s => `<button class="chip${E.tab === s ? ' on' : ''}" data-tab="${s}">Serie ${s}</button>`).join('');
+    q('[data-car-vel]').innerHTML = [1, 2, 4].map(v => `<button class="chip${v === E.vel ? ' on' : ''}" data-vel="${v}">×${v}</button>`).join('');
+    const cl = [...new Set(pr().todos.map(n => n.club))].sort((a, b) => (a === 'CNA' ? -1 : b === 'CNA' ? 1 : a.localeCompare(b)));
+    q('[data-car-leg]').innerHTML = cl.map(k => `<span><i style="background:${carColor(k)}"></i>${esc(k)}</span>`).join('') + '<span>Anillo dorado: nadador del CNA</span>';
+    q('[data-car-rtit]').textContent = `Repetición de la serie ${serieAnim()}${E.tab === 'final' ? ' (la del mejor del CNA)' : ''}`;
+  }
   function foto() {
-    const base = E.modo === 'final' ? pr().todos : serie(), n = carTop8(base, E.dest), tw = n[0].t, PL = LP;
-    const slot = n.map((_, k) => CAR_SEQ[k]), orden = slot.slice().sort((a, b) => a - b), cmin = Math.min(...n.map(z => z.calle));
-    const fila = (nn, k) => centro() ? orden.indexOf(slot[k]) : nn.calle - cmin, nf = centro() ? n.length : Math.max(...n.map(z => z.calle)) - cmin + 1;
-    const lh = 58, top = 44, bot = 50, H = top + lh * nf + bot, [x, W] = carLienzo(ff, H, dpr), est = W < 640, L = est ? 150 : 230, DER = est ? 92 : 128, Rr = W - DER - 14, pm = (Rr - L) / PL;
+    const ff = q('[data-car-ff]'), base = E.tab === 'final' ? pr().todos : pr().todos.filter(n => n.serie === E.tab), n = carTop8(base, E.dest), tw = n[0].t, PL = LP;
+    const slot = n.map((_, k) => CAR_SEQ[k]), orden = slot.slice().sort((a, b) => a - b), nf = n.length;
+    const W0 = ff.parentElement.clientWidth, est = W0 < 640;           // móvil: el nombre arriba y la piscina a todo el ancho debajo
+    const lh = est ? 84 : 58, top = 44, bot = 50, H = top + lh * nf + bot, [x, W] = carLienzo(ff, H, dpr);
+    const L = est ? 12 : 230, DER = est ? 0 : 128, Rr = W - DER - (est ? 22 : 14), pm = (Rr - L) / PL, alto = est ? 36 : lh;
     x.fillStyle = '#0b1a33'; x.fillRect(0, 0, W, H);
-    carAgua(x, L, top, Rr - L, lh * nf);
-    x.fillStyle = '#e9eef5'; x.fillRect(Rr, top - 6, 12, lh * nf + 12); x.fillStyle = '#14233f'; for (let i = 0; i < nf; i++) x.fillRect(Rr + 2, top + i * lh + lh / 2 - 10, 8, 20);
-    for (let i = 0; i <= nf; i++) carCorchera(x, L, top + i * lh, Rr - L);
-    x.strokeStyle = 'rgba(20,35,63,.4)'; x.lineWidth = 3; for (let i = 0; i < nf; i++) { x.beginPath(); x.moveTo(L, top + i * lh + lh / 2); x.lineTo(Rr, top + i * lh + lh / 2); x.stroke(); }
-    x.font = '11px -apple-system,Arial'; x.fillStyle = '#8ea3c4'; x.textAlign = 'center';
-    const paso = PL > 25 ? 10 : 5;
-    for (let m = 0; m <= PL; m += paso) { const px = Rr - m * pm; x.strokeStyle = 'rgba(255,255,255,.28)'; x.lineWidth = 1; x.beginPath(); x.moveTo(px, top); x.lineTo(px, top + lh * nf); x.stroke(); x.fillText(m ? m + ' m' : 'pared', px, top + lh * nf + 16); }
-    x.fillText('metros que le faltaban a cada uno cuando tocó el primero', (L + Rr) / 2, top + lh * nf + 34);
+    const franja = f => est ? top + f * lh + 42 : top + f * lh;             // arriba de la piscina de esa fila
+    n.forEach((_, k) => { const f = orden.indexOf(slot[k]), t0 = franja(f);
+      carAgua(x, L, t0, Rr - L, alto);
+      x.fillStyle = '#e9eef5'; x.fillRect(Rr, t0 - 4, 12, alto + 8); x.fillStyle = '#14233f'; x.fillRect(Rr + 2, t0 + alto / 2 - 9, 8, 18);
+      carCorchera(x, L, t0, Rr - L); carCorchera(x, L, t0 + alto, Rr - L);
+      x.strokeStyle = 'rgba(20,35,63,.4)'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, t0 + alto / 2); x.lineTo(Rr, t0 + alto / 2); x.stroke();
+      x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = 1; const paso = PL > 25 ? 10 : 5; for (let m = paso; m < PL; m += paso) { x.beginPath(); x.moveTo(Rr - m * pm, t0); x.lineTo(Rr - m * pm, t0 + alto); x.stroke(); } });
+    // regla bajo la última fila
+    const ult = franja(nf - 1) + alto; x.font = '11px -apple-system,Arial'; x.fillStyle = '#8ea3c4'; x.textAlign = 'center';
+    const paso = PL > 25 ? 10 : 5; for (let m = 0; m <= PL; m += paso) x.fillText(m ? m + ' m' : 'pared', Rr - m * pm, ult + 18);
+    x.fillText('metros que le faltaban a cada uno cuando tocó el primero', (L + Rr) / 2, ult + 36);
     x.fillStyle = '#eaf1fb'; x.font = '700 14px -apple-system,Arial'; x.textAlign = 'left';
-    x.fillText('FOTO FINISH · ' + pr().titulo + (E.modo === 'final' ? ' · resultado final (8 mejores)' : ' · serie ' + series()[E.se]), 8, 22);
+    x.fillText('FOTO FINISH · ' + (E.tab === 'final' ? 'resultado final (8 mejores)' : 'serie ' + E.tab), 8, 22);
     x.fillStyle = '#8ea3c4'; x.font = '11px -apple-system,Arial';
-    x.fillText(E.modo === 'calle' ? 'Cada uno en su calle real' : 'Ordenados como en una serie: el más rápido en el centro y los demás hacia fuera · ★ = nadador del CNA', 8, 38);
-    x.textAlign = 'right'; x.fillText('a qué distancia quedó', W - 8, 38);
-    x.strokeStyle = '#fff'; x.lineWidth = 2; x.setLineDash([6, 4]); x.beginPath(); x.moveTo(Rr - 1, top - 8); x.lineTo(Rr - 1, top + lh * nf + 6); x.stroke(); x.setLineDash([]);
+    x.fillText(est ? 'Más rápido en el centro · ★ = nadador del CNA' : 'Ordenados como en una serie: el más rápido en el centro y los demás hacia fuera · ★ = nadador del CNA', 8, 38);
+    if (!est) { x.textAlign = 'right'; x.fillText('a qué distancia quedó', W - 8, 38); }
     n.forEach((nn, k) => {
-      const f = fila(nn, k), y = top + f * lh + lh / 2, g = k === 0 ? 0 : carGap(nn, tw), gd = Math.min(PL - 1, g), px = Rr - gd * pm - 16, gan = k === 0, cna = nn.club === 'CNA', col = carColor(nn.club), mio = nn.rfen && nn.rfen === E.dest;
-      if (cna) { x.fillStyle = 'rgba(42,120,214,.30)'; x.fillRect(0, top + f * lh, W, lh); x.fillStyle = CAR_ORO; x.fillRect(0, top + f * lh, mio ? 9 : 5, lh); }
-      if (gan) { x.fillStyle = 'rgba(242,201,76,.16)'; x.fillRect(0, top + f * lh, W, lh); }
-      if (!gan) { x.fillStyle = col + '55'; x.fillRect(px + 14, y - lh / 2 + 6, Rr - 1 - (px + 14), lh - 12); x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); x.moveTo(px + 14, y - lh / 2 + 6); x.lineTo(px + 14, y + lh / 2 - 6); x.stroke(); }
-      const lug = E.modo === 'final' ? nn.lugar : k + 1;
-      x.fillStyle = lug <= 3 ? CAR_MEDALLA[lug - 1] : '#34507f'; x.beginPath(); x.arc(24, y, 18, 0, 7); x.fill();
-      x.fillStyle = lug <= 3 ? '#14233f' : '#eaf1fb'; x.font = `800 ${lug > 9 ? 16 : 20}px -apple-system,Arial`; x.textAlign = 'center'; x.fillText(lug, 24, y + 7);
-      x.fillStyle = col; x.beginPath(); x.roundRect(50, y - 17, 5, 34, 2); x.fill();
-      x.textAlign = 'left'; x.fillStyle = cna ? '#fff' : '#b9c7de'; x.font = (cna ? '800' : '500') + ' 15px -apple-system,Arial';
-      const pre = cna ? '★ ' : ''; let nom = pre + nn.n; while (x.measureText(nom).width > L - 64 && nom.length > 4) nom = nom.slice(0, -2);
-      x.fillText(nom === pre + nn.n ? nom : nom.trimEnd() + '…', 62, y - 3);
+      const f = orden.indexOf(slot[k]), ry = top + f * lh, t0 = franja(f), y = t0 + alto / 2, g = k === 0 ? 0 : carGap(nn, tw), gd = Math.min(PL - 1, g), px = Rr - gd * pm - 16, gan = k === 0, cna = nn.club === 'CNA', col = carColor(nn.club), mio = nn.rfen && nn.rfen === E.dest;
+      if (cna) { x.fillStyle = 'rgba(42,120,214,.30)'; x.fillRect(0, ry, W, lh); x.fillStyle = CAR_ORO; x.fillRect(0, ry, mio ? 9 : 5, lh); }
+      if (gan) { x.fillStyle = 'rgba(242,201,76,.16)'; x.fillRect(0, ry, W, lh); }
+      if (!gan) { x.fillStyle = col + '66'; x.fillRect(px + 14, t0 + 3, Rr - 1 - (px + 14), alto - 6); x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); x.moveTo(px + 14, t0 + 3); x.lineTo(px + 14, t0 + alto - 3); x.stroke(); }
+      const lug = E.tab === 'final' ? nn.lugar : k + 1, ty = est ? ry + 22 : y, cx0 = est ? 24 : 24;
+      x.fillStyle = lug <= 3 ? CAR_MEDALLA[lug - 1] : '#34507f'; x.beginPath(); x.arc(cx0, ty, est ? 14 : 18, 0, 7); x.fill();
+      x.fillStyle = lug <= 3 ? '#14233f' : '#eaf1fb'; x.font = `800 ${est ? (lug > 9 ? 13 : 16) : (lug > 9 ? 16 : 20)}px -apple-system,Arial`; x.textAlign = 'center'; x.fillText(lug, cx0, ty + (est ? 6 : 7));
+      const nx = est ? 46 : 62, anch = est ? W - 110 - nx : L - 64;
+      if (!est) { x.fillStyle = col; x.beginPath(); x.roundRect(50, y - 17, 5, 34, 2); x.fill(); } else { x.fillStyle = col; x.beginPath(); x.roundRect(nx - 8, ty - 13, 4, 26, 2); x.fill(); }
+      x.textAlign = 'left'; x.fillStyle = cna ? '#fff' : '#b9c7de'; x.font = (cna ? '800' : '500') + (est ? ' 14px' : ' 15px') + ' -apple-system,Arial';
+      const pre = cna ? '★ ' : ''; let nom = pre + nn.n; while (x.measureText(nom).width > anch && nom.length > 4) nom = nom.slice(0, -2);
+      x.fillText(nom === pre + nn.n ? nom : nom.trimEnd() + '…', nx, est ? ty - 3 : y - 3);
       x.font = '11px -apple-system,Arial'; x.fillStyle = '#9fb3d1';
-      let sub = `${nn.club} · serie ${nn.serie} · calle ${nn.calle} · ${fmt(nn.t)}`; if (x.measureText(sub).width > L - 66) sub = `${nn.club} · S${nn.serie} C${nn.calle} · ${fmt(nn.t)}`;
-      x.fillText(sub, 62, y + 13);
+      let sub = `${nn.club} · serie ${nn.serie} · calle ${nn.calle} · ${fmt(nn.t)}`; if (x.measureText(sub).width > anch) sub = `${nn.club} · S${nn.serie} C${nn.calle} · ${fmt(nn.t)}`;
+      x.fillText(sub, nx, est ? ty + 12 : y + 13);
       if (gan) { x.save(); x.shadowColor = '#ffe98a'; x.shadowBlur = 18; }
-      carNadador(x, px, y, 1, col, 1.2, 0, cna); if (gan) x.restore();
-      const cx = Rr + DER / 2 + 10; x.textAlign = 'center';
-      if (gan) { x.fillStyle = CAR_ORO; x.font = '800 17px -apple-system,Arial'; x.fillText('GANA', cx, y - 1); x.font = '700 12px -apple-system,Arial'; x.fillStyle = '#ffe98a'; x.fillText(fmt(nn.t), cx, y + 15); }
-      else { x.fillStyle = '#fff'; x.font = '800 19px -apple-system,Arial'; x.fillText('-' + carEs(g) + ' m', cx, y - 1); x.font = '600 12px -apple-system,Arial'; x.fillStyle = '#9fd0ff'; x.fillText('+' + carEs((nn.t - tw) / 100, 2) + ' s', cx, y + 15); }
+      carNadador(x, px, y, 1, col, est ? 1.05 : 1.2, 0, cna); if (gan) x.restore();
+      const cx = est ? W - 56 : Rr + DER / 2 + 10; x.textAlign = est ? 'right' : 'center'; const cxx = est ? W - 14 : cx, cy = est ? ty : y;
+      if (gan) { x.fillStyle = CAR_ORO; x.font = '800 17px -apple-system,Arial'; x.fillText('GANA', cxx, cy - 1); x.font = '700 12px -apple-system,Arial'; x.fillStyle = '#ffe98a'; x.fillText(fmt(nn.t), cxx, cy + 15); }
+      else { x.fillStyle = '#fff'; x.font = (est ? '800 17px' : '800 19px') + ' -apple-system,Arial'; x.fillText('-' + carEs(g) + ' m', cxx, cy - 1); x.font = '600 12px -apple-system,Arial'; x.fillStyle = '#9fd0ff'; x.fillText('+' + carEs((nn.t - tw) / 100, 2) + ' s', cxx, cy + 15); }
     });
     q('[data-car-nota]').textContent = 'Serie y calle reales. En el resultado final los nadadores de series distintas se comparan por tiempo, como si hubieran nadado juntos. La distancia es una estimación: se interpola entre sus parciales y su tiempo final (ritmo constante entre ellos). La banda de color es lo que le faltaba a cada uno cuando tocó el primero.';
   }
   function repeticion() {
+    const an = q('[data-car-an]'); if (!an) return;
     const n = serie(), D = pr().dist, lanes = n.map(z => z.calle), cmin = Math.min(...lanes), nl = Math.max(...lanes) - cmin + 1, avail = an.parentElement.clientWidth;
     const lh = Math.max(40, Math.min(50, avail / (nl + 1.5))), top = 28, H = top + lh * nl + 30, [x, W] = carLienzo(an, H, dpr), L = 40, Rr = W - 18, pm = (Rr - L) / LP;
     x.fillStyle = '#0b1a33'; x.fillRect(0, 0, W, H);
@@ -4970,7 +5030,7 @@ function carPintar(host, c, op = {}) {
     for (let i = 0; i < nl; i++) { x.fillStyle = '#8ea3c4'; x.font = '700 12px -apple-system,Arial'; x.textAlign = 'center'; x.fillText(cmin + i, L - 22, top + i * lh + lh / 2 + 4); }
     n.forEach((nn, i) => {
       const y = top + (nn.calle - cmin) * lh + lh / 2, p = carPos(ds[i], LP, D), fin = T >= nn.t, px = Math.max(L + 20, Math.min(Rr - 20, L + p.x * pm)), cna = nn.club === 'CNA', col = carColor(nn.club);
-      carNadador(x, px, y + 5, fin ? -1 : p.dir, col, lh > 44 ? 1.15 : 1, T * .09 + i * 1.7, cna);
+      carNadador(x, px, y + 5, fin ? -1 : p.dir, col, lh > 44 ? 1.15 : 1, T * .09 + i * 1.7, cna, fin);   // al llegar, se queda quieto en la pared
       const g = lid - ds[i], gt = fin ? `${pues.get(nn)}º · ${fmt(nn.t)}` : g < .05 ? 'líder' : '-' + carEs(g) + ' m', nm = (cna ? '★ ' : '') + nn.n + '  ';
       x.font = (cna ? '800' : '600') + ' 11px -apple-system,Arial'; const w = x.measureText(nm + gt).width + 12, lx = Math.max(L + w / 2 + 2, Math.min(Rr - w / 2 - 2, px));
       x.fillStyle = 'rgba(10,18,38,.78)'; x.beginPath(); x.roundRect(lx - w / 2, y - lh / 2 + 2, w, 15, 7); x.fill();
@@ -4983,37 +5043,24 @@ function carPintar(host, c, op = {}) {
     }).join('');
     q('[data-car-clk]').textContent = (T / 100).toFixed(2); q('[data-car-sl]').value = Math.round(Math.min(T, T0()) / T0() * 1000);
   }
-  function chips() {
-    q('[data-car-pr]').innerHTML = P.length > 1 ? `<label class="car-sel">Prueba <select data-pi aria-label="Prueba">${P.map((x, k) => `<option value="${k}"${k === E.pi ? ' selected' : ''}>${esc(x.titulo)} (${x.todos.filter(n => n.club === 'CNA').length} del CNA)</option>`).join('')}</select></label>` : '';
-    q('[data-car-se]').innerHTML = series().map((s, k) => `<button class="chip${k === E.se ? ' on' : ''}" data-se="${k}">Serie ${s}</button>`).join('');
-    q('[data-car-modo]').innerHTML = [['final', 'Resultado final · 8 mejores'], ['rank', 'Solo la serie elegida'], ['calle', 'Serie en sus calles reales']].map(([m, t]) => `<button class="chip${m === E.modo ? ' on' : ''}" data-modo="${m}">${t}</button>`).join('');
-    q('[data-car-vel]').innerHTML = [1, 2, 4].map(v => `<button class="chip${v === E.vel ? ' on' : ''}" data-vel="${v}">×${v}</button>`).join('');
-    const cl = [...new Set(pr().todos.map(n => n.club))].sort((a, b) => (a === 'CNA' ? -1 : b === 'CNA' ? 1 : a.localeCompare(b)));
-    q('[data-car-leg]').innerHTML = cl.map(k => `<span><i style="background:${carColor(k)}"></i>${esc(k)}</span>`).join('') + '<span>Anillo dorado: nadador del CNA</span>';
-  }
-  function reinicia() {
-    E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa';
-    const d = E.dest && pr().todos.find(n => n.rfen === E.dest); E.se = Math.max(0, series().indexOf(d ? d.serie : (pr().todos.find(n => n.club === 'CNA') || {}).serie));
-    chips(); foto();
+  function bucle(ts, my) {
+    if (!host.isConnected || my !== E.vivo) return;
+    if (E.last != null && E.play) { E.T += (ts - E.last) / 10 * E.vel; if (E.T >= T0() + 200) { E.T = T0() + 200; E.play = false; q('[data-car-play]').textContent = 'Ver otra vez'; } }
+    if (host.clientWidth && host.clientWidth !== E.ancho) { E.ancho = host.clientWidth; foto(); }   // al hacerse visible (pestaña oculta) o cambiar el ancho
+    E.last = ts; repeticion(); requestAnimationFrame(t => bucle(t, my));
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.se != null) { E.se = +b.dataset.se; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; chips(); foto(); }
-    else if (b.dataset.modo) { E.modo = b.dataset.modo; chips(); foto(); }
-    else if (b.dataset.vel) { E.vel = +b.dataset.vel; chips(); }
+    if (b.dataset.ver != null) detalle(+b.dataset.ver);
+    else if (b.hasAttribute('data-car-lista')) { E.vivo++; lista(); }
+    else if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
+    else if (b.dataset.vel) { E.vel = +b.dataset.vel; pestañas(); }
     else if (b.hasAttribute('data-car-play')) { if (E.T >= T0() + 200) E.T = 0; E.play = !E.play; b.textContent = E.play ? 'Pausa' : 'Seguir'; }
     else if (b.hasAttribute('data-car-rest')) { E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; }
   };
-  host.onchange = ev => { if (ev.target.matches('select[data-pi]')) { E.pi = +ev.target.value; reinicia(); } };
-  q('[data-car-sl]').oninput = ev => { E.T = ev.target.value / 1000 * T0(); E.play = false; q('[data-car-play]').textContent = 'Seguir'; };
-  let ancho = 0;
-  function bucle(ts) {
-    if (!host.isConnected) return;
-    if (E.last != null && E.play) { E.T += (ts - E.last) / 10 * E.vel; if (E.T >= T0() + 200) { E.T = T0() + 200; E.play = false; q('[data-car-play]').textContent = 'Ver otra vez'; } }
-    if (host.clientWidth && host.clientWidth !== ancho) { ancho = host.clientWidth; foto(); }   // al hacerse visible (pestaña oculta) o cambiar el ancho
-    E.last = ts; repeticion(); requestAnimationFrame(bucle);
-  }
-  reinicia(); requestAnimationFrame(bucle);
+  host.onchange = ev => { const f = ev.target.dataset.f; if (f) { E.f[f] = ev.target.value; lista(); } };
+  const ini = op.num != null ? P.findIndex(x => x.p.num === op.num) : -1;
+  if (ini >= 0) detalle(ini); else lista();
 }
 
 /* ── Datos: índice y competiciones guardadas ── */
