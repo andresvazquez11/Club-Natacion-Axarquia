@@ -926,7 +926,9 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .car-pill{display:inline-flex;align-items:center;gap:5px;margin-top:6px;background:var(--sun);color:var(--sun-ink);border-radius:20px;padding:4px 11px;font-weight:800;font-size:12px;cursor:pointer;width:fit-content}.car-pill .ico{width:14px;height:14px}
 .tt{border-radius:6px;padding:0 6px;display:inline-block;font-weight:800}
 .tt-mor{background:#a855f7;color:#fff}.tt-ver{background:#22c55e;color:#06260f}.tt-ama{background:#facc15;color:#3a2e00}
-.tt-ley{font-size:12px;color:var(--mut);margin:8px 2px;line-height:2}.tt-ley .tt{font-size:11px;margin-right:2px}
+.tt-ley{font-size:12px;color:var(--mut);margin:8px 2px;line-height:1.4;display:grid;grid-template-columns:max-content 1fr;gap:6px 10px;align-items:center}
+.tt-ley .tt-f{display:contents}.tt-ley .tt{font-size:11px;line-height:1.7;justify-self:start}
+.tt-ley .tt-nota{grid-column:1/-1;margin:2px 0 0}
 
 </style>
 </head>
@@ -5556,7 +5558,7 @@ function dirColores(c) {
     });
   });
 }
-const dirLeyenda = () => '<p class="tt-ley"><span class="tt tt-mor">Morado</span> el mejor de la prueba (o su mejor tramo) <span class="tt tt-ver">Verde</span> mejor marca personal <span class="tt tt-ama">Amarillo</span> sin mejora. Las marcas personales solo se calculan para nadadores del club.</p>';
+const dirLeyenda = () => '<div class="tt-ley"><div class="tt-f"><span class="tt tt-mor">Morado</span><span>el mejor de la prueba (o su mejor tramo)</span></div><div class="tt-f"><span class="tt tt-ver">Verde</span><span>mejor marca personal</span></div><div class="tt-f"><span class="tt tt-ama">Amarillo</span><span>sin mejora</span></div><p class="tt-nota">Las marcas personales solo se calculan para nadadores del club.</p></div>';
 /* Parciales acumulados (con o sin el tiempo final) → «50 m 28.51 · 100 m 59.81 (31.30) · …»: cada paso, su acumulado y entre paréntesis el tramo */
 function dirParciales(f, dist) {
   if (!f.t || !f.parc || !f.parc.length) return '';

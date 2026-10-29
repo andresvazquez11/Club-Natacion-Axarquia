@@ -401,7 +401,7 @@ function dirColores(c) {
     });
   });
 }
-const dirLeyenda = () => '<p class="tt-ley"><span class="tt tt-mor">Morado</span> el mejor de la prueba (o su mejor tramo) <span class="tt tt-ver">Verde</span> mejor marca personal <span class="tt tt-ama">Amarillo</span> sin mejora. Las marcas personales solo se calculan para nadadores del club.</p>';
+const dirLeyenda = () => '<div class="tt-ley"><div class="tt-f"><span class="tt tt-mor">Morado</span><span>el mejor de la prueba (o su mejor tramo)</span></div><div class="tt-f"><span class="tt tt-ver">Verde</span><span>mejor marca personal</span></div><div class="tt-f"><span class="tt tt-ama">Amarillo</span><span>sin mejora</span></div><p class="tt-nota">Las marcas personales solo se calculan para nadadores del club.</p></div>';
 /* Parciales acumulados (con o sin el tiempo final) → «50 m 28.51 · 100 m 59.81 (31.30) · …»: cada paso, su acumulado y entre paréntesis el tramo */
 function dirParciales(f, dist) {
   if (!f.t || !f.parc || !f.parc.length) return '';
