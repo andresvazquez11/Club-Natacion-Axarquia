@@ -93,7 +93,7 @@ function carPintar(host, c, op = {}) {
   const P = carPruebas(c);
   if (!P.length) { host.innerHTML = '<p class="empty">No hay carreras completas guardadas de esta competición.</p>'; return; }
   const dpr = Math.min(2, window.devicePixelRatio || 1), LP = c.piscina === '50m' ? 50 : 25;
-  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : '', ancho: 0, vivo: 0};
+  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: false, espera: true, last: null, dest: op.destacar ? String(op.destacar) : '', ancho: 0, vivo: 0};
   const pr = () => P[E.pi], serieIds = () => [...new Set(pr().todos.map(n => n.serie))].sort((a, b) => a - b).filter(s => pr().todos.filter(n => n.serie === s).length >= 2);
   /* serie que se anima: la elegida; en «Resultado final», la del nadador destacado o, si no, la del mejor del CNA */
   const serieAnim = () => {
@@ -107,20 +107,24 @@ function carPintar(host, c, op = {}) {
 
   /* ── Detalle ── */
   function detalle(i) {
-    E.pi = i; E.tab = 'final'; E.T = 0; E.play = true; E.last = null; const my = ++E.vivo;
+    E.pi = i; E.tab = 'final'; E.T = 0; E.play = false; E.espera = true; E.last = null; const my = ++E.vivo;
     host.innerHTML = `<div class="car">
       <div class="car-tit"><b>${esc(pr().titulo)}</b></div>
       <div class="chips sub car-tabs" data-car-tabs></div><div class="car-leg" data-car-leg></div>
       <div class="car-panel"><canvas data-car-ff></canvas><p class="tiny" data-car-nota></p></div>
       <div class="h h-sub" style="margin-top:14px">${ico('crono')}<span data-car-rtit></span></div>
       <div class="car-panel"><div class="car-row"><div class="car-pool"><canvas data-car-an></canvas></div><div class="car-tw" data-car-tw></div></div>
-        <div class="car-ctrl"><button class="btn" data-car-play>Pausa</button><button class="btn ghost" data-car-rest>Reiniciar</button><span class="car-clk" data-car-clk>0.00</span>
+        <div class="car-ctrl"><button class="btn" data-car-play>Empezar</button><button class="btn ghost" data-car-rest>Reiniciar</button><span class="car-clk" data-car-clk>0.00</span>
           <input type="range" min="0" max="1000" value="0" data-car-sl aria-label="Momento de la carrera"><span class="car-vel" data-car-vel></span></div></div></div>`;
     const d = E.dest && pr().todos.find(n => n.rfen === E.dest); if (d && serieIds().includes(d.serie)) E.tab = 'final';
     pestañas(); foto();
-    q('[data-car-sl]').oninput = ev => { E.T = ev.target.value / 1000 * T0(); E.play = false; q('[data-car-play]').textContent = 'Seguir'; };
+    q('[data-car-sl]').oninput = ev => { E.T = ev.target.value / 1000 * T0(); E.espera = false; E.play = false; q('[data-car-play]').textContent = 'Seguir'; };
     E.ancho = 0; requestAnimationFrame(ts => bucle(ts, my));
   }
+  /* espera = aún no ha empezado esta repetición; arranca sola en cuanto la piscina se ve en pantalla (no mientras se mira la foto) */
+  const visible = () => { const r = q('.car-pool').getBoundingClientRect(), h = window.innerHeight; return r.height > 0 && Math.min(r.bottom, h) - Math.max(r.top, 0) >= r.height * 0.6; };
+  function arrancar() { if (!E.espera || !visible()) return; E.espera = false; E.play = true; E.last = null; q('[data-car-play]').textContent = 'Pausa'; }
+  function esperar() { E.T = 0; E.play = false; E.espera = true; q('[data-car-play]').textContent = 'Empezar'; arrancar(); }
   function pestañas() {
     q('[data-car-tabs]').innerHTML = `<button class="chip${E.tab === 'final' ? ' on' : ''}" data-tab="final">Resultado final</button>` + serieIds().map(s => `<button class="chip${E.tab === s ? ' on' : ''}" data-tab="${s}">Serie ${s}</button>`).join('');
     q('[data-car-vel]').innerHTML = [1, 2, 4].map(v => `<button class="chip${v === E.vel ? ' on' : ''}" data-vel="${v}">×${v}</button>`).join('');
@@ -230,15 +234,16 @@ function carPintar(host, c, op = {}) {
   function bucle(ts, my) {
     if (!host.isConnected || my !== E.vivo) return;
     if (E.last != null && E.play) { E.T += (ts - E.last) / 10 * E.vel; if (E.T >= T0() + 200) { E.T = T0() + 200; E.play = false; q('[data-car-play]').textContent = 'Ver otra vez'; } }
+    if (E.espera) arrancar();
     if (host.clientWidth && host.clientWidth !== E.ancho) { E.ancho = host.clientWidth; foto(); }   // al hacerse visible (pestaña oculta) o cambiar el ancho
     E.last = ts; repeticion(); requestAnimationFrame(t => bucle(t, my));
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
+    if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; pestañas(); foto(); esperar(); }
     else if (b.dataset.vel) { E.vel = +b.dataset.vel; pestañas(); }
-    else if (b.hasAttribute('data-car-play')) { if (E.T >= T0() + 200) E.T = 0; E.play = !E.play; b.textContent = E.play ? 'Pausa' : 'Seguir'; }
-    else if (b.hasAttribute('data-car-rest')) { E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; }
+    else if (b.hasAttribute('data-car-play')) { E.espera = false; if (E.T >= T0() + 200) E.T = 0; E.play = !E.play; b.textContent = E.play ? 'Pausa' : 'Seguir'; }
+    else if (b.hasAttribute('data-car-rest')) { E.T = 0; E.espera = false; E.play = true; q('[data-car-play]').textContent = 'Pausa'; }
   };
   const ini = P.findIndex(x => x.p.num === op.num && (!op.sesion || x.p.sesion === op.sesion));
   if (ini >= 0) detalle(ini); else host.innerHTML = '<p class="empty">No hay foto finish de esta prueba.</p>';
