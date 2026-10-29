@@ -916,7 +916,7 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .car-clk{font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;min-width:70px}.car-vel{display:inline-flex;gap:6px}
 .car-acc{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .car-sel{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--mut)}.car-sel select{flex:1;min-width:0;font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--surf-bd);background:var(--surf);color:var(--ink)}
-.car-filtros{display:flex;gap:8px;flex-wrap:wrap}.car-filtros select{flex:1 1 140px;min-width:0;font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--surf-bd);background:var(--surf);color:var(--ink)}
+.car-filtros{display:flex;flex-direction:column;gap:6px}.car-fg{display:flex;flex-direction:column;gap:2px}.car-fl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .car-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
 .car-card{display:flex;flex-direction:column;gap:4px;text-align:left;font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--surf-bd);border-radius:12px;padding:10px 12px;cursor:pointer}
 .car-card.oro{border-color:#f2c94c;box-shadow:inset 3px 0 0 #f2c94c}.car-card:active{transform:scale(.99)}
@@ -4925,19 +4925,17 @@ function carPintar(host, c, op = {}) {
   /* ── Lista de pruebas ── */
   const lista = () => {
     const cats = [...new Set(P.map(x => carCat(x.p.cat)))], pruebas = [...new Set(P.map(x => x.p.nombre))];
-    const opts = (v, arr, todos) => `<option value="">${todos}</option>` + arr.map(a => `<option value="${esc(a)}"${a === v ? ' selected' : ''}>${esc(a)}</option>`).join('');
     const ok = x => (!E.f.sexo || x.p.sexo === E.f.sexo) && (!E.f.cat || carCat(x.p.cat) === E.f.cat) && (!E.f.prueba || x.p.nombre === E.f.prueba);
+    const grupo = (k, tit, opc) => `<div class="car-fg"><span class="car-fl">${tit}</span><div class="chips sub">${opc.map(([v, t]) => `<button class="chip${E.f[k] === v ? ' on' : ''}" data-f="${k}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div></div>`;
     const tarjeta = x => {
       const o = x.todos.slice().sort((a, b) => a.t - b.t), g = o[0], cna = o.map((n, i) => ({...n, lugar: i + 1})).filter(n => n.club === 'CNA');
-      return `<button class="car-card${g.club === 'CNA' ? ' oro' : ''}" data-ver="${x.i}"><span class="car-c-t"><b>${esc(x.p.nombre)}</b><span>${carSexo(x.p.sexo)} · ${esc(carCat(x.p.cat))}</span></span>
+      return `<button class="car-card${g.club === 'CNA' ? ' oro' : ''}" data-ver="${P.indexOf(x)}"><span class="car-c-t"><b>${esc(x.p.nombre)}</b><span>${carSexo(x.p.sexo)} · ${esc(carCat(x.p.cat))}</span></span>
         <span class="car-c-g">Gana ${g.club === 'CNA' ? '★ ' : ''}<b>${esc(g.n)}</b> <span class="car-c-cl">${esc(g.club)}</span> <span class="car-c-tm">${fmt(g.t)}</span></span>
         <span class="car-c-n">${cna.length} del CNA · mejor: <b>${esc(cna[0].n)}</b> ${cna[0].lugar}º</span></button>`;
     };
     const vis = P.filter(ok);
     host.innerHTML = `<div class="car"><div class="car-filtros">
-        <select data-f="sexo" aria-label="Sexo">${opts(E.f.sexo, [], 'Chicas y chicos').replace('</option>', '</option><option value="F"' + (E.f.sexo === 'F' ? ' selected' : '') + '>Chicas</option><option value="M"' + (E.f.sexo === 'M' ? ' selected' : '') + '>Chicos</option>')}</select>
-        <select data-f="cat" aria-label="Categoría">${opts(E.f.cat, cats, 'Todas las categorías')}</select>
-        <select data-f="prueba" aria-label="Prueba">${opts(E.f.prueba, pruebas, 'Todas las pruebas')}</select></div>
+        ${grupo('sexo', 'Sexo', [['', 'Todos'], ['F', 'Chicas'], ['M', 'Chicos']])}${grupo('cat', 'Categoría', [['', 'Todas'], ...cats.map(c => [c, c])])}${grupo('prueba', 'Prueba', [['', 'Todas'], ...pruebas.map(c => [c, c])])}</div>
       <p class="tiny muted" style="margin:6px 0">${vis.length} prueba${vis.length === 1 ? '' : 's'} con nadadores del CNA · toca una para ver la foto finish y la repetición</p>
       <div class="car-cards">${vis.map(tarjeta).join('') || '<p class="empty">Ninguna prueba con esos filtros.</p>'}</div></div>`;
     E.vivo++; 
@@ -5051,14 +5049,14 @@ function carPintar(host, c, op = {}) {
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.ver != null) detalle(+b.dataset.ver);
+    if (b.dataset.f) { E.f[b.dataset.f] = b.dataset.v; lista(); }
+    else if (b.dataset.ver != null) detalle(+b.dataset.ver);
     else if (b.hasAttribute('data-car-lista')) { E.vivo++; lista(); }
     else if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
     else if (b.dataset.vel) { E.vel = +b.dataset.vel; pestañas(); }
     else if (b.hasAttribute('data-car-play')) { if (E.T >= T0() + 200) E.T = 0; E.play = !E.play; b.textContent = E.play ? 'Pausa' : 'Seguir'; }
     else if (b.hasAttribute('data-car-rest')) { E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; }
   };
-  host.onchange = ev => { const f = ev.target.dataset.f; if (f) { E.f[f] = ev.target.value; lista(); } };
   const ini = op.num != null ? P.findIndex(x => x.p.num === op.num) : -1;
   if (ini >= 0) detalle(ini); else lista();
 }
