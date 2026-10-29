@@ -182,8 +182,6 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .serie-chip.top{border-color:var(--grn)}
 .serie-chip b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
 .serie-chip small{display:block}
-.fam-det>summary{cursor:pointer;padding:6px 0;font-size:14px}
-.fam-t{font-family:inherit;font-size:14px;line-height:1.45;resize:vertical;min-height:9em}
 .calles-s{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .calle-chip{font-size:12px;line-height:1.35;color:var(--mut);background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:4px 9px}
 .calle-chip b{color:var(--txt);margin-right:4px}
@@ -3019,51 +3017,8 @@ function porNadadorHTML(d) {
     const calles = [...new Set(Object.values(f.t).map(calleDe).filter(Boolean))].join(' · ');
     const cae = an && an.cae.has(f.nId) ? `<div class="cmp-peor" style="font-size:12px;margin-top:4px">Cae en la segunda mitad (serie ${an.cae.get(f.nId).join(', ')})</div>` : '';
     return `<div class="card mt8"><div class="row" style="gap:8px;align-items:baseline"><b style="flex:1">${esc(f.n)}</b><span class="muted" style="font-size:12px">${esc(calles)}</span></div>
-      <div class="serie-chips">${chips}</div>${cae}
-      <details class="fam-det"><summary>Mensaje para su familia</summary>${famBloque('n-' + f.nId, mensajeFamilia(f.nId, d))}</details></div>`; }).join('') || '<div class="center-msg"><p>Sin tiempos individuales en este entrenamiento</p></div>';
+      <div class="serie-chips">${chips}</div>${cae}</div>`; }).join('') || '<div class="center-msg"><p>Sin tiempos individuales en este entrenamiento</p></div>';
 }
-// Mensajes cortos para las familias: sin comparar con otros nadadores; los copias o compartes tú (WhatsApp, correo…)
-function mensajeFamilia(nId, d) {
-  const ses = d.ses, nom = nombreDe(nId).split(' ')[0], an = analisisEntreno(ses.id), mis = [];
-  d.series.filter(x => !x.relevo).forEach(x => x.res.filter(r => r.nId === nId).forEach(r => mis.push({x, r, c: comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id)})));
-  if (!mis.length) return '';
-  const pruebas = [...new Set(mis.map(m => comboTexto(m.x.estilo, m.x.dist)))], mejoras = mis.filter(m => m.c.ent && m.c.difEnt < 0).sort((a, b) => a.c.difEnt - b.c.difEnt);
-  const L = [`Hola, familia de ${nom}. Resumen del entreno de hoy (${fmtDateShort(ses.fecha)}), C.N. Axarquía:`, `${nom} ha hecho ${mis.length} ${mis.length === 1 ? 'serie' : 'series'}: ${pruebas.join(', ')}.`];
-  if (mejoras.length) { const m = mejoras[0];
-    L.push(`Lo mejor: ${comboTexto(m.x.estilo, m.x.dist)} en ${fmtTime(m.r.ms)}, ${_seg(m.c.difEnt)} menos que su mejor entreno en las mismas condiciones.${mejoras.length > 1 ? ` Mejoró su mejor entreno en ${mejoras.length} de sus ${mis.length} series.` : ''}`); }
-  else if (mis.some(m => m.c.ent)) L.push('Ha nadado en su nivel de siempre: buen trabajo de constancia.');
-  else L.push('Son sus primeras referencias en estas pruebas: así tendremos con qué comparar la próxima vez.');
-  if (an && an.cae.has(nId)) L.push('En la segunda mitad de algunas series bajó el ritmo: lo trabajaremos (repartir mejor el esfuerzo).');
-  else if (an && an.analizadas.has(nId)) L.push('Repartió bien el esfuerzo en la segunda mitad de las series.');
-  L.push(`Un saludo, ${ses.coach || 'el entrenador'}.`);
-  return L.join('\n');
-}
-function mensajeGrupo(d) {
-  const ses = d.ses, an = analisisEntreno(ses.id), ind = d.series.filter(x => !x.relevo);
-  const L = [`Resumen del entreno de hoy (${fmtDateShort(ses.fecha)}), ${eqNombre(ses.eqId)}: ${d.nads.length} nadadores, ${ind.length} ${ind.length === 1 ? 'serie' : 'series'} (${d.combos.slice(0, 3).join(', ')}).`];
-  if (an && an.evaluados.size) L.push(`${an.mej.size} de ${an.evaluados.size} nadadores mejoran su mejor entreno en las mismas condiciones.`);
-  if (an && an.cont) L.push(an.cont.texto.replace(/ \(\d+ nadadores\)\./, '.'));
-  L.push(`Un saludo, ${ses.coach || 'el entrenador'}.`);
-  return L.join('\n');
-}
-const famBloque = (id, texto) => `<textarea class="input fam-t" id="fam-${esc(id)}" rows="8">${esc(texto)}</textarea>
-  <div class="row" style="gap:8px;margin-top:6px"><button class="btn btn-surf btn-inline" style="flex:1" data-action="fam-copiar" data-t="fam-${esc(id)}">Copiar</button>${puedeCompartirTexto() ? `<button class="btn btn-blue btn-inline" style="flex:1" data-action="fam-compartir" data-t="fam-${esc(id)}">Compartir</button>` : ''}</div>`;
-const puedeCompartirTexto = () => typeof navigator.share === 'function';
-function familiasHTML(d) {
-  if (!d.nads.length) return '';
-  const ind = d.series.filter(x => !x.relevo), ids = [...new Set(ind.flatMap(x => x.res.map(r => r.nId)))].sort((a, b) => nombreDe(a).localeCompare(nombreDe(b)));
-  return `<details class="card mt8 fam-det"><summary style="cursor:pointer;font-weight:700">Mensajes para las familias</summary>
-    <div class="muted" style="font-size:12px;margin:6px 0">Textos cortos y positivos, sin comparar con otros nadadores. Los puedes cambiar antes de copiarlos o compartirlos.</div>
-    <span class="label mt8">Para el grupo</span>${famBloque('grupo', mensajeGrupo(d))}
-    <span class="label mt16">Para cada familia</span>
-    ${ids.map(id => `<details class="fam-det"><summary>${esc(nombreDe(id))}</summary>${famBloque('p-' + id, mensajeFamilia(id, d))}</details>`).join('')}</details>`;
-}
-async function copiarTexto(t) {
-  try { await navigator.clipboard.writeText(t); return true; } catch {}
-  const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
-  let ok = false; try { ok = document.execCommand('copy'); } catch {} ta.remove(); return ok;
-}
-
 function renderResultados(sesId, backAction, backLabel) {
   const d = datosEntrenamiento(sesId);
   if (!d) return `<div class="center-msg"><p>Sesión no encontrada</p></div>`;
@@ -3108,7 +3063,6 @@ function renderResultados(sesId, backAction, backLabel) {
         <button class="btn btn-surf mt8" style="min-height:44px" data-action="ses-notas">Guardar notas</button></div>`
       : ses.notas ? `<div class="card mt8" style="font-size:13px"><span class="label" style="margin-top:0">Notas del entreno</span><div style="margin-top:4px">${esc(ses.notas)}</div></div>` : ''}
     ${renderAsistencia(ses)}
-    ${familiasHTML(d)}
     ${renderGraficaWeb(ses)}
     ${series.length ? `<div class="seg mt16"><button class="${RES_VISTA!=='nadador'?'on':''}" data-action="res-vista" data-v="series">Por serie</button><button class="${RES_VISTA==='nadador'?'on':''}" data-action="res-vista" data-v="nadador">Por nadador</button></div>` : ''}
     ${RES_VISTA==='nadador' ? porNadadorHTML(d) : (bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>')}
@@ -3526,8 +3480,6 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'planes-todos': nav({screen:'planes-todos'}); break;
     case 'res-vista':    RES_VISTA = btn.dataset.v === 'nadador' ? 'nadador' : 'series'; render(); break;
     case 'ses-notas':    { const el = document.getElementById('ses-notas'), ses = S.sesiones.find(x => x.id === route.sesId); if (el && ses && puedoBorrar(ses)) { DB.guardarNotasSes(ses.id, String(el.value || '').trim().slice(0, 1000)); btn.textContent = 'Guardado'; setTimeout(() => { if (btn.isConnected) btn.textContent = 'Guardar notas'; }, 1500); } break; }
-    case 'fam-copiar':   { const el = document.getElementById(btn.dataset.t); if (el) { const ok = await copiarTexto(el.value); const t0 = btn.textContent; btn.textContent = ok ? 'Copiado' : 'No se pudo copiar'; setTimeout(() => { if (btn.isConnected) btn.textContent = t0; }, 1500); } break; }
-    case 'fam-compartir': { const el = document.getElementById(btn.dataset.t); if (el) { try { await navigator.share({text: el.value}); } catch {} } break; }
     case 'plan-copiar': { const p = S.planes.find(x => x.id === btn.dataset.id); if (!p) break;
       const {id, ...resto} = p;
       await DB.guardarPlan(null, {...resto, coach: coachName, coachEmail: miEmail(), ts: Date.now(), nombre: `${p.nombre || 'Entreno'} (de ${p.coach || 'otro entrenador'})`.slice(0, 200)});
