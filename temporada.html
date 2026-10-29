@@ -915,20 +915,13 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .car-ctrl{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}.car-ctrl input[type=range]{flex:1;min-width:140px}
 .car-clk{font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;min-width:70px}.car-vel{display:inline-flex;gap:6px}
 .car-acc{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.car-sel{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--mut)}.car-sel select{flex:1;min-width:0;font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--surf-bd);background:var(--surf);color:var(--ink)}
-.car-filtros{display:flex;flex-direction:column;gap:6px}.car-fg{display:flex;flex-direction:column;gap:2px}.car-fl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
-.car-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
-.car-card{display:flex;flex-direction:column;gap:4px;text-align:left;font:inherit;color:var(--ink);background:var(--surf);border:1px solid var(--surf-bd);border-radius:12px;padding:10px 12px;cursor:pointer}
-.car-card.oro{border-color:#f2c94c;box-shadow:inset 3px 0 0 #f2c94c}.car-card:active{transform:scale(.99)}
-.car-c-t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.car-c-t b{font-size:15px}.car-c-t span{font-size:12px;color:var(--mut)}
-.car-c-g{font-size:13px}.car-c-cl{color:var(--mut);font-size:12px}.car-c-tm{font-variant-numeric:tabular-nums;font-weight:700;float:right}
-.car-c-n{font-size:12px;color:var(--mut)}.car-volver{margin-bottom:8px}.car-tit{font-size:16px;margin:2px 0 6px}
 .cc-b{border:1px solid var(--surf-bd);border-radius:12px;padding:10px 12px;margin-top:8px}.cc-b.vivo{border-color:var(--good)}
 .cc-et{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:2px}
 .cc-falta{font-size:12px;font-weight:800;color:var(--sun-ink);background:var(--sun);border-radius:20px;padding:2px 9px;letter-spacing:0;text-transform:none}
 .cc-b>b{display:block;font-size:15px;margin-bottom:2px}.cc-acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .cc-sig{margin-top:10px;padding-top:8px;border-top:1px solid var(--surf-bd);font-size:13px;display:flex;flex-direction:column;gap:5px}.cc-sig .cc-falta{font-size:11px;padding:1px 7px}
 .dir-mas>summary{cursor:pointer;margin:10px 0;color:var(--sun);font-weight:700}
+.car-abrir{margin:2px 12px 8px;width:calc(100% - 24px)}
 
 </style>
 </head>
@@ -938,7 +931,7 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 <header class="cab" id="cab">
   <a class="brand" href="#inicio"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></a>
   <div class="cab-bus" id="cab-bus"></div>
-  <a class="crono-b dir-b" id="cab-dir" href="#directo" title="Competiciones en directo" aria-label="Competiciones en directo"><span class="dir-punto"></span><span>Directo</span></a>
+  <a class="crono-b dir-b" id="cab-dir" href="#directo" title="Calendario y resultados de competiciones" aria-label="Competiciones: calendario, resultados y directo"><span class="dir-punto"></span><span>Calendario</span></a>
   <a class="crono-b" id="cab-crono" href="cronometro/" hidden title="Abrir el cronómetro" aria-label="Abrir el cronómetro"><svg class="ico"><use href="#i-crono"/></svg><span>Crono</span></a>
   <button class="modo-b" type="button" onclick="cambiarModo()" aria-label="Cambiar entre modo claro y acuático"></button>
 </header>
@@ -4916,16 +4909,13 @@ function carLienzo(c, h, dpr) {
 const carPos = (d, LP, D) => { const k = Math.min(D / LP - 1, Math.floor(d / LP)), w = d - k * LP; return {x: k % 2 === 0 ? w : LP - w, dir: k % 2 === 0 ? 1 : -1}; };
 
 /* ── Componente ──
-   carPintar(host, c, {num, destacar}): c = contenido de carreras/<id>.json.
-   Sin num: lista de pruebas en tarjetas con filtros; al tocar una, su detalle. Con num: directamente el detalle (ficha del nadador).
-   Detalle: pestañas «Resultado final» y «Serie 1…n»; la foto finish y la repetición siguen la pestaña elegida. */
-const carCat = c => String(c || '').replace(/^Benjamin\b/, 'Benjamín').replace(/^Prebenjamin\b/, 'Prebenjamín').replace(/^Alev$/, 'Alevín');
-const carSexo = s => s === 'F' ? 'chicas' : s === 'M' ? 'chicos' : '';
+   carPintar(host, c, {num, sesion, destacar}): c = contenido de carreras/<id>.json; num y sesion = la prueba (la de la página de la competición);
+   destacar = licencia a resaltar. Pestañas «Resultado final» y «Serie 1…n»; la foto finish y la repetición siguen la pestaña elegida. */
 function carPintar(host, c, op = {}) {
   const P = carPruebas(c);
   if (!P.length) { host.innerHTML = '<p class="empty">No hay carreras completas guardadas de esta competición.</p>'; return; }
   const dpr = Math.min(2, window.devicePixelRatio || 1), LP = c.piscina === '50m' ? 50 : 25;
-  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : '', f: {sexo: '', cat: '', prueba: ''}, ancho: 0, vivo: 0};
+  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : '', ancho: 0, vivo: 0};
   const pr = () => P[E.pi], serieIds = () => [...new Set(pr().todos.map(n => n.serie))].sort((a, b) => a - b).filter(s => pr().todos.filter(n => n.serie === s).length >= 2);
   /* serie que se anima: la elegida; en «Resultado final», la del nadador destacado o, si no, la del mejor del CNA */
   const serieAnim = () => {
@@ -4937,30 +4927,10 @@ function carPintar(host, c, op = {}) {
   const T0 = () => Math.max(...serie().map(n => n.t));
   const q = s => host.querySelector(s);
 
-  /* ── Lista de pruebas ── */
-  const lista = () => {
-    const cats = [...new Set(P.map(x => carCat(x.p.cat)))], pruebas = [...new Set(P.map(x => x.p.nombre))];
-    const ok = x => (!E.f.sexo || x.p.sexo === E.f.sexo) && (!E.f.cat || carCat(x.p.cat) === E.f.cat) && (!E.f.prueba || x.p.nombre === E.f.prueba);
-    const grupo = (k, tit, opc) => `<div class="car-fg"><span class="car-fl">${tit}</span><div class="chips sub">${opc.map(([v, t]) => `<button class="chip${E.f[k] === v ? ' on' : ''}" data-f="${k}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div></div>`;
-    const tarjeta = x => {
-      const o = x.todos.slice().sort((a, b) => a.t - b.t), g = o[0], cna = o.map((n, i) => ({...n, lugar: i + 1})).filter(n => n.club === 'CNA');
-      return `<button class="car-card${g.club === 'CNA' ? ' oro' : ''}" data-ver="${P.indexOf(x)}"><span class="car-c-t"><b>${esc(x.p.nombre)}</b><span>${carSexo(x.p.sexo)} · ${esc(carCat(x.p.cat))}</span></span>
-        <span class="car-c-g">Gana ${g.club === 'CNA' ? '★ ' : ''}<b>${esc(g.n)}</b> <span class="car-c-cl">${esc(g.club)}</span> <span class="car-c-tm">${fmt(g.t)}</span></span>
-        <span class="car-c-n">${cna.length} del CNA · mejor: <b>${esc(cna[0].n)}</b> ${cna[0].lugar}º</span></button>`;
-    };
-    const vis = P.filter(ok);
-    host.innerHTML = `<div class="car"><div class="car-filtros">
-        ${grupo('sexo', 'Sexo', [['', 'Todos'], ['F', 'Chicas'], ['M', 'Chicos']])}${grupo('cat', 'Categoría', [['', 'Todas'], ...cats.map(c => [c, c])])}${grupo('prueba', 'Prueba', [['', 'Todas'], ...pruebas.map(c => [c, c])])}</div>
-      <p class="tiny muted" style="margin:6px 0">${vis.length} prueba${vis.length === 1 ? '' : 's'} con nadadores del CNA · toca una para ver la foto finish y la repetición</p>
-      <div class="car-cards">${vis.map(tarjeta).join('') || '<p class="empty">Ninguna prueba con esos filtros.</p>'}</div></div>`;
-    E.vivo++; 
-  };
-
   /* ── Detalle ── */
   function detalle(i) {
     E.pi = i; E.tab = 'final'; E.T = 0; E.play = true; E.last = null; const my = ++E.vivo;
     host.innerHTML = `<div class="car">
-      ${op.num != null ? '' : '<button class="btn ghost car-volver" data-car-lista>‹ Todas las pruebas</button>'}
       <div class="car-tit"><b>${esc(pr().titulo)}</b></div>
       <div class="chips sub car-tabs" data-car-tabs></div><div class="car-leg" data-car-leg></div>
       <div class="car-panel"><canvas data-car-ff></canvas><p class="tiny" data-car-nota></p></div>
@@ -5067,16 +5037,13 @@ function carPintar(host, c, op = {}) {
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.f) { E.f[b.dataset.f] = b.dataset.v; lista(); }
-    else if (b.dataset.ver != null) detalle(+b.dataset.ver);
-    else if (b.hasAttribute('data-car-lista')) { E.vivo++; lista(); }
-    else if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
+    if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
     else if (b.dataset.vel) { E.vel = +b.dataset.vel; pestañas(); }
     else if (b.hasAttribute('data-car-play')) { if (E.T >= T0() + 200) E.T = 0; E.play = !E.play; b.textContent = E.play ? 'Pausa' : 'Seguir'; }
     else if (b.hasAttribute('data-car-rest')) { E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; }
   };
-  const ini = op.num != null ? P.findIndex(x => x.p.num === op.num) : -1;
-  if (ini >= 0) detalle(ini); else lista();
+  const ini = P.findIndex(x => x.p.num === op.num && (!op.sesion || x.p.sesion === op.sesion));
+  if (ini >= 0) detalle(ini); else host.innerHTML = '<p class="empty">No hay foto finish de esta prueba.</p>';
 }
 
 /* ── Datos: índice y competiciones guardadas ── */
@@ -5092,23 +5059,26 @@ function carCompeticion(id) {
 /* Competiciones guardadas, de la más reciente a la más antigua: [[id, título, fecha, lugar, piscina, pruebas]] */
 const carLista = idx => Object.entries(idx || {}).map(([id, v]) => [id, ...v]).sort((a, b) => String(b[2]).localeCompare(String(a[2])));
 
-/* Pestaña «Última competición» del club: bloque «Carrera a carrera» con selector de competición guardada */
-async function carPintarClub(host, idCompeticion) {
-  const lista = carLista(await carIndice()); if (!lista.length || !host.isConnected) return;
-  let actual = lista.some(x => x[0] === String(idCompeticion)) ? String(idCompeticion) : lista[0][0];
-  host.innerHTML = `<div class="h h-sub" style="margin-top:14px">${ico('crono')}Carrera a carrera <span class="h-n">· foto finish y repetición de cada prueba</span></div>
-    ${lista.length > 1 ? `<div class="chips sub" data-car-comp>${lista.map(x => `<button class="chip${x[0] === actual ? ' on' : ''}" data-cc="${esc(x[0])}">${esc(dfmt(x[2]))} · ${esc(x[1].replace(/^\d+[ªº]\s*/, '').slice(0, 38))}</button>`).join('')}</div>` : ''}
-    <div data-car-cuerpo></div>`;
-  const cargar = async () => {
-    const cu = host.querySelector('[data-car-cuerpo]'); cu.innerHTML = '<p class="empty">Cargando…</p>';
-    const c = await carCompeticion(actual); if (!host.isConnected) return;
-    if (!c) { cu.innerHTML = '<p class="empty">No se pudo cargar esta competición.</p>'; return; }
-    cu.innerHTML = `<p class="small muted" style="margin:4px 0 8px">${esc(c.titulo)} · ${esc(dfmt(c.fecha))}${c.lugar ? ' · ' + esc(c.lugar) : ''}${c.piscina ? ' · piscina de ' + esc(c.piscina.replace('m', ' m')) : ''}</p><div data-car-host></div>`;
-    carPintar(cu.querySelector('[data-car-host]'), c);
-  };
-  const sel = host.querySelector('[data-car-comp]');
-  if (sel) sel.onclick = ev => { const b = ev.target.closest('[data-cc]'); if (!b) return; actual = b.dataset.cc; sel.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b)); cargar(); };
-  cargar();
+/* Página de la competición (#directo?c=ID): en cada prueba terminada con carrera guardada, un botón que abre su foto finish y su repetición */
+const carDisponibles = c => new Set(carPruebas(c).map(x => `${x.p.sesion}|${x.p.num}`));
+function carAbrirPrueba(c, num, sesion, destacar) {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box'), x = carPruebas(c).find(q => q.p.num === num && q.p.sesion === sesion);
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">${esc(x ? x.titulo : 'Carrera')}</h1><p class="muted small" style="margin:2px 0 10px">${esc(c.titulo)} · ${esc(dfmt(c.fecha))}</p><div data-car-host></div>`;
+    abrirModal(); carPintar(box.querySelector('[data-car-host]'), c, {num, sesion, destacar});
+  });
+}
+async function carBotonesDetalle(host, comp) {
+  const c = await carCompeticion(String(comp.id)); if (!c || !host.isConnected) return;
+  const ok = carDisponibles(c);
+  host.querySelectorAll('details[data-pid]').forEach(det => {
+    if (det.querySelector('[data-car-abrir]')) return;
+    const m = /^(.*)-(\d+)$/.exec(det.dataset.pid || ''); if (!m || !ok.has(`${m[1]}|${m[2]}`)) return;
+    const b = document.createElement('button'); b.className = 'btn ghost car-abrir'; b.setAttribute('data-car-abrir', ''); b.textContent = 'Foto finish y repetición de la carrera';
+    b.onclick = () => carAbrirPrueba(c, Number(m[2]), m[1]);
+    const sum = det.querySelector('summary'); sum.insertAdjacentElement('afterend', b);
+  });
 }
 
 /* Ficha del nadador: botones «Ver la carrera completa» de las competiciones guardadas en que nadó esa prueba (ev vacío = cualquiera, la última) */
@@ -5128,7 +5098,7 @@ async function carPintarFicha(host, s, ev) {
       const box = document.querySelector('#modal .box');
       box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
         <h1 style="font-size:1.2rem;font-weight:900">${esc(o.q.titulo)}</h1><p class="muted small" style="margin:2px 0 10px">${esc(o.c.titulo)} · ${esc(dfmt(o.c.fecha))}</p><div data-car-host></div>`;
-      abrirModal(); carPintar(box.querySelector('[data-car-host]'), o.c, {num: o.q.p.num, destacar: String(s.id)});
+      abrirModal(); carPintar(box.querySelector('[data-car-host]'), o.c, {num: o.q.p.num, sesion: o.q.p.sesion, destacar: String(s.id)});
     });
   });
 }
@@ -5669,7 +5639,7 @@ function dirDetalle(c, f) {
 
 function vistaDirecto(app, p) {
   clearInterval(DIR_RELOJ);
-  app.innerHTML = '<div class="card sub-cab"><span class="ante">Federación Andaluza de Natación</span><h1>Directo</h1></div><div id="dir-host"><p class="empty">Cargando competiciones…</p></div>';
+  app.innerHTML = '<div class="card sub-cab"><span class="ante">Federación Andaluza de Natación</span><h1>Competiciones</h1></div><div id="dir-host"><p class="empty">Cargando competiciones…</p></div>';
   const pintar = async forzar => {
     const host = app.querySelector('#dir-host'); if (!host) { clearInterval(DIR_RELOJ); return; }
     const d = await dirCargar(forzar);
@@ -5701,6 +5671,7 @@ function vistaDirecto(app, p) {
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
     dirCuentaArrancar();
+    if (c && c.lenex && !/^\d{3,12}$/.test(p.n || '')) carBotonesDetalle(host, c);   // foto finish y repetición en cada prueba con carrera guardada
     if (forzar) window.scrollTo(0, y);
   };
   pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), DIR_PROXY ? 30e3 : 60e3); });
@@ -5787,7 +5758,7 @@ async function pintarUltimaComp(app) {
     <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
     <p class="tiny muted" style="margin-top:6px">Resultados de la Federación Andaluza${c.estado === 'en_curso' ? ' (provisionales, se van actualizando)' : ''} · <a href="#directo?c=${Number(c.id)}">Toda la competición</a></p>`;
   host.querySelector('[data-ult-detalle]').onclick = () => abrirUltimaComp(c);
-  host.insertAdjacentHTML('beforeend', '<div data-car-club></div>'); carPintarClub(host.querySelector('[data-car-club]'), c.id);   // foto finish y repetición de cada prueba
+  host.insertAdjacentHTML('beforeend', `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">Todas las pruebas, con foto finish y repetición ›</a>`);
 }
 /* ── Competiciones en la portada del Club: la próxima (o la que está en directo) con cuánto falta, las siguientes y la última ──
    Lo que antes estaba escondido en «Lo último» y en el botón «Directo». */
@@ -5795,14 +5766,6 @@ function ccFalta(c) {
   const h = new Date(); h.setHours(0, 0, 0, 0);
   const n = Math.round((new Date(c.desde + 'T00:00:00') - h) / 864e5);
   return c.estado === 'en_curso' ? 'En directo ahora' : n <= 0 ? 'Hoy' : n === 1 ? 'Mañana' : n < 60 ? `En ${n} días` : `En ${Math.round(n / 30)} meses`;
-}
-function abrirCarreras(c) {
-  abrirVentana(() => {
-    const box = document.querySelector('#modal .box');
-    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
-      <h1 style="font-size:1.2rem;font-weight:900">Carrera a carrera</h1><p class="muted small" style="margin:2px 0 6px">${esc(c.titulo)}</p><div data-car-club></div>`;
-    abrirModal(); carPintarClub(box.querySelector('[data-car-club]'), c.id);
-  });
 }
 async function pintarCompClub(app) {
   const host = app.querySelector('#club-comp'); if (!host) return;
@@ -5818,10 +5781,9 @@ async function pintarCompClub(app) {
   const bUlt = ult ? (() => { const r = dirResumenComp(ult), nad = new Set(r.H.map(x => x.f.rfen)).size;
     return `<div class="cc-b"><div class="cc-et">Última competición</div><b>${esc(ult.titulo)}</b>
       <div class="tiny muted">${dirFechas(ult)}${ult.lenex.lugar ? ' · ' + esc(dirTitulo(ult.lenex.lugar)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
-      <div class="cc-acc"><button class="btn" data-cc-car>Carrera a carrera</button><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
+      <div class="cc-acc"><a class="btn" href="#directo?c=${Number(ult.id)}">Todas las pruebas y fotos finish</a><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
   host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Calendario completo ›</a></div>${bProx}${bUlt}`;
-  const car = host.querySelector('[data-cc-car]'), det = host.querySelector('[data-cc-det]');
-  if (car) car.onclick = () => abrirCarreras(ult);
+  const det = host.querySelector('[data-cc-det]');
   if (det) det.onclick = () => abrirUltimaComp(ult);
 }
 
@@ -6025,7 +5987,7 @@ function nombrePantalla(h, ben, sw) {
     const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
     return a ? a[1] : 'la pantalla anterior';
   }
-  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Directo', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
+  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Competiciones', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
 }
 /* ── Contador de visitas por sección (GoatCounter) ──
    Cada pantalla se apunta como «sección», sin ids de nadador ni filtros, para ver qué partes se usan más.
@@ -6133,7 +6095,7 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
   bindBuscador('q-cab');
   entNavModo();
-  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) b.classList.toggle('vivo', dirEnCurso(d)); });   // botón «Directo» en rojo si hay competición
+  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); b.lastElementChild.textContent = v ? 'En directo' : 'Calendario'; } });   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });

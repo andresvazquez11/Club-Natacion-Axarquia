@@ -87,16 +87,13 @@ function carLienzo(c, h, dpr) {
 const carPos = (d, LP, D) => { const k = Math.min(D / LP - 1, Math.floor(d / LP)), w = d - k * LP; return {x: k % 2 === 0 ? w : LP - w, dir: k % 2 === 0 ? 1 : -1}; };
 
 /* ── Componente ──
-   carPintar(host, c, {num, destacar}): c = contenido de carreras/<id>.json.
-   Sin num: lista de pruebas en tarjetas con filtros; al tocar una, su detalle. Con num: directamente el detalle (ficha del nadador).
-   Detalle: pestañas «Resultado final» y «Serie 1…n»; la foto finish y la repetición siguen la pestaña elegida. */
-const carCat = c => String(c || '').replace(/^Benjamin\b/, 'Benjamín').replace(/^Prebenjamin\b/, 'Prebenjamín').replace(/^Alev$/, 'Alevín');
-const carSexo = s => s === 'F' ? 'chicas' : s === 'M' ? 'chicos' : '';
+   carPintar(host, c, {num, sesion, destacar}): c = contenido de carreras/<id>.json; num y sesion = la prueba (la de la página de la competición);
+   destacar = licencia a resaltar. Pestañas «Resultado final» y «Serie 1…n»; la foto finish y la repetición siguen la pestaña elegida. */
 function carPintar(host, c, op = {}) {
   const P = carPruebas(c);
   if (!P.length) { host.innerHTML = '<p class="empty">No hay carreras completas guardadas de esta competición.</p>'; return; }
   const dpr = Math.min(2, window.devicePixelRatio || 1), LP = c.piscina === '50m' ? 50 : 25;
-  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : '', f: {sexo: '', cat: '', prueba: ''}, ancho: 0, vivo: 0};
+  const E = {pi: -1, tab: 'final', vel: 2, T: 0, play: true, last: null, dest: op.destacar ? String(op.destacar) : '', ancho: 0, vivo: 0};
   const pr = () => P[E.pi], serieIds = () => [...new Set(pr().todos.map(n => n.serie))].sort((a, b) => a - b).filter(s => pr().todos.filter(n => n.serie === s).length >= 2);
   /* serie que se anima: la elegida; en «Resultado final», la del nadador destacado o, si no, la del mejor del CNA */
   const serieAnim = () => {
@@ -108,30 +105,10 @@ function carPintar(host, c, op = {}) {
   const T0 = () => Math.max(...serie().map(n => n.t));
   const q = s => host.querySelector(s);
 
-  /* ── Lista de pruebas ── */
-  const lista = () => {
-    const cats = [...new Set(P.map(x => carCat(x.p.cat)))], pruebas = [...new Set(P.map(x => x.p.nombre))];
-    const ok = x => (!E.f.sexo || x.p.sexo === E.f.sexo) && (!E.f.cat || carCat(x.p.cat) === E.f.cat) && (!E.f.prueba || x.p.nombre === E.f.prueba);
-    const grupo = (k, tit, opc) => `<div class="car-fg"><span class="car-fl">${tit}</span><div class="chips sub">${opc.map(([v, t]) => `<button class="chip${E.f[k] === v ? ' on' : ''}" data-f="${k}" data-v="${esc(v)}">${esc(t)}</button>`).join('')}</div></div>`;
-    const tarjeta = x => {
-      const o = x.todos.slice().sort((a, b) => a.t - b.t), g = o[0], cna = o.map((n, i) => ({...n, lugar: i + 1})).filter(n => n.club === 'CNA');
-      return `<button class="car-card${g.club === 'CNA' ? ' oro' : ''}" data-ver="${P.indexOf(x)}"><span class="car-c-t"><b>${esc(x.p.nombre)}</b><span>${carSexo(x.p.sexo)} · ${esc(carCat(x.p.cat))}</span></span>
-        <span class="car-c-g">Gana ${g.club === 'CNA' ? '★ ' : ''}<b>${esc(g.n)}</b> <span class="car-c-cl">${esc(g.club)}</span> <span class="car-c-tm">${fmt(g.t)}</span></span>
-        <span class="car-c-n">${cna.length} del CNA · mejor: <b>${esc(cna[0].n)}</b> ${cna[0].lugar}º</span></button>`;
-    };
-    const vis = P.filter(ok);
-    host.innerHTML = `<div class="car"><div class="car-filtros">
-        ${grupo('sexo', 'Sexo', [['', 'Todos'], ['F', 'Chicas'], ['M', 'Chicos']])}${grupo('cat', 'Categoría', [['', 'Todas'], ...cats.map(c => [c, c])])}${grupo('prueba', 'Prueba', [['', 'Todas'], ...pruebas.map(c => [c, c])])}</div>
-      <p class="tiny muted" style="margin:6px 0">${vis.length} prueba${vis.length === 1 ? '' : 's'} con nadadores del CNA · toca una para ver la foto finish y la repetición</p>
-      <div class="car-cards">${vis.map(tarjeta).join('') || '<p class="empty">Ninguna prueba con esos filtros.</p>'}</div></div>`;
-    E.vivo++; 
-  };
-
   /* ── Detalle ── */
   function detalle(i) {
     E.pi = i; E.tab = 'final'; E.T = 0; E.play = true; E.last = null; const my = ++E.vivo;
     host.innerHTML = `<div class="car">
-      ${op.num != null ? '' : '<button class="btn ghost car-volver" data-car-lista>‹ Todas las pruebas</button>'}
       <div class="car-tit"><b>${esc(pr().titulo)}</b></div>
       <div class="chips sub car-tabs" data-car-tabs></div><div class="car-leg" data-car-leg></div>
       <div class="car-panel"><canvas data-car-ff></canvas><p class="tiny" data-car-nota></p></div>
@@ -238,16 +215,13 @@ function carPintar(host, c, op = {}) {
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.f) { E.f[b.dataset.f] = b.dataset.v; lista(); }
-    else if (b.dataset.ver != null) detalle(+b.dataset.ver);
-    else if (b.hasAttribute('data-car-lista')) { E.vivo++; lista(); }
-    else if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
+    if (b.dataset.tab != null) { E.tab = b.dataset.tab === 'final' ? 'final' : +b.dataset.tab; E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; pestañas(); foto(); }
     else if (b.dataset.vel) { E.vel = +b.dataset.vel; pestañas(); }
     else if (b.hasAttribute('data-car-play')) { if (E.T >= T0() + 200) E.T = 0; E.play = !E.play; b.textContent = E.play ? 'Pausa' : 'Seguir'; }
     else if (b.hasAttribute('data-car-rest')) { E.T = 0; E.play = true; q('[data-car-play]').textContent = 'Pausa'; }
   };
-  const ini = op.num != null ? P.findIndex(x => x.p.num === op.num) : -1;
-  if (ini >= 0) detalle(ini); else lista();
+  const ini = P.findIndex(x => x.p.num === op.num && (!op.sesion || x.p.sesion === op.sesion));
+  if (ini >= 0) detalle(ini); else host.innerHTML = '<p class="empty">No hay foto finish de esta prueba.</p>';
 }
 
 /* ── Datos: índice y competiciones guardadas ── */
@@ -263,23 +237,26 @@ function carCompeticion(id) {
 /* Competiciones guardadas, de la más reciente a la más antigua: [[id, título, fecha, lugar, piscina, pruebas]] */
 const carLista = idx => Object.entries(idx || {}).map(([id, v]) => [id, ...v]).sort((a, b) => String(b[2]).localeCompare(String(a[2])));
 
-/* Pestaña «Última competición» del club: bloque «Carrera a carrera» con selector de competición guardada */
-async function carPintarClub(host, idCompeticion) {
-  const lista = carLista(await carIndice()); if (!lista.length || !host.isConnected) return;
-  let actual = lista.some(x => x[0] === String(idCompeticion)) ? String(idCompeticion) : lista[0][0];
-  host.innerHTML = `<div class="h h-sub" style="margin-top:14px">${ico('crono')}Carrera a carrera <span class="h-n">· foto finish y repetición de cada prueba</span></div>
-    ${lista.length > 1 ? `<div class="chips sub" data-car-comp>${lista.map(x => `<button class="chip${x[0] === actual ? ' on' : ''}" data-cc="${esc(x[0])}">${esc(dfmt(x[2]))} · ${esc(x[1].replace(/^\d+[ªº]\s*/, '').slice(0, 38))}</button>`).join('')}</div>` : ''}
-    <div data-car-cuerpo></div>`;
-  const cargar = async () => {
-    const cu = host.querySelector('[data-car-cuerpo]'); cu.innerHTML = '<p class="empty">Cargando…</p>';
-    const c = await carCompeticion(actual); if (!host.isConnected) return;
-    if (!c) { cu.innerHTML = '<p class="empty">No se pudo cargar esta competición.</p>'; return; }
-    cu.innerHTML = `<p class="small muted" style="margin:4px 0 8px">${esc(c.titulo)} · ${esc(dfmt(c.fecha))}${c.lugar ? ' · ' + esc(c.lugar) : ''}${c.piscina ? ' · piscina de ' + esc(c.piscina.replace('m', ' m')) : ''}</p><div data-car-host></div>`;
-    carPintar(cu.querySelector('[data-car-host]'), c);
-  };
-  const sel = host.querySelector('[data-car-comp]');
-  if (sel) sel.onclick = ev => { const b = ev.target.closest('[data-cc]'); if (!b) return; actual = b.dataset.cc; sel.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b)); cargar(); };
-  cargar();
+/* Página de la competición (#directo?c=ID): en cada prueba terminada con carrera guardada, un botón que abre su foto finish y su repetición */
+const carDisponibles = c => new Set(carPruebas(c).map(x => `${x.p.sesion}|${x.p.num}`));
+function carAbrirPrueba(c, num, sesion, destacar) {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box'), x = carPruebas(c).find(q => q.p.num === num && q.p.sesion === sesion);
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">${esc(x ? x.titulo : 'Carrera')}</h1><p class="muted small" style="margin:2px 0 10px">${esc(c.titulo)} · ${esc(dfmt(c.fecha))}</p><div data-car-host></div>`;
+    abrirModal(); carPintar(box.querySelector('[data-car-host]'), c, {num, sesion, destacar});
+  });
+}
+async function carBotonesDetalle(host, comp) {
+  const c = await carCompeticion(String(comp.id)); if (!c || !host.isConnected) return;
+  const ok = carDisponibles(c);
+  host.querySelectorAll('details[data-pid]').forEach(det => {
+    if (det.querySelector('[data-car-abrir]')) return;
+    const m = /^(.*)-(\d+)$/.exec(det.dataset.pid || ''); if (!m || !ok.has(`${m[1]}|${m[2]}`)) return;
+    const b = document.createElement('button'); b.className = 'btn ghost car-abrir'; b.setAttribute('data-car-abrir', ''); b.textContent = 'Foto finish y repetición de la carrera';
+    b.onclick = () => carAbrirPrueba(c, Number(m[2]), m[1]);
+    const sum = det.querySelector('summary'); sum.insertAdjacentElement('afterend', b);
+  });
 }
 
 /* Ficha del nadador: botones «Ver la carrera completa» de las competiciones guardadas en que nadó esa prueba (ev vacío = cualquiera, la última) */
@@ -299,7 +276,7 @@ async function carPintarFicha(host, s, ev) {
       const box = document.querySelector('#modal .box');
       box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
         <h1 style="font-size:1.2rem;font-weight:900">${esc(o.q.titulo)}</h1><p class="muted small" style="margin:2px 0 10px">${esc(o.c.titulo)} · ${esc(dfmt(o.c.fecha))}</p><div data-car-host></div>`;
-      abrirModal(); carPintar(box.querySelector('[data-car-host]'), o.c, {num: o.q.p.num, destacar: String(s.id)});
+      abrirModal(); carPintar(box.querySelector('[data-car-host]'), o.c, {num: o.q.p.num, sesion: o.q.p.sesion, destacar: String(s.id)});
     });
   });
 }

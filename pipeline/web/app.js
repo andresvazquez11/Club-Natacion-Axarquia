@@ -53,7 +53,7 @@ function nombrePantalla(h, ben, sw) {
     const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
     return a ? a[1] : 'la pantalla anterior';
   }
-  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Directo', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
+  return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Competiciones', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
 }
 /* ── Contador de visitas por sección (GoatCounter) ──
    Cada pantalla se apunta como «sección», sin ids de nadador ni filtros, para ver qué partes se usan más.
@@ -161,7 +161,7 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Busca a un nadador del club…');
   bindBuscador('q-cab');
   entNavModo();
-  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) b.classList.toggle('vivo', dirEnCurso(d)); });   // botón «Directo» en rojo si hay competición
+  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); b.lastElementChild.textContent = v ? 'En directo' : 'Calendario'; } });   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });

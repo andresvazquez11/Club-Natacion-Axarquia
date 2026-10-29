@@ -533,7 +533,7 @@ function dirDetalle(c, f) {
 
 function vistaDirecto(app, p) {
   clearInterval(DIR_RELOJ);
-  app.innerHTML = '<div class="card sub-cab"><span class="ante">Federación Andaluza de Natación</span><h1>Directo</h1></div><div id="dir-host"><p class="empty">Cargando competiciones…</p></div>';
+  app.innerHTML = '<div class="card sub-cab"><span class="ante">Federación Andaluza de Natación</span><h1>Competiciones</h1></div><div id="dir-host"><p class="empty">Cargando competiciones…</p></div>';
   const pintar = async forzar => {
     const host = app.querySelector('#dir-host'); if (!host) { clearInterval(DIR_RELOJ); return; }
     const d = await dirCargar(forzar);
@@ -565,6 +565,7 @@ function vistaDirecto(app, p) {
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
     dirCuentaArrancar();
+    if (c && c.lenex && !/^\d{3,12}$/.test(p.n || '')) carBotonesDetalle(host, c);   // foto finish y repetición en cada prueba con carrera guardada
     if (forzar) window.scrollTo(0, y);
   };
   pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), DIR_PROXY ? 30e3 : 60e3); });
@@ -651,7 +652,7 @@ async function pintarUltimaComp(app) {
     <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
     <p class="tiny muted" style="margin-top:6px">Resultados de la Federación Andaluza${c.estado === 'en_curso' ? ' (provisionales, se van actualizando)' : ''} · <a href="#directo?c=${Number(c.id)}">Toda la competición</a></p>`;
   host.querySelector('[data-ult-detalle]').onclick = () => abrirUltimaComp(c);
-  host.insertAdjacentHTML('beforeend', '<div data-car-club></div>'); carPintarClub(host.querySelector('[data-car-club]'), c.id);   // foto finish y repetición de cada prueba
+  host.insertAdjacentHTML('beforeend', `<a class="btn" href="#directo?c=${Number(c.id)}" style="margin-top:8px">Todas las pruebas, con foto finish y repetición ›</a>`);
 }
 /* ── Competiciones en la portada del Club: la próxima (o la que está en directo) con cuánto falta, las siguientes y la última ──
    Lo que antes estaba escondido en «Lo último» y en el botón «Directo». */
@@ -659,14 +660,6 @@ function ccFalta(c) {
   const h = new Date(); h.setHours(0, 0, 0, 0);
   const n = Math.round((new Date(c.desde + 'T00:00:00') - h) / 864e5);
   return c.estado === 'en_curso' ? 'En directo ahora' : n <= 0 ? 'Hoy' : n === 1 ? 'Mañana' : n < 60 ? `En ${n} días` : `En ${Math.round(n / 30)} meses`;
-}
-function abrirCarreras(c) {
-  abrirVentana(() => {
-    const box = document.querySelector('#modal .box');
-    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
-      <h1 style="font-size:1.2rem;font-weight:900">Carrera a carrera</h1><p class="muted small" style="margin:2px 0 6px">${esc(c.titulo)}</p><div data-car-club></div>`;
-    abrirModal(); carPintarClub(box.querySelector('[data-car-club]'), c.id);
-  });
 }
 async function pintarCompClub(app) {
   const host = app.querySelector('#club-comp'); if (!host) return;
@@ -682,10 +675,9 @@ async function pintarCompClub(app) {
   const bUlt = ult ? (() => { const r = dirResumenComp(ult), nad = new Set(r.H.map(x => x.f.rfen)).size;
     return `<div class="cc-b"><div class="cc-et">Última competición</div><b>${esc(ult.titulo)}</b>
       <div class="tiny muted">${dirFechas(ult)}${ult.lenex.lugar ? ' · ' + esc(dirTitulo(ult.lenex.lugar)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
-      <div class="cc-acc"><button class="btn" data-cc-car>Carrera a carrera</button><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
+      <div class="cc-acc"><a class="btn" href="#directo?c=${Number(ult.id)}">Todas las pruebas y fotos finish</a><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
   host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Calendario completo ›</a></div>${bProx}${bUlt}`;
-  const car = host.querySelector('[data-cc-car]'), det = host.querySelector('[data-cc-det]');
-  if (car) car.onclick = () => abrirCarreras(ult);
+  const det = host.querySelector('[data-cc-det]');
   if (det) det.onclick = () => abrirUltimaComp(ult);
 }
 
