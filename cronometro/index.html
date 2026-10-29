@@ -174,6 +174,16 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .ti .ic{width:24px;height:24px;margin:0}
 .fr{display:inline-block;width:4px;height:.95em;border-radius:2px;margin-right:6px;vertical-align:-.1em}
 .mini-parc{display:block;margin-top:4px}
+.concl{border-color:var(--blu)}
+.concl-l{margin:4px 0 8px;padding-left:18px;font-size:14px;line-height:1.45}
+.concl-l li{margin:5px 0}
+.serie-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.serie-chip{background:var(--bg);border:1px solid var(--brd);border-radius:10px;padding:6px 9px;font-size:12px;min-width:104px}
+.serie-chip.top{border-color:var(--grn)}
+.serie-chip b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.serie-chip small{display:block}
+.fam-det>summary{cursor:pointer;padding:6px 0;font-size:14px}
+.fam-t{font-family:inherit;font-size:14px;line-height:1.45;resize:vertical;min-height:9em}
 .calles-s{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .calle-chip{font-size:12px;line-height:1.35;color:var(--mut);background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:4px 9px}
 .calle-chip b{color:var(--txt);margin-right:4px}
@@ -590,6 +600,10 @@ const DB = {
   async borrarPlan(id) {
     S.planes = S.planes.filter(p=>p.id!==id); render();
     await _db.collection('planes').doc(id).delete().catch(console.error);
+  },
+  guardarNotasSes(id, notas) {
+    const s = S.sesiones.find(x=>x.id===id); if (s) s.notas = notas || null;
+    _db.collection('sesiones').doc(id).update({notas: notas || null}).catch(console.error);
   },
   guardarPlanId(sesId, planId) {
     const s = S.sesiones.find(s=>s.id===sesId); if (s) s.planId = planId;
@@ -1224,10 +1238,14 @@ function mejorCompeticion(nId, estilo, dist) {
 }
 const origenComp = c => c.pool === '50m' ? `de ${fmtCs(c.real)} en 50 m` : '25 m';
 // Mejor tiempo de entrenamiento anterior en la misma prueba (otros tiempos, hasta la fecha de ese entrenamiento)
-function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta, rk = '') {
+// Lo que debe ser igual para comparar dos tiempos de forma justa: la prueba, la salida (agua o plataforma), la rota
+// y si la serie era a tope o a un ritmo marcado («+10 s»: ahí nadie va a tope)
+const esfuerzoDe = r => r.ritmo && r.ritmo.mas != null ? 'ritmo' : 'tope';
+function condKey(r) { const c = resCombo(r); return [c.estilo, c.dist, r.comp ? 'plataforma' : (r.inicio || 'agua'), rotaKey(r.rota), esfuerzoDe(r)].join('|'); }
+function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta, rk = '', ck = null, sesId = null) {
   let best = null;
   S.resultados.forEach(r => {
-    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rk) return;
+    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rk || (ck && condKey(r) !== ck) || (sesId && r.sesId===sesId)) return;
     const c = resCombo(r); if (c.estilo!==estilo || c.dist!==Number(dist)) return;
     const ses = S.sesiones.find(x=>x.id===r.sesId); const f = ses ? ses.fecha : 0;
     if (hasta && f > hasta) return;
@@ -1236,10 +1254,10 @@ function mejorEntrenoPrevio(nId, estilo, dist, excluirId, hasta, rk = '') {
   return best;
 }
 // Su último entreno anterior en la misma prueba (otro entrenamiento, antes de este): el más reciente, no el mejor
-function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId, rk = '') {
+function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId, rk = '', ck = null) {
   let ult = null;
   S.resultados.forEach(r => {
-    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rk || (sesId && r.sesId===sesId)) return;
+    if (r.nId!==nId || r.id===excluirId || r.relevo || rotaKey(r.rota) !== rk || (ck && condKey(r) !== ck) || (sesId && r.sesId===sesId)) return;
     const c = resCombo(r); if (c.estilo!==estilo || c.dist!==Number(dist)) return;
     const ses = S.sesiones.find(x=>x.id===r.sesId); const f = ses ? ses.fecha : 0;
     if (hasta && f > hasta) return;
@@ -1251,8 +1269,9 @@ function ultimoEntrenoPrevio(nId, estilo, dist, excluirId, hasta, sesId, rk = ''
 // Un tiempo de rota (neto, con descansos) no se compara con competiciones ni con series normales: solo con la misma rota
 function comparaciones(nId, estilo, dist, ms, resId, hasta, sesId) {
   const r = S.resultados.find(x=>x.id===resId), rk = r ? rotaKey(r.rota) : '';
-  const comp = rk ? null : mejorCompeticion(nId, estilo, dist), ent = mejorEntrenoPrevio(nId, estilo, dist, resId, hasta, rk);
-  const ult = ultimoEntrenoPrevio(nId, estilo, dist, resId, hasta, sesId, rk);
+  const ck = r ? condKey(r) : null;   // mismas condiciones, y el mejor entreno es de entrenos anteriores (no de series de hoy)
+  const comp = rk ? null : mejorCompeticion(nId, estilo, dist), ent = mejorEntrenoPrevio(nId, estilo, dist, resId, hasta, rk, ck, sesId);
+  const ult = ultimoEntrenoPrevio(nId, estilo, dist, resId, hasta, sesId, rk, ck);
   return {comp, ent, ult, difComp: comp ? (ms - comp.cs*10)/1000 : null, difEnt: ent ? (ms - ent.ms)/1000 : null,
           difUlt: ult ? (ms - ult.ms)/1000 : null};
 }
@@ -1263,9 +1282,9 @@ function comparaHTML(c) {
   const fila = (k, t, f, d) => `<div class="cmp-i"><span class="k">${k}</span> <span class="t">${t}</span> <small>(${f})</small>
     → hoy <b class="${d<=0?'cmp-mej':'cmp-peor'}">${difTxt(d)} s ${difPalabra(d)}</b></div>`;
   const out = [];
-  if (c.comp) out.push(fila('🏆 Mejor competición', fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} · ${origenComp(c.comp)}`, c.difComp));
   if (c.ent) out.push(fila('⭐ Mejor entreno', fmtTime(c.ent.ms), fmtDateShort(c.ent.fecha), c.difEnt));
   if (c.ult && !(c.ent && c.ult.ms === c.ent.ms && c.ult.fecha === c.ent.fecha)) out.push(fila('↺ Último entreno', fmtTime(c.ult.ms), `${fmtDateShort(c.ult.fecha)} · serie ${c.ult.ronda}`, c.difUlt));
+  if (c.comp) out.push(fila('🏆 Referencia: mejor competición', fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} · ${origenComp(c.comp)}`, c.difComp));
   return out.length ? `<div class="cmp-tab">${out.join('')}</div>` : '';
 }
 // ── PDF: página final «¿Fueron al ritmo?»: cuadrícula nadadores × series a ritmo ──
@@ -1601,6 +1620,13 @@ async function generarPDF(sesId, btn, compartir) {
     if (d.nads.length) linea('Nadadores', d.nads.join(', '));
     if (ses.notas) linea('Notas', ses.notas);
     y += 3;
+    const an = analisisEntreno(ses.id);
+    if (an && an.lineas.length) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...AZUL); doc.text('Conclusiones del entreno', M, y); y += 5.5;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(40,40,40);
+      an.lineas.forEach(l => { const t = doc.splitTextToSize('• ' + l.t, W - M * 2 - 3); if (y + t.length * 4.4 > H - 20) { doc.addPage(); y = 18; } doc.text(t, M + 1, y); y += t.length * 4.4 + 1.2; });
+      y += 4;
+    }
     // Resumen: un nadador por fila y su tiempo en cada serie (en verde, el más rápido de la serie). Si hay muchas series, en bloques de 8
     const tb = tablaEntreno(series);
     if (series.length) {
@@ -1651,7 +1677,10 @@ async function generarPDF(sesId, btn, compartir) {
       }
       doc.addPage(); y = 18;
       doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(...AZUL);
-      doc.text('Detalle por serie', M, y); y += 8;
+      doc.text('Detalle por serie', M, y); y += 5;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...GRIS);
+      const nota = doc.splitTextToSize('Mejor y último entreno: de entrenos anteriores y en las mismas condiciones (misma prueba, misma salida, agua o plataforma, y mismo tipo de serie). Un guion significa que no hay un entreno anterior en esas condiciones. La mejor marca de competición es solo una referencia: se consigue descansado y en otras condiciones.', W - M * 2);
+      doc.text(nota, M, y); y += nota.length * 3.6 + 4;
     }
     series.forEach(x => {
       if (y > H - 40) { doc.addPage(); y = 18; }
@@ -1667,20 +1696,28 @@ async function generarPDF(sesId, btn, compartir) {
       const dif = (d, t, f) => `${t} · ${f}\nhoy ${difTxt(d)} s ${difPalabra(d)}`;
       doc.autoTable({
         startY: y + 2, margin: {left:M, right:M},
-        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), ...(refR?[`Su ritmo de ${refR.ref}`]:[]), 'Su mejor competición (25 m)', 'Su mejor entreno', 'Su último entreno']],
+        head: [['#', 'Nadador', 'Calle', 'Tiempo', 'Dif.', ...(conParc?['Parciales 50 m']:[]), ...(refR?[`Su ritmo de ${refR.ref}`]:[]), 'Su mejor entreno (mismas condiciones)', 'Su último entreno', 'Referencia: mejor competición (25 m)']],
         body: x.res.map((r,i) => { const c = comparaciones(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms, r.id, ses.fecha, ses.id);
           const rk = r.comp ? rankingTexto(rankingDe(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms)) : '';
           return [i+1, nombreDe(r.nId) + (r.nota ? `\nNota: ${r.nota}` : '') + (rk ? `\n${rk}` : ''), calleDe(r), fmtTime(r.ms), i?`+${((r.ms-best)/1000).toFixed(1)}`:'',
             ...(conParc?[r.parciales&&r.parciales.length>1?fmtTramos(r.parciales):'']:[]),
             ...(refR?[ritmoCelda(r)]:[]),
-            c.comp ? dif(c.difComp, fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} (${origenComp(c.comp)})`) : '—',
             c.ent ? dif(c.difEnt, fmtTime(c.ent.ms), fmtDateShort(c.ent.fecha)) : '—',
-            c.ult ? dif(c.difUlt, fmtTime(c.ult.ms), fmtDateShort(c.ult.fecha)) : '—']; }),
+            c.ult ? dif(c.difUlt, fmtTime(c.ult.ms), fmtDateShort(c.ult.fecha)) : '—',
+            c.comp ? dif(c.difComp, fmtCs(c.comp.cs), `${fmtFechaIso(c.comp.fecha)} (${origenComp(c.comp)})`) : '—']; }),
         theme: 'striped', styles: {fontSize: 8, cellPadding: 1.5},
         headStyles: {fillColor: AZUL, textColor: 255},
         columnStyles: {0:{cellWidth:7}, 3:{fontStyle:'bold'}},
         didParseCell: h => { if (h.section!=='body') return; const t = String(h.cell.raw||'');
+          if (conParc && h.column.index === 5) { const r = x.res[h.row.index]; if (r && r.parciales && r.parciales.length > 1) h.cell.styles.cellPadding = {top:1.5, right:1.5, bottom:7, left:1.5}; }
           if (/hoy -|en el ritmo/.test(t)) h.cell.styles.textColor = [10,122,67]; },   // más rápido que con lo que se compara, o en el ritmo pedido: en verde
+        didDrawCell: h => {   // mini gráfica de los tramos bajo los parciales: verde el más rápido, ámbar el más lento
+          if (!conParc || h.section !== 'body' || h.column.index !== 5) return;
+          const r = x.res[h.row.index]; if (!r || !r.parciales || r.parciales.length < 2) return;
+          const tr = tramosDe(r.parciales).filter(v => v != null && v > 0); if (tr.length < 2) return;
+          const mn = Math.min(...tr), mx = Math.max(...tr), rg = (mx - mn) || 1;
+          tr.forEach((v, i) => { const hh = 1.6 + (v - mn) / rg * 3.4, col = v === mn ? [10,122,67] : v === mx ? [200,140,0] : [42,120,214];
+            doc.setFillColor(...col); doc.rect(h.cell.x + 1.6 + i * 3.4, h.cell.y + h.cell.height - 1.2 - hh, 2.6, hh, 'F'); }); },
       });
       doc.setFontSize(10);
       y = doc.lastAutoTable.finalY + 10;
@@ -2907,6 +2944,126 @@ function datosEntrenamiento(sesId) {
 }
 function fmtHora(ts) { return new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); }
 
+
+// ── Conclusiones del entreno, continuidad con el anterior y mensajes para las familias ──
+const _med = a => { const v = [...a].sort((x, y) => x - y), k = v.length >> 1; return v.length % 2 ? v[k] : (v[k - 1] + v[k]) / 2; };
+const _seg = d => `${Math.abs(d).toFixed(1).replace('.', ',')} s`;
+// Reparto de una carrera: segunda mitad frente a la primera (con un número par de tramos; null si no se puede)
+function ratioMitades(r) {
+  const p = r.parciales; if (!Array.isArray(p) || p.length < 2 || p.length % 2 || p.some(v => v == null)) return null;
+  const h = p[p.length / 2 - 1], t = p[p.length - 1]; return h > 0 && t > h ? (t - h) / h : null;
+}
+// Frente al último entreno parecido (del mismo grupo si lo hay): mismas pruebas, condiciones y nadadores → cuánto va mejor o peor el grupo
+function continuidadEntreno(ses) {
+  const medias = sid => { const m = new Map(); S.resultados.filter(r => r.sesId === sid && !r.relevo).forEach(r => { const k = condKey(r) + '#' + r.nId, e = m.get(k) || {sum: 0, n: 0, ck: condKey(r), nId: r.nId}; e.sum += r.ms; e.n++; m.set(k, e); }); return m; };
+  const act = medias(ses.id); if (!act.size) return null;
+  const antes = S.sesiones.filter(o => o.id !== ses.id && o.fecha < ses.fecha).sort((a, b) => b.fecha - a.fecha);
+  for (const lista of [antes.filter(o => o.eqId === ses.eqId), antes]) {
+    for (const o of lista) {
+      const prev = medias(o.id), par = [...act.entries()].filter(([k]) => prev.has(k));
+      if (par.length < 3) continue;
+      const dl = par.map(([k, a]) => a.sum / a.n - prev.get(k).sum / prev.get(k).n);
+      const media = dl.reduce((a, b) => a + b, 0) / dl.length / 1000, mejoran = dl.filter(v => v < 0).length;
+      const pruebas = [...new Set(par.map(([, a]) => { const [est, dist] = a.ck.split('|'); return comboTexto(est, Number(dist)); }))];
+      const quien = o.coach && !esMio(o) ? `, de ${o.coach}` : '';
+      return {ses: o, media, mejoran, total: par.length, nads: new Set(par.map(([, a]) => a.nId)).size, pruebas,
+        texto: `Frente al entreno del ${fmtDateShort(o.fecha)}${quien} (${pruebas.slice(0, 2).join(' y ')}${pruebas.length > 2 ? '…' : ''}): ${Math.abs(media) < 0.05 ? 'el grupo va igual de media' : `el grupo va ${_seg(media)} ${media < 0 ? 'más rápido' : 'más lento'} de media`}, y ${mejoran} de ${par.length} tiempos medios mejoran (${new Set(par.map(([, a]) => a.nId)).size} nadadores).`};
+    }
+  }
+  return null;
+}
+let _ANC = null;   // guarda el último análisis mientras no cambien los tiempos (se pide varias veces al pintar el resumen)
+function analisisEntreno(sesId) {
+  const clave = `${sesId}|${S.resultados.length}|${S.sesiones.length}`;
+  if (_ANC && _ANC.k === clave) return _ANC.v;
+  const v = calcularAnalisisEntreno(sesId); _ANC = {k: clave, v}; return v;
+}
+function calcularAnalisisEntreno(sesId) {
+  const d = datosEntrenamiento(sesId); if (!d) return null;
+  const ses = d.ses, ind = d.series.filter(x => !x.relevo && x.res.length);
+  const mej = new Map(), evaluados = new Set(), compMej = new Map(), cae = new Map(), analizadas = new Set(); let mayor = null, nRitmo = 0, parcAn = false;
+  const zonas = {ritmo: 0, rapido: 0, lento: 0};
+  ind.forEach(x => {
+    x.res.forEach(r => { const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id);
+      if (c.ent) { evaluados.add(r.nId);
+        if (c.difEnt < 0 && (!mej.has(r.nId) || c.difEnt < mej.get(r.nId).dif)) mej.set(r.nId, {dif: c.difEnt, ronda: x.ronda});
+        const rel = (c.ent.ms - r.ms) / c.ent.ms; if (rel > 0 && (!mayor || rel > mayor.rel)) mayor = {rel, nId: r.nId, dif: c.difEnt, ronda: x.ronda, prueba: comboTexto(x.estilo, x.dist)}; }
+      if (c.comp && c.difComp < 0 && !compMej.has(r.nId)) compMej.set(r.nId, c.difComp);
+      if (r.ritmo && r.ritmo.cs) { nRitmo++; zonas[zonaRitmo(Math.round(r.ms / 10) - r.ritmo.cs, r.ritmo.tol)]++; } });
+    const rat = x.res.map(r => ({r, v: ratioMitades(r)})).filter(o => o.v != null);
+    if (rat.length >= 3) { parcAn = true; const m = _med(rat.map(o => o.v));
+      rat.forEach(o => { analizadas.add(o.r.nId); if (o.v - m > 0.03) { const e = cae.get(o.r.nId) || []; e.push(x.ronda); cae.set(o.r.nId, e); } }); }
+  });
+  const nom = id => nombreDe(id), lineas = [];
+  if (evaluados.size) lineas.push({k: 'mejora', t: `${mej.size} de ${evaluados.size} nadadores mejoran su mejor entreno en las mismas condiciones.${mayor ? ` La mayor mejora: ${nom(mayor.nId)}, ${_seg(mayor.dif)} menos en la serie ${mayor.ronda} (${mayor.prueba}).` : ''}`});
+  else lineas.push({k: 'sinref', t: 'Todavía no hay entrenos anteriores en las mismas condiciones con los que comparar.'});
+  if (compMej.size) lineas.push({k: 'comp', t: `${compMej.size} ${compMej.size === 1 ? 'nadador mejora' : 'nadadores mejoran'} su marca de competición (25 m): ${[...compMej.keys()].slice(0, 4).map(nom).join(', ')}${compMej.size > 4 ? '…' : ''}.`});
+  if (nRitmo) lineas.push({k: 'ritmo', t: `${zonas.ritmo} de ${nRitmo} tiempos en el ritmo pedido (${Math.round(zonas.ritmo / nRitmo * 100)} %), ${zonas.rapido} más rápidos y ${zonas.lento} más lentos.`});
+  if (cae.size) lineas.push({k: 'mitad', t: `Se hunden más que el resto del grupo en la segunda mitad: ${[...cae.entries()].slice(0, 4).map(([id, rs]) => `${nom(id)} (${rs.length > 1 ? 'series' : 'serie'} ${rs.join(', ')})`).join('; ')}.`});
+  else if (parcAn) lineas.push({k: 'mitad', t: 'Nadie se hunde en la segunda mitad frente al resto del grupo.'});
+  const cont = continuidadEntreno(ses); if (cont) lineas.push({k: 'cont', t: cont.texto});
+  return {lineas, mej, evaluados, mayor, compMej, cae, analizadas, cont, d};
+}
+const conclusionesHTML = an => an && an.lineas.length ? `<div class="card mt8 concl"><div class="h">Conclusiones del entreno</div>
+  <ul class="concl-l">${an.lineas.map(l => `<li class="concl-${l.k}">${esc(l.t)}</li>`).join('')}</ul>
+  <div class="muted" style="font-size:11px">Mejor y último entreno: de entrenos anteriores, en las mismas condiciones (misma prueba, salida y tipo de serie).</div></div>` : '';
+let RES_VISTA = 'series';
+// Cada nadador con todas sus series del entreno (sus tiempos, cómo van frente a su mejor entreno y los tramos)
+function porNadadorHTML(d) {
+  const ind = d.series.filter(x => !x.relevo && x.res.length), tb = tablaEntreno(ind), ses = d.ses, an = analisisEntreno(ses.id);
+  return tb.filas.map(f => {
+    const chips = ind.map(x => { const r = f.t[x.ronda]; if (!r) return '';
+      const c = comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id);
+      return `<div class="serie-chip${r.ms === tb.mejor[x.ronda] ? ' top' : ''}"><span>S${x.ronda} · ${esc(comboTexto(x.estilo, x.dist))}${r.comp ? ' · plataforma' : ''}</span><b>${fmtTime(r.ms)}</b>
+        ${c.ent ? `<small class="${c.difEnt <= 0 ? 'cmp-mej' : 'cmp-peor'}">${difTxt(c.difEnt)} s</small>` : '<small class="muted">sin referencia</small>'}${r.parciales && r.parciales.length > 1 ? miniParc(r.parciales) : ''}</div>`; }).join('');
+    const calles = [...new Set(Object.values(f.t).map(calleDe).filter(Boolean))].join(' · ');
+    const cae = an && an.cae.has(f.nId) ? `<div class="cmp-peor" style="font-size:12px;margin-top:4px">Cae en la segunda mitad (serie ${an.cae.get(f.nId).join(', ')})</div>` : '';
+    return `<div class="card mt8"><div class="row" style="gap:8px;align-items:baseline"><b style="flex:1">${esc(f.n)}</b><span class="muted" style="font-size:12px">${esc(calles)}</span></div>
+      <div class="serie-chips">${chips}</div>${cae}
+      <details class="fam-det"><summary>Mensaje para su familia</summary>${famBloque('n-' + f.nId, mensajeFamilia(f.nId, d))}</details></div>`; }).join('') || '<div class="center-msg"><p>Sin tiempos individuales en este entrenamiento</p></div>';
+}
+// Mensajes cortos para las familias: sin comparar con otros nadadores; los copias o compartes tú (WhatsApp, correo…)
+function mensajeFamilia(nId, d) {
+  const ses = d.ses, nom = nombreDe(nId).split(' ')[0], an = analisisEntreno(ses.id), mis = [];
+  d.series.filter(x => !x.relevo).forEach(x => x.res.filter(r => r.nId === nId).forEach(r => mis.push({x, r, c: comparaciones(r.nId, x.estilo, x.dist, r.ms, r.id, ses.fecha, ses.id)})));
+  if (!mis.length) return '';
+  const pruebas = [...new Set(mis.map(m => comboTexto(m.x.estilo, m.x.dist)))], mejoras = mis.filter(m => m.c.ent && m.c.difEnt < 0).sort((a, b) => a.c.difEnt - b.c.difEnt);
+  const L = [`Hola, familia de ${nom}. Resumen del entreno de hoy (${fmtDateShort(ses.fecha)}), C.N. Axarquía:`, `${nom} ha hecho ${mis.length} ${mis.length === 1 ? 'serie' : 'series'}: ${pruebas.join(', ')}.`];
+  if (mejoras.length) { const m = mejoras[0];
+    L.push(`Lo mejor: ${comboTexto(m.x.estilo, m.x.dist)} en ${fmtTime(m.r.ms)}, ${_seg(m.c.difEnt)} menos que su mejor entreno en las mismas condiciones.${mejoras.length > 1 ? ` Mejoró su mejor entreno en ${mejoras.length} de sus ${mis.length} series.` : ''}`); }
+  else if (mis.some(m => m.c.ent)) L.push('Ha nadado en su nivel de siempre: buen trabajo de constancia.');
+  else L.push('Son sus primeras referencias en estas pruebas: así tendremos con qué comparar la próxima vez.');
+  if (an && an.cae.has(nId)) L.push('En la segunda mitad de algunas series bajó el ritmo: lo trabajaremos (repartir mejor el esfuerzo).');
+  else if (an && an.analizadas.has(nId)) L.push('Repartió bien el esfuerzo en la segunda mitad de las series.');
+  L.push(`Un saludo, ${ses.coach || 'el entrenador'}.`);
+  return L.join('\n');
+}
+function mensajeGrupo(d) {
+  const ses = d.ses, an = analisisEntreno(ses.id), ind = d.series.filter(x => !x.relevo);
+  const L = [`Resumen del entreno de hoy (${fmtDateShort(ses.fecha)}), ${eqNombre(ses.eqId)}: ${d.nads.length} nadadores, ${ind.length} ${ind.length === 1 ? 'serie' : 'series'} (${d.combos.slice(0, 3).join(', ')}).`];
+  if (an && an.evaluados.size) L.push(`${an.mej.size} de ${an.evaluados.size} nadadores mejoran su mejor entreno en las mismas condiciones.`);
+  if (an && an.cont) L.push(an.cont.texto.replace(/ \(\d+ nadadores\)\./, '.'));
+  L.push(`Un saludo, ${ses.coach || 'el entrenador'}.`);
+  return L.join('\n');
+}
+const famBloque = (id, texto) => `<textarea class="input fam-t" id="fam-${esc(id)}" rows="8">${esc(texto)}</textarea>
+  <div class="row" style="gap:8px;margin-top:6px"><button class="btn btn-surf btn-inline" style="flex:1" data-action="fam-copiar" data-t="fam-${esc(id)}">Copiar</button>${puedeCompartirTexto() ? `<button class="btn btn-blue btn-inline" style="flex:1" data-action="fam-compartir" data-t="fam-${esc(id)}">Compartir</button>` : ''}</div>`;
+const puedeCompartirTexto = () => typeof navigator.share === 'function';
+function familiasHTML(d) {
+  if (!d.nads.length) return '';
+  const ind = d.series.filter(x => !x.relevo), ids = [...new Set(ind.flatMap(x => x.res.map(r => r.nId)))].sort((a, b) => nombreDe(a).localeCompare(nombreDe(b)));
+  return `<details class="card mt8 fam-det"><summary style="cursor:pointer;font-weight:700">Mensajes para las familias</summary>
+    <div class="muted" style="font-size:12px;margin:6px 0">Textos cortos y positivos, sin comparar con otros nadadores. Los puedes cambiar antes de copiarlos o compartirlos.</div>
+    <span class="label mt8">Para el grupo</span>${famBloque('grupo', mensajeGrupo(d))}
+    <span class="label mt16">Para cada familia</span>
+    ${ids.map(id => `<details class="fam-det"><summary>${esc(nombreDe(id))}</summary>${famBloque('p-' + id, mensajeFamilia(id, d))}</details>`).join('')}</details>`;
+}
+async function copiarTexto(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {}
+  const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch {} ta.remove(); return ok;
+}
+
 function renderResultados(sesId, backAction, backLabel) {
   const d = datosEntrenamiento(sesId);
   if (!d) return `<div class="center-msg"><p>Sesión no encontrada</p></div>`;
@@ -2929,7 +3086,7 @@ function renderResultados(sesId, backAction, backLabel) {
       ${x.res.map((r,i)=>`
         <div class="result-row click-row"${r.comp?' style="border:1px solid var(--amb)"':''} data-action="evolucion-nad" data-nid="${esc(r.nId)}">
           <div class="rpos${i===0?' gold':''}">${i+1}</div>
-          <div class="rname">${esc(nombreDe(r.nId))} <span class="muted" style="font-size:12px">›</span><div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms, r.id, ses.fecha, ses.id))}${r.comp ? rankingHTML(rankingDe(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms)) : ''}</div>
+          <div class="rname">${esc(nombreDe(r.nId))} <span class="muted" style="font-size:12px">›</span><div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.parciales&&r.parciales.length>1?miniParc(r.parciales):''}${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms, r.id, ses.fecha, ses.id))}${r.comp ? rankingHTML(rankingDe(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms)) : ''}</div>
           <div style="text-align:right">
             <div class="rtime">${fmtTime(r.ms)}</div>
             ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}
@@ -2943,12 +3100,18 @@ function renderResultados(sesId, backAction, backLabel) {
     <div class="picker-row" style="grid-template-columns:repeat(${3+(d.min?1:0)+(ses.nado&&ses.nado.length?1:0)},1fr);margin-bottom:12px">
       ${stat(series.length, series.length===1?'serie':'series')}${stat(d.nads.length,'nadadores')}${stat(d.nTiempos,'tiempos')}${ses.nado&&ses.nado.length?stat(fmtNado(msNadando(ses.nado, Date.now())),'nadando'):''}${d.min?stat(d.min,'minutos'):''}
     </div>
-    ${d.combos.length?`<div class="muted" style="font-size:13px;margin-bottom:6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
+    ${conclusionesHTML(analisisEntreno(sesId))}
+    ${d.combos.length?`<div class="muted" style="font-size:13px;margin:8px 0 6px">Estilos: ${d.combos.map(esc).join(' · ')}</div>`:''}
     ${d.nads.length?`<div class="muted" style="font-size:13px">Nadadores: ${d.nads.map(esc).join(', ')}</div>`:''}
-    ${ses.notas?`<div class="card mt8" style="font-size:13px">${esc(ses.notas)}</div>`:''}
+    ${puedoBorrar(ses) ? `<div class="card mt8"><span class="label" style="margin-top:0">Notas del entreno</span>
+        <textarea class="input" id="ses-notas" style="font-family:inherit" rows="3" placeholder="Qué salió bien, qué repetir, a quién mirar la próxima vez…" style="margin-top:6px">${esc(ses.notas||'')}</textarea>
+        <button class="btn btn-surf mt8" style="min-height:44px" data-action="ses-notas">Guardar notas</button></div>`
+      : ses.notas ? `<div class="card mt8" style="font-size:13px"><span class="label" style="margin-top:0">Notas del entreno</span><div style="margin-top:4px">${esc(ses.notas)}</div></div>` : ''}
     ${renderAsistencia(ses)}
+    ${familiasHTML(d)}
     ${renderGraficaWeb(ses)}
-    ${bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>'}
+    ${series.length ? `<div class="seg mt16"><button class="${RES_VISTA!=='nadador'?'on':''}" data-action="res-vista" data-v="series">Por serie</button><button class="${RES_VISTA==='nadador'?'on':''}" data-action="res-vista" data-v="nadador">Por nadador</button></div>` : ''}
+    ${RES_VISTA==='nadador' ? porNadadorHTML(d) : (bloques || '<div class="center-msg"><p>Sin tiempos registrados en este entrenamiento</p></div>')}
     <button class="btn btn-green mt24" style="min-height:54px;font-size:17px" data-action="pdf" data-ses="${esc(sesId)}">📄 Descargar resumen en PDF</button>
     ${puedeCompartirArchivos() ? `<button class="btn btn-blue mt8" style="min-height:50px;font-size:16px" data-action="pdf-compartir" data-ses="${esc(sesId)}">📤 Compartir PDF (WhatsApp, correo…)</button>` : ''}
     <div class="row mt8">
@@ -3361,6 +3524,10 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'logout':       await logout(); break;
     case 'entrenadores': nav({screen:'entrenadores'}); break;
     case 'planes-todos': nav({screen:'planes-todos'}); break;
+    case 'res-vista':    RES_VISTA = btn.dataset.v === 'nadador' ? 'nadador' : 'series'; render(); break;
+    case 'ses-notas':    { const el = document.getElementById('ses-notas'), ses = S.sesiones.find(x => x.id === route.sesId); if (el && ses && puedoBorrar(ses)) { DB.guardarNotasSes(ses.id, String(el.value || '').trim().slice(0, 1000)); btn.textContent = 'Guardado'; setTimeout(() => { if (btn.isConnected) btn.textContent = 'Guardar notas'; }, 1500); } break; }
+    case 'fam-copiar':   { const el = document.getElementById(btn.dataset.t); if (el) { const ok = await copiarTexto(el.value); const t0 = btn.textContent; btn.textContent = ok ? 'Copiado' : 'No se pudo copiar'; setTimeout(() => { if (btn.isConnected) btn.textContent = t0; }, 1500); } break; }
+    case 'fam-compartir': { const el = document.getElementById(btn.dataset.t); if (el) { try { await navigator.share({text: el.value}); } catch {} } break; }
     case 'plan-copiar': { const p = S.planes.find(x => x.id === btn.dataset.id); if (!p) break;
       const {id, ...resto} = p;
       await DB.guardarPlan(null, {...resto, coach: coachName, coachEmail: miEmail(), ts: Date.now(), nombre: `${p.nombre || 'Entreno'} (de ${p.coach || 'otro entrenador'})`.slice(0, 200)});
