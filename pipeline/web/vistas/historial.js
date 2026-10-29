@@ -115,7 +115,7 @@ function histTotal(s, T, ts, p) {
       if (!cands.length) return null; const b = cands.reduce((a, c) => c[0] < a[0] ? c : a);
       return [e.date, b[0], to, 'Temporada ' + tLbl(t) + (b[1] !== to ? ` (original ${fmt(b[2])} en ${b[1]})` : ''), '', 0, 0, 0, 0, []]; }).filter(Boolean);
     if (rows.length > 1) graf = `<div class="card" style="margin-bottom:12px"><h3>${ev} · todo convertido a ${to} <span class="muted small">· mejor marca de cada temporada</span></h3>${evoChart(rows.sort((a, b) => a[0] < b[0] ? -1 : 1))}</div>`;
-  } else ['25m', '50m'].forEach(pl => {
+  } else ['25m', '50m'].filter(pl => !piscSolo() || pl === piscSolo()).forEach(pl => {
     // cada punto: la marca real (fecha y competición) para poder abrir esa competición
     const rows = filas.filter(([, e]) => e.pl[pl]).map(([t, e]) => { const m = (T[t].m || []).find(x => x[1] === ev && x[3] === pl && x[2] === e.pl[pl]);
       return [m ? m[0] : (e.pool === pl ? e.date : `${2000 + +t.slice(2)}-06-30`), e.pl[pl], pl, m ? m[4] : 'Temporada ' + tLbl(t), '', 0, 0, 0, 0, []]; });

@@ -251,34 +251,33 @@ function pintarUltimaCarrera(app, s) {
 }
 
 /* Resumen: su evolución en una prueba (cambia con las pastillas) y su objetivo privado en ella */
-function resEvoHTML(s, evName, poolSel) {
-  const e = s.ev.find(x => x.e === evName) || s.ev[0];
-  const pools = [...new Set(e.h.filter(x => !x[8]).map(x => x[2]))].sort(), pool = pools.includes(poolSel) ? poolSel : e.pool;
-  const rows = e.h.filter(x => x[2] === pool && !x[8]).sort((a, b) => a[0] < b[0] ? -1 : 1);
+function resEvoHTML(s, evName) {
+  const e = s.ev.find(x => x.e === evName) || s.ev[0], to = piscDestino(), solo = piscSolo(), pool = to || solo;
+  const rows = (to ? e.h.filter(x => !x[8]).map(x => { const c = conv(x[1], x[2], to, s.g, e.e); return c === null ? null :
+      [x[0], c, to, x[3], x[4] + (x[2] !== to ? ` · original ${fmt(x[1])} en ${x[2]}` : ''), x[5], x[6], x[7], x[8], x[9]]; }).filter(Boolean)
+    : e.h.filter(x => x[2] === solo && !x[8])).sort((a, b) => a[0] < b[0] ? -1 : 1);
   const obj = objPriv(s.id)[e.e + '|' + pool] || null, best = rows.length ? Math.min(...rows.map(x => x[1])) : null;
   const est = !obj ? '' : best <= obj ? `<b class="good">Objetivo conseguido</b> con ${fmt(best)}.` : `Le faltan <b>${secs(best - obj)} s</b> para su objetivo de ${fmt(obj)}.`;
-  return `${pools.length > 1 ? `<div class="chips sub" data-chips="evp">${pools.map(pl => `<button class="chip${pl === pool ? ' on' : ''}" data-v="${pl}">Piscina de ${pl.replace('m', ' m')}</button>`).join('')}</div>`
-      : `<p class="tiny muted" style="margin:0 0 4px">${esc(e.e)} · piscina de ${esc(pool)}</p>`}${rows.length ? evoKpis(rows) : ''}
-    ${rows.length > 1 ? evoChart(rows, s, entrenosDe(s, e.e), obj) : '<p class="empty">Con dos marcas en esta prueba se verá su evolución.</p>'}
+  return `<p class="tiny muted" style="margin:0 0 4px">${esc(e.e)} · ${to ? `todas las marcas, convertidas a 25 m` : `solo piscina de ${solo.replace('m', ' m')}`}</p>${rows.length ? evoKpis(rows) : `<p class="empty">Sin marcas en piscina de ${(solo || '').replace('m', ' m')} en esta prueba.</p>`}
+    ${rows.length > 1 ? evoChart(rows, s, pool === '25m' ? entrenosDe(s, e.e) : null, obj) : rows.length ? '<p class="empty">Con dos marcas en esta prueba se verá su evolución.</p>' : ''}
     <div class="obj-est" aria-live="polite">${est}</div>
     <div class="obj-f"><label class="tiny muted" for="res-obj">${ico('diana')} Mi objetivo</label><input id="res-obj" inputmode="decimal" autocomplete="off" placeholder="${best ? fmt(Math.max(1, best - 100)) : '1:05.00'}" value="${obj ? fmt(obj) : ''}">
       <button type="button" class="chip" data-obj-set>${obj ? 'Cambiar' : 'Fijar'}</button>${obj ? '<button type="button" class="chip" data-obj-del>Quitar</button>' : ''}</div>
-    <p class="tiny muted" style="margin-top:4px">El objetivo es privado: se guarda solo en este dispositivo.</p>`;
+    <p class="tiny muted" style="margin-top:4px">El objetivo es privado: se guarda solo en este dispositivo${to ? ' (en su equivalente en 25 m)' : ''}.</p>`;
 }
 function bindResEvo(app, s) {
   const card = app.querySelector('#res-evo'), c = app.querySelector('#res-evo-c'); if (!card || !c) return;
-  let ev = (card.querySelector('.chip.on') || {dataset: {}}).dataset.v || s.ev[0].e, pool = null;
-  const pinta = () => { c.innerHTML = resEvoHTML(s, ev, pool); onChips(c, 'evp', v => { pool = v; pinta(); }); };
+  let ev = (card.querySelector('.chip.on') || {dataset: {}}).dataset.v || s.ev[0].e;
+  const pinta = () => { c.innerHTML = resEvoHTML(s, ev); };
   c.addEventListener('click', e => {
     const b = e.target.closest('[data-obj-set],[data-obj-del]'); if (!b) return;
-    const x = s.ev.find(y => y.e === ev) || s.ev[0], pl = pool || x.pool;
+    const x = s.ev.find(y => y.e === ev) || s.ev[0], pl = piscDestino() || piscSolo();
     if (b.hasAttribute('data-obj-del')) { objFijar(s.id, x.e, pl, 0); pinta(); return; }
     const v = parseCs(c.querySelector('#res-obj').value);
     if (v == null || v < 1000) { c.querySelector('.obj-est').textContent = 'Escribe un tiempo como 2:50.00 o 38.50'; return; }
     objFijar(s.id, x.e, pl, v); pinta();
   });
-  onChips(card.querySelector('[data-chips="evr"]') ? card : c, 'evr', v => { ev = v; pool = null; card.querySelectorAll('[data-chips="evr"] .chip').forEach(b => b.classList.toggle('on', b.dataset.v === v)); pinta(); });
-  onChips(c, 'evp', v => { pool = v; pinta(); });
+  onChips(card.querySelector('[data-chips="evr"]') ? card : c, 'evr', v => { ev = v; card.querySelectorAll('[data-chips="evr"] .chip').forEach(b => b.classList.toggle('on', b.dataset.v === v)); pinta(); });
 }
 /* Familia: un botón por cada hijo que se sigue en este dispositivo, con su última marca; cambiar de hijo recarga su pantalla */
 function familiaHTML(s) {
@@ -564,6 +563,7 @@ function resumenHTML(s, cat) {
     ${mejorMomentoHTML(s)}
     <div class="card" id="res-evo"><div class="h">${ico('tendencia')}Su evolución</div>
       ${evsRes.length > 1 ? chipsHTML('evr', evsRes.map(x => [x, esc(x)]), evIni) : ''}
+      <div class="bar-row">${piscSeg()}</div>
       <div id="res-evo-c">${resEvoHTML(s, evIni)}</div>
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     <div id="res-prox"></div>
@@ -600,7 +600,7 @@ function vistaFicha(app, s, sub, params) {
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
-    bindResEvo(app, s);
+    bindResEvo(app, s); bindPisc(app);
     app.querySelectorAll('[data-fam]').forEach(b => b.onclick = () => { if (b.dataset.fam !== String(s.id)) elegirEstrella(b.dataset.fam); });
     const q = app.querySelector('[data-quitar]'); if (q) q.onclick = () => { if (confirm(`¿Dejar de seguir a ${s.n} en este dispositivo?`)) quitarDeFamilia(s.id); };
     pintarDirectoNadador(app, s);   // próximas competiciones y últimos resultados (directo de la FAN)

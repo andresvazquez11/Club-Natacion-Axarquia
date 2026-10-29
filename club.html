@@ -1101,19 +1101,20 @@ const catYrs = c => c.yt || c.yrs.join('-');
 const fichaHref = (s, sub) => (s.benicio ? '#mi' : `#nadador/${s.id}`) + (sub && sub !== 'resumen' ? '/' + sub : '');
 
 /* ── Piscinas de 25 y 50 m ──
-   Separadas (como la RFEN) o convertidas a una sola piscina. La conversión mantiene los puntos World Aquatics:
+   Por defecto, todas juntas (convertidas a una sola piscina); o solo las marcas de 25 m, o solo las de 50 m. La conversión mantiene los puntos World Aquatics:
    marca_destino = marca × récord_destino / récord_origen (récord del mundo de esa prueba y sexo en cada piscina).
    Es una equivalencia orientativa; los rankings y las mínimas oficiales siguen siendo por piscina. */
-const PISC_LS = 'cna_piscina';
-let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'sep'; } catch (e) { return 'sep'; } })();
-const piscDestino = () => PISC === '50' ? '50m' : PISC === '25' ? '25m' : null;
+const PISC_LS = 'cna_piscina2';   // «2»: antes se guardaba otra cosa (separadas / todo a 25 / todo a 50) y todos vuelven al valor por defecto
+let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'jun'; } catch (e) { return 'jun'; } })();
+const piscDestino = () => PISC === 'jun' ? '25m' : null;                       // junto: piscina a la que se convierte todo
+const piscSolo = () => PISC === '50' ? '50m' : PISC === '25' ? '25m' : null;   // solo: la única piscina que se enseña, sin convertir
 function conv(cs, from, to, g, ev) {
   if (!to || from === to) return cs;
   const w = ((DATA.wr || {})[g] || {})[ev];
   return w && w[from] && w[to] ? Math.round(cs * w[to] / w[from]) : null;
 }
 function piscSeg() {
-  return `<div class="seg" data-pisc title="Convierte las marcas a una sola piscina con la equivalencia de puntos World Aquatics">${[['sep', '25 m y 50 m separadas'], ['50', 'Todo a 50 m'], ['25', 'Todo a 25 m']]
+  return `<div class="seg" data-pisc title="«Todas juntas» convierte las marcas de 50 m a su equivalente en 25 m (puntos World Aquatics); «Solo» enseña únicamente las marcas reales de esa piscina">${[['jun', 'Todas juntas'], ['25', 'Solo 25 m'], ['50', 'Solo 50 m']]
     .map(([v, l]) => `<button data-v="${v}" class="${PISC === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 }
 function bindPisc(root) {
@@ -1590,13 +1591,15 @@ function evolucionHTML(s, e) {
       ${evoKpis(rows)}${rows.length > 1 ? evoChart(rows, s, to === '25m' ? entrenosDe(s, e.e) : null) : ''}<div class="tw" style="margin-top:8px">${tablaMarcas(rows, eq, to, s)}</div></div>
       <p class="tiny muted">En «Lugar» se indica la marca original.</p>${convNota()}`;
   }
-  const pools = [...new Set(e.h.map(x => x[2]))].sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
+  const solo = piscSolo();
+  const pools = [...new Set(e.h.map(x => x[2]))].filter(pl => !solo || pl === solo).sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
+  if (!pools.length) return `<p class="empty">Sin marcas en piscina de ${solo.replace('m', ' m')} en esta prueba.</p>`;
   return pools.map(pl => {
     const rows = e.h.filter(x => x[2] === pl).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
     const tot = rows[0][1] - Math.min(...rows.map(x => x[1]));
     return `<div class="card" style="margin-bottom:12px"><h3>Piscina de ${pl} <span class="muted small">· ${rows.length} marca${rows.length > 1 ? 's' : ''}${tot > 0 ? ` · mejora <span class="good">−${secs(tot)} s</span>` : ''}</span></h3>
       ${evoKpis(rows)}${rows.length > 1 ? evoChart(rows, s, pl === '25m' ? entrenosDe(s, e.e) : null) : ''}<div class="tw" style="margin-top:8px">${tablaMarcas(rows, e, pl, s)}</div></div>`;
-  }).join('') + `<p class="tiny muted">Abajo = más rápido. Línea = cada marca · puntos amarillos y línea discontinua = mejor marca personal en ese momento · pasa el dedo por un punto para ver sus datos. Puesto = clasificación en esa competición entre los nacidos en ${s.y}. Pts = puntos World Aquatics. <b>Pulsa una marca o un punto del gráfico</b> para ver toda esa competición. 25 m y 50 m no se mezclan.</p>`;
+  }).join('') + `<p class="tiny muted">Abajo = más rápido. Línea = cada marca · puntos amarillos y línea discontinua = mejor marca personal en ese momento · pasa el dedo por un punto para ver sus datos. Puesto = clasificación en esa competición entre los nacidos en ${s.y}. Pts = puntos World Aquatics. <b>Pulsa una marca o un punto del gráfico</b> para ver toda esa competición. Aquí se ven solo las marcas reales de esa piscina, sin convertir.</p>`;
 }
 
 /* ventana a pantalla completa */
@@ -2710,34 +2713,33 @@ function pintarUltimaCarrera(app, s) {
 }
 
 /* Resumen: su evolución en una prueba (cambia con las pastillas) y su objetivo privado en ella */
-function resEvoHTML(s, evName, poolSel) {
-  const e = s.ev.find(x => x.e === evName) || s.ev[0];
-  const pools = [...new Set(e.h.filter(x => !x[8]).map(x => x[2]))].sort(), pool = pools.includes(poolSel) ? poolSel : e.pool;
-  const rows = e.h.filter(x => x[2] === pool && !x[8]).sort((a, b) => a[0] < b[0] ? -1 : 1);
+function resEvoHTML(s, evName) {
+  const e = s.ev.find(x => x.e === evName) || s.ev[0], to = piscDestino(), solo = piscSolo(), pool = to || solo;
+  const rows = (to ? e.h.filter(x => !x[8]).map(x => { const c = conv(x[1], x[2], to, s.g, e.e); return c === null ? null :
+      [x[0], c, to, x[3], x[4] + (x[2] !== to ? ` · original ${fmt(x[1])} en ${x[2]}` : ''), x[5], x[6], x[7], x[8], x[9]]; }).filter(Boolean)
+    : e.h.filter(x => x[2] === solo && !x[8])).sort((a, b) => a[0] < b[0] ? -1 : 1);
   const obj = objPriv(s.id)[e.e + '|' + pool] || null, best = rows.length ? Math.min(...rows.map(x => x[1])) : null;
   const est = !obj ? '' : best <= obj ? `<b class="good">Objetivo conseguido</b> con ${fmt(best)}.` : `Le faltan <b>${secs(best - obj)} s</b> para su objetivo de ${fmt(obj)}.`;
-  return `${pools.length > 1 ? `<div class="chips sub" data-chips="evp">${pools.map(pl => `<button class="chip${pl === pool ? ' on' : ''}" data-v="${pl}">Piscina de ${pl.replace('m', ' m')}</button>`).join('')}</div>`
-      : `<p class="tiny muted" style="margin:0 0 4px">${esc(e.e)} · piscina de ${esc(pool)}</p>`}${rows.length ? evoKpis(rows) : ''}
-    ${rows.length > 1 ? evoChart(rows, s, entrenosDe(s, e.e), obj) : '<p class="empty">Con dos marcas en esta prueba se verá su evolución.</p>'}
+  return `<p class="tiny muted" style="margin:0 0 4px">${esc(e.e)} · ${to ? `todas las marcas, convertidas a 25 m` : `solo piscina de ${solo.replace('m', ' m')}`}</p>${rows.length ? evoKpis(rows) : `<p class="empty">Sin marcas en piscina de ${(solo || '').replace('m', ' m')} en esta prueba.</p>`}
+    ${rows.length > 1 ? evoChart(rows, s, pool === '25m' ? entrenosDe(s, e.e) : null, obj) : rows.length ? '<p class="empty">Con dos marcas en esta prueba se verá su evolución.</p>' : ''}
     <div class="obj-est" aria-live="polite">${est}</div>
     <div class="obj-f"><label class="tiny muted" for="res-obj">${ico('diana')} Mi objetivo</label><input id="res-obj" inputmode="decimal" autocomplete="off" placeholder="${best ? fmt(Math.max(1, best - 100)) : '1:05.00'}" value="${obj ? fmt(obj) : ''}">
       <button type="button" class="chip" data-obj-set>${obj ? 'Cambiar' : 'Fijar'}</button>${obj ? '<button type="button" class="chip" data-obj-del>Quitar</button>' : ''}</div>
-    <p class="tiny muted" style="margin-top:4px">El objetivo es privado: se guarda solo en este dispositivo.</p>`;
+    <p class="tiny muted" style="margin-top:4px">El objetivo es privado: se guarda solo en este dispositivo${to ? ' (en su equivalente en 25 m)' : ''}.</p>`;
 }
 function bindResEvo(app, s) {
   const card = app.querySelector('#res-evo'), c = app.querySelector('#res-evo-c'); if (!card || !c) return;
-  let ev = (card.querySelector('.chip.on') || {dataset: {}}).dataset.v || s.ev[0].e, pool = null;
-  const pinta = () => { c.innerHTML = resEvoHTML(s, ev, pool); onChips(c, 'evp', v => { pool = v; pinta(); }); };
+  let ev = (card.querySelector('.chip.on') || {dataset: {}}).dataset.v || s.ev[0].e;
+  const pinta = () => { c.innerHTML = resEvoHTML(s, ev); };
   c.addEventListener('click', e => {
     const b = e.target.closest('[data-obj-set],[data-obj-del]'); if (!b) return;
-    const x = s.ev.find(y => y.e === ev) || s.ev[0], pl = pool || x.pool;
+    const x = s.ev.find(y => y.e === ev) || s.ev[0], pl = piscDestino() || piscSolo();
     if (b.hasAttribute('data-obj-del')) { objFijar(s.id, x.e, pl, 0); pinta(); return; }
     const v = parseCs(c.querySelector('#res-obj').value);
     if (v == null || v < 1000) { c.querySelector('.obj-est').textContent = 'Escribe un tiempo como 2:50.00 o 38.50'; return; }
     objFijar(s.id, x.e, pl, v); pinta();
   });
-  onChips(card.querySelector('[data-chips="evr"]') ? card : c, 'evr', v => { ev = v; pool = null; card.querySelectorAll('[data-chips="evr"] .chip').forEach(b => b.classList.toggle('on', b.dataset.v === v)); pinta(); });
-  onChips(c, 'evp', v => { pool = v; pinta(); });
+  onChips(card.querySelector('[data-chips="evr"]') ? card : c, 'evr', v => { ev = v; card.querySelectorAll('[data-chips="evr"] .chip').forEach(b => b.classList.toggle('on', b.dataset.v === v)); pinta(); });
 }
 /* Familia: un botón por cada hijo que se sigue en este dispositivo, con su última marca; cambiar de hijo recarga su pantalla */
 function familiaHTML(s) {
@@ -3023,6 +3025,7 @@ function resumenHTML(s, cat) {
     ${mejorMomentoHTML(s)}
     <div class="card" id="res-evo"><div class="h">${ico('tendencia')}Su evolución</div>
       ${evsRes.length > 1 ? chipsHTML('evr', evsRes.map(x => [x, esc(x)]), evIni) : ''}
+      <div class="bar-row">${piscSeg()}</div>
       <div id="res-evo-c">${resEvoHTML(s, evIni)}</div>
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     <div id="res-prox"></div>
@@ -3059,7 +3062,7 @@ function vistaFicha(app, s, sub, params) {
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
-    bindResEvo(app, s);
+    bindResEvo(app, s); bindPisc(app);
     app.querySelectorAll('[data-fam]').forEach(b => b.onclick = () => { if (b.dataset.fam !== String(s.id)) elegirEstrella(b.dataset.fam); });
     const q = app.querySelector('[data-quitar]'); if (q) q.onclick = () => { if (confirm(`¿Dejar de seguir a ${s.n} en este dispositivo?`)) quitarDeFamilia(s.id); };
     pintarDirectoNadador(app, s);   // próximas competiciones y últimos resultados (directo de la FAN)
@@ -3291,7 +3294,7 @@ function histTotal(s, T, ts, p) {
       if (!cands.length) return null; const b = cands.reduce((a, c) => c[0] < a[0] ? c : a);
       return [e.date, b[0], to, 'Temporada ' + tLbl(t) + (b[1] !== to ? ` (original ${fmt(b[2])} en ${b[1]})` : ''), '', 0, 0, 0, 0, []]; }).filter(Boolean);
     if (rows.length > 1) graf = `<div class="card" style="margin-bottom:12px"><h3>${ev} · todo convertido a ${to} <span class="muted small">· mejor marca de cada temporada</span></h3>${evoChart(rows.sort((a, b) => a[0] < b[0] ? -1 : 1))}</div>`;
-  } else ['25m', '50m'].forEach(pl => {
+  } else ['25m', '50m'].filter(pl => !piscSolo() || pl === piscSolo()).forEach(pl => {
     // cada punto: la marca real (fecha y competición) para poder abrir esa competición
     const rows = filas.filter(([, e]) => e.pl[pl]).map(([t, e]) => { const m = (T[t].m || []).find(x => x[1] === ev && x[3] === pl && x[2] === e.pl[pl]);
       return [m ? m[0] : (e.pool === pl ? e.date : `${2000 + +t.slice(2)}-06-30`), e.pl[pl], pl, m ? m[4] : 'Temporada ' + tLbl(t), '', 0, 0, 0, 0, []]; });
@@ -3630,7 +3633,7 @@ function cmpCuerpo(C, ids, p) {
     xs = edades.map(a => `${a} años`);
     valor = (id, k, pl) => { const t = CMP_TEMPS.find(t => edadEn(t, C.d[id][3]) === edades[k]); return t ? cmpValor((T(id)[t] || {})[ev], pl, C.d[id][2], ev) : null; };
   }
-  const pools = piscDestino() ? [null] : ['25m', '50m'];
+  const pools = piscDestino() ? [null] : ['25m', '50m'].filter(pl => !piscSolo() || pl === piscSolo());
   let graf = '', tablas = '';
   pools.forEach(pl => {
     const series = ids.map((id, i) => ({nm: nom(id), i, v: xs.map((_, k) => valor(id, k, pl))}));
@@ -3668,6 +3671,7 @@ function cmpCuerpo(C, ids, p) {
     ${evs.map(x => { const vs = ids.map(id => { const t = ultimo(id), e = t && T(id)[t][x]; if (!e) return null;
         let c, pl;
         if (piscDestino()) { c = cmpValor(e, null, C.d[id][2], x); pl = piscDestino(); }
+        else if (piscSolo()) { pl = piscSolo(); c = e[pl === '50m' ? 1 : 0] || null; if (!c) return null; }
         else {      // piscinas separadas: se muestra la marca que vale más (comparando su equivalente en 50 m)
           const eq25 = e[0] ? conv(e[0], '25m', '50m', C.d[id][2], x) : null;
           [c, pl] = e[1] && (!eq25 || e[1] <= eq25) ? [e[1], '50m'] : [e[0], '25m'];

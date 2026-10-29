@@ -175,7 +175,7 @@ function cmpCuerpo(C, ids, p) {
     xs = edades.map(a => `${a} años`);
     valor = (id, k, pl) => { const t = CMP_TEMPS.find(t => edadEn(t, C.d[id][3]) === edades[k]); return t ? cmpValor((T(id)[t] || {})[ev], pl, C.d[id][2], ev) : null; };
   }
-  const pools = piscDestino() ? [null] : ['25m', '50m'];
+  const pools = piscDestino() ? [null] : ['25m', '50m'].filter(pl => !piscSolo() || pl === piscSolo());
   let graf = '', tablas = '';
   pools.forEach(pl => {
     const series = ids.map((id, i) => ({nm: nom(id), i, v: xs.map((_, k) => valor(id, k, pl))}));
@@ -213,6 +213,7 @@ function cmpCuerpo(C, ids, p) {
     ${evs.map(x => { const vs = ids.map(id => { const t = ultimo(id), e = t && T(id)[t][x]; if (!e) return null;
         let c, pl;
         if (piscDestino()) { c = cmpValor(e, null, C.d[id][2], x); pl = piscDestino(); }
+        else if (piscSolo()) { pl = piscSolo(); c = e[pl === '50m' ? 1 : 0] || null; if (!c) return null; }
         else {      // piscinas separadas: se muestra la marca que vale más (comparando su equivalente en 50 m)
           const eq25 = e[0] ? conv(e[0], '25m', '50m', C.d[id][2], x) : null;
           [c, pl] = e[1] && (!eq25 || e[1] <= eq25) ? [e[1], '50m'] : [e[0], '25m'];

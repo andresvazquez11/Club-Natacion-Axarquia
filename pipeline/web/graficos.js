@@ -257,13 +257,15 @@ function evolucionHTML(s, e) {
       ${evoKpis(rows)}${rows.length > 1 ? evoChart(rows, s, to === '25m' ? entrenosDe(s, e.e) : null) : ''}<div class="tw" style="margin-top:8px">${tablaMarcas(rows, eq, to, s)}</div></div>
       <p class="tiny muted">En «Lugar» se indica la marca original.</p>${convNota()}`;
   }
-  const pools = [...new Set(e.h.map(x => x[2]))].sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
+  const solo = piscSolo();
+  const pools = [...new Set(e.h.map(x => x[2]))].filter(pl => !solo || pl === solo).sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
+  if (!pools.length) return `<p class="empty">Sin marcas en piscina de ${solo.replace('m', ' m')} en esta prueba.</p>`;
   return pools.map(pl => {
     const rows = e.h.filter(x => x[2] === pl).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
     const tot = rows[0][1] - Math.min(...rows.map(x => x[1]));
     return `<div class="card" style="margin-bottom:12px"><h3>Piscina de ${pl} <span class="muted small">· ${rows.length} marca${rows.length > 1 ? 's' : ''}${tot > 0 ? ` · mejora <span class="good">−${secs(tot)} s</span>` : ''}</span></h3>
       ${evoKpis(rows)}${rows.length > 1 ? evoChart(rows, s, pl === '25m' ? entrenosDe(s, e.e) : null) : ''}<div class="tw" style="margin-top:8px">${tablaMarcas(rows, e, pl, s)}</div></div>`;
-  }).join('') + `<p class="tiny muted">Abajo = más rápido. Línea = cada marca · puntos amarillos y línea discontinua = mejor marca personal en ese momento · pasa el dedo por un punto para ver sus datos. Puesto = clasificación en esa competición entre los nacidos en ${s.y}. Pts = puntos World Aquatics. <b>Pulsa una marca o un punto del gráfico</b> para ver toda esa competición. 25 m y 50 m no se mezclan.</p>`;
+  }).join('') + `<p class="tiny muted">Abajo = más rápido. Línea = cada marca · puntos amarillos y línea discontinua = mejor marca personal en ese momento · pasa el dedo por un punto para ver sus datos. Puesto = clasificación en esa competición entre los nacidos en ${s.y}. Pts = puntos World Aquatics. <b>Pulsa una marca o un punto del gráfico</b> para ver toda esa competición. Aquí se ven solo las marcas reales de esa piscina, sin convertir.</p>`;
 }
 
 /* ventana a pantalla completa */

@@ -144,19 +144,20 @@ const catYrs = c => c.yt || c.yrs.join('-');
 const fichaHref = (s, sub) => (s.benicio ? '#mi' : `#nadador/${s.id}`) + (sub && sub !== 'resumen' ? '/' + sub : '');
 
 /* ── Piscinas de 25 y 50 m ──
-   Separadas (como la RFEN) o convertidas a una sola piscina. La conversión mantiene los puntos World Aquatics:
+   Por defecto, todas juntas (convertidas a una sola piscina); o solo las marcas de 25 m, o solo las de 50 m. La conversión mantiene los puntos World Aquatics:
    marca_destino = marca × récord_destino / récord_origen (récord del mundo de esa prueba y sexo en cada piscina).
    Es una equivalencia orientativa; los rankings y las mínimas oficiales siguen siendo por piscina. */
-const PISC_LS = 'cna_piscina';
-let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'sep'; } catch (e) { return 'sep'; } })();
-const piscDestino = () => PISC === '50' ? '50m' : PISC === '25' ? '25m' : null;
+const PISC_LS = 'cna_piscina2';   // «2»: antes se guardaba otra cosa (separadas / todo a 25 / todo a 50) y todos vuelven al valor por defecto
+let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'jun'; } catch (e) { return 'jun'; } })();
+const piscDestino = () => PISC === 'jun' ? '25m' : null;                       // junto: piscina a la que se convierte todo
+const piscSolo = () => PISC === '50' ? '50m' : PISC === '25' ? '25m' : null;   // solo: la única piscina que se enseña, sin convertir
 function conv(cs, from, to, g, ev) {
   if (!to || from === to) return cs;
   const w = ((DATA.wr || {})[g] || {})[ev];
   return w && w[from] && w[to] ? Math.round(cs * w[to] / w[from]) : null;
 }
 function piscSeg() {
-  return `<div class="seg" data-pisc title="Convierte las marcas a una sola piscina con la equivalencia de puntos World Aquatics">${[['sep', '25 m y 50 m separadas'], ['50', 'Todo a 50 m'], ['25', 'Todo a 25 m']]
+  return `<div class="seg" data-pisc title="«Todas juntas» convierte las marcas de 50 m a su equivalente en 25 m (puntos World Aquatics); «Solo» enseña únicamente las marcas reales de esa piscina">${[['jun', 'Todas juntas'], ['25', 'Solo 25 m'], ['50', 'Solo 50 m']]
     .map(([v, l]) => `<button data-v="${v}" class="${PISC === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 }
 function bindPisc(root) {
