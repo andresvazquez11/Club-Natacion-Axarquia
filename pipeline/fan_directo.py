@@ -564,6 +564,70 @@ def archivar_parciales(d, previo=None):
     return arch
 
 
+def series_de_web(w, num, grupo, nuestros=None):
+    """StartList_N.pdf de la web de un grupo → {(nombre normalizado, año): (serie, calle)}.
+    Los ResultList no traen serie ni calle (solo la lista de salida), y sin ellas no se puede reconstruir la carrera."""
+    from pypdf import PdfReader
+    pdf = PdfReader(io.BytesIO(obtener(f'{w}StartList_{num}.pdf', binario=True)))
+    texto = '\n'.join(pag.extract_text() or '' for pag in pdf.pages)
+    return {(norm(f['n']), f.get('nac')): (f['serie'], f['calle']) for p in leer_series_texto(texto, grupo, nuestros or {}) for f in p['filas']}
+
+
+def web_de_grupo(webs, grupo):
+    return webs[0] if len(webs) == 1 else next((w for w in webs if etiqueta_web(w) == grupo), None)
+
+
+def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web):
+    """Guarda, UNA vez por competición terminada, todas las carreras individuales de todos los clubes: serie, calle, tiempo,
+    parciales y puesto. Un archivo por competición (carreras/<id>.json, no se vuelve a escribir) y un índice (carreras/indice.json).
+    Sirve para reproducir carreras (foto finish, repetición) y comparar a cada nadador consigo mismo con el tiempo.
+    filas: [serie, calle, nombre, club, año, tiempo, [acumulados], puesto, estado, rfen]. Devuelve los ids escritos."""
+    escritos = []
+    for c in d.get('competiciones', []):
+        L = c.get('lenex') or {}
+        ruta = os.path.join(carpeta, f"{c['id']}.json")
+        if c.get('estado') != 'terminada' or not L.get('pruebas') or os.path.exists(ruta):
+            continue
+        webs = c.get('webs') or ([c['web']] if c.get('web') else [])
+        pruebas, completo = [], True
+        for p in L['pruebas']:
+            if not re.match(r'^\d+ [A-Za-zÁÉÍÓÚáéíóú]+$', p.get('nombre') or ''):
+                continue   # relevos
+            filas = [dict(f) for f in p.get('filas', []) if f.get('n')]   # copias: directo.json no cambia
+            if filas and not all(f.get('serie') for f in filas):
+                w = web_de_grupo(webs, p.get('sesion'))
+                try:
+                    mapa = series_fn(w, p['num'], p.get('sesion'), nuestros) if w else {}
+                except Exception as e:
+                    print('Aviso: sin lista de salida de la prueba', p.get('id'), e, file=sys.stderr)
+                    mapa = {}
+                for f in filas:
+                    sc = mapa.get((norm(f['n']), f.get('nac')))
+                    if sc:
+                        f['serie'], f['calle'] = sc
+                completo = completo and all(f.get('serie') for f in filas if f.get('t'))
+            pruebas.append({'num': p.get('num'), 'nombre': p['nombre'], 'sexo': p.get('sexo') or '', 'cat': p.get('categoria') or '',
+                            'fecha': p.get('fecha') or '', 'sesion': p.get('sesion') or '',
+                            'filas': [[f.get('serie') or 0, f.get('calle') or 0, f['n'], f.get('club') or '', f.get('nac'), f.get('t'),
+                                       f.get('parc'), f.get('puesto'), f.get('estado') or '', f.get('rfen')] for f in filas]})
+        if not pruebas or not completo:
+            continue   # si falta alguna lista de salida se reintenta en la siguiente ejecución
+        os.makedirs(carpeta, exist_ok=True)
+        with open(ruta, 'w', encoding='utf-8') as fh:
+            json.dump({'id': c['id'], 'titulo': c.get('titulo') or '', 'fecha': c.get('desde') or '', 'lugar': L.get('lugar') or '',
+                       'piscina': {'25 m': '25m', '50 m': '50m'}.get(L.get('piscina'), ''), 'pruebas': pruebas}, fh, ensure_ascii=False, separators=(',', ':'))
+        escritos.append(c['id'])
+    if escritos:
+        indice = {}
+        for nombre in sorted(os.listdir(carpeta)):
+            if nombre.endswith('.json') and nombre != 'indice.json':
+                x = json.load(open(os.path.join(carpeta, nombre), encoding='utf-8'))
+                indice[str(x['id'])] = [x['titulo'], x['fecha'], x['lugar'], x['piscina'], len(x['pruebas'])]
+        with open(os.path.join(carpeta, 'indice.json'), 'w', encoding='utf-8') as fh:
+            json.dump(indice, fh, ensure_ascii=False, separators=(',', ':'))
+    return escritos
+
+
 def main():
     ap = argparse.ArgumentParser()
     raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -594,6 +658,9 @@ def main():
         with open(ruta_arch, 'w', encoding='utf-8') as f:
             json.dump(arch, f, ensure_ascii=False, separators=(',', ':'))
         print(f"Parciales del club: {sum(len(v) for v in arch['n'].values())} carreras → {ruta_arch}")
+    nuevas = guardar_carreras(nuevo, os.path.join(os.path.dirname(a.salida), 'carreras'), nuestros_de(a.nadadores))
+    if nuevas:
+        print('Carreras guardadas de las competiciones:', ', '.join(str(i) for i in nuevas))
     if previo and previo.get('volcados'):
         nuevo['volcados'] = previo['volcados']
     if previo and {k: v for k, v in previo.items() if k != 'actualizado'} == nuevo:

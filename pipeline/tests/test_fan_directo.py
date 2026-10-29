@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import sys
 import unittest
@@ -184,6 +185,36 @@ class TestArchivarParciales(unittest.TestCase):
 
     def test_relevos_fuera(self):
         self.assertEqual(F.archivar_parciales(self.d([{'rfen': '1', 't': 9000, 'parc': [4000]}], '4x50 Libre'))['n'], {})
+
+
+class TestGuardarCarreras(unittest.TestCase):
+    def comp(self, estado='terminada', filas=None):
+        filas = filas or [{'n': 'Eva Sol', 'club': 'C.N. Axarquia', 'nac': 2014, 't': 7000, 'parc': [3400, 7000], 'puesto': 1, 'serie': 0, 'calle': 0, 'rfen': '1'},
+                          {'n': 'Ana Mar', 'club': 'Otro', 'nac': 2015, 't': 7200, 'parc': [3500, 7200], 'puesto': 2, 'serie': 0, 'calle': 0, 'rfen': None}]
+        return {'competiciones': [{'id': 9, 'titulo': 'Jornada', 'desde': '2026-10-24', 'estado': estado, 'web': 'https://x/FAN_1/',
+                'lenex': {'lugar': 'Torre', 'piscina': '25 m', 'pruebas': [
+                    {'id': 'FAN 1-22', 'num': 22, 'nombre': '100 Libre', 'sexo': 'M', 'sesion': 'FAN 1', 'categoria': 'Alevín', 'fecha': '2026-10-24', 'filas': filas},
+                    {'id': 'FAN 1-5', 'num': 5, 'nombre': '4x50 Libre', 'sexo': 'M', 'sesion': 'FAN 1', 'filas': []}]}}]}
+
+    def test_guarda_con_serie_y_calle_y_una_sola_vez(self):
+        import tempfile
+        d, tmp = self.comp(), tempfile.mkdtemp()
+        antes = json.dumps(d, sort_keys=True)
+        fn = lambda w, num, grupo, nuestros=None: {(F.norm('Eva Sol'), 2014): (4, 2), (F.norm('Ana Mar'), 2015): (4, 5)}
+        self.assertEqual(F.guardar_carreras(d, tmp, None, fn), [9])
+        x = json.load(open(os.path.join(tmp, '9.json')))
+        self.assertEqual(len(x['pruebas']), 1)                                   # el relevo no se guarda
+        self.assertEqual(x['pruebas'][0]['filas'][0], [4, 2, 'Eva Sol', 'C.N. Axarquia', 2014, 7000, [3400, 7000], 1, '', '1'])
+        self.assertEqual(json.load(open(os.path.join(tmp, 'indice.json'))), {'9': ['Jornada', '2026-10-24', 'Torre', '25m', 1]})
+        self.assertEqual(json.dumps(d, sort_keys=True), antes)                   # directo.json no cambia
+        self.assertEqual(F.guardar_carreras(d, tmp, None, fn), [])               # ya guardada: no se reescribe
+
+    def test_sin_lista_de_salida_se_reintenta_y_no_guarda_las_no_terminadas(self):
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        self.assertEqual(F.guardar_carreras(self.comp(), tmp, None, lambda *a, **k: (_ for _ in ()).throw(OSError('sin red'))), [])
+        self.assertFalse(os.path.exists(os.path.join(tmp, '9.json')))
+        self.assertEqual(F.guardar_carreras(self.comp('en_curso'), tmp, None, lambda *a, **k: {}), [])
 
 
 if __name__ == '__main__':
