@@ -650,6 +650,7 @@ async function pintarUltimaComp(app) {
     <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
     <p class="tiny muted" style="margin-top:6px">Resultados de la Federación Andaluza${c.estado === 'en_curso' ? ' (provisionales, se van actualizando)' : ''} · <a href="#directo?c=${Number(c.id)}">Toda la competición</a></p>`;
   host.querySelector('[data-ult-detalle]').onclick = () => abrirUltimaComp(c);
+  host.insertAdjacentHTML('beforeend', '<div data-car-club></div>'); carPintarClub(host.querySelector('[data-car-club]'), c.id);   // foto finish y repetición de cada prueba
 }
 /* Ventana de detalle: frente a su mejor marca (barras a los dos lados), y cada prueba con sus nadadores; al tocar uno, sus parciales */
 function abrirUltimaComp(c) {

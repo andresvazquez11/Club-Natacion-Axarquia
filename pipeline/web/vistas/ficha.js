@@ -231,6 +231,7 @@ function pintarParcFicha(app, s, ev) {
     host.innerHTML = `<h3>${ico('crono')}Parciales de sus carreras <span class="muted small">· piscina de ${esc(C[0].pool || '')} · ${C.length} carrera${C.length > 1 ? 's' : ''}</span>${glos('parcial')}</h3>
       <div data-parc-panel></div><p class="tiny muted" style="margin-top:6px">Parciales publicados por la Federación Andaluza en sus competiciones (se guardan desde la temporada 26-27).</p>`;
     gParcPanel(host.querySelector('[data-parc-panel]'), C);
+    carPintarFicha(host, s, ev);
   });
 }
 /* Resumen: su última carrera con parciales (de la prueba que sea) */
@@ -245,6 +246,7 @@ function pintarUltimaCarrera(app, s) {
     host.innerHTML = `<div class="h">${ico('crono')}Su última carrera <span class="h-n">· ${esc(u[2])} · ${dfmt(u[1])}</span>${glos('parcial')}</div>
       <div data-parc-panel></div><a class="mas" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(u[2])}">Ver todas sus marcas en ${esc(u[2])} ›</a>`;
     gParcPanel(host.querySelector('[data-parc-panel]'), C);
+    carPintarFicha(host, s, u[2]);
   });
 }
 
