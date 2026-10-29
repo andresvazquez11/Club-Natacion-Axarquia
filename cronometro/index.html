@@ -177,6 +177,13 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .concl{border-color:var(--blu)}
 .concl-l{margin:4px 0 8px;padding-left:18px;font-size:14px;line-height:1.45}
 .concl-l li{margin:5px 0}
+.rs-fila{background:var(--surf);border:1px solid var(--brd);border-radius:10px;margin-bottom:6px}
+.rs-fila summary{display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;list-style:none;min-height:44px}
+.rs-fila summary::-webkit-details-marker{display:none}
+.rs-fila .rname{flex:1;min-width:0;font-weight:700}
+.rs-sub{font-size:11px;font-weight:500;color:var(--mut);display:flex;gap:8px;align-items:center}
+.rs-vs{font-weight:700}
+.rs-det{padding:0 10px 10px;border-top:1px solid var(--brd);margin-top:0}
 .serie-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .serie-chip{background:var(--bg);border:1px solid var(--brd);border-radius:10px;padding:6px 9px;font-size:12px;min-width:104px}
 .serie-chip.top{border-color:var(--grn)}
@@ -3019,6 +3026,19 @@ function porNadadorHTML(d) {
     return `<div class="card mt8"><div class="row" style="gap:8px;align-items:baseline"><b style="flex:1">${esc(f.n)}</b><span class="muted" style="font-size:12px">${esc(calles)}</span></div>
       <div class="serie-chips">${chips}</div>${cae}</div>`; }).join('') || '<div class="center-msg"><p>Sin tiempos individuales en este entrenamiento</p></div>';
 }
+// Fila compacta de una serie: posición, nombre, tiempo y cómo va frente a su mejor entreno; el detalle se despliega al tocarla
+function filaSerieHTML(r, i, best, ses, editable) {
+  const cb = resCombo(r), c = comparaciones(r.nId, cb.estilo, cb.dist, r.ms, r.id, ses.fecha, ses.id);
+  const vs = c.ent ? `<span class="rs-vs ${c.difEnt <= 0 ? 'cmp-mej' : 'cmp-peor'}">${c.difEnt <= 0 ? '▼' : '▲'} ${difTxt(c.difEnt)} s</span>` : '';
+  const parc = r.parciales && r.parciales.length > 1;
+  const detalle = comparaHTML(c) + (parc ? `<div class="muted" style="font-size:11px;margin-top:4px">50 m: ${fmtTramos(r.parciales)}</div>${miniParc(r.parciales)}` : '')
+    + (r.nota ? `<div class="nota-r">📝 ${esc(r.nota)}</div>` : '') + (r.comp ? rankingHTML(rankingDe(r.nId, cb.estilo, cb.dist, r.ms)) : '');
+  return `<details class="rs-fila"${r.comp ? ' style="border-color:var(--amb)"' : ''}><summary>
+      <div class="rpos${i===0?' gold':''}">${i+1}</div>
+      <div class="rname">${esc(nombreDe(r.nId))}<div class="rs-sub">${esc(calleDe(r))}${vs}</div></div>
+      <div style="text-align:right"><div class="rtime">${fmtTime(r.ms)}</div>${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}</div></summary>
+    <div class="rs-det">${detalle}<div class="row mt8" style="gap:8px"><button class="edit-link" data-action="evolucion-nad" data-nid="${esc(r.nId)}">Ver su evolución ›</button>${editable?`<button class="tiempo-x" data-action="res-borrar" data-id="${esc(r.id)}" aria-label="Borrar este tiempo">✕</button>`:''}</div></div></details>`;
+}
 function renderResultados(sesId, backAction, backLabel) {
   const d = datosEntrenamiento(sesId);
   if (!d) return `<div class="center-msg"><p>Sesión no encontrada</p></div>`;
@@ -3038,16 +3058,7 @@ function renderResultados(sesId, backAction, backLabel) {
     return `<div class="row mt16" style="align-items:baseline;gap:8px;margin-bottom:8px"><span class="label" style="flex:1;margin:0">Serie ${x.ronda} · ${serieLabel(x)}${x.hora?` · ${esc(x.hora)}`:''} ${iniTag(x)}${tot?` · <span style="color:var(--txt)">total ${fmtNado(tot.ms)}</span>`:''}</span>
       ${editable && x.res.some(r=>r.ts) ? `<button class="edit-link" data-action="orden-abrir" data-ses="${esc(ses.id)}" data-r="${x.ronda}">↕ Orden</button>` : ''}</div>
       ${callesHTML(x)}
-      ${x.res.map((r,i)=>`
-        <div class="result-row click-row"${r.comp?' style="border:1px solid var(--amb)"':''} data-action="evolucion-nad" data-nid="${esc(r.nId)}">
-          <div class="rpos${i===0?' gold':''}">${i+1}</div>
-          <div class="rname">${esc(nombreDe(r.nId))} <span class="muted" style="font-size:12px">›</span><div class="muted" style="font-size:11px;font-weight:500">${esc(calleDe(r))}${r.parciales&&r.parciales.length>1?` · 50m: ${fmtTramos(r.parciales)}`:''}</div>${r.parciales&&r.parciales.length>1?miniParc(r.parciales):''}${r.nota?`<div class="nota-r">📝 ${esc(r.nota)}</div>`:''}${comparaHTML(comparaciones(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms, r.id, ses.fecha, ses.id))}${r.comp ? rankingHTML(rankingDe(r.nId, resCombo(r).estilo, resCombo(r).dist, r.ms)) : ''}</div>
-          <div style="text-align:right">
-            <div class="rtime">${fmtTime(r.ms)}</div>
-            ${i?`<div style="font-size:11px;color:var(--mut)">+${((r.ms-best)/1000).toFixed(1)}</div>`:''}
-            ${editable?`<button class="tiempo-x" data-action="res-borrar" data-id="${esc(r.id)}" aria-label="Borrar este tiempo">✕</button>`:''}
-          </div>
-        </div>`).join('')}`;
+      ${x.res.map((r,i)=>filaSerieHTML(r,i,best,ses,editable)).join('')}`;
   }).join('');
   return `
     <div class="h1" style="margin-bottom:4px">Resumen del entrenamiento${esSim(ses)?SIM_TAG:''}${sesEsComp(ses.id)?' <span class="comp-tag">🏆 Competición</span>':''}</div>
