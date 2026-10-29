@@ -47,3 +47,19 @@ test('última competición: mejores marcas frente a su marca previa, puesto en s
   assert.equal(evalIn(ctx, 'dirUltimaDelClub({competiciones: [__c, {id: 2, estado: "proxima", desde: "2026-11-01", lenex: __c.lenex}]}).id'), 1);
   assert.deepEqual(ev('dirAcu', { t: 7900, parc: [3800] }), [3800, 7900]);
 });
+
+test('calles: el cronómetro las guarda en cada tiempo (calle y salida) y la web enseña cómo estaban en cada serie', () => {
+  const c = cargar(['comunes.js', 'iconos.js', 'graficos.js', 'vistas/accesos.js', 'vistas/entrenamientos.js'], structuredClone(DATA));
+  const DIA = Date.UTC(2026, 9, 20, 9);
+  const D = { sesiones: [{ id: 's1', fecha: DIA, coach: 'Ana', estilo: 'libre', dist: 50 }], nadadores: [{ id: 'a', n: 'Ana' }, { id: 'b', n: 'Bea' }, { id: 'c', n: 'Cris' }],
+    grupos: [{ id: 'g1', nombre: 'Calle 2' }, { id: 'g2', nombre: 'Calle 10' }, { id: 'g3', nombre: 'Calle 1' }],
+    resultados: [{ id: 'r1', sesId: 's1', nId: 'a', ms: 31000, ronda: 1, gId: 'g1', salida: 2 }, { id: 'r2', sesId: 's1', nId: 'b', ms: 30000, ronda: 1, gId: 'g1', salida: 1 },
+      { id: 'r3', sesId: 's1', nId: 'c', ms: 32000, ronda: 1, gId: 'g2', salida: 1 }, { id: 'r4', sesId: 's1', nId: 'c', ms: 31000, ronda: 2 }] };
+  c.__D = D;
+  const T = JSON.parse(evalIn(c, 'JSON.stringify(entTiempos(__D, {}))'));
+  assert.deepEqual(T.map(t => [t.n, t.calle, t.salida]), [['Ana', 'Calle 2', 2], ['Bea', 'Calle 2', 1], ['Cris', 'Calle 10', 1], ['Cris', '', null]]);
+  c.__T = T; c.__tb = evalIn(c, 'entTabla(__T)');
+  const C = JSON.parse(evalIn(c, 'JSON.stringify(entCallesSerie(__tb))'));
+  assert.deepEqual(C, [{ ronda: 1, ev: '50 Libre', calles: [{ nombre: 'Calle 2', nads: ['Bea', 'Ana'] }, { nombre: 'Calle 10', nads: ['Cris'] }] }]);   // por orden de salida; «Calle 2» antes que «Calle 10»
+  assert.match(evalIn(c, 'entCallesHTML(__tb)'), /Calle 2<\/b> Bea → Ana/);
+});

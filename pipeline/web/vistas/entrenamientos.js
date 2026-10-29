@@ -38,7 +38,7 @@ const entDiaSemana = dia => ENT_DIAS_SEM[new Date(dia + 'T12:00:00').getDay()];
    D = {sesiones, resultados, nadadores} (listas de {id, ...}); sw = nadadores de la web por licencia. */
 function entTiempos(D, sw) {
   const ses = new Map(D.sesiones.map(s => [s.id, s]));
-  const nad = new Map(D.nadadores.map(n => [n.id, n]));
+  const nad = new Map(D.nadadores.map(n => [n.id, n])), gru = new Map((D.grupos || []).map(g => [g.id, g]));
   (D.estilos || []).forEach(e => { if (entEstiloOk(e.id) && e.nombre) ENT_NOMBRES[e.id] = String(e.nombre).slice(0, 30); });
   return D.resultados.filter(r => r.borrado !== true && !r.relevo).map(r => {
     const s = ses.get(r.sesId); if (!s) return null;
@@ -51,6 +51,7 @@ function entTiempos(D, sw) {
     return {id: r.id, sesId: r.sesId, fecha, dia: entDia(fecha), hora: entHora(fecha), fin: Number(s.fin) || null, coach: s.coach || '', sim: entEsSim(s), ronda: entEntero(r.ronda),
       ts, horaSerie: ts ? entHora(ts) : '', comp: r.comp === true, inicio: r.comp === true ? 'plataforma' : ['agua', 'plataforma'].includes(r.inicio) ? r.inicio : null,
       estilo, dist, rota, ritmo, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}${rota ? ` · ${entRotaTxt(rota)}` : ''}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
+      gId: r.gId || null, calle: (gru.get(r.gId) || {}).nombre || '', salida: Number(r.salida) > 0 ? Number(r.salida) : null,
       nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
@@ -90,6 +91,23 @@ function entTabla(T) {
   return {series: [...series.values()].sort((a, b) => a.ronda - b.ronda),
     filas: [...filas.values()].sort((a, b) => a.n.localeCompare(b.n))};
 }
+/* Cómo estaban las calles en cada serie: [{ronda, ev, calles: [{nombre, nads: [nombres en orden de salida]}]}] (las series sin calles guardadas no salen) */
+function entCallesSerie(tabla) {
+  return tabla.series.map(s => { const by = new Map();
+    tabla.filas.forEach(f => { const t = f.t[s.ronda]; if (!t || !t.calle) return; const c = by.get(t.calle) || {nombre: t.calle, nads: []}; c.nads.push({n: f.n, salida: t.salida || 99}); by.set(t.calle, c); });
+    return {ronda: s.ronda, ev: s.ev, calles: [...by.values()].map(c => ({nombre: c.nombre, nads: c.nads.sort((a, b) => a.salida - b.salida).map(a => a.n)}))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', {numeric: true}))}; }).filter(x => x.calles.length);
+}
+/* Series seguidas con las mismas calles se agrupan («Series 1 a 4») para no repetir lo mismo */
+function entCallesGrupos(C) {
+  const G = [];
+  C.forEach(x => { const k = JSON.stringify(x.calles), u = G[G.length - 1];
+    if (u && u.k === k) { u.hasta = x.ronda; if (x.ev && !u.evs.includes(x.ev)) u.evs.push(x.ev); } else G.push({k, desde: x.ronda, hasta: x.ronda, evs: x.ev ? [x.ev] : [], calles: x.calles}); });
+  return G;
+}
+const entCallesHTML = tabla => { const G = entCallesGrupos(entCallesSerie(tabla)); return !G.length ? '' : `<details class="ent-ajustes"><summary>Cómo estaban las calles</summary>${G.map(x =>
+  `<div class="ent-sel"><b>${x.desde === x.hasta ? 'Serie ' + x.desde : (x.hasta === x.desde + 1 ? 'Series ' + x.desde + ' y ' + x.hasta : 'Series ' + x.desde + ' a ' + x.hasta)}</b>${x.evs.length ? ' · ' + esc(x.evs.join(' · ')) : ''}</div><div class="ent-calles">${x.calles.map(c => `<span class="ent-calle"><b>${esc(c.nombre)}</b> ${c.nads.map(esc).join(' → ')}</span>`).join('')}</div>`).join('')}
+  <p class="tiny muted" style="margin-top:6px">El orden es el de salida dentro de cada calle.</p></details>`; };
 /* Comparar dos series de la tabla: por nadador que nadó las dos, tiempo de cada una y diferencia (b − a, centésimas) */
 function entCompararSeries(tabla, a, b) {
   return tabla.filas.filter(f => f.t[a] && f.t[b])
@@ -775,7 +793,8 @@ async function entCargar(forzar) {
   const [todas, resultados, nadadores] = await Promise.all(['sesiones', 'resultados', 'nadadores'].map(leer));
   const sesiones = todas.filter(s => s.borrado !== true);   // los de la papelera del cronómetro no se ven (sus tiempos tampoco)
   const estilos = await leer('estilos').catch(() => []);   // estilos propios: si las reglas aún no la permiten, sin ellos
-  ENT.datos = {sesiones, resultados, nadadores, estilos};
+  const grupos = await leer('grupos').catch(() => []);   // las calles del cronómetro (nombre de cada una)
+  ENT.datos = {sesiones, resultados, nadadores, estilos, grupos};
   ENT.T = entTiempos(ENT.datos, SW);
   ENT.cargado = Date.now(); ENT.estado = 'listo';
   entMarcarLocal(true);
@@ -875,6 +894,7 @@ function pintarEntrenamientos(host, f) {
         ${tabla.filas.map(x => `<tr><td style="white-space:nowrap"><b>${fichaA(x.rfen, esc(x.n))}</b></td>${tabla.series.map(s => { const t = x.t[s.ronda], c = s.comp ? ' ent-col-comp' : '';
           return t ? `<td class="num${c}">${t.cs === mejorDe[s.ronda] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}</tr>`).join('')}</table></div>
       <p class="tiny muted" style="margin-top:4px">En verde, el más rápido de cada serie. Pulsa un nombre para abrir su ficha.</p>
+      ${entCallesHTML(tabla)}
       ${entRelevosHTML(sesSel.sesId)}
       ${gTabs('pt', [['series', 'Series'], ['ritmo', 'Ritmo'], ...(entDatosParciales(tabla).length ? [['parc', 'Parciales']] : [])], f.pt || 'series')}
       <div data-pt-p="series"${(f.pt || 'series') === 'series' ? '' : ' hidden'}>%%COMPARAR%%</div>
@@ -895,7 +915,7 @@ function pintarEntrenamientos(host, f) {
       <span class="ent-ses-r">${e.pruebas.map(ev => `${franja(ev)}${esc(ev)}`).join(' ') || 'Sin prueba'} · ${e.nads} nad. · ${e.tiempos.length} tiempos · <a href="${hrefDe({dia: entDia(e.fecha), ses: e.sesId, sa: '', sb: '', gs: '', gf: ''})}">Ver por series</a></span></summary>
       <table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Tiempo</th></tr>
       ${[...e.tiempos].sort((a, b) => a.ronda - b.ronda || a.cs - b.cs).map(t => `<tr class="${t.rfen ? 'click' : ''}${t.comp ? ' ent-fila-comp' : ''}"${t.rfen ? ` data-href="#nadador/${t.rfen}/entrenos?ev=${encodeURIComponent(t.ev || '')}"` : ''}>
-        <td><b>${esc(t.n)}</b>${t.rfen ? ' <span class="tiny muted">· ver ficha</span>' : ''}${entCompararHTML(entComparar(T, t))}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}${t.horaSerie ? ' · ' + t.horaSerie : ''}</span>${entCompTag(t)}</td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
+        <td><b>${esc(t.n)}</b>${t.rfen ? ' <span class="tiny muted">· ver ficha</span>' : ''}${entCompararHTML(entComparar(T, t))}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}${t.horaSerie ? ' · ' + t.horaSerie : ''}${t.calle ? ' · ' + esc(t.calle) : ''}</span>${entCompTag(t)}</td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
     </details>`).join('');
   const pruebas = R.pruebas.map(pr => `
     <div class="card"><div class="h">${franja(pr.ev)}${esc(pr.ev)} <span class="h-n">(${pr.nads.length} nadadores · ${pr.n} tiempos)</span></div>

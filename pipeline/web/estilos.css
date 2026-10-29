@@ -889,3 +889,7 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .ent-mapa td.si{background:var(--s1)} .ent-mapa td.no{background:var(--ln)}
 .ent-mapa td.num{text-align:right;padding-left:6px}
 .ent-mapa tr.click{cursor:pointer}
+/* Calles de cada serie */
+.ent-calles{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.ent-calle{font-size:.78rem;line-height:1.35;color:var(--ink2);border:1px solid var(--ln);border-radius:10px;padding:4px 9px}
+.ent-calle b{color:var(--ink);margin-right:4px}
