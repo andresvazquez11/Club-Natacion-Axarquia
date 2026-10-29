@@ -83,6 +83,16 @@ test('dirColores: morado el mejor de la prueba (y su mejor tramo), verde marca p
     f(null, 6800, [3300, 6800]), f('1', 7000, [3450, 7000]), f('2', 7300, [3400, 7300]), f(null, 7500, [3600, 7500])] }] } };
   ctx3.__c = c; evalIn(ctx3, 'dirColores(__c)');
   const r = JSON.parse(evalIn(ctx3, 'JSON.stringify(__c.lenex.pruebas[0].filas.map(f => [f.tt, f.tm]))'));
+  assert.deepEqual(JSON.parse(evalIn(ctx3, 'JSON.stringify(__c.lenex.pruebas[0].filas.map(f => f.pb))')), [false, true, false, false]);
   assert.deepEqual(r.map(x => x[0]), ['mor', 'ver', 'ama', '']);     // Eva baja su marca (7200 → 7000); Ana no (7100 → 7300)
   assert.deepEqual([r[0][1], r[1][1], r[2][1], r[3][1]], [[true, true], [false, false], [false, false], [false, false]]);   // el ganador hizo los dos mejores tramos
+});
+
+test('dirColores: el más rápido del club que además mejora su marca es morado con aro verde (pb)', () => {
+  const ctx3 = cargar(['comunes.js', 'iconos.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
+  evalIn(ctx3, `Object.assign(SW, { '1': { id: 1, n: 'Eva', ev: [{ e: '100 Libre', h: [['2026-09-01', 7200, '25m', 'x']] }] } })`);
+  const f = (rfen, t) => ({ rfen, n: 'X', t, estado: '' });
+  ctx3.__c = { desde: '2026-10-24', lenex: { piscina: '25 m', pruebas: [{ nombre: '100 Libre', fecha: '2026-10-24', filas: [f('1', 6800), f(null, 7000), f(null, 7500)] }] } };
+  evalIn(ctx3, 'dirColores(__c)');
+  assert.deepEqual(JSON.parse(evalIn(ctx3, 'JSON.stringify(__c.lenex.pruebas[0].filas.map(f => [f.tt, f.pb]))')), [['mor', true], ['', false], ['', false]]);
 });

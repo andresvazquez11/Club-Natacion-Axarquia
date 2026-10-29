@@ -917,7 +917,7 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .car-abrir .ico{width:20px;height:20px}
 .car-pill{display:inline-flex;align-items:center;gap:5px;margin-top:6px;background:var(--sun);color:var(--sun-ink);border-radius:20px;padding:4px 11px;font-weight:800;font-size:12px;cursor:pointer;width:fit-content}.car-pill .ico{width:14px;height:14px}
 .tt{border-radius:6px;padding:0 6px;display:inline-block;font-weight:800}
-.tt-mor{background:#a855f7;color:#fff}.tt-ver{background:#22c55e;color:#06260f}.tt-ama{background:#facc15;color:#3a2e00}
+.tt-mor{background:#a855f7;color:#fff}.tt-pb{box-shadow:0 0 0 2px #22c55e}.tt-ver{background:#22c55e;color:#06260f}.tt-ama{background:#facc15;color:#3a2e00}
 .tt-ley{font-size:12px;color:var(--mut);margin:8px 2px;line-height:1.4;display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center}
 .tt-ley .tt-f{display:contents}.tt-ley .tt{font-size:11px;line-height:1.7;justify-self:stretch;text-align:center;min-width:64px}
 .tt-ley .tt-nota{grid-column:1/-1;margin:2px 0 0;font-size:12px}

@@ -285,7 +285,7 @@ async function dirAlMomento(d) {
 const dirFechas = c => c.desde === c.hasta ? dfmt(c.desde) : `${dfmt(c.desde)} – ${dfmt(c.hasta)}`;
 const dirSexo = x => ({F: 'Fem.', M: 'Masc.', X: 'Mixto'})[x] || '';
 const DIR_ESTADO = {DSQ: 'Descalificado', DNS: 'No presentado', DNF: 'No terminó', SICK: 'Baja', WDR: 'Retirado', EXH: 'Exhibición'};
-const dirTiempo = f => f.t ? (f.tt ? `<span class="tt tt-${f.tt}">${fmt(f.t)}</span>` : fmt(f.t)) : f.estado ? `<span class="muted">${esc(DIR_ESTADO[f.estado] || f.estado)}</span>` : '<span class="muted">—</span>';
+const dirTiempo = f => f.t ? (f.tt ? `<span class="tt tt-${f.tt}${f.pb ? ' tt-pb' : ''}" ${f.pb ? 'title="Mejor marca personal"' : ''}>${fmt(f.t)}</span>` : fmt(f.t)) : f.estado ? `<span class="muted">${esc(DIR_ESTADO[f.estado] || f.estado)}</span>` : '<span class="muted">—</span>';
 /* Filas de nuestros nadadores (rfen = su licencia en la web; '?' = del club sin emparejar; 'club' = relevo del club) */
 const dirNuestras = c => !c.lenex ? [] : c.lenex.pruebas.flatMap(p => p.filas.filter(f => f.rfen).map(f => Object.assign({p}, f)));
 const dirNombre = f => f.rfen && f.rfen !== '?' && f.rfen !== 'club' && Object.hasOwn(SW, f.rfen)
@@ -378,7 +378,7 @@ function dirConjunta(c) {
     filas.forEach((f, i) => { f.conj = i && filas[i - 1].t === f.t ? filas[i - 1].conj : i + 1; f.conjN = filas.length; });
   });
 }
-/* Colores de los tiempos (como los sectores de la F1): morado = el mejor de la prueba; verde = mejor marca personal (frente a lo que tenía el nadador
+/* Colores de los tiempos (como los sectores de la F1): morado = el mejor de la prueba (con aro verde si además es su mejor marca personal); verde = mejor marca personal (frente a lo que tenía el nadador
    del club antes de esta competición, misma piscina); amarillo = sin mejora; sin color = sin marca anterior (o nadador de otro club). En los parciales,
    morado = el mejor tramo de esa prueba. Se calcula al pintar y se deja en cada fila: f.tt (tiempo) y f.tm (tramos). */
 function dirColores(c) {
@@ -390,18 +390,19 @@ function dirColores(c) {
     const mejor = {};
     ok.forEach(f => { const t = tramos(f); if (t) t.forEach((v, i) => { const k = `${t.length}|${i}`; if (mejor[k] == null || v < mejor[k]) mejor[k] = v; }); });
     p.filas.forEach(f => {
-      f.tt = ''; f.tm = null;
+      f.tt = ''; f.tm = null; f.pb = false;
       if (!f.t || f.estado) return;
       const t = tramos(f); if (t && ok.length >= 3) f.tm = t.map((v, i) => v === mejor[`${t.length}|${i}`]);
-      if (ok.length >= 3 && f.t === min) { f.tt = 'mor'; return; }
+      const mor = ok.length >= 3 && f.t === min;
+      if (mor) f.tt = 'mor';
       if (!/^\d+$/.test(String(f.rfen || ''))) return;
       const s = Object.hasOwn(SW, f.rfen) ? SW[f.rfen] : null, e = s && s.ev && s.ev.find(x => x.e === p.nombre);
       const antes = e ? e.h.filter(x => !x[8] && x[2] === pool && x[0] < (p.fecha || c.desde)).map(x => x[1]) : [];
-      if (antes.length) f.tt = f.t < Math.min(...antes) ? 'ver' : 'ama';
+      if (antes.length) { f.pb = f.t < Math.min(...antes); if (!mor) f.tt = f.pb ? 'ver' : 'ama'; }
     });
   });
 }
-const dirLeyenda = () => '<div class="tt-ley"><div class="tt-f"><span class="tt tt-mor">Morado</span><span>el mejor de la prueba (o su mejor tramo)</span></div><div class="tt-f"><span class="tt tt-ver">Verde</span><span>mejor marca personal</span></div><div class="tt-f"><span class="tt tt-ama">Amarillo</span><span>sin mejora</span></div><p class="tt-nota">Las marcas personales solo se calculan para nadadores del club.</p></div>';
+const dirLeyenda = () => '<div class="tt-ley"><div class="tt-f"><span class="tt tt-mor">Morado</span><span>el mejor de la prueba (o su mejor tramo)</span></div><div class="tt-f"><span class="tt tt-mor tt-pb">Morado</span><span>con aro verde: además, su mejor marca personal</span></div><div class="tt-f"><span class="tt tt-ver">Verde</span><span>mejor marca personal</span></div><div class="tt-f"><span class="tt tt-ama">Amarillo</span><span>sin mejora</span></div><p class="tt-nota">Las marcas personales solo se calculan para nadadores del club.</p></div>';
 /* Parciales acumulados (con o sin el tiempo final) → «50 m 28.51 · 100 m 59.81 (31.30) · …»: cada paso, su acumulado y entre paréntesis el tramo */
 function dirParciales(f, dist) {
   if (!f.t || !f.parc || !f.parc.length) return '';
