@@ -132,14 +132,17 @@ function carPintar(host, c, op = {}) {
     const ff = q('[data-car-ff]'), base = E.tab === 'final' ? pr().todos : pr().todos.filter(n => n.serie === E.tab), n = carTop8(base, E.dest), tw = n[0].t, PL = LP;
     const slot = n.map((_, k) => CAR_SEQ[k]), orden = slot.slice().sort((a, b) => a - b), nf = n.length;
     const W0 = ff.parentElement.clientWidth, est = W0 < 640;           // móvil: el nombre arriba y la piscina a todo el ancho debajo
-    const lh = est ? 84 : 58, top = 44, bot = 50, H = top + lh * nf + bot, [x, W] = carLienzo(ff, H, dpr);
+    const lh = est ? 70 : 58, top = 44, bot = 50, H = top + lh * nf + bot, [x, W] = carLienzo(ff, H, dpr);
     const L = est ? 12 : 230, DER = est ? 0 : 128, Rr = W - DER - (est ? 22 : 14), pm = (Rr - L) / PL, alto = est ? 36 : lh;
     x.fillStyle = '#0b1a33'; x.fillRect(0, 0, W, H);
-    const franja = f => est ? top + f * lh + 42 : top + f * lh;             // arriba de la piscina de esa fila
+    const franja = f => est ? top + f * lh + 32 : top + f * lh;             // arriba de la piscina de esa fila
+    if (est) {   // móvil: una sola piscina continua (las calles solo las separan las corcheras); el nombre va sobre el agua
+      carAgua(x, L, top, Rr - L, lh * nf); x.fillStyle = '#e9eef5'; x.fillRect(Rr, top - 4, 12, lh * nf + 8);
+      for (let i = 0; i <= nf; i++) carCorchera(x, L, top + i * lh, Rr - L);
+    }
     n.forEach((_, k) => { const f = orden.indexOf(slot[k]), t0 = franja(f);
-      carAgua(x, L, t0, Rr - L, alto);
-      x.fillStyle = '#e9eef5'; x.fillRect(Rr, t0 - 4, 12, alto + 8); x.fillStyle = '#14233f'; x.fillRect(Rr + 2, t0 + alto / 2 - 9, 8, 18);
-      carCorchera(x, L, t0, Rr - L); carCorchera(x, L, t0 + alto, Rr - L);
+      if (!est) { carAgua(x, L, t0, Rr - L, alto); x.fillStyle = '#e9eef5'; x.fillRect(Rr, t0 - 4, 12, alto + 8); carCorchera(x, L, t0, Rr - L); carCorchera(x, L, t0 + alto, Rr - L); }
+      x.fillStyle = '#14233f'; x.fillRect(Rr + 2, t0 + alto / 2 - 9, 8, 18);
       x.strokeStyle = 'rgba(20,35,63,.4)'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, t0 + alto / 2); x.lineTo(Rr, t0 + alto / 2); x.stroke();
       x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = 1; const paso = PL > 25 ? 10 : 5; for (let m = paso; m < PL; m += paso) { x.beginPath(); x.moveTo(Rr - m * pm, t0); x.lineTo(Rr - m * pm, t0 + alto); x.stroke(); } });
     // regla bajo la última fila
@@ -159,6 +162,23 @@ function carPintar(host, c, op = {}) {
       else if (!gan) {   // en un largo anterior y nadando al revés: la banda va hasta la pared donde virará
         x.fillStyle = col + '44'; x.fillRect(L, t0 + 3, px - 14 - L, alto - 6); x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 3]); x.beginPath(); x.moveTo(px - 14, t0 + 3); x.lineTo(px - 14, t0 + alto - 3); x.stroke(); x.setLineDash([]);
         x.fillStyle = col; x.font = '700 10px -apple-system,Arial'; x.textAlign = 'left'; x.fillText('viraje', L + 4, t0 + alto / 2 + 4); }
+      if (est) {   // móvil: puesto, nombre y distancia sobre el agua (pastillas oscuras), sin cortar la piscina
+        const lug = E.tab === 'final' ? nn.lugar : k + 1, ty = ry + 17, pre = cna ? '★ ' : '', anch = Rr - 8 - 88 - 36;
+        x.fillStyle = lug <= 3 ? CAR_MEDALLA[lug - 1] : '#34507f'; x.beginPath(); x.arc(18, ty, 11, 0, 7); x.fill(); x.strokeStyle = 'rgba(10,18,38,.6)'; x.lineWidth = 1.5; x.stroke();
+        x.fillStyle = lug <= 3 ? '#14233f' : '#eaf1fb'; x.font = `800 ${lug > 9 ? 11 : 13}px -apple-system,Arial`; x.textAlign = 'center'; x.fillText(lug, 18, ty + 4.5);
+        x.font = (cna ? '800' : '600') + ' 13px -apple-system,Arial'; let nom = pre + nn.n; while (x.measureText(nom).width > anch - 14 && nom.length > 4) nom = nom.slice(0, -2);
+        const nombre = nom === pre + nn.n ? nom : nom.trimEnd() + '…', wn = x.measureText(nombre).width, sub = `${nn.club} · S${nn.serie} C${nn.calle} · ${fmt(nn.t)}`;
+        x.font = '10.5px -apple-system,Arial'; const pw = Math.min(anch, Math.max(wn, x.measureText(sub).width) + 18);
+        x.fillStyle = 'rgba(10,18,38,.8)'; x.beginPath(); x.roundRect(34, ry + 3, pw, 29, 8); x.fill(); x.fillStyle = col; x.beginPath(); x.roundRect(34, ry + 3, 4, 29, 2); x.fill();
+        x.textAlign = 'left'; x.fillStyle = cna ? '#fff' : '#c6d3e8'; x.font = (cna ? '800' : '600') + ' 13px -apple-system,Arial'; x.fillText(nombre, 43, ry + 16);
+        x.font = '10.5px -apple-system,Arial'; x.fillStyle = '#a9bbd6'; x.fillText(sub, 43, ry + 28);
+        const dw = 84, dx = Rr - 6 - dw; x.fillStyle = gan ? 'rgba(70,55,10,.9)' : 'rgba(10,18,38,.8)'; x.beginPath(); x.roundRect(dx, ry + 3, dw, 29, 8); x.fill();
+        x.textAlign = 'right'; x.fillStyle = gan ? CAR_ORO : '#fff'; x.font = '800 14px -apple-system,Arial'; x.fillText(gan ? 'GANA' : '-' + carEs(g) + ' m', dx + dw - 8, ry + 16);
+        x.fillStyle = gan ? '#ffe98a' : '#9fd0ff'; x.font = '600 10.5px -apple-system,Arial'; x.fillText(gan ? fmt(nn.t) : '+' + carEs((nn.t - tw) / 100, 2) + ' s', dx + dw - 8, ry + 28);
+        if (gan) { x.save(); x.shadowColor = '#ffe98a'; x.shadowBlur = 16; }
+        carNadador(x, px, y, pf.dir, col, 1.05, 0, cna); if (gan) x.restore();
+        return;
+      }
       const lug = E.tab === 'final' ? nn.lugar : k + 1, ty = est ? ry + 22 : y, cx0 = est ? 24 : 24;
       x.fillStyle = lug <= 3 ? CAR_MEDALLA[lug - 1] : '#34507f'; x.beginPath(); x.arc(cx0, ty, est ? 14 : 18, 0, 7); x.fill();
       x.fillStyle = lug <= 3 ? '#14233f' : '#eaf1fb'; x.font = `800 ${est ? (lug > 9 ? 13 : 16) : (lug > 9 ? 16 : 20)}px -apple-system,Arial`; x.textAlign = 'center'; x.fillText(lug, cx0, ty + (est ? 6 : 7));
