@@ -559,7 +559,8 @@ function vistaDirecto(app, p) {
     } else {
       const g = e => d.competiciones.filter(x => x.estado === e);
       const sec = (t, L, inv) => L.length ? `<div class="h h-sub" style="margin-top:14px">${t}</div>${(inv ? [...L].reverse() : L).map(dirTarjeta).join('')}` : '';
-      host.innerHTML = (sec('En curso', g('en_curso')) + sec('Próximas', g('proxima')) + sec('Recientes', g('terminada'), true)
+      const prx = g('proxima'), secProx = !prx.length ? '' : `<div class="h h-sub" style="margin-top:14px">Próximas <span class="h-n">· ${prx.length} en el calendario</span></div>${prx.slice(0, 4).map(dirTarjeta).join('')}${prx.length > 4 ? `<details class="dir-mas"><summary>Ver las ${prx.length - 4} siguientes</summary>${prx.slice(4).map(dirTarjeta).join('')}</details>` : ''}`;
+      host.innerHTML = (sec('En curso', g('en_curso')) + secProx + sec('Recientes', g('terminada'), true)
         || '<div class="vacio">No hay competiciones en las próximas semanas.</div>') + pie;
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
@@ -652,6 +653,42 @@ async function pintarUltimaComp(app) {
   host.querySelector('[data-ult-detalle]').onclick = () => abrirUltimaComp(c);
   host.insertAdjacentHTML('beforeend', '<div data-car-club></div>'); carPintarClub(host.querySelector('[data-car-club]'), c.id);   // foto finish y repetición de cada prueba
 }
+/* ── Competiciones en la portada del Club: la próxima (o la que está en directo) con cuánto falta, las siguientes y la última ──
+   Lo que antes estaba escondido en «Lo último» y en el botón «Directo». */
+function ccFalta(c) {
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  const n = Math.round((new Date(c.desde + 'T00:00:00') - h) / 864e5);
+  return c.estado === 'en_curso' ? 'En directo ahora' : n <= 0 ? 'Hoy' : n === 1 ? 'Mañana' : n < 60 ? `En ${n} días` : `En ${Math.round(n / 30)} meses`;
+}
+function abrirCarreras(c) {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">Carrera a carrera</h1><p class="muted small" style="margin:2px 0 6px">${esc(c.titulo)}</p><div data-car-club></div>`;
+    abrirModal(); carPintarClub(box.querySelector('[data-car-club]'), c.id);
+  });
+}
+async function pintarCompClub(app) {
+  const host = app.querySelector('#club-comp'); if (!host) return;
+  const d = await dirCargar(false); if (!host.isConnected) return;
+  if (!d || !d.competiciones.length) { host.remove(); return; }
+  const sig = d.competiciones.filter(c => c.estado !== 'terminada').sort((a, b) => (a.desde || '').localeCompare(b.desde || '')), ult = dirUltimaDelClub(d), p = sig[0];
+  const part = c => { const n = dirNuestras(c).length; return n ? ` · ${n} ${n === 1 ? 'participación' : 'participaciones'} del club` : ''; };
+  const bProx = p ? `<div class="cc-b${p.estado === 'en_curso' ? ' vivo' : ''}"><div class="cc-et">${p.estado === 'en_curso' ? '<span class="dir-punto"></span>En directo' : 'Próxima competición'}<span class="cc-falta">${esc(ccFalta(p))}</span></div>
+      <b>${esc(p.titulo)}</b><div class="tiny muted">${dirFechas(p)} · ${esc(p.ambito)}${part(p)}</div>
+      <a class="btn" href="#directo${p.lenex ? '?c=' + Number(p.id) : ''}" style="margin-top:8px">${p.lenex ? (p.estado === 'en_curso' ? 'Ver el directo' : 'Ver las series') : 'Ver el calendario'}</a>
+      ${sig.length > 1 ? `<div class="cc-sig">${sig.slice(1, 3).map(c => `<div><span class="cc-falta">${esc(ccFalta(c))}</span> <b>${esc(c.titulo)}</b> <span class="tiny muted">${dirFechas(c)}</span></div>`).join('')}</div>` : ''}</div>`
+    : '<div class="cc-b"><div class="cc-et">Próxima competición</div><p class="small muted" style="margin:4px 0 0">Todavía no hay competiciones publicadas en el calendario.</p></div>';
+  const bUlt = ult ? (() => { const r = dirResumenComp(ult), nad = new Set(r.H.map(x => x.f.rfen)).size;
+    return `<div class="cc-b"><div class="cc-et">Última competición</div><b>${esc(ult.titulo)}</b>
+      <div class="tiny muted">${dirFechas(ult)}${ult.lenex.lugar ? ' · ' + esc(dirTitulo(ult.lenex.lugar)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
+      <div class="cc-acc"><button class="btn" data-cc-car>Carrera a carrera</button><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
+  host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Calendario completo ›</a></div>${bProx}${bUlt}`;
+  const car = host.querySelector('[data-cc-car]'), det = host.querySelector('[data-cc-det]');
+  if (car) car.onclick = () => abrirCarreras(ult);
+  if (det) det.onclick = () => abrirUltimaComp(ult);
+}
+
 /* Ventana de detalle: frente a su mejor marca (barras a los dos lados), y cada prueba con sus nadadores; al tocar uno, sus parciales */
 function abrirUltimaComp(c) {
   const {H, pbs, kpis} = dirResumenComp(c);

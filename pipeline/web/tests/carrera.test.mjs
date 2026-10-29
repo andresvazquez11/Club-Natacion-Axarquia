@@ -43,3 +43,20 @@ test('carPruebas: solo pruebas con 4 o más nadadores, alguno del CNA y todas co
   assert.deepEqual(ev('carPruebas', c).map(x => x.p.num), [1]);
   assert.equal(ev('carPruebas', c)[0].titulo, '100 Libre · chicos alevín');
 });
+
+test('carPosFinal: a más de una piscina el nadador va en sentido contrario al ganador', () => {
+  assert.deepEqual(ev('carPosFinal', 100, 25, 100), { x: 25, dir: 1 });      // el ganador, en la pared de llegada
+  assert.deepEqual(ev('carPosFinal', 90, 25, 100), { x: 15, dir: 1 });       // a 10 m: mismo largo
+  assert.deepEqual(ev('carPosFinal', 67, 25, 100), { x: 8, dir: -1 });       // a 33 m: largo anterior, al revés (queda 8 m para su pared)
+  assert.deepEqual(ev('carPosFinal', 40, 25, 100), { x: 15, dir: 1 });       // a 60 m: dos largos antes, otra vez en el mismo sentido
+  assert.deepEqual(ev('carPosFinal', 0, 25, 100), { x: 25, dir: -1 });       // recién salido: junto a la pared de salida (la de enfrente en el dibujo)
+});
+
+test('ccFalta: cuánto falta para una competición', () => {
+  const dia = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const c = ctxD => ctxD;
+  const ctx2 = cargar(['comunes.js', 'iconos.js', 'graficos.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
+  const f = (desde, estado = 'proxima') => { ctx2.__c = { desde, estado }; return evalIn(ctx2, 'ccFalta(__c)'); };
+  assert.deepEqual([f(dia(0)), f(dia(1)), f(dia(31)), f(dia(120)), f(dia(0), 'en_curso')], ['Hoy', 'Mañana', 'En 31 días', 'En 4 meses', 'En directo ahora']);
+  void c;
+});

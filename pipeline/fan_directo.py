@@ -22,6 +22,8 @@ CALENDARIOS = [   # (ruta, categoría de JEvents, ámbito)
 ]
 CLUB = 'AXARQ'          # así aparece el club en las inscripciones («C.N. Axarquia»)
 ANTES, DESPUES = 10, 60  # días: competiciones de los últimos 10 días y de los próximos 60
+CALENDARIO = 330         # días: el calendario de casi toda la temporada. Las competiciones a más de DESPUES días solo se listan:
+                         # su web y documentos se leen una vez y se reutilizan (no se vuelven a pedir en cada vuelta)
 UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8', 'Accept-Language': 'es-ES,es;q=0.9'}
 MESES = {m: i + 1 for i, m in enumerate(['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
@@ -461,7 +463,7 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
         comps, vistos, fallos = [], set(), set()
         anteriores = {c['id']: c for c in (previo or {}).get('competiciones', [])}
         for ruta, cat, ambito in CALENDARIOS:
-            for anio in sorted({hoy.year, (hoy + timedelta(days=DESPUES)).year, (hoy - timedelta(days=ANTES)).year}):
+            for anio in sorted({hoy.year, (hoy + timedelta(days=CALENDARIO)).year, (hoy - timedelta(days=ANTES)).year}):
                 try:
                     pag = obtener(f'{FAN}{ruta}/eventosanual/{anio}/{cat}')
                 except Exception as e:
@@ -472,14 +474,19 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
                     if ev['id'] in vistos:
                         continue
                     vistos.add(ev['id'])
-                    if ev['hasta'] >= (hoy - timedelta(days=ANTES)).isoformat() and ev['desde'] <= (hoy + timedelta(days=DESPUES)).isoformat():
+                    if ev['hasta'] >= (hoy - timedelta(days=ANTES)).isoformat() and ev['desde'] <= (hoy + timedelta(days=CALENDARIO)).isoformat():
                         comps.append(ev)
         # si no se pudo leer el calendario de un ámbito, se conservan sus competiciones de la vez anterior (no desaparecen)
         for c in anteriores.values():
             if c.get('ambito') in fallos and c['id'] not in vistos and c['hasta'] >= (hoy - timedelta(days=ANTES)).isoformat():
                 vistos.add(c['id'])
                 comps.append({k: v for k, v in c.items() if k not in ('lenex', 'estado')})
+        lejos = (hoy + timedelta(days=DESPUES)).isoformat()
         for c in comps:
+            ant = anteriores.get(c['id'])
+            if c['desde'] > lejos and ant and 'docs' in ant:     # lejana y ya leída: se reutiliza lo que se sabía
+                c['web'], c['webs'], c['docs'] = ant.get('web'), ant.get('webs') or [], ant['docs']
+                continue
             try:
                 webs, c['docs'] = documentos(obtener(c['url']))
                 c['web'], c['webs'] = (webs[0] if webs else None), webs

@@ -21,6 +21,13 @@ function carNad(f, dist) {
   if (acu.some((v, i) => i && v <= acu[i - 1])) return null;
   return {serie: f[0], calle: f[1], n: carNombre(f[2]), nombre: f[2], club: carClubCorto(f[3]), t: f[5], acu, dist, rfen: f[9] ? String(f[9]) : '', puesto: f[7]};
 }
+/* Dónde está en el último instante (cuando toca el primero): metros recorridos d, piscina de LP m y prueba de D m.
+   La pared de llegada se dibuja a la derecha: x = metros desde la pared de la izquierda; dir = 1 si nada hacia esa pared, -1 si va en sentido contrario
+   (queda a más de una piscina de distancia, en un largo anterior que se nada al revés). */
+function carPosFinal(d, LP, D) {
+  const nl = Math.max(1, Math.round(D / LP)), k = Math.max(0, Math.min(nl - 1, Math.floor(d / LP))), w = Math.max(0, Math.min(LP, d - k * LP));
+  return (nl - 1 - k) % 2 === 0 ? {x: w, dir: 1} : {x: LP - w, dir: -1};
+}
 /* Metros recorridos a los t centésimas: parciales repartidos a partes iguales de la distancia, ritmo constante entre ellos */
 function carDist(n, t) {
   if (t <= 0) return 0;
@@ -168,10 +175,13 @@ function carPintar(host, c, op = {}) {
     x.fillText(est ? 'Más rápido en el centro · ★ = nadador del CNA' : 'Ordenados como en una serie: el más rápido en el centro y los demás hacia fuera · ★ = nadador del CNA', 8, 38);
     if (!est) { x.textAlign = 'right'; x.fillText('a qué distancia quedó', W - 8, 38); }
     n.forEach((nn, k) => {
-      const f = orden.indexOf(slot[k]), ry = top + f * lh, t0 = franja(f), y = t0 + alto / 2, g = k === 0 ? 0 : carGap(nn, tw), gd = Math.min(PL - 1, g), px = Rr - gd * pm - 16, gan = k === 0, cna = nn.club === 'CNA', col = carColor(nn.club), mio = nn.rfen && nn.rfen === E.dest;
+      const f = orden.indexOf(slot[k]), ry = top + f * lh, t0 = franja(f), y = t0 + alto / 2, g = k === 0 ? 0 : carGap(nn, tw), pf = carPosFinal(nn.dist - g, PL, nn.dist), px = L + pf.x * pm - (pf.dir > 0 ? 16 : -16), gan = k === 0, cna = nn.club === 'CNA', col = carColor(nn.club), mio = nn.rfen && nn.rfen === E.dest;
       if (cna) { x.fillStyle = 'rgba(42,120,214,.30)'; x.fillRect(0, ry, W, lh); x.fillStyle = CAR_ORO; x.fillRect(0, ry, mio ? 9 : 5, lh); }
       if (gan) { x.fillStyle = 'rgba(242,201,76,.16)'; x.fillRect(0, ry, W, lh); }
-      if (!gan) { x.fillStyle = col + '66'; x.fillRect(px + 14, t0 + 3, Rr - 1 - (px + 14), alto - 6); x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); x.moveTo(px + 14, t0 + 3); x.lineTo(px + 14, t0 + alto - 3); x.stroke(); }
+      if (!gan && pf.dir > 0) { x.fillStyle = col + '66'; x.fillRect(px + 14, t0 + 3, Rr - 1 - (px + 14), alto - 6); x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); x.moveTo(px + 14, t0 + 3); x.lineTo(px + 14, t0 + alto - 3); x.stroke(); }
+      else if (!gan) {   // en un largo anterior y nadando al revés: la banda va hasta la pared donde virará
+        x.fillStyle = col + '44'; x.fillRect(L, t0 + 3, px - 14 - L, alto - 6); x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 3]); x.beginPath(); x.moveTo(px - 14, t0 + 3); x.lineTo(px - 14, t0 + alto - 3); x.stroke(); x.setLineDash([]);
+        x.fillStyle = col; x.font = '700 10px -apple-system,Arial'; x.textAlign = 'left'; x.fillText('viraje', L + 4, t0 + alto / 2 + 4); }
       const lug = E.tab === 'final' ? nn.lugar : k + 1, ty = est ? ry + 22 : y, cx0 = est ? 24 : 24;
       x.fillStyle = lug <= 3 ? CAR_MEDALLA[lug - 1] : '#34507f'; x.beginPath(); x.arc(cx0, ty, est ? 14 : 18, 0, 7); x.fill();
       x.fillStyle = lug <= 3 ? '#14233f' : '#eaf1fb'; x.font = `800 ${est ? (lug > 9 ? 13 : 16) : (lug > 9 ? 16 : 20)}px -apple-system,Arial`; x.textAlign = 'center'; x.fillText(lug, cx0, ty + (est ? 6 : 7));
@@ -184,12 +194,12 @@ function carPintar(host, c, op = {}) {
       let sub = `${nn.club} · serie ${nn.serie} · calle ${nn.calle} · ${fmt(nn.t)}`; if (x.measureText(sub).width > anch) sub = `${nn.club} · S${nn.serie} C${nn.calle} · ${fmt(nn.t)}`;
       x.fillText(sub, nx, est ? ty + 12 : y + 13);
       if (gan) { x.save(); x.shadowColor = '#ffe98a'; x.shadowBlur = 18; }
-      carNadador(x, px, y, 1, col, est ? 1.05 : 1.2, 0, cna); if (gan) x.restore();
+      carNadador(x, px, y, pf.dir, col, est ? 1.05 : 1.2, 0, cna); if (gan) x.restore();
       const cx = est ? W - 56 : Rr + DER / 2 + 10; x.textAlign = est ? 'right' : 'center'; const cxx = est ? W - 14 : cx, cy = est ? ty : y;
       if (gan) { x.fillStyle = CAR_ORO; x.font = '800 17px -apple-system,Arial'; x.fillText('GANA', cxx, cy - 1); x.font = '700 12px -apple-system,Arial'; x.fillStyle = '#ffe98a'; x.fillText(fmt(nn.t), cxx, cy + 15); }
       else { x.fillStyle = '#fff'; x.font = (est ? '800 17px' : '800 19px') + ' -apple-system,Arial'; x.fillText('-' + carEs(g) + ' m', cxx, cy - 1); x.font = '600 12px -apple-system,Arial'; x.fillStyle = '#9fd0ff'; x.fillText('+' + carEs((nn.t - tw) / 100, 2) + ' s', cxx, cy + 15); }
     });
-    q('[data-car-nota]').textContent = 'Serie y calle reales. En el resultado final los nadadores de series distintas se comparan por tiempo, como si hubieran nadado juntos. La distancia es una estimación: se interpola entre sus parciales y su tiempo final (ritmo constante entre ellos). La banda de color es lo que le faltaba a cada uno cuando tocó el primero.';
+    q('[data-car-nota]').textContent = 'Serie y calle reales. En el resultado final los nadadores de series distintas se comparan por tiempo, como si hubieran nadado juntos. La distancia es una estimación: se interpola entre sus parciales y su tiempo final (ritmo constante entre ellos). La banda de color es lo que le faltaba a cada uno cuando tocó el primero. Si quedó a más de un largo, aparece donde estaba de verdad: en el largo anterior, nadando en sentido contrario.';
   }
   function repeticion() {
     const an = q('[data-car-an]'); if (!an) return;

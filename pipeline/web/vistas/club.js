@@ -356,6 +356,7 @@ function clubInicio(app) {
       <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · ${actBtn(`actualizado ${DATA.fecha}`)}</p></div></div>
     </div>
     <div class="accesos dos">${accesos}</div>
+    <div class="card cc" id="club-comp" style="margin-top:12px"><div class="h">${ico('copa')}Competiciones</div><p class="empty">Buscando competiciones…</p></div>
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
       <div class="kpis k5">
         ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
@@ -390,6 +391,7 @@ function clubInicio(app) {
     app.querySelectorAll('.lu [data-lu]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); });
     app.querySelectorAll('.lu [data-lu-p]').forEach(pn => { pn.hidden = pn.dataset.luP !== b.dataset.lu; }); });
   pintarUltimaComp(app);   // última competición del club (directo de la FAN)
+  pintarCompClub(app);     // próxima competición, cuánto falta y última, en la portada
 }
 
 /* Esta semana: mejores marcas de los últimos 8 días, subidas en el ranking de España y top-10 en campeonatos.
