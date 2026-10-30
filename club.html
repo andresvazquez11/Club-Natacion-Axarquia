@@ -4946,6 +4946,7 @@ function carPintar(host, c, op = {}) {
       <div class="chips sub car-tabs" data-car-tabs></div><div class="car-leg" data-car-leg></div>
       <div class="car-panel"><canvas data-car-ff></canvas><p class="tiny" data-car-nota></p></div>
       <div class="h h-sub" style="margin-top:14px">${ico('crono')}<span data-car-rtit></span></div>
+      <div class="chips sub car-tabs" data-car-tabs2></div>
       <div class="car-panel"><div class="car-row"><div class="car-pool"><canvas data-car-an></canvas></div><div class="car-tw" data-car-tw></div></div>
         <div class="car-ctrl"><button class="btn" data-car-play>Empezar</button><button class="btn ghost" data-car-rest>Reiniciar</button><span class="car-clk" data-car-clk>0.00</span>
           <input type="range" min="0" max="1000" value="0" data-car-sl aria-label="Momento de la carrera"><span class="car-vel" data-car-vel></span></div></div></div>`;
@@ -4960,6 +4961,8 @@ function carPintar(host, c, op = {}) {
   function esperar() { E.T = 0; E.play = false; E.espera = true; q('[data-car-play]').textContent = 'Empezar'; arrancar(); }
   function pestañas() {
     q('[data-car-tabs]').innerHTML = `<button class="chip${E.tab === 'final' ? ' on' : ''}" data-tab="final">Resultado final</button>` + serieIds().map(s => `<button class="chip${E.tab === s ? ' on' : ''}" data-tab="${s}">Serie ${s}</button>`).join('');
+    const sa = serieAnim(), ids = serieIds();   // el mismo selector, junto a la repetición: elegir una serie aquí cambia también la foto finish
+    q('[data-car-tabs2]').innerHTML = ids.length > 1 ? ids.map(s => `<button class="chip${sa === s ? ' on' : ''}" data-tab="${s}">Serie ${s}</button>`).join('') : '';
     q('[data-car-vel]').innerHTML = [1, 2, 4].map(v => `<button class="chip${v === E.vel ? ' on' : ''}" data-vel="${v}">×${v}</button>`).join('');
     const cl = [...new Set(pr().todos.map(n => n.club))].sort((a, b) => (a === 'CNA' ? -1 : b === 'CNA' ? 1 : a.localeCompare(b)));
     q('[data-car-leg]').innerHTML = cl.map(k => `<span><i style="background:${carColor(k)}"></i>${esc(k)}</span>`).join('') + '<span>Anillo dorado: nadador del CNA</span>';
