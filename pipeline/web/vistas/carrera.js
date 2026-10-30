@@ -290,7 +290,7 @@ async function carCompletaComp(host, comp) {
   c.pruebas = [...((vivo || {}).pruebas || []), ...((guardada || {}).pruebas || []).filter(p => !en.has(clave(p)))];
   return c;
 }
-/* Vista «Seguir a un nadador»: en cada tarjeta de prueba ya nadada (data-car-clave = «sesión|nº»), el botón de foto finish con ese nadador destacado */
+/* Vista «Seguir a un nadador» y ventana «Última competición» (rfen vacío): en cada tarjeta de prueba ya nadada (data-car-clave = «sesión|nº»), el botón de foto finish con ese nadador destacado */
 async function carBotonesSeguir(host, comp, rfen) {
   const c = await carCompletaComp(host, comp); if (!c) return;
   const ok = carDisponibles(c);
@@ -298,8 +298,9 @@ async function carBotonesSeguir(host, comp, rfen) {
     if (card.querySelector('[data-car-abrir]')) return;
     const m = /^(.*)\|(\d+)$/.exec(card.dataset.carClave || ''); if (!m || !ok.has(card.dataset.carClave)) return;
     const b = document.createElement('button'); b.className = 'btn car-abrir'; b.setAttribute('data-car-abrir', ''); b.innerHTML = `${ico('crono')}Ver foto finish y repetición de la carrera`;
-    b.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); carAbrirPrueba(c, Number(m[2]), m[1], String(rfen)); };
-    const pos = card.querySelector('details.dir-mas'); if (pos) pos.insertAdjacentElement('beforebegin', b); else card.appendChild(b);
+    b.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); carAbrirPrueba(c, Number(m[2]), m[1], rfen ? String(rfen) : undefined); };
+    const pos = card.querySelector('details.dir-mas'), sum = card.matches('details') && card.querySelector('summary');
+    if (pos) pos.insertAdjacentElement('beforebegin', b); else if (sum) sum.insertAdjacentElement('afterend', b); else card.appendChild(b);
   });
 }
 async function carBotonesDetalle(host, comp) {

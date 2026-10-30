@@ -743,7 +743,7 @@ function abrirUltimaComp(c) {
   const secciones = [...porPrueba.entries()].sort((a, b) => (a[0].fecha || '').localeCompare(b[0].fecha || '') || a[0].num - b[0].num).map(([p, L]) => {
     L.sort((a, b) => (a.f.serie || 0) - (b.f.serie || 0) || (a.f.t || 9e9) - (b.f.t || 9e9));
     const npb = L.filter(x => x.pb).length, mejorP = Math.min(...L.map(x => x.f.puesto || 999));
-    return `<details class="ult-pr"><summary><b>${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}${p.categoria ? ' · ' + esc(p.categoria) : ''}</span>
+    return `<details class="ult-pr" data-car-clave="${esc(`${p.sesion || ''}|${p.num}`)}"><summary><b>${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}${p.categoria ? ' · ' + esc(p.categoria) : ''}</span>
       <span class="ult-pr-r">${L.length} nad.${npb ? ` · <b class="good">${npb} mejor${npb > 1 ? 'es' : ''} marca${npb > 1 ? 's' : ''}</b>` : ''}${mejorP < 999 ? ` · mejor puesto ${mejorP}º` : ''}</span></summary>
       <div class="tw"><table class="rt"><tr><th>Nadador</th><th>${L[0].conSeries ? 'Serie' : 'Prueba'}</th><th class="num">Tiempo</th><th class="num">Puesto</th><th class="num">Frente a su mejor</th><th class="num">Inscripción</th></tr>
       ${L.map(x => { todas.push(x); const j = todas.length - 1, parc = x.ok && gParcCarrera(dirAcu(x.f), dirDist(p.nombre));
@@ -763,6 +763,7 @@ function abrirUltimaComp(c) {
       <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· toca un nadador para ver sus parciales</span></div>${dirLeyenda()}${secciones}
       <p class="tiny muted" style="margin-top:8px">★ = mejor marca personal (antes de esta competición, misma piscina). «Serie»: en qué serie nadó y en qué puesto quedó dentro de ella. Inscripción: frente al tiempo con el que se inscribió. ${pbs.length} mejores marcas en ${H.length} carreras.</p>
       <p style="margin-top:10px"><a class="btn ghost" href="#directo?c=${Number(c.id)}" onclick="closeEvo()">Ver toda la competición →</a></p>`;
+    carBotonesSeguir(box, c, '');   // foto finish y repetición en cada prueba ya nadada
     const dsp = box.querySelector('[data-desplegar]');
     if (dsp) dsp.onclick = () => { box.querySelector('[data-plegable]').classList.remove('g-plegada'); dsp.remove(); };
     box.querySelectorAll('tr[data-cr]').forEach(tr => tr.onclick = () => {
