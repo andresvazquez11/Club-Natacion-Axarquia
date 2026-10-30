@@ -281,12 +281,29 @@ function carAbrirPrueba(c, num, sesion, destacar) {
     abrirModal(); carPintar(box.querySelector('[data-car-host]'), c, {num, sesion, destacar});
   });
 }
-async function carBotonesDetalle(host, comp) {
-  const vivo = carDeLenex(comp), guardada = await carCompeticion(String(comp.id)); if (!host.isConnected) return;
-  if (!vivo && !guardada) return;
+/* La competición con lo del momento y lo guardado juntos (null si no hay carreras de ninguno de los dos) */
+async function carCompletaComp(host, comp) {
+  const vivo = carDeLenex(comp), guardada = await carCompeticion(String(comp.id)); if (!host.isConnected) return null;
+  if (!vivo && !guardada) return null;
   const c = Object.assign({}, guardada || vivo, vivo || {});      // lo del momento manda; lo guardado completa lo que ya no esté en el directo
   const clave = p => `${p.sesion}|${p.num}`, en = new Set(((vivo || {}).pruebas || []).map(clave));
   c.pruebas = [...((vivo || {}).pruebas || []), ...((guardada || {}).pruebas || []).filter(p => !en.has(clave(p)))];
+  return c;
+}
+/* Vista «Seguir a un nadador»: en cada tarjeta de prueba ya nadada (data-car-clave = «sesión|nº»), el botón de foto finish con ese nadador destacado */
+async function carBotonesSeguir(host, comp, rfen) {
+  const c = await carCompletaComp(host, comp); if (!c) return;
+  const ok = carDisponibles(c);
+  host.querySelectorAll('[data-car-clave]').forEach(card => {
+    if (card.querySelector('[data-car-abrir]')) return;
+    const m = /^(.*)\|(\d+)$/.exec(card.dataset.carClave || ''); if (!m || !ok.has(card.dataset.carClave)) return;
+    const b = document.createElement('button'); b.className = 'btn car-abrir'; b.setAttribute('data-car-abrir', ''); b.innerHTML = `${ico('crono')}Ver foto finish y repetición de la carrera`;
+    b.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); carAbrirPrueba(c, Number(m[2]), m[1], String(rfen)); };
+    const pos = card.querySelector('details.dir-mas'); if (pos) pos.insertAdjacentElement('beforebegin', b); else card.appendChild(b);
+  });
+}
+async function carBotonesDetalle(host, comp) {
+  const c = await carCompletaComp(host, comp); if (!c) return;
   const ok = carDisponibles(c);
   host.querySelectorAll('details[data-pid]').forEach(det => {
     if (det.querySelector('[data-car-abrir]')) return;

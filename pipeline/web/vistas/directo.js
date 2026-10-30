@@ -453,7 +453,7 @@ function dirSeguirHTML(c, rfen) {
     const est = x.estado === 'hecha' ? `<div class="dir-res">${posta ? `Relevo · ${posta} · equipo ` : 'Resultado '}<b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : x.f.conj ? `en ${x.p.sesion}` : '')}` : ''}${x.f.conj ? ` · <b>${x.f.conj}º de ${x.f.conjN}</b> entre ${x.p.conjCon.join(' y ')}${x.p.conjPend.length ? ` <span class="muted">(provisional: pendiente de finalizar ${x.p.conjPend.join(' y ')})</span>` : ''}` : ''}${posta ? `<div class="tiny dir-parc">Relevistas: ${dirRelevistas(x.f, rfen)}</div>` : ''}${dirParciales(x.f, dirDist(x.p.nombre)) ? `<div class="tiny dir-parc">Parciales: ${dirParciales(x.f, dirDist(x.p.nombre))}</div>` : ''}</div>`
       : x.estado === 'en_marcha' ? `<div class="dir-res vivo">Se está nadando: van ${x.hechas} de ${x.series} series. La suya es la ${x.posSerie}ª.</div>`
       : `<div class="dir-res pend">Por nadar</div>`;
-    return `<div class="card dir-seg dir-seg-${x.estado}">
+    return `<div class="card dir-seg dir-seg-${x.estado}" data-car-clave="${esc(`${x.p.sesion || ''}|${x.p.num}`)}">
       <div class="dir-seg-top"><div class="dir-hora"><small>${varios && x.p.fecha ? dfmt(x.p.fecha) : 'empieza'}</small><b>${esc(x.p.hora || '--:--')}</b></div>
         <div>${dirNombrePrueba(x.p)}<div class="tiny muted">Prueba ${x.p.num}${x.p.sesion ? (dirSesTexto(c) ? ` · ${esc(x.p.sesion)}` : ` · sesión ${esc(x.p.sesion)}`) : ''}</div></div></div>
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
@@ -573,6 +573,7 @@ function vistaDirecto(app, p) {
     const pie = `<p class="tiny muted" style="margin-top:12px">Datos de la Federación Andaluza (calendario y web de cada competición). Actualizado ${esc((d.actualizado || '').replace('T', ' a las '))}.${dirEnCurso(d) ? (DIR_PROXY ? ' Competición en curso: los resultados se leen al momento y la pantalla se refresca sola cada 30 segundos.' : ' Se refresca solo cada minuto; los resultados llegan con unos minutos de retraso.') : ''}</p>`;
     if (c && c.lenex && /^\d{3,12}$/.test(p.n || '')) {
       host.innerHTML = dirSeguirHTML(c, String(p.n)) + pie;
+      carBotonesSeguir(host, c, String(p.n));   // foto finish y repetición en cada prueba ya nadada
       if (abiertos.length) host.querySelectorAll('details').forEach(x => { if (abiertos.includes(x.querySelector('summary').textContent)) x.open = true; });
     } else if (c && c.lenex) {
       const f = {solo: p.solo !== '0', cat: /^[A-Z]{2,4}$/.test(p.cat || '') ? p.cat : '', sx: /^[FM]$/.test(p.sx || '') ? p.sx : '', ano: /^\d{4}$/.test(p.ano || '') ? p.ano : ''};
