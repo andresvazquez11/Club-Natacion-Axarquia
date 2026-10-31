@@ -48,10 +48,19 @@ DIAS.forEach((atras, si) => {
     const ms = Math.round(BASE_MS[`${estilo}|${dist}`][i] * (1 + 0.012 - si * 0.004 + (azar() - 0.5) * 0.012));
     const res = { sesId, nId, gId: gids[c], ms, modo: 'grupo', ronda: r + 1, salida: pos + 1, estilo, dist };
     if (dist === 100) res.parciales = [Math.round(ms * 0.485), ms];
+    if (si === 4 && nId === 'n5' && dist === 100) res.parciales = [Math.round(ms * 0.28), ms];   // parcial mal tomado (para el aviso «no cuadra»)
     if (si === 5 && nId === 'n2' && r === 0) res.nota = 'Buena salida; respira cada 3 en el último 25';
     D.resultados[id('r')] = res;
   })));
 });
+// Simulacro de competición (hace 25 días): 8 nadadores a la vez desde la plataforma, con parciales; para la foto finish de la web
+{ const fecha = AHORA - 25 * DIA - 5 * 60e3, sesId = id('ses');
+  D.sesiones[sesId] = { eqId: 'club_ale', fecha, estilo: 'libre', dist: 100, notas: null, fin: fecha + 40 * 60e3, coach: 'Laura', parciales: true, inicio: 'plataforma', comp: true,
+    nado: [{ r: 1, ini: fecha + 8 * 60e3, fin: fecha + 11 * 60e3 }], presentes: nads.map(x => x.id) };
+  const gids = CALLES.map(([nombre, ns], ord) => { const g = id('g'); D.grupos[g] = { sesId, nombre, ord }; ns.forEach((nId, pos) => { D.gnads[id('gn')] = { gId: g, nId, pos }; }); return g; });
+  CALLES.forEach(([, ns], c) => ns.forEach((nId, pos) => { const i = nads.findIndex(x => x.id === nId);
+    const ms = Math.round(BASE_MS['libre|100'][i] * (1.01 + (azar() - 0.5) * 0.012));
+    D.resultados[id('r')] = { sesId, nId, gId: gids[c], ms, modo: 'grupo', ronda: 1, salida: pos + 1, estilo: 'libre', dist: 100, comp: true, inicio: 'plataforma', parciales: [Math.round(ms * 0.485), ms] }; })); }
 D.plantillas.p1 = { coach: 'Laura', ts: AHORA - 2 * DIA, estilo: 'libre', dist: 50, parciales: false,
   calles: CALLES.map(([nombre, nIds]) => ({ nombre, nIds })) };
 D.planes.plan1 = { coach: 'Laura', ts: AHORA - DIA, nombre: 'Jueves · velocidad', eqId: 'club_ale', calles: CALLES.map(([nombre, nIds]) => ({ nombre, nIds })),
@@ -111,7 +120,7 @@ async function abrir(url, { usuario = USUARIO, coach = 'Laura', datos = D, modo,
   await ctx.addInitScript(firebaseFalso, { datos: JSON.parse(JSON.stringify(datos)), usuario });
   // la web carga el SDK con comprobación de integridad: en este navegador de pruebas se ignora (el SDK es el falso de arriba)
   await ctx.addInitScript(() => Object.defineProperty(HTMLScriptElement.prototype, 'integrity', { get: () => '', set: () => {}, configurable: true }));
-  await ctx.addInitScript(([c, m, av]) => { try { if (c) localStorage.setItem('coach_name', c); if (m) localStorage.setItem('cna_modo', m); if (!av) localStorage.setItem('crono_aviso_v23', '1'); } catch (e) {} }, [coach, modo, aviso]);
+  await ctx.addInitScript(([c, m, av]) => { try { if (c) localStorage.setItem('coach_name', c); if (m) localStorage.setItem('cna_modo', m); if (!av) localStorage.setItem('crono_aviso_v24', '1'); } catch (e) {} }, [coach, modo, aviso]);
   const p = await ctx.newPage();
   await p.clock.install({ time: AHORA });
   await p.goto(BASE + url, { waitUntil: 'load' });
@@ -146,6 +155,14 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await toca(p, '[data-action="hist-estilo"][data-val="libre"]'); await toca(p, '[data-action="hist-dist"][data-val="50"]'); await foto(p, 'historial_filtro');
   await toca(p, '[data-action="hist-estilo"][data-val="libre"]'); await toca(p, '[data-action="hist-dist"][data-val="50"]');
   await toca(p, '.hist-row'); await foto(p, 'resumen_entreno', 1300);
+  // v24: corregir un error (aviso de parciales y un tiempo abierto) en el entreno de hace 7 días
+  await toca(p, '[data-action="tab"][data-to="historial"]'); await p.locator('.hist-row').nth(1).click(); await p.clock.runFor(300); await arriba(p);
+  await p.evaluate(() => { const b = document.querySelector('[data-action="aviso-ok"]'); if (b) b.click(); }); await p.clock.runFor(200);
+  await p.locator('details.card summary', { hasText: 'no cuadra' }).first().click(); await p.clock.runFor(250); await foto(p, 'corregir_aviso', 800);
+  { const fila = p.locator('details.rs-serie').nth(1).locator('details.rs-fila').nth(4);   // 5.º de la serie 2: Carla, con el parcial dudoso
+    await fila.evaluate(f => { for (let e = f; e; e = e.parentElement.closest('details')) e.open = true; }); await p.clock.runFor(300);
+    await fila.scrollIntoViewIfNeeded(); await fila.screenshot({ path: path.join(OUT, 'z', 'corregir_tiempo.jpg'), type: 'jpeg', quality: 74 }); console.log('ok corregir_tiempo (fila)'); }
+  await toca(p, '[data-action="tab"][data-to="historial"]');
   await bajarA(p, '[data-action="graf-serie"]', 140); await foto(p, 'grafica');
   await toca(p, '[data-action="tab"][data-to="nadadores"]'); await foto(p, 'nadadores');
   await toca(p, '[data-action="evolucion-nad"][data-nid="n1"]');
@@ -265,8 +282,8 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
 // 4. La web del club: botón del cronómetro y sección Entrenamientos (modo entrenador)
 { const { ctx, p } = await abrir('club.html#entrenamientos');
   await p.clock.runFor(3000); await foto(p, 'web_entrenos', 1500);
-  await bajarA(p, '#ent-comparar', 100); await foto(p, 'web_comparar', 1300);
-  await toca(p, '[data-pt="ritmo"]'); await bajarA(p, '[data-pt="ritmo"]', 100); await foto(p, 'web_grafica', 1300);
+  await p.locator('details[data-sec="series"] > summary').click(); await p.clock.runFor(800); await bajarA(p, 'details[data-sec="series"]', 100); await foto(p, 'web_comparar', 1300);
+  await p.locator('details[data-sec="ritmo"] > summary').click(); await p.clock.runFor(800); await bajarA(p, 'details[data-sec="ritmo"]', 100); await foto(p, 'web_grafica', 1300);
   await bajarA(p, '.ent-ses', 120); await p.locator('.ent-ses summary').first().click(); await p.clock.runFor(300); await foto(p, 'web_sesion', 1100);
   await p.evaluate(() => { location.hash = '#directo'; }); await p.clock.runFor(1500); await arriba(p); await foto(p, 'web_directo');
   await p.evaluate(() => { location.hash = '#directo?c=9000'; }); await p.clock.runFor(1500); await arriba(p); await foto(p, 'web_directo_resultados');
@@ -274,6 +291,15 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await p.screenshot({ path: path.join(OUT, 'z', 'web_cabecera.jpg'), type: 'jpeg', quality: 74, clip: { x: 0, y: 0, width: 390, height: 64 } });
   await p.screenshot({ path: path.join(OUT, 'z', 'web_barra.jpg'), type: 'jpeg', quality: 74, clip: { x: 0, y: 844 - 60, width: 390, height: 60 } });
   console.log('ok web_cabecera / web_barra');
+  await ctx.close(); }
+
+// v24: simulacro de competición de la web (nadadores ficticios con marca de competición propia) y foto finish
+{ const { ctx, p } = await abrir('club.html');
+  await p.evaluate(a => { a.forEach((x, i) => { SW[x.rfen] = { id: Number(x.rfen), n: x.n, g: x.g, y: 2014 + (i % 2), cat: 'ALE', ev: x.ev }; }); },
+    nads.map((x, i) => ({ rfen: x.rfen, n: x.n, g: x.g, ev: Object.entries(NAD_JSON.nadadores[i].mm).map(([e, m]) => ({ e, h: [[m[1], m[0], '25m', null, null, null, null, null, 0]] })) })));
+  await p.evaluate(() => { location.hash = '#entrenamientos?dia=2026-09-27'; }); await p.clock.runFor(3500);
+  await bajarA(p, '.ent-simulacro', 90); await foto(p, 'web_simulacro', 1300);
+  await p.locator('.ent-fin-btn').first().click(); await p.clock.runFor(1500); await bajarA(p, '.ent-fin-host', 40); await p.clock.runFor(1200); await foto(p, 'web_fotofinish', 1300);
   await ctx.close(); }
 
 // PDF A4 con pie de página

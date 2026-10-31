@@ -943,3 +943,29 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 /* Constancia de cada nadador */
 .ent-chart .ent-cst-banda{opacity:.22}
 .ent-chart .ent-cst-media{stroke:var(--ink);stroke-width:2}
+
+/* Año de nacimiento junto al nombre y secciones plegables del entrenamiento (Series · Ritmo · Parciales) */
+.ent-an{font-size:.72em;font-weight:400;color:var(--ink2)}
+.ent-sec{margin-top:10px;border:1px solid var(--ln);border-radius:12px;padding:10px 12px}
+.ent-sec>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.ent-sec>summary::-webkit-details-marker{display:none}
+.ent-sec>summary b{flex:none}
+.ent-sec-r{flex:1;font-size:.78rem;color:var(--ink2);line-height:1.25}
+.ent-sec[open]>summary{margin-bottom:8px}
+.ent-sec[open]>summary .dir-chev{transform:rotate(90deg)}
+
+/* Simulacro de competición en la web */
+.sim-fila{margin:8px 0;padding:10px 12px;background:var(--inset);border:1px solid var(--ln);border-left:5px solid var(--nc,var(--ln));border-radius:12px}
+.sim-n{display:flex;align-items:center;gap:8px}.sim-n b{flex:1;min-width:0}.sim-t{font-weight:800;font-variant-numeric:tabular-nums;font-size:1.05em}
+.sim-pu{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--nc,var(--ln));color:#0b1a33;font-size:.78rem;font-weight:800}
+.sim-bar{position:relative;height:22px;margin:8px 0 6px;background:var(--bg2,rgba(127,127,127,.15));border-radius:6px;overflow:hidden}
+.sim-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.sim-bar .sim-ok{background:#22c55e;opacity:.55}.sim-bar .sim-no{background:#f59e0b;opacity:.55}
+.sim-bar>span{position:relative;z-index:1;font-size:.74rem;padding:0 8px;line-height:22px}
+.sim-pos{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.78rem}
+.sim-p b{margin-right:3px}
+.sim-club b{color:var(--ink2)}.sim-mal b{color:#2563eb}.sim-and b{color:#16a34a}.sim-esp b{color:#dc2626}
+
+.ent-fin-btn{margin:8px 0 4px;width:100%}
+.ent-fin-btn.on{filter:brightness(.92)}
+.ent-fin-host{margin-bottom:8px}

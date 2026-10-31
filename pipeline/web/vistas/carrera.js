@@ -7,6 +7,9 @@ const CAR_CLUB = {CNA: '#f2c94c', Mijas: '#ff6b6b', Inacua: '#40d39c', Estepona:
 const CAR_ORO = '#f2c94c', CAR_MEDALLA = ['#f2c94c', '#d3dae6', '#d18b4b'];
 const carEs = (v, d = 1) => v.toFixed(d).replace('.', ',');
 const carClubCorto = c => /axarq/i.test(c || '') ? 'CNA' : String(c || '').replace(/^(C\.D\.N\.|C\.N\.|Club Natacion|Club Natación|C\.D\.)\s*/i, '').replace(/ Malaga$/i, '').trim();
+/* Color de un nadador: el suyo propio si lo trae (simulacros del entrenamiento: todos son del club y hay que distinguirlos); si no, el de su club */
+const CAR_NAD = ['#4aa3ff', '#ff9f43', '#f472b6', '#40d39c', '#c084fc', '#ffe14a', '#ff6b6b', '#7ee0e0'];
+const carCol = n => n.color || carColor(n.club);
 const carColor = c => CAR_CLUB[c] || CAR_OTROS[[...c].reduce((a, ch) => a + ch.charCodeAt(0), 0) % CAR_OTROS.length];
 /* «Abel Moreno Delgado» → «Abel M.» (sin las partículas de, del, las…) */
 function carNombre(n) {
@@ -19,7 +22,7 @@ function carNad(f, dist) {
   if (!f[5] || f[8]) return null;
   const p = (f[6] || []).filter(x => x), acu = p.length && p[p.length - 1] === f[5] ? p : p.concat([f[5]]);
   if (acu.some((v, i) => i && v <= acu[i - 1])) return null;
-  return {serie: f[0], calle: f[1], n: carNombre(f[2]), nombre: f[2], club: carClubCorto(f[3]), t: f[5], acu, dist, rfen: f[9] ? String(f[9]) : '', puesto: f[7]};
+  return {serie: f[0], calle: f[1], n: carNombre(f[2]), nombre: f[2], club: carClubCorto(f[3]), t: f[5], acu, dist, rfen: f[9] ? String(f[9]) : '', puesto: f[7], color: f[10] || ''};
 }
 /* Dónde está en el último instante (cuando toca el primero): metros recorridos d, piscina de LP m y prueba de D m.
    La pared de llegada se dibuja a la derecha: x = metros desde la pared de la izquierda; dir = 1 si nada hacia esa pared, -1 si va en sentido contrario
@@ -41,7 +44,7 @@ function carPruebas(c) {
   return (c.pruebas || []).map((p, i) => {
     const dist = carDistPrueba(p.nombre), todos = p.filas.map(f => carNad(f, dist)).filter(Boolean);
     return {i, p, dist, todos, titulo: `${p.nombre} · ${p.sexo === 'F' ? 'chicas' : p.sexo === 'M' ? 'chicos' : ''}${p.cat ? ' ' + p.cat.toLowerCase() : ''}`.replace(/ +/g, ' ').trim()};
-  }).filter(x => x.dist && x.todos.length >= 4 && x.todos.some(n => n.club === 'CNA') && x.todos.every(n => n.serie));
+  }).filter(x => x.dist && x.todos.length >= (c.min || 4) && x.todos.some(n => n.club === 'CNA') && x.todos.every(n => n.serie));
 }
 /* Los 8 primeros del resultado (o de una serie); si hay un nadador destacado fuera de ellos, ocupa el último puesto con su lugar real */
 function carTop8(lista, destacar) {
@@ -132,7 +135,9 @@ function carPintar(host, c, op = {}) {
     q('[data-car-tabs2]').innerHTML = ids.length > 1 ? ids.map(s => `<button class="chip${sa === s ? ' on' : ''}" data-tab="${s}">Serie ${s}</button>`).join('') : '';
     q('[data-car-vel]').innerHTML = [1, 2, 4].map(v => `<button class="chip${v === E.vel ? ' on' : ''}" data-vel="${v}">×${v}</button>`).join('');
     const cl = [...new Set(pr().todos.map(n => n.club))].sort((a, b) => (a === 'CNA' ? -1 : b === 'CNA' ? 1 : a.localeCompare(b)));
-    q('[data-car-leg]').innerHTML = cl.map(k => `<span><i style="background:${carColor(k)}"></i>${esc(k)}</span>`).join('') + '<span>Anillo dorado: nadador del CNA</span>';
+    q('[data-car-leg]').innerHTML = pr().todos.some(n => n.color)
+      ? pr().todos.slice().sort((a, b) => a.t - b.t).map(n => `<span><i style="background:${carCol(n)}"></i>${esc(n.n)}</span>`).join('')
+      : cl.map(k => `<span><i style="background:${carColor(k)}"></i>${esc(k)}</span>`).join('') + '<span>Anillo dorado: nadador del CNA</span>';
     q('[data-car-rtit]').textContent = `Repetición de la serie ${serieAnim()}${E.tab === 'final' ? ' (la del mejor del CNA)' : ''}`;
   }
   function foto() {
@@ -162,7 +167,7 @@ function carPintar(host, c, op = {}) {
     x.fillText(est ? 'Más rápido en el centro · ★ = nadador del CNA' : 'Ordenados como en una serie: el más rápido en el centro y los demás hacia fuera · ★ = nadador del CNA', 8, 38);
     if (!est) { x.textAlign = 'right'; x.fillText('a qué distancia quedó', W - 8, 38); }
     n.forEach((nn, k) => {
-      const f = orden.indexOf(slot[k]), ry = top + f * lh, t0 = franja(f), y = t0 + alto / 2, g = k === 0 ? 0 : carGap(nn, tw), pf = carPosFinal(nn.dist - g, PL, nn.dist), px = L + pf.x * pm - (pf.dir > 0 ? 16 : -16), gan = k === 0, cna = nn.club === 'CNA', col = carColor(nn.club), mio = nn.rfen && nn.rfen === E.dest;
+      const f = orden.indexOf(slot[k]), ry = top + f * lh, t0 = franja(f), y = t0 + alto / 2, g = k === 0 ? 0 : carGap(nn, tw), pf = carPosFinal(nn.dist - g, PL, nn.dist), px = L + pf.x * pm - (pf.dir > 0 ? 16 : -16), gan = k === 0, cna = nn.club === 'CNA', col = carCol(nn), mio = nn.rfen && nn.rfen === E.dest;
       if (cna) { x.fillStyle = 'rgba(42,120,214,.30)'; x.fillRect(0, ry, W, lh); x.fillStyle = CAR_ORO; x.fillRect(0, ry, mio ? 9 : 5, lh); }
       if (gan) { x.fillStyle = 'rgba(242,201,76,.16)'; x.fillRect(0, ry, W, lh); }
       if (!gan && pf.dir > 0) { x.fillStyle = col + '66'; x.fillRect(px + 14, t0 + 3, Rr - 1 - (px + 14), alto - 6); x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); x.moveTo(px + 14, t0 + 3); x.lineTo(px + 14, t0 + alto - 3); x.stroke(); }
@@ -220,7 +225,7 @@ function carPintar(host, c, op = {}) {
     const pues = new Map(orden.map((o, k) => [o.nn, k + 1]));
     for (let i = 0; i < nl; i++) { x.fillStyle = '#8ea3c4'; x.font = '700 12px -apple-system,Arial'; x.textAlign = 'center'; x.fillText(cmin + i, L - 22, top + i * lh + lh / 2 + 4); }
     n.forEach((nn, i) => {
-      const y = top + (nn.calle - cmin) * lh + lh / 2, p = carPos(ds[i], LP, D), fin = T >= nn.t, px = Math.max(L + 20, Math.min(Rr - 20, L + p.x * pm)), cna = nn.club === 'CNA', col = carColor(nn.club);
+      const y = top + (nn.calle - cmin) * lh + lh / 2, p = carPos(ds[i], LP, D), fin = T >= nn.t, px = Math.max(L + 20, Math.min(Rr - 20, L + p.x * pm)), cna = nn.club === 'CNA', col = carCol(nn);
       carNadador(x, px, y + 5, fin ? -1 : p.dir, col, lh > 44 ? 1.15 : 1, T * .09 + i * 1.7, cna, fin);   // al llegar, se queda quieto en la pared
       const g = lid - ds[i], gt = fin ? `${pues.get(nn)}º · ${fmt(nn.t)}` : g < .05 ? 'líder' : '-' + carEs(g) + ' m', nm = (cna ? '★ ' : '') + nn.n + '  ';
       x.font = (cna ? '800' : '600') + ' 11px -apple-system,Arial'; const w = x.measureText(nm + gt).width + 12, lx = Math.max(L + w / 2 + 2, Math.min(Rr - w / 2 - 2, px));
@@ -230,7 +235,7 @@ function carPintar(host, c, op = {}) {
     });
     q('[data-car-tw]').innerHTML = orden.map((o, k) => {
       const fin = T >= o.nn.t, g = k === 0 ? (fin ? fmt(o.nn.t) : 'líder') : fin ? '+' + carEs((o.nn.t - orden[0].nn.t) / 100, 2) : (lid - o.d < .05 ? 'líder' : '-' + carEs(lid - o.d) + ' m');
-      return `<div class="car-tf${fin ? ' fin' : ''}${o.nn.club === 'CNA' ? ' cna' : ''}"><b>${k + 1}</b><span class="ln">C${o.nn.calle}</span><i style="background:${carColor(o.nn.club)}"></i><span class="nm">${esc(o.nn.n)}</span><span class="g">${g}</span></div>`;
+      return `<div class="car-tf${fin ? ' fin' : ''}${o.nn.club === 'CNA' ? ' cna' : ''}"><b>${k + 1}</b><span class="ln">C${o.nn.calle}</span><i style="background:${carCol(o.nn)}"></i><span class="nm">${esc(o.nn.n)}</span><span class="g">${g}</span></div>`;
     }).join('');
     q('[data-car-clk]').textContent = (T / 100).toFixed(2); q('[data-car-sl]').value = Math.round(Math.min(T, T0()) / T0() * 1000);
   }

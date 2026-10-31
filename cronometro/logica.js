@@ -1,7 +1,7 @@
 /* Lógica del cronómetro sin DOM ni Firebase: se carga antes que el script principal
    y se prueba con node --test (cronometro/tests). */
 
-const ESTILOS = ['libre','braza','mariposa','espalda'];
+const ESTILOS = ['libre','braza','mariposa','espalda','estilos'];
 // Estilos propios del club (colección «estilos»: id = slug, p. ej. «piernas»): los crean los entrenadores
 const ESTILO_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const estiloOk = e => typeof e === 'string' && (ESTILOS.includes(e) || (e.length >= 2 && e.length <= 30 && ESTILO_RE.test(e)));

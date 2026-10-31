@@ -2,7 +2,7 @@
    Solo para entrenadores aprobados: pide entrar con Google y las reglas de Firestore lo exigen.
    La lógica de cálculo (sin DOM) va arriba; el acceso a Firebase y el dibujo, abajo. */
 
-const ENT_ESTILOS = ['libre', 'espalda', 'braza', 'mariposa'];
+const ENT_ESTILOS = ['libre', 'espalda', 'braza', 'mariposa', 'estilos'];
 const ENT_LS = 'cna_entrenador';      // en este móvil ya entró un entrenador aprobado: se muestran sus accesos
 const esEntrenadorLocal = () => { try { return localStorage.getItem(ENT_LS) === '1'; } catch (e) { return false; } };
 const entMarcarLocal = si => { try { si ? localStorage.setItem(ENT_LS, '1') : localStorage.removeItem(ENT_LS); } catch (e) {} entNavModo(); };
@@ -52,7 +52,7 @@ function entTiempos(D, sw) {
       ts, horaSerie: ts ? entHora(ts) : '', comp: r.comp === true, inicio: r.comp === true ? 'plataforma' : ['agua', 'plataforma'].includes(r.inicio) ? r.inicio : null,
       estilo, dist, rota, ritmo, ev: estilo && dist ? `${dist} ${entEstiloNombre(estilo)}${rota ? ` · ${entRotaTxt(rota)}` : ''}` : null, cs: entCs(r.ms), parciales: r.parciales || null, nota: (r.nota && String(r.nota).trim().slice(0, 200)) || null,
       gId: r.gId || null, calle: (gru.get(r.gId) || {}).nombre || '', salida: Number(r.salida) > 0 ? Number(r.salida) : null,
-      nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null};
+      nId: r.nId, n: (web && web.n) || n.n || '?', rfen: web ? String(web.id) : null, cat: web ? web.cat : null, y: web && Number(web.y) > 1900 ? Number(web.y) : null};
   }).filter(t => t && entPlausible(t)).sort((a, b) => a.fecha - b.fecha);
 }
 /* Rota (serie partida en tramos con descansos; el tiempo es el neto, sin descansos): cada rota distinta es su propia prueba,
@@ -65,14 +65,16 @@ function entRota(r) {
 }
 const entRotaTxt = r => `rota ${r.tramos.join('·')} (${r.desc.join('·')} s)`;
 /* Descarta tiempos imposibles (pulsaciones de prueba, errores): menos de 10 s por cada 50 m */
+/* Año de nacimiento, pequeño y entre paréntesis junto al nombre (para saber de qué categoría es cada nadador) */
+const entAn = y => y ? ` <span class="ent-an">(${y})</span>` : '';
 const entPlausible = t => t.cs > 0 && t.cs >= (t.dist || 50) * 20;
 
 /* Filtra por categoría ('all' o clave), estilo ('all' o estilo) y periodo en días ('all' o número) */
 function entFiltrar(T, f, ahora = Date.now()) {
   const desde = f.dias && f.dias !== 'all' ? ahora - Number(f.dias) * 864e5 : -Infinity;
-  return T.filter(t => (!f.cat || f.cat === 'all' || t.cat === f.cat)
+  return T.filter(t => (!f.cat || f.cat === 'all' || t.cat === f.cat) && (!f.anio || f.anio === 'all' || t.y === Number(f.anio))
     && (!f.estilo || f.estilo === 'all' || t.estilo === f.estilo) && t.fecha >= desde
-    && (!f.sem || entLunes(t.fecha) === f.sem) && (!f.dia || t.dia === f.dia));
+    && (!f.sem || entLunes(t.fecha) === f.sem) && (!f.dia || t.dia === f.dia) && (!f.ses || t.sesId === f.ses));
 }
 
 /* Un entrenamiento (una sesión) como tabla: columnas = series (con su prueba y hora), filas = nadadores.
@@ -84,7 +86,7 @@ function entTabla(T) {
     s.n++; if (t.comp) s.comp = true; if (t.inicio && !s.inicio) s.inicio = t.inicio;
     if (t.ts && (!s.ts || t.ts < s.ts)) { s.ts = t.ts; s.hora = t.horaSerie; }
     series.set(t.ronda, s);
-    const f = filas.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, t: {}};
+    const f = filas.get(t.nId) || {nId: t.nId, n: t.n, rfen: t.rfen, y: t.y, t: {}};
     if (!f.t[t.ronda] || t.cs < f.t[t.ronda].cs) f.t[t.ronda] = t;
     filas.set(t.nId, f);
   });
@@ -162,6 +164,21 @@ function entStatsNadador(T, nId, ev) {
 }
 const entPct = v => v == null ? '—' : `<b class="${v <= 0 ? 'good' : 'bad'}">${v <= 0 ? '−' : '+'}${Math.abs(v).toFixed(1)}%</b>`;
 const entPctMejora = v => v == null ? '—' : v > 0 ? `<b class="good">${v.toFixed(1)}%</b>` : '0%';
+/* Mejora real de un nadador en una prueba: su mejor tiempo del periodo frente a su mejor ANTERIOR a ese periodo.
+   Si es la primera vez que la nada, no hay con qué comparar («—»); si solo hay tiempos de este periodo, primero frente a mejor. */
+function entMejoraVal(T, st) {
+  if (!st) return null;
+  const previos = T.filter(t => t.nId === st.nId && t.ev === st.primero.ev && t.fecha < st.primero.fecha);
+  if (previos.length) { const base = Math.min(...previos.map(t => t.cs)); return {pct: (base - st.mejor.cs) / base * 100, tip: `Frente a su mejor anterior (${fmt(base)})`}; }
+  if (st.veces > 1 && st.mejora > 0) return {pct: st.mejoraPct, tip: `Frente a su primer tiempo (${fmt(st.primero.cs)})`};
+  return null;
+}
+function entMejoraCelda(T, st) {
+  const v = entMejoraVal(T, st);
+  if (!v) return '<span class="muted" title="Primera vez en esta prueba: aún no hay con qué compararlo">—</span>';
+  const txt = Math.abs(v.pct) < 0.05 ? '0%' : `${v.pct > 0 ? '' : '−'}${Math.abs(v.pct).toFixed(1)}%`;
+  return `<b class="${v.pct > 0.05 ? 'good' : v.pct < -0.05 ? 'bad' : ''}" title="${v.tip}">${txt}</b>`;
+}
 
 /* Resumen del grupo: entrenamientos del grupo y, por nadador, a cuántos vino, cuántos tiempos tiene y qué estilos entrenó */
 function entGrupo(T, sesiones = []) {
@@ -191,7 +208,7 @@ function entListaGrupoDia(D, ev) {
   D.puntos.filter(t => t.dia === dia.dia).forEach(t => { const b = best.get(t.nId); if (!b || t.cs < b.cs) best.set(t.nId, t); });
   const L = [...best.values()].sort((a, b) => a.cs - b.cs), mn = L[0].cs;
   return `<div class="ent-graf">${barsHTML(L.map(t => [esc(t.n), mn / t.cs * 100, `<b>${fmt(t.cs)}</b> <span class="of">+${((t.cs - mn) / 100).toFixed(1)} s</span>`,
-    `${t.rfen ? `data-href="#nadador/${t.rfen}/entrenos?ev=${encodeURIComponent(ev)}"` : ''}${tipAttr(`${t.n}\n${fmt(t.cs)}${t.cs <= dia.mediana ? ' · más rápido que la mediana' : ' · más lento que la mediana'}`)}`]), 100)}</div>
+    `${t.rfen ? `data-href="#nadador/${t.rfen}"` : ''}${tipAttr(`${t.n}\n${fmt(t.cs)}${t.cs <= dia.mediana ? ' · más rápido que la mediana' : ' · más lento que la mediana'}`)}`]), 100)}</div>
     <p class="tiny muted">Mejor tiempo de cada nadador el ${dfmt(dia.dia)}, del más rápido al más lento. La mediana del grupo es ${fmt(dia.mediana)}. Con más días de tiempos aquí se verá cómo evoluciona el grupo.</p>`;
 }
 function entGraficoDispersion(D, ev) {
@@ -211,7 +228,7 @@ function entGraficoDispersion(D, ev) {
   D.dias.forEach((d, i) => { if (!(i % paso)) g += `<text x="${X(d.fecha)}" y="${H - 8}" text-anchor="middle" class="ent-tx">${d.dia.slice(8)}/${d.dia.slice(5, 7)}</text>`; });
   if (D.dias.length > 1) g += `<polygon class="ent-banda" points="${[...D.dias.map(d => X(d.fecha) + ',' + Y(d.max)), ...[...D.dias].reverse().map(d => X(d.fecha) + ',' + Y(d.min))].join(' ')}"/>`;
   D.puntos.forEach(t => { const c = `<circle cx="${xDia(t.dia)}" cy="${Y(t.cs)}" r="4" class="ent-punto"><title>${esc(t.n)} · ${dfmt(t.dia)} · ${fmt(t.cs)}</title></circle>`;
-    g += t.rfen ? `<a href="#nadador/${t.rfen}/entrenos?ev=${encodeURIComponent(ev)}">${c}</a>` : c; });
+    g += t.rfen ? `<a href="#nadador/${t.rfen}">${c}</a>` : c; });
   if (D.dias.length > 1) g += `<polyline fill="none" class="ent-mediana" points="${D.dias.map(d => X(d.fecha) + ',' + Y(d.mediana)).join(' ')}"/>`;
   return `<svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Dispersión de tiempos del grupo">${g}</svg>
     <div class="ent-leyenda"><span><i class="ent-l-punto"></i>cada tiempo (pulsa para ver al nadador)</span><span><i class="ent-l-med"></i>mediana del grupo</span><span><i class="ent-l-banda"></i>del más rápido al más lento</span></div>`;
@@ -506,7 +523,7 @@ function entTablaRitmo(D, serieTxt, fichaA) {
   if (!D.filas.length) return '';
   const rondas = [...new Set(D.filas.flatMap(f => f.pts.map(x => x.r)))].sort((a, b) => a - b);
   return `<details class="ent-tabla-ritmo"><summary class="small">Ver en tabla</summary><div class="tw"><table class="rt ent-mat"><tr><th>Nadador</th><th class="num">Objetivo</th>${rondas.map(r => `<th class="num">${serieTxt(r)}</th>`).join('')}<th class="num">Media</th></tr>
-    ${D.filas.map(f => `<tr><td style="white-space:nowrap"><b>${fichaA(f.rfen, esc(f.n))}</b><div class="tiny muted">${ENT_BASE[f.base]}</div></td><td class="num">${fmt(f.pts[0].o.cs)}</td>
+    ${D.filas.map(f => `<tr><td style="white-space:nowrap"><b>${fichaA(f.rfen, esc(f.n))}</b>${entAn((D.filas.find(x => x.nId === f.nId) || f).y)}<div class="tiny muted">${ENT_BASE[f.base]}</div></td><td class="num">${fmt(f.pts[0].o.cs)}</td>
       ${rondas.map(r => { const x = f.pts.find(p => p.r === r); if (!x) return '<td class="num vacia">—</td>'; const d = (x.t.cs - x.o.cs) / 100;
         return `<td class="num">${fmt(x.t.cs)}<div class="tiny ${d <= 0 ? 'good' : 'bad'}">${ENT_FORMA[x.zona]} ${d <= 0 ? '−' : '+'}${Math.abs(d).toFixed(1)}</div></td>`; }).join('')}
       <td class="num"><b>${f.media.toFixed(1)} %</b></td></tr>`).join('')}</table></div></details>`;
@@ -644,7 +661,7 @@ function entGraficoMitades(S, nSel) {
     .sort((p, q) => p.d - q.d);
   const movil = entMovil(), W = movil ? 400 : 760, FH = 30, P = {l: movil ? 96 : 150, r: movil ? 56 : 70, t: 30, b: 8}, H = P.t + R.length * FH + P.b;
   const m = Math.max(50, ...R.map(r => Math.abs(r.d))), x0 = P.l + (W - P.l - P.r) / 2, k = (W - P.l - P.r) / 2 / m;
-  let g = `<text x="${x0 - 8}" y="16" text-anchor="end" class="ent-tx">← termina más rápido</text><text x="${x0 + 8}" y="16" class="ent-tx">termina más lento →</text>`;
+  let g = `<text x="${x0 - 8}" y="16" text-anchor="end" class="ent-tx">← acaba más fuerte</text><text x="${x0 + 8}" y="16" class="ent-tx">se hunde al final →</text>`;
   R.forEach((r, i) => {
     const y = P.t + i * FH, yc = y + FH / 2, w = Math.abs(r.d) * k, bx = r.d < 0 ? x0 - w : x0, sel = r.y.nId === nSel;
     const nom = r.y.n.length > (movil ? 12 : 22) ? r.y.n.slice(0, movil ? 10 : 21) + '…' : r.y.n;
@@ -657,11 +674,11 @@ function entGraficoMitades(S, nSel) {
   g += `<line x1="${x0}" x2="${x0}" y1="${P.t - 4}" y2="${H - P.b}" class="ent-cien"/>`;
   return `<div class="ent-graf"><svg class="chart ent-chart ent-chart-ritmo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Segunda mitad frente a la primera en la serie ${S.ronda}">${g}</svg></div>`;
 }
-const ENT_PV = [['barras', 'Cada 50'], ['constancia', 'Constancia'], ['mitades', 'Mitades']];
+const ENT_PV = [['barras', 'Cada 50'], ['constancia', 'Constancia'], ['mitades', '2ª vs 1ª mitad']];
 const ENT_PV_AYUDA = {
   barras: 'Cada barra es lo que tardó en ese 50 (más alta = más lenta); la línea, la media del grupo en ese mismo 50. El primer 50 lleva la salida, por eso suele ser el más rápido. Pasa el dedo por una columna para ver los números.',
   constancia: 'Cada línea es una serie: si van juntas, nada siempre igual; si se abren al final, se cansa. Toca un nombre de abajo para quitarlo o ponerlo.',
-  mitades: 'Segunda mitad menos primera. A la izquierda, terminó más rápido de lo que empezó (split negativo). Toca un nadador para verlo en las otras gráficas.'};
+  mitades: 'Cada nadador contra sí mismo (no contra el grupo): lo que tardó en la segunda mitad menos lo que tardó en la primera. A la izquierda, nadó la segunda mitad más rápido que la primera (split negativo, acaba más fuerte); a la derecha, más lenta (se hunde). Toca un nadador para verlo en las otras gráficas.'};
 /* Monta el bloque de parciales del entreno del día. st = {pn, pr, pv} de la dirección (nadador, serie y vista elegidos) */
 function entMontarParciales(host, tabla, st) {
   const out = host.querySelector('#ent-parc'); if (!out) return;
@@ -821,6 +838,69 @@ function entMejorCompeticion(s, ev) {
     if (c25 != null && (!best || c25 < best.cs)) best = {cs: c25, fecha: x[0], pool: x[2], real: x[1]}; });
   return best;
 }
+/* ── Simulacro de competición: cada nadador frente a su mejor marca y puesto que tendría (club · Málaga · Andalucía · España) ──
+   Los puestos salen de cronometro/rankings.json (mismas listas que el PDF del cronómetro); orientativo, es un tiempo de entreno */
+let ENT_RANK = null, ENT_RANK_PROM = null;
+function entCargarRankings() {
+  if (!ENT_RANK_PROM) ENT_RANK_PROM = fetch('cronometro/rankings.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.r && typeof d.r === 'object') ENT_RANK = d; return ENT_RANK; }).catch(() => null);
+  return ENT_RANK_PROM;
+}
+const entDecodRank = d => { let v = 0; return (Array.isArray(d) ? d : []).map(x => (v += Number(x) || 0)); };
+function entPuesto(lista, cs, excluir) {
+  const L = [...lista]; if (excluir != null) { const i = L.indexOf(excluir); if (i >= 0) L.splice(i, 1); }
+  let lo = 0, hi = L.length; while (lo < hi) { const m = (lo + hi) >> 1; if (L[m] < cs) lo = m + 1; else hi = m; }
+  return {pos: lo + 1, de: L.length + 1};
+}
+const ENT_NIVELES = [['Málaga', 2, 'mal'], ['Andalucía', 1, 'and'], ['España', 0, 'esp']];   // índice en rankings.json: [España, Andalucía, Málaga]
+function entSimulacroDe(t, R) {
+  const s = t.rfen && Object.hasOwn(SW, t.rfen) ? SW[t.rfen] : null;
+  const mejor = s ? entMejorCompeticion(s, t.ev) : null;
+  const out = {t, mejor, dif: mejor ? t.cs - mejor.cs : null, club: null, niveles: []};
+  if (!s || !t.ev || t.rota || !(s.g === 'M' || s.g === 'F') || !s.y) return out;
+  const mates = Object.values(SW).filter(x => x !== s && x.g === s.g && x.y === s.y).map(x => { const m = entMejorCompeticion(x, t.ev); return m ? m.cs : 0; }).filter(v => v > 0).sort((a, b) => a - b);
+  if (mates.length) out.club = entPuesto(mates, t.cs);
+  const clave = `${s.g}|${s.y}|${t.ev}`, propia = R && R.p && R.p[t.rfen] ? R.p[t.rfen][t.ev] : null;
+  if (R && R.r && R.r[clave]) ENT_NIVELES.forEach(([nom, j, k]) => { const L = entDecodRank(R.r[clave][j]); if (L.length) out.niveles.push({nom, k, ...entPuesto(L, t.cs, propia)}); });
+  return out;
+}
+function entSimulacroHTML(tabla, R) {
+  const series = tabla.series.filter(x => x.comp); if (!series.length) return '';
+  const bloques = series.map(se => {
+    const L = tabla.filas.filter(f => f.t[se.ronda]).map(f => entSimulacroDe(f.t[se.ronda], R)).sort((a, b) => a.t.cs - b.t.cs);
+    const m = Math.max(100, ...L.map(x => Math.abs(x.dif || 0)));
+    const pos = (x) => [x.club ? `<span class="sim-p sim-club"><b>Club</b> ${x.club.pos}º/${x.club.de}</span>` : '',
+      ...x.niveles.map(n => `<span class="sim-p sim-${n.k}"><b>${n.nom}</b> ${n.pos}º/${n.de}</span>`)].join('');
+    const evs = [...new Set(L.map(x => x.t.ev).filter(Boolean))].filter(ev => L.filter(x => x.t.ev === ev && !x.t.rota).length >= 2);
+    const fin = evs.map(ev => `<button class="btn car-abrir ent-fin-btn" data-fin="${se.ronda}" data-ev="${esc(ev)}">${ico('crono')}Ver foto finish y repetición · ${esc(ev)}</button><div class="ent-fin-host" hidden></div>`).join('');
+    return `<div class="label" style="margin:10px 0 4px">Serie ${se.ronda}${se.ev ? ' · ' + esc(se.ev) : ''}</div>
+      ${L.map((x, i) => `<div class="sim-fila" style="--nc:${CAR_NAD[i % Math.ceil(L.length / Math.max(1, Math.ceil(L.length / 8))) % CAR_NAD.length]}"><div class="sim-n"><span class="sim-pu">${i + 1}</span><b>${esc(x.t.n)}${entAn(x.t.y)}</b><span class="sim-t">${fmt(x.t.cs)}</span></div>
+        ${x.mejor ? `<div class="sim-bar" title="Mejor marca de competición (25 m): ${fmt(x.mejor.cs)}"><i class="${x.dif <= 0 ? 'sim-ok' : 'sim-no'}" style="width:${Math.max(2, Math.abs(x.dif) / m * 100).toFixed(1)}%"></i><span>${entDif(x.dif / 100)} <span class="muted">vs ${fmt(x.mejor.cs)}</span></span></div>` : '<div class="tiny muted">Sin marca de competición para comparar</div>'}
+        <div class="sim-pos">${pos(x) || '<span class="tiny muted">Sin ranking para su año y prueba</span>'}</div></div>`).join('')}${fin}`;
+  }).join('');
+  return `<div class="ent-simulacro"><div class="h h-sub" style="margin-top:12px">${ico('medalla')}Simulacro de competición · contra su mejor marca</div>${bloques}
+    <p class="tiny muted">La barra es la diferencia con su mejor marca de competición (en 25 m): verde, mejor que su marca; ámbar, más lento. Los puestos son los que tendría entre las mejores marcas de los últimos 12 meses${ENT_RANK && ENT_RANK.fecha ? ` (al ${esc(dfmt(ENT_RANK.fecha))})` : ''}. Orientativo: es un tiempo de entreno.</p></div>`;
+}
+function entMontarSimulacro(host, tabla) {
+  const out = host.querySelector('#ent-sim'); if (!out) return;
+  const pintar = R => { out.innerHTML = entSimulacroHTML(tabla, R); };
+  const pintarTodo = R => { pintar(R);
+    out.querySelectorAll('button[data-fin]').forEach(b => b.addEventListener('click', () => {
+      const h = b.nextElementSibling; h.hidden = !h.hidden; b.classList.toggle('on', !h.hidden);
+      if (!h.hidden && !b.dataset.ok) { b.dataset.ok = '1'; carPintar(h, entCarreraSimulacro(tabla, Number(b.dataset.fin), b.dataset.ev), {num: b.dataset.fin, sesion: 'sim'}); } })); };
+  pintarTodo(ENT_RANK); entCargarRankings().then(R => { if (R && out.isConnected && !out.querySelector('button[data-ok]')) pintarTodo(R); });
+}
+/* Foto finish y repetición del simulacro: carrera.js dibuja competiciones reales; aquí se le da una «competición» con los tiempos del simulacro.
+   Todos nadan a la vez (como en una serie de verdad): se reparten en series de hasta 8 por tiempo y cada uno en su calle (el más rápido, al centro).
+   Con parciales de cada 50 la posición es la real entre parciales; sin ellos, ritmo constante hasta su tiempo. */
+function entCarreraSimulacro(tabla, ronda, ev) {
+  const L = tabla.filas.filter(f => f.t[ronda] && f.t[ronda].ev === ev && !f.t[ronda].rota).map(f => f.t[ronda]).sort((a, b) => a.cs - b.cs);
+  const nh = Math.max(1, Math.ceil(L.length / 8)), tam = Math.ceil(L.length / nh), filas = [];
+  for (let h = 0; h < nh; h++) L.slice(h * tam, (h + 1) * tam).forEach((t, k) => {
+    const sp = entParciales(t); let acu = sp ? sp.reduce((a, v) => (a.push((a.length ? a[a.length - 1] : 0) + v), a), []) : [t.cs]; acu[acu.length - 1] = t.cs;
+    filas.push([h + 1, CAR_SEQ[k], t.n, 'Club Natación Axarquía', t.y || '', t.cs, acu, h * tam + k + 1, null, t.rfen || '', CAR_NAD[k % CAR_NAD.length]]); });
+  return {piscina: '25m', min: 2, pruebas: [{nombre: ev, sexo: '', cat: '', num: String(ronda), sesion: 'sim', filas}]};
+}
 /* Su mejor tiempo de entrenamiento anterior en esa prueba (sin contar este tiempo; hasta la fecha de este) */
 function entMejorEntrenoPrevio(T, t) {
   let best = null;
@@ -937,7 +1017,7 @@ async function entPreparar(host, pintar) {
 /* ── Sección Entrenamientos (#entrenamientos) ── */
 function vistaEntrenamientos(app, p) {
   const ok = (v, re) => re.test(String(v || '')) ? String(v) : '';
-  const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || '', gev: p.gev || '',
+  const f = {cat: p.cat || 'all', anio: ok(p.anio, /^\d{4}$/) || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || '', gev: p.gev || '',
     sem: ok(p.sem, /^\d{4}-\d{2}-\d{2}$/), dia: ok(p.dia, /^\d{4}-\d{2}-\d{2}$/), ses: ok(p.ses, /^[A-Za-z0-9_-]{1,64}$/),
     sa: ok(p.sa, /^\d{1,3}$/), sb: ok(p.sb, /^\d{1,3}$/), gs: ok(p.gs, /^(-|\d{1,3}(,\d{1,3}){0,30})$/), gf: ok(p.gf, /^[A-Za-z0-9_-]{1,64}(,[A-Za-z0-9_-]{1,64}){0,40}$/), gr: ok(p.gr, /^(200|400|mejor|mio)$/), gt: ok(p.gt, /^\d{2,3}$/), rl: ok(p.rl, /^\d{3,6}$/),
     cd: ok(p.cd, /^\d{4}-\d{2}-\d{2}$/), ch: ok(p.ch, /^\d{4}-\d{2}-\d{2}$/),
@@ -954,13 +1034,17 @@ function pintarEntrenamientos(host, f) {
     return '#entrenamientos?' + Object.entries(q).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&'); };
   const go = o => { location.hash = hrefDe(o); };
   // F0: todos los filtros menos el día (para elegir día); F: también el día elegido
-  const F0 = entFiltrar(T, Object.assign({}, f, {dia: ''})), F = entFiltrar(T, f), R = entResumen(F);
+  const F0 = entFiltrar(T, Object.assign({}, f, {dia: '', ses: ''})), F = entFiltrar(T, f), R = entResumen(F);
   const cuenta = o => entFiltrar(T, Object.assign({}, f, o)).length;
   const cats = DATA.cats.filter(c => T.some(t => t.cat === c.key));
+  const anios = [...new Set(T.filter(t => f.cat === 'all' || t.cat === f.cat).map(t => t.y).filter(Boolean))].sort((a, b) => b - a);
   const dias = [...new Set(F0.map(t => t.dia))].sort().reverse();
   const diaTxt = d => `${entDiaSemana(d).slice(0, 3)} ${d.slice(8)}/${d.slice(5, 7)}`;
-  const filtrosA = `
+  const filtrosCat = `
     <div class="flt"><span class="flt-l">Categoría</span>${chipsHTML('cat', [['all', 'Todas', cuenta({cat: 'all'})], ...cats.map(c => [c.key, c.label, cuenta({cat: c.key})])], f.cat)}</div>
+    ${anios.length > 1 ? `<div class="flt"><span class="flt-l">Año de nacimiento</span>${chipsHTML('anio', [['all', 'Todos', cuenta({anio: 'all'})], ...anios.map(a => [String(a), String(a), cuenta({anio: String(a)})])], f.anio)}</div>` : ''}
+`;
+  const filtrosA = `
     <div class="grid g2" style="gap:6px 12px">
       <div class="flt"><span class="flt-l">Estilo</span>${chipsHTML('estilo', [['all', 'Todos'], ...[...new Set([...ENT_ESTILOS, ...entEstilosDe(T)])].map(e => [e, `${franja(e)}${esc(entEstiloNombre(e))}`])], f.estilo)}</div>
       <div class="flt"><span class="flt-l">Periodo</span>${chipsHTML('dias', [['all', 'Toda la temporada'], ['30', 'Último mes'], ['7', 'Última semana']], f.dias)}</div>
@@ -978,7 +1062,9 @@ function pintarEntrenamientos(host, f) {
   const sesDia = entResumen(TD).entrenamientos.sort((a, b) => a.fecha - b.fecha);
   const sesSel = sesDia.find(e => e.sesId === f.ses) || sesDia[sesDia.length - 1];
   const tabla = sesSel ? entTabla(TD.filter(t => t.sesId === sesSel.sesId)) : null;
-  const fichaA = (rfen, txt) => rfen ? `<a href="#nadador/${rfen}/entrenos">${txt}</a>` : txt;
+  // Entrenamiento elegido arriba del todo: manda sobre todo lo de debajo (series, grupo, tiempos, asistencia…); se puede cambiar aquí o en la tarjeta del día
+  const filtrosSes = sesDia.length > 1 ? `<div class="flt"><span class="flt-l">Entrenamiento</span>${chipsHTML('ses', [['', 'Todos', sesDia.length], ...sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series])], f.ses)}</div>` : '';
+  const fichaA = (rfen, txt) => rfen ? `<a href="#nadador/${rfen}">${txt}</a>` : txt;
   let diaHTML = '', graficaDia = null;
   if (tabla && tabla.series.length) {
     const mejorDe = {}; tabla.series.forEach(s => { mejorDe[s.ronda] = Math.min(...tabla.filas.filter(x => x.t[s.ronda]).map(x => x.t[s.ronda].cs)); });
@@ -993,20 +1079,21 @@ function pintarEntrenamientos(host, f) {
     <div class="card" id="ent-dia"><div class="h">${ico('crono')}Entrenamiento del ${entDiaSemana(diaVer)} ${dfmt(diaVer)} <span class="h-n">(${sesSel.hora}${sesSel.fin ? '–' + entHora(sesSel.fin) : ''} · ${esc(sesSel.coach)} · ${tabla.series.length} series · ${tabla.filas.length} nadadores)</span></div>
       ${sesDia.length > 1 ? `<div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos:</div>${chipsHTML('ses', sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series]), sesSel.sesId)}` : ''}
       <div class="tw"><table class="rt ent-mat"><tr><th>Nadador</th>${tabla.series.map(s => `<th class="num${s.comp ? ' ent-col-comp' : ''}">${serieTxt(s)}<span class="tiny">${s.hora || '&nbsp;'}${s.comp ? ' · <b>simulación de competición</b>' : s.inicio === 'plataforma' ? ' · plataforma' : ''}</span></th>`).join('')}</tr>
-        ${tabla.filas.map(x => `<tr><td style="white-space:nowrap"><b>${fichaA(x.rfen, esc(x.n))}</b></td>${tabla.series.map(s => { const t = x.t[s.ronda], c = s.comp ? ' ent-col-comp' : '';
+        ${tabla.filas.map(x => `<tr><td style="white-space:nowrap"><b>${fichaA(x.rfen, esc(x.n))}</b>${entAn(x.y)}</td>${tabla.series.map(s => { const t = x.t[s.ronda], c = s.comp ? ' ent-col-comp' : '';
           return t ? `<td class="num${c}">${t.cs === mejorDe[s.ronda] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}</tr>`).join('')}</table></div>
       <p class="tiny muted" style="margin-top:4px">En verde, el más rápido de cada serie. Pulsa un nombre para abrir su ficha.</p>
       ${entCallesHTML(tabla)}
       ${entRelevosHTML(sesSel.sesId)}
-      ${gTabs('pt', [['series', 'Series'], ['ritmo', 'Ritmo'], ...(entDatosParciales(tabla).length ? [['parc', 'Parciales']] : [])], f.pt || 'series')}
-      <div data-pt-p="series"${(f.pt || 'series') === 'series' ? '' : ' hidden'}>%%COMPARAR%%</div>
-      <div data-pt-p="ritmo"${f.pt === 'ritmo' ? '' : ' hidden'}>
+      ${tabla.series.some(x => x.comp) ? '<div id="ent-sim"></div>' : ''}
+      <details class="ent-sec" data-sec="series"><summary><b>Series</b><span class="ent-sec-r">Compara una serie con otra: quién mejora y cuánto (${tabla.series.length} ${tabla.series.length === 1 ? 'serie' : 'series'})</span><span class="dir-chev" aria-hidden="true">›</span></summary>
+        <div>%%COMPARAR%%</div></details>
+      <details class="ent-sec" data-sec="ritmo"><summary><b>Ritmo</b><span class="ent-sec-r">Cada nadador frente a su ritmo de 200 o de 400 en las series elegidas</span><span class="dir-chev" aria-hidden="true">›</span></summary>
         <div class="ent-sel">Cada nadador frente a su propio ritmo de 200 o de 400 (de su mejor marca) en las series elegidas. Se marca el que se eligió al crear la serie; puedes cambiarlo.${glos('ritmo')}</div>
         <div class="ent-pick-series" id="ent-gs">${tabla.series.map(s => `<label class="chip${gs.includes(s.ronda) ? ' on' : ''}${s.comp ? ' ent-chip-comp' : ''}"><input type="checkbox" value="${s.ronda}"${gs.includes(s.ronda) ? ' checked' : ''}>${serieTxt(s)}</label>`).join('')}</div>
-        <div id="ent-ritmo"></div></div>
-      ${entDatosParciales(tabla).length ? `<div data-pt-p="parc"${f.pt === 'parc' ? '' : ' hidden'}>
+        <div id="ent-ritmo"></div></details>
+      ${entDatosParciales(tabla).length ? `<details class="ent-sec" data-sec="parc"><summary><b>Parciales</b><span class="ent-sec-r">Cada 50 m: dónde gana y dónde pierde tiempo cada nadador</span><span class="dir-chev" aria-hidden="true">›</span></summary>
         <div class="ent-sel">Los parciales de cada 50 de un nadador en una serie: dónde gana y dónde pierde tiempo, frente al grupo y frente a sus otras series.${glos('parcial')}</div>
-        <div id="ent-parc"></div></div>` : ''}
+        <div id="ent-parc"></div></details>` : ''}
     </div>`;
   }
   const vacio = !T.length
@@ -1016,16 +1103,19 @@ function pintarEntrenamientos(host, f) {
     <details class="ent-ses${e.tiempos.some(t => t.comp) ? ' ent-ses-comp' : ''}"><summary><b>${dfmt(entDia(e.fecha))}</b>${e.tiempos.some(t => t.comp) ? ' <span class="tag ent-comp">Simulación de competición</span>' : ''} <b>${e.hora}${e.fin ? '–' + entHora(e.fin) : ''}</b> <span class="muted">${esc(e.coach)}</span>${e.sim ? '<span class="tag ent-sim">Simulación</span>' : ''}
       <span class="ent-ses-r">${e.pruebas.map(ev => `${franja(ev)}${esc(ev)}`).join(' ') || 'Sin prueba'} · ${e.nads} nad. · ${e.tiempos.length} tiempos · <a href="${hrefDe({dia: entDia(e.fecha), ses: e.sesId, sa: '', sb: '', gs: '', gf: ''})}">Ver por series</a></span></summary>
       <table class="rt"><tr><th>Nadador</th><th>Prueba</th><th class="num">Tiempo</th></tr>
-      ${[...e.tiempos].sort((a, b) => a.ronda - b.ronda || a.cs - b.cs).map(t => `<tr class="${t.rfen ? 'click' : ''}${t.comp ? ' ent-fila-comp' : ''}"${t.rfen ? ` data-href="#nadador/${t.rfen}/entrenos?ev=${encodeURIComponent(t.ev || '')}"` : ''}>
-        <td><b>${esc(t.n)}</b>${t.rfen ? ' <span class="tiny muted">· ver ficha</span>' : ''}${entCompararHTML(entComparar(T, t))}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}${t.horaSerie ? ' · ' + t.horaSerie : ''}${t.calle ? ' · ' + esc(t.calle) : ''}</span>${entCompTag(t)}</td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
+      ${[...e.tiempos].sort((a, b) => a.ronda - b.ronda || a.cs - b.cs).map(t => `<tr class="${t.rfen ? 'click' : ''}${t.comp ? ' ent-fila-comp' : ''}"${t.rfen ? ` data-href="#nadador/${t.rfen}"` : ''}>
+        <td><b>${esc(t.n)}</b>${entAn(t.y)}${t.rfen ? ' <span class="tiny muted">· ver ficha</span>' : ''}${entCompararHTML(entComparar(T, t))}</td><td>${t.ev ? franja(t.ev) + esc(t.ev) : '—'}<span class="tiny muted"> · serie ${esc(t.ronda)}${t.horaSerie ? ' · ' + t.horaSerie : ''}${t.calle ? ' · ' + esc(t.calle) : ''}</span>${entCompTag(t)}</td><td class="num"><b>${fmt(t.cs)}</b></td></tr>`).join('')}</table>
     </details>`).join('');
-  const pruebas = R.pruebas.map(pr => `
-    <div class="card"><div class="h">${franja(pr.ev)}${esc(pr.ev)} <span class="h-n">(${pr.nads.length} nadadores · ${pr.n} tiempos)</span></div>
-      <div class="tw"><table class="rt"><tr><th>#</th><th>Nadador</th><th class="num">Mejor</th><th class="num" title="Mejora de su mejor tiempo frente al primero">Mejora</th><th class="num" title="Media de sus últimos tiempos frente a los primeros (negativo: va más rápido)">Tend.</th><th class="num" title="Mejor marca de competición en equivalente de piscina de 25 m">Comp. 25 m</th></tr>
-      ${pr.nads.map((m, i) => { const st = entStatsNadador(F, m.nId, pr.ev); return `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos?ev=${encodeURIComponent(pr.ev)}"` : ''}>
-        <td>${i + 1}</td><td style="max-width:0;width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b><div class="tiny muted">${m.veces} ${m.veces === 1 ? 'vez' : 'veces'} · último ${fmt(m.ultimo.cs)}</div></td>
-        <td class="num"><b>${fmt(m.mejor)}</b></td><td class="num">${entPctMejora(st.mejoraPct)}</td><td class="num">${entPct(st.tendencia)}</td><td class="num">${(c => c ? fmt(c.cs) : '—')(m.rfen && Object.hasOwn(SW, m.rfen) ? entMejorCompeticion(SW[m.rfen], pr.ev) : null)}</td></tr>`; }).join('')}</table></div>
-    </div>`).join('');
+  const tablaPrueba = pr => {
+    const filas = pr.nads.map(m => ({m, st: entStatsNadador(F, m.nId, pr.ev)}));
+    filas.forEach(x => { x.mj = entMejoraVal(T, x.st); x.cp = x.m.rfen && Object.hasOwn(SW, x.m.rfen) ? entMejorCompeticion(SW[x.m.rfen], pr.ev) : null; });
+    const hayMej = filas.some(x => x.mj && Math.abs(x.mj.pct) >= 0.05), hayTen = filas.some(x => x.st && x.st.tendencia != null && Math.abs(x.st.tendencia) >= 0.05), hayComp = filas.some(x => x.cp);
+    return `<div class="tw"><table class="rt"><tr><th>#</th><th>Nadador</th><th class="num">Mejor</th>${hayMej ? '<th class="num" title="Su mejor tiempo del periodo frente a su mejor anterior">Mejora</th>' : ''}${hayTen ? '<th class="num" title="Media de sus últimos tiempos frente a los primeros (negativo: va más rápido)">Tend.</th>' : ''}${hayComp ? '<th class="num" title="Mejor marca de competición en equivalente de piscina de 25 m">Comp. 25 m</th>' : ''}</tr>
+      ${filas.map(({m, st, cp}, i) => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}"` : ''}>
+        <td>${i + 1}</td><td style="max-width:0;width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(m.n)}</b>${entAn((F.find(t => t.nId === m.nId) || {}).y)}<div class="tiny muted">${m.veces} ${m.veces === 1 ? 'vez' : 'veces'} · último ${fmt(m.ultimo.cs)}</div></td>
+        <td class="num"><b>${fmt(m.mejor)}</b></td>${hayMej ? `<td class="num">${entMejoraCelda(T, st)}</td>` : ''}${hayTen ? `<td class="num">${entPct(st.tendencia)}</td>` : ''}${hayComp ? `<td class="num">${cp ? fmt(cp.cs) : '—'}</td>` : ''}</tr>`).join('')}</table></div>
+      ${hayMej || hayTen ? '' : '<p class="tiny muted" style="margin-top:4px">Aún no hay mejoras ni tendencia que mostrar en esta prueba: se verán cuando haya más entrenos con ella.</p>'}`;
+  };
   // El grupo (la categoría elegida o todo el club): asistencia, estilos y dispersión de tiempos
   const G = entGrupo(F, (ENT.datos && ENT.datos.sesiones) || []), catNom = f.cat === 'all' ? 'Todo el club' : ((DATA.cats.find(c => c.key === f.cat) || {}).label || f.cat);
   const gev = R.pruebas.some(x => x.ev === f.gev) ? f.gev : (R.pruebas[0] || {}).ev;
@@ -1035,7 +1125,7 @@ function pintarEntrenamientos(host, f) {
   const asistencia = `
     <details class="card ent-asist"><summary><span class="h" style="margin:0">${ico('grupo')}Asistencia · ${esc(catNom)} <span class="h-n">(${G.nadadores.length} nadadores · ${G.sesiones} entrenamientos)</span></span><span class="dir-chev" aria-hidden="true">›</span></summary>
       <div class="tw"><table class="ent-mapa"><tr><th></th>${colS.map(x => `<th title="${esc(dfmt(entDia(x.fecha)))}">${entDia(x.fecha).slice(8)}</th>`).join('')}<th class="num">Asist.</th><th class="num">Tiempos</th></tr>
-      ${G.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}/entrenos"` : ''}><td class="nm"><b>${esc(m.n)}</b></td>
+      ${G.nadadores.map(m => `<tr${m.rfen ? ` class="click" data-href="#nadador/${m.rfen}"` : ''}><td class="nm"><b>${esc(m.n)}</b>${entAn((F.find(t => t.nId === m.nId) || {}).y)}</td>
         ${colS.map(x => { const ok = m.ids.includes(x.id); return `<td class="${ok ? 'si' : 'no'}"${tipAttr(`${m.n}\n${dfmt(entDia(x.fecha))}: ${ok ? 'vino' : 'no vino'}`)}></td>`; }).join('')}
         <td class="num"><b class="${m.asistencia >= 75 ? 'good' : m.asistencia < 50 ? 'bad' : ''}">${Math.round(m.asistencia)}%</b></td><td class="num">${m.tiempos}</td></tr>`).join('')}</table></div>
       <p class="tiny muted">Cada columna es un entrenamiento (el día del mes); el cuadrado relleno indica que vino, aunque no nadara. Se ven los últimos ${colS.length}. Pulsa un nombre para abrir su ficha.</p>
@@ -1048,6 +1138,7 @@ function pintarEntrenamientos(host, f) {
         ${DG.dias.length > 1 ? entGraficoDispersion(DG, gev) : entListaGrupoDia(DG, gev)}
         ${DG.dias.length > 1 ? `<p class="tiny muted" style="margin-top:6px">Mediana del grupo: ${fmt(primero.mediana)} el ${dfmt(primero.dia)} → ${fmt(ultimo.mediana)} el ${dfmt(ultimo.dia)}
           (${entPct((ultimo.mediana - primero.mediana) / primero.mediana * 100)}). Diferencia entre el más rápido y el más lento: ${fmt(primero.max - primero.min)} → ${fmt(ultimo.max - ultimo.min)}.</p>` : ''}` : ''}
+      ${(pg => pg ? `<details class="ent-sec"><summary><b>Mejores tiempos</b><span class="ent-sec-r">${esc(gev)} · ${pg.nads.length} nadadores: mejor tiempo de cada uno, su mejora y su marca de competición</span><span class="dir-chev" aria-hidden="true">›</span></summary>${tablaPrueba(pg)}</details>` : '')(R.pruebas.find(x => x.ev === gev))}
     </div>`;
 
   // Comparar series: una prueba, un periodo (por defecto el entreno que se está viendo) y TODAS las series del periodo
@@ -1073,30 +1164,27 @@ function pintarEntrenamientos(host, f) {
 
   host.innerHTML = `
     ${(n => n ? `<div class="ent-aviso-sim"><b>Datos de simulación.</b> ${n} de ${R.entrenamientos.length} entrenamientos son de prueba (marcados «Simulación») y se borrarán antes de empezar con datos reales. Lo que toméis vosotros no se toca.</div>` : '')(R.entrenamientos.filter(e => e.sim).length)}
-    ${vacio ? filtrosA + filtrosB : ''}
+    ${vacio ? filtrosCat + filtrosA + filtrosB : ''}
     ${vacio || `
     <p class="small muted" style="margin:2px 0 10px">${R.entrenamientos.length} entrenamientos · ${R.tiempos} tiempos · ${R.nadadores.length} nadadores · ${R.pruebas.length} pruebas</p>
-    ${filtrosB}
+    ${filtrosCat}${filtrosB}${filtrosSes}
     ${diaHTML || comparar}
     <details class="ent-ajustes"><summary>Filtros · ${esc(catNom)} · ${f.estilo === 'all' ? 'todos los estilos' : esc(entEstiloNombre(f.estilo))} · ${f.dias === 'all' ? 'toda la temporada' : f.dias === '30' ? 'último mes' : 'última semana'}</summary>${filtrosA}</details>
     ${grupo}
     <div class="card"><div class="h">${ico('crono')}Entrenamientos <span class="h-n">(${R.entrenamientos.length})</span></div>${ents}</div>
-    <div class="h h-sub" style="margin-top:16px">${ico('medalla')}Mejores tiempos por prueba</div>
-    ${pruebas || '<div class="vacio">Sin pruebas con estilo y distancia.</div>'}
     ${asistencia}`}
     <p class="small muted" style="margin-top:14px">Modo entrenador activo con ${esc(ENT.user && ENT.user.email)} · <a href="#" id="ent-salir">Salir del modo entrenador</a> · <a href="#" id="ent-act">Actualizar</a> · <a href="cronometro/">Abrir el cronómetro</a> · <a href="cronometro/manual.pdf" target="_blank" rel="noopener">Manual del cronómetro</a></p>`;
   onChips(host, 'cat', v => go({cat: v}));
+  onChips(host, 'anio', v => go({anio: v}));
   onChips(host, 'estilo', v => go({estilo: v}));
   onChips(host, 'dias', v => go({dias: v}));
   onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: '', rl: ''}));
   onChips(host, 'gev', v => go({gev: v}));
   onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: '', pr: '', cev: '', cd: '', ch: ''}));
-  onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}));
+  onChips(host, 'ses', v => go({ses: v, dia: v ? diaVer : f.dia, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}));
   if (graficaDia) { entMontarGraficaDia(host, graficaDia); entMontarParciales(host, graficaDia.tabla, f); }
-  host.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => {   // pestañas Series · Ritmo · Parciales
-    host.querySelectorAll('[data-pt]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); });
-    host.querySelectorAll('[data-pt-p]').forEach(pn => { pn.hidden = pn.dataset.ptP !== b.dataset.pt; });
-    entRecordar({pt: b.dataset.pt === 'series' ? '' : b.dataset.pt}); });
+  if (graficaDia) entMontarSimulacro(host, graficaDia.tabla);
+  host.querySelectorAll('details[data-sec]').forEach(d => d.addEventListener('toggle', () => { if (d.open) entRecordar({pt: d.dataset.sec}); }));
   if (comparaDatos) entMontarComparar(host, comparaDatos);
   const irC = host.querySelector('[data-ir-comparar]'), cC = host.querySelector('#ent-comparar');
   if (irC && cC) irC.onclick = () => irAElemento(cC);
