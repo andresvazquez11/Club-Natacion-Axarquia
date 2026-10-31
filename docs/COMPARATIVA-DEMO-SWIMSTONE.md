@@ -39,3 +39,9 @@ Relevos con equipos y mejor previo, comparación con la mejor marca de competici
 3. Gráfica de parciales con picos y etiqueta *negative/positive split* (2) + sugerencia automática (4)
 4. Ritmo objetivo con aviso cada 100 m (5)
 5. Más adelante: carga RPE y asistencia % (10–11), perfil padres/nadadores bilingüe (13)
+
+## Hecho (31/10/2026): teclado / botonera
+`cronometro/index.html` (sección «Teclado / botonera»), `sw.js` → `crono-v23-2`. En la pantalla En curso:
+**1-6** = toque de esa calle (parcial o llegada del siguiente nadador de la calle; en relevos, la posta) · **Espacio / Intro / 0** = SALIDA · **Retroceso / Supr / .** = deshacer el último toque.
+Valen teclados USB (Android) y Bluetooth (Android e iPhone). No actúan si se escribe en un campo. Sin probar aún con teclado real en piscina; la lógica está comprobada con simulación.
+Siguiente: probar con una botonera de unos 15-30 €; si falta pantalla propia, valorar el aparato con ESP32.

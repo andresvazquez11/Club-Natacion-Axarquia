@@ -2596,6 +2596,7 @@ function renderEnCurso() {
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
     </div>
     ${'wakeLock' in navigator ? '' : '<div class="muted" style="font-size:11px;margin:-6px 0 8px">Este móvil no permite mantener la pantalla encendida: súbele el tiempo de bloqueo en Ajustes.</div>'}
+    <div class="muted" style="font-size:11px;margin:-6px 0 8px">⌨️ Con teclado o botonera: <b>1-6</b> calle · <b>Espacio</b> salida · <b>⌫</b> deshacer</div>
     <div class="nado-clk${SA.nado.some(x=>x.fin==null)?'':' parado'}"><span class="muted">Tiempo nadando</span><b id="live-nado">${fmtNado(msNadando(SA.nado, now))}</b></div>`;
 
   // Ronda terminada → resumen
@@ -3901,6 +3902,48 @@ document.getElementById('app').addEventListener('keydown', async function(e) {
     const v=e.target.value.trim(); if(!v) return;
     e.target.value=''; await DB.crearNadador(route.eqId, v);
   }
+});
+
+// ── Teclado / botonera (USB o Bluetooth): un botón por calle ─────────────────────────────
+// 1-6 = calle (toque: parcial o llegada del siguiente nadador de esa calle; en relevos, la posta)
+// Espacio · Intro · 0 = SALIDA · Retroceso · Supr · . = deshacer el último toque
+const TECLAS_DESHACER = [];
+function calleNum(g) { const m = /(\d+)/.exec(g.nombre||''); return m ? +m[1] : g.idx+1; }
+function teclaCalle(n, t) {
+  if (SA.relevo) {
+    const g = SA.grupos.find(x => calleNum(x) === n && x.nads.length), e = g && SA.rel && SA.rel.eq[g.gId];
+    if (!g || !e || e.fin) return;
+    const k = e.k; relevoToque(g.gId, t);
+    if (e.k !== k) TECLAS_DESHACER.push({rel: g.gId});
+    return;
+  }
+  const a = SA.agua.filter(x => x.ronda === SA.ronda && calleNum(SA.grupos.find(g => g.gId === x.gId) || {nombre:'', idx:x.laneIdx}) === n).sort(ordenFila)[0];
+  if (!a) return;
+  const antes = a.parc.length;
+  marcaNad(a.key, t);
+  if (!SA.agua.includes(a)) TECLAS_DESHACER.push({llegada: a.key});
+  else if (a.parc.length > antes) TECLAS_DESHACER.push({parcial: a.key});
+}
+function teclaDeshacer() {
+  const u = TECLAS_DESHACER.pop(); if (!u) return;
+  if (u.rel) relevoDeshacer(u.rel);
+  else if (u.llegada) { const ya = SA.llegados.concat(SA.prevLleg).find(l => l.key === u.llegada); if (ya) ya.tLleg = 0; deshacerLlegada(u.llegada); }
+  else if (u.parcial) deshacerParcial(u.parcial);
+}
+document.addEventListener('keydown', function(e) {
+  if (route.screen !== 'en-curso' || !SA || SA.editando || SA.nuevaSerie) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  const el = e.target, tag = el && el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el && el.isContentEditable)) return;
+  const t = Date.now(), k = e.key;
+  if (/^[1-9]$/.test(k)) { teclaCalle(+k, t); }
+  else if (k === ' ' || k === 'Enter' || k === '0') {
+    desbloquearAudio();
+    if (SA.relevo) relevoSalida(t); else salidaTanda(t);
+  }
+  else if (k === 'Backspace' || k === 'Delete' || k === '.' || k === ',') teclaDeshacer();
+  else return;
+  e.preventDefault();
 });
 
 document.getElementById('app').addEventListener('change', function(e) {
