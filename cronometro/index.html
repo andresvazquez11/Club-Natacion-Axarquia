@@ -1905,13 +1905,13 @@ const MANUAL_LINK = `<a class="manual-link" href="${MANUAL_URL}" target="_blank"
 const APP_VERSION = 'v23';
 const FIRMA_HTML = `<div class="firma">Cronómetro CNA <b>${APP_VERSION}</b> · Desarrollado por <a href="https://www.instagram.com/andresvazquez11/" target="_blank" rel="noopener">@andresvazquez11</a></div>`;
 const TAB_DE = {'planes-todos':'home', home:'home', resultados:'home', historial:'historial', 'hist-det':'historial', nadadores:'nadadores', evolucion:'nadadores', 'evolucion-nad':'nadadores'};
-// Aviso temporal abajo (hasta el sábado 31/10/2026); «Entendido» lo oculta para siempre en ese móvil
-const AVISO_NOTAS = {clave: 'crono_aviso_notas', hasta: new Date(2026, 9, 31, 23, 59, 59).getTime()};
+// Aviso temporal abajo con las novedades de la v23 (hasta el 30/11/2026); «Entendido» lo oculta para siempre en ese móvil
+const AVISO_NOTAS = {clave: 'crono_aviso_v23', hasta: new Date(2026, 10, 30, 23, 59, 59).getTime()};
 function avisoNotasVisible() {
   if (Date.now() > AVISO_NOTAS.hasta) return false;
   try { return !localStorage.getItem(AVISO_NOTAS.clave); } catch { return true; }
 }
-const avisoNotasHTML = () => avisoNotasVisible() ? `<div class="aviso-nov" role="status"><div><b>Novedad: seguimiento de notas</b><br>Las notas que pongas a un nadador se retoman en el resumen de su siguiente entreno, para ver si sigue más lento o cansado.</div><button data-action="aviso-ok">Entendido</button></div>` : '';
+const avisoNotasHTML = () => avisoNotasVisible() ? `<div class="aviso-nov" role="status"><div><b>Novedades</b><br>· Estilo y ritmo de cada nadador al preparar el entreno<br>· Cada calle puede nadar su prueba en la misma serie<br>· Parciales en «Por nadador» y colores como en la web</div><button data-action="aviso-ok">Entendido</button></div>` : '';
 function renderTabs(activa) {
   const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
   return `${avisoNotasHTML()}<nav class="tabbar">${t('home','⏱','Entrenar')}${t('historial','📋','Historial')}${t('nadadores','🏊','Nadadores')}<a href="../club.html#entrenamientos" target="_blank" rel="noopener"><span class="ti">🌐</span>Web club</a></nav>`;
