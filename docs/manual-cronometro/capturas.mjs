@@ -201,7 +201,9 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
     await p.locator('.sw-card[data-action="llego"]', { hasText: n }).first().click(); await p.clock.runFor(120);
     if (n === 'Paula Navarro') await foto(p, 'llegadas');
   }
-  await p.clock.runFor(3500); await arriba(p); await foto(p, 'serie_resumen', 1500);
+  await p.clock.runFor(3500); await arriba(p); await foto(p, 'serie_resumen', 1100);
+  await p.evaluate(() => { const d = document.querySelector('details.resumen-serie'); if (d) d.open = true; }); await p.clock.runFor(300);   // el resumen va abajo, plegado: se abre para verlo
+  await bajarA(p, 'details.resumen-serie', 60); await foto(p, 'serie_resumen_detalle', 1500);
   await toca(p, '[data-action="orden-abrir"]'); await toca(p, '[data-action="orden-mover"][data-i="0"][data-dir="1"]');
   await bajarA(p, '[data-action="orden-guardar"]', 520); await foto(p, 'corregir_orden'); await toca(p, '[data-action="orden-cancelar"]');
   // segunda serie: 100 libre con parciales cada 50 m
@@ -315,6 +317,11 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
   await arriba(p); await foto(p, 'entre_series_en_curso', 1100);
   await toca(p, '[data-action="entre-abrir"]'); await p.clock.runFor(1500);
   console.log('PRUEBA entre series · programada en pleno entreno:', (await p.locator('#live-desc').count()) ? await p.locator('#live-desc').innerText() : 'SIN CUENTA');
+  for (let s = 0; s < 4; s++) { const b = p.locator('[data-action="salida-tanda"]'); if (await b.count() && await b.isEnabled()) { await b.click(); await p.clock.runFor(2500); } }
+  await p.clock.runFor(25000); await llegaTodos(p); await p.clock.runFor(2000);
+  console.log('PRUEBA entre series · serie completa, entreno libre:', (await p.locator('#live-desc').count()) ? 'CUENTA ' + await p.locator('#live-desc').innerText() : 'sin cuenta', '| botón SALIDA a', await p.evaluate(() => Math.round(document.querySelector('.salida-btn').getBoundingClientRect().top + scrollY)), 'px');
+  await toca(p, '[data-action="desc-no-mas"]'); await p.clock.runFor(500);
+  console.log('PRUEBA entre series · tras «No habrá más series»:', (await p.locator('#live-desc').count()) ? 'SIGUE LA CUENTA' : 'cuenta quitada');
   await ctx.close(); }
 
 // 3c. Entreno preparado en curso: cambiar el orden de las series

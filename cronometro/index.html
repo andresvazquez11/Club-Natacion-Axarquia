@@ -137,6 +137,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .aj-menu small{display:block;margin-top:1px;color:var(--mut);font-size:11px;font-weight:500}
 .salida-pista{font-size:11px;color:var(--mut);margin:-2px 0 6px}
 .salida-lista .salida-btn{min-height:56px;font-size:20px}
+.salida-lista .row{flex-wrap:wrap}
 .ciclo-cd.compacto{padding:3px 10px;margin-bottom:6px;gap:8px;font-size:12px}
 .ciclo-cd.compacto b{font-size:19px}
 .salida-lista .salida-next{margin-bottom:6px}
@@ -2748,7 +2749,7 @@ function renderEnCurso() {
 
   // Ronda terminada → resumen
   if (SA.relevo && !SA.editando) return html + renderRelevo(now);
-  if (rondaTerminada()) return html + relojEntreSeries(now, SA.ronda) + renderResumenRonda();
+  // Serie completa: NO se cambia de pantalla; arriba el botón de la serie siguiente, en medio las calles con los tiempos y abajo, plegado, el resumen
 
   // SALIDA común: muestra quién sale en cada calle. Tocar un nombre = "no sale"
   if (SA.planEdit && SA.plan) {
@@ -2775,20 +2776,9 @@ function renderEnCurso() {
         <button class="salida-btn" data-action="salida-tanda" ${salen?'':'disabled'}>🚀 SALIDA · S${SA.ronda}${SA.nSalida?` · tanda ${SA.nSalida+1}`:''}${salen<pendientes.length&&salen?` (${salen})`:''}</button>
       </div>`;
   } else {
-    // Todos han salido: la siguiente serie puede empezar aunque alguno siga nadando (descanso de 2 min, el último aún no llegó)
-    const quedan = SA.agua.length;
-    const sig = SA.plan && SA.plan.series[SA.planIdx+1];
-    html += relojEntreSeries(now, SA.ronda, quedan > 0);   // todos han salido: la cuenta hasta la siguiente salida o el reloj de esta serie (compacto si aún hay nadadores que vigilar)
-    html += `<div class="salida-card salida-lista" style="--sc:${serieCol(SA.ronda + 1)}">
-      <div class="salida-banda"><span>${quedan ? `${quedan} nadando` : 'Esperando llegadas'} · SERIE ${SA.ronda+1} LISTA</span>${ajustesBtn()}</div>
-      ${ajustesMenu()}
-      ${!quedan ? '' : SA.nuevaSerie ? renderNuevaSerie() : `
-        <button class="salida-btn" data-action="siguiente-salida">🚀 SALIDA · serie ${SA.ronda+1}${sig?`: ${esc(comboTexto(sig.estilo, sig.dist))}`:' (igual)'}</button>
-        <div class="row" style="gap:6px;margin-top:6px">
-          <button class="btn btn-surf btn-sm" style="flex:1" data-action="serie-ya">✎ Preparar antes de salir</button>
-          <button class="btn btn-surf btn-sm" style="flex:1" data-action="ns-abrir">➕ Otra prueba</button>
-        </div>`}
-    </div>`;
+    // Todos han salido (con alguno aún nadando) o serie completa: la siguiente serie puede empezar ya
+    html += relojEntreSeries(now, SA.ronda, true);   // la cuenta hasta la siguiente salida o el reloj de esta serie
+    html += renderSiguienteSerie();
   }
 
   // Pizarra de calles: una columna fija por calle y un sitio fijo por nadador durante toda la serie.
@@ -2815,6 +2805,7 @@ function renderEnCurso() {
       </div>`;
     }).join('')}
     </div>`;
+  if (rondaTerminada()) html += renderResumenPlegado();   // serie completa: el resumen va abajo, plegado, para no estorbar la toma de tiempos
   return html;
 }
 
@@ -2836,6 +2827,7 @@ function descansoActivo() {
   const r = Math.max(...rs), t = SA.seriesT[r];
   if (!SA.desc || !t.ini || (r !== SA.ronda && r !== SA.ronda - 1)) return null;   // solo entre la salida de esa serie y la de la siguiente (el ajuste es del entreno: se aplica en directo)
   if (SA.descOff === r) return null;                                                    // el entrenador dijo que no habrá otra serie
+  if (Date.now() - t.ini > Math.max(SA.desc * 3000, 300000)) return null;                // nadie ha dado la siguiente salida en mucho más de lo previsto (3 veces el tiempo, o 5 min): se entiende que no hay más series y la cuenta se apaga sola
   if (SA.plan && r === SA.ronda && SA.planIdx + 1 >= SA.plan.series.length) return null;   // era la última serie del entreno preparado: no hay siguiente
   return {r, origen: t.ini, desc: SA.desc, auto: !!SA.descAuto, atras: SA.relojAtras !== false};
 }
@@ -3276,16 +3268,37 @@ function renderResumenRonda() {
       <button class="${SA.vista!=='calle'?'on':''}" data-action="vista" data-v="rapidos">⚡ Más rápidos</button>
       <button class="${SA.vista==='calle'?'on':''}" data-action="vista" data-v="calle">🏊 Por calle</button>
     </div>
-    ${cuerpo}
-    ${!SA.nuevaSerie && SA.plan ? (SA.plan.series[SA.planIdx+1]
-      ? `<button class="salida-btn mt16" data-action="siguiente-salida">🚀 SALIDA · serie ${SA.ronda+1}: ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].rota?' en rota':''}</button>
-        <button class="btn btn-surf mt8" style="min-height:44px;font-size:14px" data-action="plan-siguiente">✎ Preparar antes de salir (calles, estilos…): ${esc(comboTexto(SA.plan.series[SA.planIdx+1].estilo, SA.plan.series[SA.planIdx+1].dist))}${SA.plan.series[SA.planIdx+1].rota?' en rota':''}${(r => r && r.ref !== 'mejor' ? ` · ${refNom(r.ref)}${masTxt(r)}` : '')(ritmoOk(SA.plan.series[SA.planIdx+1].ritmo))}${SA.plan.series[SA.planIdx+1].auto&&SA.plan.series[SA.planIdx+1].ciclo?` · auto ${esc(SA.plan.series[SA.planIdx+1].ciclo)} s`:''}</button>`
-      : `<div class="card mt16" style="text-align:center;color:var(--grn-l);font-weight:700">✓ Plan terminado (${SA.plan.series.length} series)</div>`) : ''}
+    ${cuerpo}`;
+}
+// Botones para pasar a la serie siguiente: el principal es SALIDA, en un solo toque (antes estaban al final del resumen)
+function renderSiguienteSerie() {
+  const quedan = SA.agua.length, terminada = rondaTerminada(), plan = SA.plan, sigPlan = plan && plan.series[SA.planIdx + 1];
+  const sig = sigPlan ? ` ${esc(comboTexto(sigPlan.estilo, sigPlan.dist))}${sigPlan.rota ? ' en rota' : ''}` : '';
+  const titulo = terminada ? (plan && !sigPlan ? '✓ ENTRENO PREPARADO TERMINADO' : `SERIE ${SA.ronda+1} · LISTA PARA SALIR`) : (quedan ? `${quedan} nadando · SERIE ${SA.ronda+1} LISTA` : 'Esperando llegadas');
+  if (!quedan && !terminada) return `<div class="salida-card salida-lista" style="--sc:${serieCol(SA.ronda + 1)}"><div class="salida-banda"><span>${titulo}</span>${ajustesBtn()}</div>${ajustesMenu()}</div>`;
+  const principal = sigPlan ? `<button class="salida-btn" data-action="siguiente-salida">🚀 SALIDA · serie ${SA.ronda+1}:${sig}</button>`
+    : plan && terminada ? '' : `<button class="salida-btn" data-action="siguiente-salida">🚀 SALIDA · serie ${SA.ronda+1}${terminada ? ' · repetir igual' : ' (igual)'}</button>`;
+  const prepara = sigPlan ? `<button class="btn btn-surf btn-sm" style="flex:1" data-action="plan-siguiente">✎ Preparar antes de salir</button>` : `<button class="btn btn-surf btn-sm" style="flex:1" data-action="${terminada ? 'repetir-serie' : 'serie-ya'}">✎ Preparar antes de salir</button>`;
+  return `<div class="salida-card salida-lista" style="--sc:${serieCol(SA.ronda + 1)}">
+    <div class="salida-banda"><span>${titulo}</span>${ajustesBtn()}</div>
+    ${ajustesMenu()}
     ${SA.nuevaSerie ? renderNuevaSerie() : `
-    ${SA.plan && SA.plan.series[SA.planIdx+1] ? '' : `<button class="salida-btn mt16" data-action="siguiente-salida">🚀 SALIDA · repetir igual · serie ${SA.ronda+1}</button>`}
-    <button class="btn ${SA.plan && SA.plan.series[SA.planIdx+1] ? 'btn-surf' : 'btn-blue'} mt8" style="min-height:44px;font-size:14px" data-action="repetir-serie">${SA.plan && SA.plan.series[SA.planIdx+1] ? '🔁 Repetir igual · serie ' + (SA.ronda+1) : '✎ Preparar antes de salir (calles, estilos…)'}</button>
-    <button class="btn btn-surf mt8" style="min-height:52px;font-size:16px" data-action="ns-abrir">➕ Nueva serie con otro estilo</button>`}
-    <button class="btn btn-green mt8" style="min-height:56px;font-size:17px" data-action="finalizar-sesion">🏁 Terminar entrenamiento</button>`;
+      ${principal}
+      <div class="row" style="gap:6px;margin-top:${principal ? 6 : 0}px">
+        ${plan && !sigPlan ? '' : prepara}
+        ${sigPlan && terminada ? `<button class="btn btn-surf btn-sm" style="flex:1" data-action="repetir-serie">🔁 Repetir igual</button>` : ''}
+        <button class="btn btn-surf btn-sm" style="flex:1" data-action="ns-abrir">➕ Otra serie / estilo</button>
+        ${descansoActivo() ? `<button class="btn btn-surf btn-sm" style="flex-basis:100%" data-action="desc-no-mas">⏹ No habrá más series (quitar la cuenta)</button>` : ''}
+      </div>`}
+  </div>`;
+}
+// El resumen de la serie, plegado y al final de la pantalla: no estorba al tomar tiempos
+function renderResumenPlegado() {
+  const abierto = SA.resumenAbierto || (ORDEN && ORDEN.sesId === SA.sesId && ORDEN.ronda === SA.ronda);
+  return `<details class="card mt16 resumen-serie"${abierto ? ' open' : ''} ontoggle="if (SA) SA.resumenAbierto = this.open">
+      <summary style="cursor:pointer;font-weight:700">📊 Resumen de la serie ${SA.ronda} <span class="muted" style="font-weight:500">· más rápidos, colores y corregir el orden</span></summary>
+      <div style="margin-top:10px">${renderResumenRonda()}</div></details>
+    <button class="btn btn-green mt8" style="min-height:52px;font-size:16px" data-action="finalizar-sesion">🏁 Terminar entrenamiento</button>`;
 }
 function renderNuevaSerie() {
   const f = SA.nuevaSerie, ok = distMax(f) > 50;

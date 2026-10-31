@@ -111,7 +111,8 @@ table.g tr{break-inside:avoid}
   <li><b>La siguiente serie, a tu manera</b>: <b>✋ Sale a mano</b> (pita y tú das la salida cuando quieras; lo más seguro mientras te acostumbras) o <b>⚡ Sale sola</b> (al llegar a cero pita y la serie sale sola; mejor con las calles ya listas).</li>
   <li><b>El reloj, a tu manera</b>: <b>⏬ Cuenta atrás</b> (ves lo que falta para salir) o <b>⏫ Cuenta adelante</b> (ves lo que lleva la serie, con el objetivo al lado). Se ve en una barra mientras salen las tandas y en un cuadro grande en «Serie completa» y al preparar la siguiente.</li>
   <li>Cada botón lleva <b>una explicación debajo</b>. Si no lo activas, el cuadro del reloj de la serie «desde su salida» sigue a la vista, sin pitidos ni cuenta atrás.</li>
-  <li><b>No cuenta una serie que no existe</b>: tras la última serie de un entreno preparado no hay cuenta, y en un entreno libre el botón «No habrá otra serie» la quita.</li>
+  <li><b>No cuenta una serie que no existe</b>: tras la última serie de un entreno preparado no hay cuenta; en un entreno libre, el botón «No habrá más series» la quita, y se apaga sola si pasa mucho más de lo previsto (3 veces el tiempo, o 5 minutos) sin dar la siguiente salida.</li>
+  <li><b>📊 El resumen de la serie ya no tapa la pantalla</b>: al terminar una serie, arriba está el botón de la serie siguiente, en medio las calles con los tiempos y abajo, plegado, el resumen.</li>
   <li><b>🚀 Salida en un solo toque</b>: al terminar una serie, el botón verde <b>SALIDA · serie N</b> pasa a la siguiente <b>y da la salida</b> a la vez (antes eran dos toques: «Siguiente serie» y «SALIDA»). Si quieres ajustar calles o estilos antes, hay un botón pequeño «Preparar antes de salir».</li>
   <li><b>Tarjetas más fáciles de distinguir</b>: cada tarjeta lleva arriba su estado (<b>NADANDO</b>, <b>LLEGÓ</b> o <b>PENDIENTE</b>), cada calle separa las series con un bloque de color («SERIE 2», «PENDIENTES») y, al dar la salida, los que salen hacen un <b>destello verde «¡SALIÓ!»</b>. El botón de salida dice a qué serie y tanda corresponde.</li>
 </ul></div>
@@ -196,7 +197,7 @@ table.g tr{break-inside:avoid}
   <div class="paso"><div class="n">5</div><div>Pulsa <b>▶ Iniciar sesión</b>.</div></div>
   <div class="paso"><div class="n">6</div><div>Pulsa <b>🚀 SALIDA</b>: salen a la vez el 1º de cada calle. Pulsa SALIDA otra vez para que salga el 2º de cada calle, y así. → apartado 7.</div></div>
   <div class="paso"><div class="n">7</div><div><b>Toca la tarjeta de cada nadador cuando llegue a la pared.</b> Su tiempo queda guardado. ¿Te equivocaste? ↶ Deshacer.</div></div>
-  <div class="paso"><div class="n">8</div><div>Cuando llega el último ves el <b>resumen de la serie</b>. Elige <b>🔁 Repetir igual</b> para otra serie o <b>🏁 Terminar entrenamiento</b>. → apartado 8.</div></div>
+  <div class="paso"><div class="n">8</div><div>Cuando llega el último ves el <b>resumen de la serie</b>. Pulsa <b>🚀 SALIDA</b> (arriba) para la serie siguiente o <b>🏁 Terminar entrenamiento</b> (abajo). El resumen de la serie queda plegado al final. → apartado 8.</div></div>
   <div class="paso"><div class="n">9</div><div>Al terminar, abre el <b>resumen</b>, léete las <b>Conclusiones</b> y, si quieres, <b>descarga el PDF</b>. → apartado 11.</div></div>
   <div class="ok">No tengas miedo de probar: en el menú ⋯ → <b>Borrar entrenos de prueba</b> puedes mandar a la papelera cualquier sesión de ensayo, y nada se pierde del todo.</div>
 </div><div class="cap alto"><img src="z/preparar.jpg" alt=""><small>El tablero de calles: aquí empieza todo</small></div></div>
@@ -418,7 +419,8 @@ table.g tr{break-inside:avoid}
 <div class="sec">
 <h2><span class="n">8</span>Al terminar cada serie y los colores</h2>
 <div class="fila"><div class="tx">
-  <p>Cuando llega el último, aparece el <b>resumen de la serie</b>:</p>
+  <p><b>Novedad v25:</b> cuando llega el último, la pantalla <b>no cambia</b>. Arriba aparece la tarjeta de la <b>serie siguiente</b> con el botón verde <b>🚀 SALIDA</b> (en un solo toque), debajo siguen las calles con los tiempos de cada nadador y, <b>abajo del todo y plegado</b>, el <b>«📊 Resumen de la serie»</b> (se abre con un toque). Así el resumen no estorba a la toma de tiempos y el botón de salida siempre está a mano.</p>
+  <p>El <b>resumen de la serie</b> contiene:</p>
   <ul>
     <li><b>⚡ Más rápidos</b> (con la diferencia con el primero) o <b>🏊 Por calle</b> (en orden de salida). Cada fila es compacta; <b>toca una fila</b> para ver su detalle.</li>
     <li>Debajo de cada nombre, la comparación con su <b>mejor entreno en las mismas condiciones</b>, su <b>último entreno</b> y, como referencia, su <b>mejor marca de competición</b> (en piscina de 25 m; si la hizo en 50 m se convierte): «Mejor competición 36.43 (14/06/26) → hoy −0.2 s más rápido».</li>
@@ -437,12 +439,13 @@ table.g tr{break-inside:avoid}
   </table>
   <h3>¿Y ahora?</h3>
   <ul>
-    <li><b>🔁 Repetir igual</b>: otra serie de la misma prueba con las mismas calles.</li>
-    <li><b>➕ Nueva serie con otro estilo</b>: eliges otra prueba, parciales, ciclo, rota o ritmo; mismas calles.</li>
-    <li>En un entreno preparado: <b>▶ Siguiente serie</b> con lo que planificaste.</li>
-    <li><b>🏁 Terminar entrenamiento</b>: cierra la sesión y abre su resumen.</li>
+    <li><b>🚀 SALIDA · serie N</b> (arriba, en la tarjeta de color): pasa a la serie siguiente y da la salida a la vez. En un entreno preparado es la siguiente serie planificada; en un entreno libre, la misma serie otra vez («repetir igual»).</li>
+    <li><b>✎ Preparar antes de salir</b>: abre la pantalla de preparar la serie siguiente (calles, estilos…) sin dar la salida.</li>
+    <li><b>🔁 Repetir igual</b> (en un entreno preparado) y <b>➕ Otra serie / estilo</b>: eliges otra prueba, parciales, ciclo, rota o ritmo; mismas calles.</li>
+    <li><b>⏹ No habrá más series</b>: quita la cuenta del tiempo entre series. En un entreno preparado la cuenta se quita sola tras la última serie; en un entreno libre, también se apaga sola si pasa mucho más de lo previsto (3 veces el tiempo, o 5 minutos) sin dar la siguiente salida.</li>
+    <li><b>🏁 Terminar entrenamiento</b> (abajo, tras el resumen): cierra la sesión y abre su resumen.</li>
   </ul>
-</div><div class="cap alto"><img src="z/serie_resumen.jpg" alt=""><small>Resumen de una serie con colores</small></div></div>
+</div><div class="cap alto"><img src="z/serie_resumen.jpg" alt=""><small>Serie completa: SALIDA arriba, calles con tiempos y el resumen plegado abajo</small></div><div class="cap alto"><img src="z/serie_resumen_detalle.jpg" alt=""><small>El resumen, desplegado (colores y corregir el orden)</small></div></div>
 <div class="duo"><div class="cap"><img src="z/nueva_serie.jpg" alt=""><small>Nueva serie con otra prueba</small></div><div class="cap"><img src="z/corregir_orden.jpg" alt=""><small>Corregir el orden de salida</small></div></div>
 </div>
 
@@ -472,7 +475,7 @@ table.g tr{break-inside:avoid}
   <div class="paso"><div class="n">2</div><div>Añade las <b>series</b>: cada una con su estilo, distancia, parciales, ciclo y salida automática, y si quieres su <b>rota</b>, su <b>ritmo</b> o <b>cada calle su prueba</b>. Ordénalas con ↑ ↓. Para series de ritmo repetidas, usa el <b>🎯 bloque a ritmo</b> (apartado 6).</div></div>
   <div class="paso"><div class="n">3</div><div>Arma las <b>calles</b> en el tablero y, si quieres, el <b>estilo y ritmo de cada nadador</b>.</div></div>
   <div class="paso"><div class="n">4</div><div><b>💾 Guardar entreno preparado</b>.</div></div>
-  <p>En la piscina, <b>▶</b> empieza la serie 1 con esas calles. Al terminar cada serie, el botón <b>▶ Siguiente serie</b> carga la siguiente ya configurada. Al acabar todas verás «✓ Plan terminado». El historial y el resumen indican que fue un entreno preparado.</p>
+  <p>En la piscina, <b>▶</b> empieza la serie 1 con esas calles. Al terminar cada serie, el botón <b>🚀 SALIDA</b> carga la siguiente ya configurada y da la salida. Al acabar todas verás «✓ Plan terminado». El historial y el resumen indican que fue un entreno preparado.</p>
   <p><b>¿Hay que cambiar algo sobre la marcha?</b> Durante el entreno pulsa <b>✎ Plan</b>: cambia el orden de las series que faltan, quítalas, añade otras o cambia su estilo y distancia, y sigue entrenando.</p>
   <div class="info">Puedes usar el mismo entreno preparado tantas veces como quieras. Los cambios que hagas en la piscina no lo modifican, salvo que pulses «Guardar estos cambios también en el entreno preparado».</div>
 </div><div class="cap alto"><img src="z/plan.jpg" alt=""><small>Editar un entreno preparado</small></div></div>

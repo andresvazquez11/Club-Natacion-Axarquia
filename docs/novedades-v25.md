@@ -16,10 +16,10 @@ Cierra la app y vuelve a abrirla con conexión para que se actualice (arriba, en
 • Se cuenta desde la salida de la serie (la primera salida), no desde que llegan los nadadores: con 1:45, la serie siguiente sale 1:45 después de que salió la anterior.
 • Al acabar el tiempo pita y vibra. ✋ Sale a mano: tú das la salida. ⚡ Sale sola: la serie sale sola (mejor con las calles ya listas).
 • ⏬ Cuenta atrás: ves lo que falta. ⏫ Cuenta adelante: ves lo que lleva la serie. Cada botón lleva una explicación.
-• Tras la última serie de un entreno preparado no cuenta nada, y «No habrá otra serie» quita la cuenta en un entreno libre.
+• Tras la última serie de un entreno preparado no cuenta nada. En un entreno libre, «No habrá más series» quita la cuenta, y se apaga sola si pasa mucho más de lo previsto sin dar la siguiente salida.
 
 **🚀 Salida en un solo toque y tarjetas más claras**
-• El botón verde SALIDA de la serie siguiente pasa a la serie y da la salida a la vez (antes eran dos toques).
+• Al terminar una serie la pantalla no cambia: el botón verde SALIDA de la serie siguiente está arriba y pasa a la serie y da la salida a la vez (antes eran dos toques), las calles siguen debajo con los tiempos y el resumen de la serie queda plegado al final.
 • Cada tarjeta dice NADANDO, LLEGÓ o PENDIENTE, cada calle separa las series con un bloque de color y al salir hay un destello «¡SALIÓ!».
 
 **Si te equivocas, ya se puede arreglar**
