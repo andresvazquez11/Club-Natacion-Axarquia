@@ -134,17 +134,17 @@ function rotaDeshacer(f) {
 }
 
 // ── Descanso entre series ──
-// desc = segundos de descanso tras llegar el último nadador (1 a 3600; sin valor = sin descanso programado);
-// descAuto = la siguiente serie sale sola al acabar el descanso (si no, solo pita y vibra);
+// desc = segundos entre la salida de una serie y la de la siguiente: «salir cada 1:45» (1 a 3600; sin valor = sin cuenta programada);
+// descAuto = la siguiente serie sale sola al acabar el tiempo (si no, solo pita y vibra);
 // relojAtras = el reloj cuenta hacia atrás (lo que falta) en vez de hacia delante (lo que llevan)
 const DESC_DEF = 30, DESC_MAX = 3600;
 function descOk(o) {
   const n = Math.round(Number(o && o.desc)), desc = Number.isFinite(n) && n >= 1 && n <= DESC_MAX ? n : null;
   return {desc, descAuto: !!desc && o.descAuto === true, relojAtras: !(o && o.relojAtras === false)};
 }
-// Cuánto falta para acabar el descanso, contado desde la llegada del último: {restaMs, ya (ha acabado), aviso (últimos 3 s)}
-function descansoEstado(finMs, descS, ahora) {
-  const restaMs = finMs + descS * 1000 - ahora;
+// Cuánto falta para la siguiente salida, contado desde la primera salida de la serie: {restaMs, ya (ha acabado), aviso (últimos 3 s)}
+function descansoEstado(origenMs, descS, ahora) {
+  const restaMs = origenMs + descS * 1000 - ahora;
   return {restaMs, ya: restaMs <= 0, aviso: restaMs > 0 && restaMs <= 3000};
 }
 

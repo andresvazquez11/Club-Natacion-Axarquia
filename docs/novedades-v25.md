@@ -10,12 +10,12 @@ primer lugar, en el apartado «Novedades».
 
 Cierra la app y vuelve a abrirla con conexión para que se actualice (arriba, en Inicio, debe poner **v25**).
 
-**⏳ Descanso entre series (lo decides tú)**
-• Al preparar una serie, activa «Descanso entre series» y escribe cuánto (20 o 1:30). La app lo cuenta desde que llega el último nadador y te avisa cuando acaba.
-• ✋ Sale a mano: pita y vibra, y tú das la salida cuando quieras.
-• ⚡ Sale sola: pita y la serie sale sola (mejor con las calles ya listas).
-• ⏬ Cuenta atrás: ves lo que falta. ⏫ Cuenta adelante: ves lo que llevan descansando.
-• Cada botón lleva una explicación. Para empezar: descanso corto, «Sale a mano» y «Cuenta atrás».
+**⏳ Salir de nuevo cada… (series «cada 1:45»)**
+• Al preparar una serie, activa «Salir de nuevo cada…» y escribe el tiempo (por ejemplo 1:45).
+• Se cuenta desde la salida de la serie (la primera salida), no desde que llegan los nadadores: con 1:45, la serie siguiente sale 1:45 después de que salió la anterior.
+• Al acabar el tiempo pita y vibra. ✋ Sale a mano: tú das la salida. ⚡ Sale sola: la serie sale sola (mejor con las calles ya listas).
+• ⏬ Cuenta atrás: ves lo que falta. ⏫ Cuenta adelante: ves lo que lleva la serie.
+• Cada botón lleva una explicación. Para empezar: tu ciclo, «Sale a mano» y «Cuenta atrás».
 
 **Si te equivocas, ya se puede arreglar**
 • ¿Pusiste a otro nadador? En el resumen, toca su tiempo → «Nadador de este tiempo».

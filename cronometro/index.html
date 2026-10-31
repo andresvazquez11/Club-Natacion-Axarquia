@@ -123,6 +123,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .desc-seg{margin-bottom:2px}
 .desc-seg button{min-height:64px;padding:6px 6px;line-height:1.2}
 .desc-seg button small{display:block;margin-top:3px;font-size:11px;font-weight:500;opacity:.85}
+.serie-sigue.compacta{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:4px 10px;margin:0 0 8px;padding:6px 10px;border-width:1px}
+.serie-sigue.compacta b{font-size:24px}
 .serie-sigue.desc{border-color:var(--amb)}
 .serie-sigue.desc b{color:var(--amb)}
 .serie-sigue.desc.ultimos b{animation:rotaLatido .5s infinite alternate;color:#fff}
@@ -906,7 +908,7 @@ function startClock() {
     // Descanso entre series: cuenta, pitidos en los últimos 3 s y aviso (o salida sola) al llegar a cero
     const dd = descansoActivo();
     if (dd) {
-      const e = descansoEstado(dd.finMs, dd.desc, now), el = document.getElementById('live-desc');
+      const e = descansoEstado(dd.origen, dd.desc, now), el = document.getElementById('live-desc');
       if (el) { el.textContent = descansoTxt(dd, now); const caja = el.closest('.serie-sigue'); if (caja) { caja.classList.toggle('ya', e.ya); caja.classList.toggle('ultimos', e.aviso); } }
       if (e.aviso) { const k = dd.r + '|' + Math.ceil(e.restaMs / 1000); if (SA.dAviso !== k) { SA.dAviso = k; pitido(120, 880); } }
       if (e.ya && SA.dSonado !== dd.r) { SA.dSonado = dd.r; pitido(500, 660); vibrar(200); if (dd.auto) descansoAuto(dd); }
@@ -2003,7 +2005,7 @@ function avisoNotasVisible() {
   if (Date.now() > AVISO_NOTAS.hasta) return false;
   try { return !localStorage.getItem(AVISO_NOTAS.clave); } catch { return true; }
 }
-const avisoNotasHTML = () => avisoNotasVisible() ? `<div class="aviso-nov" role="status"><div><b>Novedades v25</b><br>· Descanso entre series con cuenta atrás o adelante, y salida a mano o automática<br>· Si te equivocas de nadador o de parcial, se corrige en el resumen<br>· Hasta 6 calles, libre 800/1500 y Estilos</div><button data-action="aviso-ok">Entendido</button></div>` : '';
+const avisoNotasHTML = () => avisoNotasVisible() ? `<div class="aviso-nov" role="status"><div><b>Novedades v25</b><br>· «Salir de nuevo cada…» (por ejemplo 1:45): cuenta desde la salida de la serie, atrás o adelante, y salida a mano o sola<br>· Si te equivocas de nadador o de parcial, se corrige en el resumen<br>· Hasta 6 calles, libre 800/1500 y Estilos</div><button data-action="aviso-ok">Entendido</button></div>` : '';
 function renderTabs(activa) {
   const t = (to, ico, txt) => `<button data-action="tab" data-to="${to}" class="${activa===to?'on':''}"><span class="ti">${ico}</span>${txt}</button>`;
   return `${avisoNotasHTML()}<nav class="tabbar">${t('home','⏱','Entrenar')}${t('historial','📋','Historial')}${t('nadadores','🏊','Nadadores')}<a href="../club.html#entrenamientos" target="_blank" rel="noopener"><span class="ti">🌐</span>Web club</a></nav>`;
@@ -2105,7 +2107,7 @@ function renderPreparados() {
     ${ps.map(p=>`<div class="card row" style="gap:8px">
       <div style="flex:1;min-width:0">
         <div style="font-weight:700">${esc(p.nombre)}</div>
-        <div class="muted" style="font-size:12px">${esc(p.eqId?eqNombre(p.eqId):'')} · ${p.series.map(x=>esc(comboTexto(x.estilo,x.dist))+(x.auto&&x.ciclo?` · auto ${esc(x.ciclo)} s`:'')+(x.desc?` · descanso ${esc(x.desc)} s`:'')).join(' · ')}</div>
+        <div class="muted" style="font-size:12px">${esc(p.eqId?eqNombre(p.eqId):'')} · ${p.series.map(x=>esc(comboTexto(x.estilo,x.dist))+(x.auto&&x.ciclo?` · auto ${esc(x.ciclo)} s`:'')+(x.desc?` · cada ${esc(x.desc)} s`:'')).join(' · ')}</div>
       </div>
       <button class="btn-icon" data-action="plan-editar" data-id="${esc(p.id)}" aria-label="Editar">✎</button>
       <button class="btn-icon" data-action="plan-borrar" data-id="${esc(p.id)}" style="color:var(--red)" aria-label="Borrar">✕</button>
@@ -2457,15 +2459,15 @@ function descCfgHTML(o, t) {
   const op = (acc, v, activo, tit, ayuda) => `<button class="${activo?'on':''}" data-action="${acc}" data-t="${t}" data-v="${v}">${tit}<small>${ayuda}</small></button>`;
   return `<div class="desc-cfg">
     <div class="toggle-row" style="margin:0" data-action="desc-toggle" data-t="${t}">
-      <div style="flex:1"><div style="font-weight:600;font-size:14px">⏳ Descanso entre series</div>
-        <div class="muted" style="font-size:12px">La app cuenta el descanso desde que llega el último nadador y te avisa (pita y vibra) cuando se acaba.</div></div>
+      <div style="flex:1"><div style="font-weight:600;font-size:14px">⏳ Salir de nuevo cada…</div>
+        <div class="muted" style="font-size:12px">Series de 100 cada 1:45, por ejemplo. <b>Se cuenta desde la salida de la serie</b> (la primera salida), <b>no desde que llegan los nadadores</b>: con 1:45, la serie siguiente sale 1:45 después de que salió la anterior. Al acabar el tiempo te avisa (pita y vibra).</div></div>
       <div class="sw${on?' on':''}"></div></div>
-    ${on ? `<label class="ciclo-seg"><span class="muted">Descanso (segundos o m:ss)</span>
+    ${on ? `<label class="ciclo-seg"><span class="muted">Salir cada (m:ss o segundos)</span>
         <input class="input" type="text" inputmode="numeric" data-descanso="${t}" value="${esc(fmtDescCampo(o.desc))}"></label>
-      <div class="muted" style="font-size:12px;margin:4px 0">Al acabar el descanso, la siguiente serie…</div>
+      <div class="muted" style="font-size:12px;margin:4px 0">Al llegar a ese tiempo, la siguiente serie…</div>
       <div class="seg desc-seg">${op('desc-auto', 'manual', !auto, '✋ Sale a mano', 'Pita y vibra; tú das la salida cuando quieras. Lo más seguro.')}${op('desc-auto', 'auto', auto, '⚡ Sale sola', 'Pita y la serie sale sola. Con las calles ya listas.')}</div>
-      <div class="muted" style="font-size:12px;margin:4px 0">El reloj del descanso…</div>
-      <div class="seg desc-seg">${op('desc-reloj', 'atras', atras, '⏬ Cuenta atrás', 'Ves lo que falta para salir: 0:20, 0:19…')}${op('desc-reloj', 'adelante', !atras, '⏫ Cuenta adelante', 'Ves lo que llevan descansando, con el objetivo al lado.')}</div>` : ''}
+      <div class="muted" style="font-size:12px;margin:4px 0">El reloj…</div>
+      <div class="seg desc-seg">${op('desc-reloj', 'atras', atras, '⏬ Cuenta atrás', 'Ves lo que falta para salir: 0:20, 0:19…')}${op('desc-reloj', 'adelante', !atras, '⏫ Cuenta adelante', 'Ves lo que lleva la serie, con el objetivo al lado.')}</div>` : ''}
   </div>`;
 }
 // 30 → «30»; 90 → «1:30»
@@ -2474,7 +2476,7 @@ function cicloHTML(o, t) {
   return descCfgHTML(o, t) + `<div class="ciclo-row">
     <div class="toggle-row" style="margin:0;flex:1" data-action="ciclo-auto" data-t="${t}">
       <div style="flex:1"><div style="font-weight:600;font-size:14px">Salidas automáticas dentro de la serie</div>
-        <div class="muted" style="font-size:12px">Tras la primera salida, las siguientes tandas (el 2.º de cada calle…) salen solas cada pocos segundos. No tiene que ver con el descanso entre series.</div></div><div class="sw${o.auto?' on':''}"></div></div>
+        <div class="muted" style="font-size:12px">Tras la primera salida, las siguientes tandas (el 2.º de cada calle…) salen solas cada pocos segundos. No tiene que ver con «Salir de nuevo cada…», que es entre series.</div></div><div class="sw${o.auto?' on':''}"></div></div>
     ${o.auto ? `<label class="ciclo-seg"><span class="muted">Segundos entre salidas</span>
       <input class="input" type="number" min="1" max="600" step="1" inputmode="numeric" data-ciclo="${t}" value="${esc(o.ciclo||CICLO_DEF)}"></label>` : ''}
   </div>`;
@@ -2749,7 +2751,7 @@ function renderEnCurso() {
     // Todos han salido: la siguiente serie puede empezar aunque alguno siga nadando (descanso de 2 min, el último aún no llegó)
     const quedan = SA.agua.length;
     const sig = SA.plan && SA.plan.series[SA.planIdx+1];
-    html += relojSerie(now, SA.ronda);   // todos han salido y alguno sigue nadando: reloj de esta serie para ir viendo el ciclo
+    html += relojEntreSeries(now, SA.ronda);   // todos han salido y alguno sigue nadando: la cuenta hasta la siguiente salida o el reloj de esta serie
     html += `<div class="salida-card">
       <div style="display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:${quedan?10:0}px"><span class="muted" style="flex:1">Todos han salido · ${quedan?`${quedan} ${quedan===1?'nadador sigue':'nadadores siguen'} en el agua`:'esperando llegadas'}</span><button class="edit-link" data-action="edit-abrir">✎ Calles</button></div>
       ${!quedan ? '' : SA.nuevaSerie ? renderNuevaSerie() : `
@@ -2765,6 +2767,7 @@ function renderEnCurso() {
   // Arriba los que aún nadan (o acaban de llegar) de la serie anterior, luego los que salieron y los que esperan.
   const cols = Math.min(SA.grupos.length, 6);
   const nAgua = SA.agua.filter(f=>f.ronda===SA.ronda).length;
+  { const dc = descansoActivo(); if (dc && dc.r === SA.ronda && quedanPorSalir()) html += descansoBloque(now, dc, true); }   // la cuenta ya corre mientras salen las tandas
   html += renderTiraSeries(now);
   html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.rota?'<span class="muted" style="font-size:11px">Toca al llegar a la pared: el descanso se cuenta solo</span>':hayTramos()?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
     <div class="lanes-grid${cols>4?' muchas':''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
@@ -2799,24 +2802,27 @@ function descansoActivo() {
   if (!SA || !SA.seriesT) return null;
   const rs = Object.keys(SA.seriesT).map(Number); if (!rs.length) return null;
   const r = Math.max(...rs), t = SA.seriesT[r];
-  if (!t.fin || !t.desc || (r !== SA.ronda && r !== SA.ronda - 1)) return null;   // solo entre esa serie y la salida de la siguiente
-  return {r, finMs: t.fin, desc: t.desc, auto: !!t.descAuto, atras: t.atras !== false};
+  if (!t.desc || !t.ini || (r !== SA.ronda && r !== SA.ronda - 1)) return null;   // solo entre la salida de esa serie y la de la siguiente
+  return {r, origen: t.ini, desc: t.desc, auto: !!t.descAuto, atras: t.atras !== false};
 }
 function descansoTxt(d, now) {
-  const e = descansoEstado(d.finMs, d.desc, now);
+  const e = descansoEstado(d.origen, d.desc, now);
   if (e.ya && d.atras) return d.auto ? '¡SALE!' : '¡YA!';
-  return fmtNado(d.atras ? Math.ceil(e.restaMs / 1000) * 1000 : now - d.finMs);
+  return fmtNado(d.atras ? Math.ceil(e.restaMs / 1000) * 1000 : now - d.origen);
 }
-function descansoBloque(now, d) {
-  const e = descansoEstado(d.finMs, d.desc, now);
-  return `<div class="serie-sigue desc${e.ya ? ' ya' : e.aviso ? ' ultimos' : ''}"><span class="muted">Descanso · ${d.atras ? 'faltan' : 'llevan'}</span><b id="live-desc">${descansoTxt(d, now)}</b>
-    <span class="muted">${d.atras ? `descanso de ${fmtNado(d.desc * 1000)}` : `objetivo ${fmtNado(d.desc * 1000)}`} · la serie ${d.r + 1} sale ${d.auto ? 'sola' : 'a mano'}</span></div>`;
+// Cuenta hasta la siguiente salida (compacta mientras todavía salen tandas, grande en el resto del hueco entre series)
+function descansoBloque(now, d, compacto) {
+  const e = descansoEstado(d.origen, d.desc, now), cls = `serie-sigue desc${compacto ? ' compacta' : ''}${e.ya ? ' ya' : e.aviso ? ' ultimos' : ''}`;
+  const cab = d.atras ? `Serie ${d.r + 1} · faltan` : `Serie ${d.r} · lleva`;
+  if (compacto) return `<div class="${cls}"><span class="muted">${cab}</span><b id="live-desc">${descansoTxt(d, now)}</b><span class="muted">de ${fmtNado(d.desc * 1000)} · sale ${d.auto ? 'sola' : 'a mano'}</span></div>`;
+  return `<div class="${cls}"><span class="muted">${cab}</span><b id="live-desc">${descansoTxt(d, now)}</b>
+    <span class="muted">contando desde la salida de la serie ${d.r} · salir cada ${fmtNado(d.desc * 1000)} · la serie ${d.r + 1} sale ${d.auto ? 'sola' : 'a mano'}</span></div>`;
 }
-// En el hueco entre series: la cuenta del descanso si se programó; si no, el reloj de la serie desde su salida
+// En el hueco entre series: la cuenta programada si la hay; si no, el reloj de la serie desde su salida
 const relojEntreSeries = (now, r) => { const d = descansoActivo(); return d && d.r === r ? descansoBloque(now, d) : relojSerie(now, r); };
-// Acabó el descanso y la salida es automática: pasa a la siguiente serie y da la salida (no lo hace si el entrenador está preparando algo)
+// Acabó el tiempo y la salida es automática: pasa a la siguiente serie y da la salida (no lo hace si el entrenador está preparando algo o aún salen tandas)
 function descansoAuto(d) {
-  if (!SA || SA.relevo || SA.editando || SA.planEdit || SA.editNad || SA.nuevaSerie) { render(); return; }
+  if (!SA || SA.relevo || SA.editando || SA.planEdit || SA.editNad || SA.nuevaSerie || (SA.ronda === d.r && quedanPorSalir())) { render(); return; }
   if (SA.ronda === d.r) { if (SA.plan && SA.plan.series[SA.planIdx + 1]) { SA.planIdx++; repetirSerie(SA.plan.series[SA.planIdx]); } else repetirSerie(); }
   if (SA.ronda === d.r + 1 && !SA.relevo && quedanPorSalir()) salidaTanda(Date.now(), true);
   render();

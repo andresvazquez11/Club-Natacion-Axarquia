@@ -228,13 +228,13 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await bajarA(p, '.tira-series', 20); await foto(p, 'series_solapadas', 1000);
   await ctx.close(); }
 
-// 3d. v25: descanso entre series (ajustes, cuenta atrás, salida sola y cuenta adelante)
+// 3d. v25: «salir de nuevo cada…» (ajustes, cuenta atrás, salida sola y cuenta adelante); siempre se cuenta desde la salida de la serie
 const llegaTodos = async p => { for (let i = 0; i < 12; i++) { const c = p.locator('.sw-card[data-action="llego"]'); if (!(await c.count())) break; await c.first().click(); await p.clock.runFor(200); } };
 const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(3000); } };
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
   await toca(p, '[data-action="desc-toggle"][data-t="ps"]');
-  await p.fill('input[data-descanso="ps"]', '0:20'); await p.locator('input[data-descanso="ps"]').blur(); await p.clock.runFor(300);
+  await p.fill('input[data-descanso="ps"]', '0:45'); await p.locator('input[data-descanso="ps"]').blur(); await p.clock.runFor(300);
   await bajarA(p, '.desc-cfg', 60); await foto(p, 'descanso_ajustes', 1250);
   await toca(p, '[data-action="desc-auto"][data-t="ps"][data-v="auto"]');
   await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
@@ -248,7 +248,7 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
   await toca(p, '[data-action="desc-toggle"][data-t="ps"]');
-  await p.fill('input[data-descanso="ps"]', '30'); await p.locator('input[data-descanso="ps"]').blur();
+  await p.fill('input[data-descanso="ps"]', '0:50'); await p.locator('input[data-descanso="ps"]').blur();
   await toca(p, '[data-action="desc-reloj"][data-t="ps"][data-v="adelante"]');
   await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
   await tresTandas(p); await p.clock.runFor(20000); await llegaTodos(p); await p.clock.runFor(12000);
