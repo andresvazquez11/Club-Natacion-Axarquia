@@ -380,6 +380,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sw.on{background:var(--grn);}
 .sw.on::after{left:21px;}
 .next-chip{border:1px solid transparent;cursor:pointer;touch-action:manipulation;min-height:40px;font-family:inherit;color:var(--txt);}
+.next-chip{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
 .next-chip.off{opacity:.55;border-style:dashed;border-color:var(--red);}
 .next-chip.off .nm{text-decoration:line-through;}
 .next-chip .ns{font-size:10px;font-weight:800;color:var(--red);text-transform:uppercase;}
@@ -1134,12 +1135,13 @@ function salidaTanda(t, auto) {
     SA.agua.push({
       key: `k${++SA.seq}`,
       gId: g.gId, laneIdx: g.idx, lane: laneShort(g), color: g.color,
-      nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0,
+      nId: nad.nId, n: nad.n, salida: SA.nSalida, t0: t, parc: [], tUlt: 0, nota: (SA.notasEsp && SA.notasEsp[nad.nId]) || null,
       ronda: SA.ronda, estilo, dist,
       ritmo: SA.ritmo, obj: objetivoNad(nad.nId, estilo, dist), tramos, comp: !!SA.comp, inicio: SA.inicio || 'agua',
       rota: SA.rota, pausas: [], descHasta: null
     });
   });
+  if (SA.notasEsp) salen.forEach(g => { const n = g.nads[g.next - 1]; if (n) delete SA.notasEsp[n.nId]; });
   SA.agua.sort(ordenFila);
   if (!auto) vibrar(200);   // a mano solo vibra; la salida automática pita y vibra desde el reloj
   render();
@@ -2738,9 +2740,9 @@ function renderEnCurso() {
         </div>
         ${pruebasCalleHTML()}
         <div class="salida-next">
-          ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
+          ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}" data-nid="${esc(g.nads[g.next].nId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}${SA.notasEsp && SA.notasEsp[g.nads[g.next].nId] ? ' 📝' : ''}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
         </div>
-        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale · mantén pulsado un nadador para anotar</div>
+        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale · mantén pulsado un nombre para anotarle algo (la nota pasa a su tiempo)</div>
         ${SA.ciclo ? `<div class="ciclo-cd">
           <div style="flex:1"><div class="muted" style="font-size:12px">${SA.auto?`Salida automática · cada ${esc(SA.ciclo)} s`:'Salida automática en pausa'}</div>
             ${!SA.auto?'':SA.nSalida>0?`<b id="live-ciclo">${fmtNado(Math.max(0, Math.ceil(cicloEstado(SA.tUltSalida, SA.ciclo, now, true).restaMs/1000)*1000))}</b>`:'<span style="font-size:13px">Empieza a contar con la primera SALIDA</span>'}</div>
@@ -2846,9 +2848,9 @@ function renderEsperaCard(n, noSale) {
   const est = SA.porNadador ? (SA.estiloNad.get(n.nId) || SA.estilo) : null;
   const selEst = est ? `<label class="est-nad" onclick="event.stopPropagation()">${estiloEmo(est)} ${esc(estiloNombre(est))} ▾
       <select data-estnad="${esc(n.nId)}">${misEstilos().map(e=>`<option value="${esc(e)}"${e===est?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>` : '';
-  return `<div class="sw-card espera" style="--sc:${serieCol(SA.ronda)}">
+  return `<div class="sw-card espera" data-nid="${esc(n.nId)}" style="--sc:${serieCol(SA.ronda)}">
     <span class="sw-meta"><span class="sw-ser">S${SA.ronda}</span>${noSale?'no sale':'en espera'}</span>
-    <span class="sw-nm">${esc(n.n)}</span>${selEst}
+    <span class="sw-nm">${esc(n.n)}${SA.notasEsp && SA.notasEsp[n.nId] ? ' 📝' : ''}</span>${selEst}
     ${selEst ? '' : '<span class="sw-act">⏳</span>'}
   </div>${hayTramos() ? HUECO_EXTRA : ''}`;
 }
@@ -3830,10 +3832,10 @@ document.getElementById('app').addEventListener('pointerdown', function(e) {
 // Ahora el soltar se escucha en todo el documento y el bloqueo dura como mucho 2 s.
 let _lp = null, _notaPend = null;
 document.getElementById('app').addEventListener('pointerdown', function(e) {
-  const el = e.target.closest('.sw-card[data-key],.lleg-row[data-key]');
+  const el = e.target.closest('.sw-card[data-key],.lleg-row[data-key],.next-chip[data-nid],.sw-card.espera[data-nid]');   // en el agua, llegados y nadadores que aún no han salido
   if (!el || !SA) return;
-  const enAgua = el.classList.contains('sw-card') && !el.classList.contains('done');
-  _lp = {x:e.clientX, y:e.clientY, key:el.dataset.key, timer:setTimeout(() => {
+  const enAgua = el.classList.contains('sw-card') && !el.classList.contains('done') && !el.classList.contains('espera');
+  _lp = {x:e.clientX, y:e.clientY, key:el.dataset.key || 'e:' + el.dataset.nid, timer:setTimeout(() => {
     _notaPend = _lp && _lp.key; _ignoreClickUntil = Date.now() + 2000;
     vibrar(15);
   }, enAgua ? 800 : 600)};
@@ -3851,6 +3853,13 @@ document.addEventListener('touchend', finPulsacion, true);
 document.addEventListener('touchcancel', finPulsacion, true);
 function pedirNota(key) {
   if (!SA) return;
+  if (key.startsWith('e:')) {   // nadador que aún no ha salido: la nota se queda guardada y pasa a su tiempo al salir y llegar
+    const nId = key.slice(2), nombre = nombreDe(nId), esp = SA.notasEsp || (SA.notasEsp = {});
+    const t = prompt(`Nota para ${nombre} (antes de que salga)`, esp[nId] || '');
+    if (t === null) return;
+    const v = t.trim().slice(0, 200); if (v) esp[nId] = v; else delete esp[nId];
+    render(); return;
+  }
   const x = SA.agua.find(a=>a.key===key) || SA.llegados.find(l=>l.key===key);
   if (!x) return;
   const txt = prompt(`Nota para ${x.n}`, x.nota || '');

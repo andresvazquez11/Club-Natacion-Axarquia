@@ -274,6 +274,21 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
   console.log('PRUEBA reloj siempre · serie 2 saliendo:', await cuadro());
   await ctx.close(); }
 
+// 3f. Nota a un nadador antes de que salga (pulsación larga en su nombre de «Próxima salida»)
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]'); await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
+  p.once('dialog', d => d.accept('molestia en el hombro'));
+  const chip = p.locator('.next-chip').first(), nombre = (await chip.locator('.nm').innerText()).trim(), caja = await chip.boundingBox();
+  await p.mouse.move(caja.x + 20, caja.y + 10); await p.mouse.down(); await p.clock.runFor(900); await p.mouse.up(); await p.clock.runFor(400);
+  const chip2 = p.locator('.next-chip').first();
+  console.log('PRUEBA nota antes de salir · chip:', (await chip2.innerText()).replace(/\s+/g, ' '), '| marcado «no sale»:', (await chip2.getAttribute('class')).includes('off'));
+  await arriba(p); await foto(p, 'nota_antes_de_salir', 700);
+  await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(2000);
+  console.log('PRUEBA nota antes de salir · tarjeta en el agua con 📝:', await p.locator('.sw-card .sw-nm', { hasText: '📝' }).count());
+  await p.clock.runFor(30000); await llegaTodos(p); await p.clock.runFor(500);
+  console.log('PRUEBA nota antes de salir · tiempos guardados con nota:', JSON.stringify(await p.evaluate(() => S.resultados.filter(r => r.nota).map(r => [nombreDe(r.nId), r.nota]))), '| nadador:', nombre);
+  await ctx.close(); }
+
 // 3c. Entreno preparado en curso: cambiar el orden de las series
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="plan-empezar"]'); await p.clock.runFor(800);
