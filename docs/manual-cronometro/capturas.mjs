@@ -102,7 +102,7 @@ function firebaseFalso({ datos, usuario }) {
 
 const br = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 const USUARIO = { email: 'laura.entrenadora@gmail.com', displayName: 'Laura Martín' };
-async function abrir(url, { usuario = USUARIO, coach = 'Laura', datos = D, modo } = {}) {
+async function abrir(url, { usuario = USUARIO, coach = 'Laura', datos = D, modo, aviso = false } = {}) {
   const ctx = await br.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'Europe/Madrid', locale: 'es-ES' });
   await ctx.route(/gstatic\.com\/firebasejs/, r => r.fulfill({ status: 200, contentType: 'text/javascript', body: '/* SDK sustituido */' }));
   await ctx.route(/cronometro\/nadadores\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NAD_JSON) }));
@@ -111,7 +111,7 @@ async function abrir(url, { usuario = USUARIO, coach = 'Laura', datos = D, modo 
   await ctx.addInitScript(firebaseFalso, { datos: JSON.parse(JSON.stringify(datos)), usuario });
   // la web carga el SDK con comprobación de integridad: en este navegador de pruebas se ignora (el SDK es el falso de arriba)
   await ctx.addInitScript(() => Object.defineProperty(HTMLScriptElement.prototype, 'integrity', { get: () => '', set: () => {}, configurable: true }));
-  await ctx.addInitScript(([c, m]) => { try { if (c) localStorage.setItem('coach_name', c); if (m) localStorage.setItem('cna_modo', m); } catch (e) {} }, [coach, modo]);
+  await ctx.addInitScript(([c, m, av]) => { try { if (c) localStorage.setItem('coach_name', c); if (m) localStorage.setItem('cna_modo', m); if (!av) localStorage.setItem('crono_aviso_v23', '1'); } catch (e) {} }, [coach, modo, aviso]);
   const p = await ctx.newPage();
   await p.clock.install({ time: AHORA });
   await p.goto(BASE + url, { waitUntil: 'load' });
@@ -137,7 +137,7 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
 { const { ctx, p } = await abrir('cronometro/', { coach: null }); await foto(p, 'nombre'); await ctx.close(); }
 
 // 2. Inicio, menú, entrenadores, historial, nadadores, evolución, entreno preparado
-{ const { ctx, p } = await abrir('cronometro/');
+{ const { ctx, p } = await abrir('cronometro/', { aviso: true });
   await foto(p, 'inicio', 1250);
   await toca(p, '[data-action="menu"]'); await foto(p, 'menu');
   await toca(p, '.menu-pop [data-action="entrenadores"]'); await foto(p, 'entrenadores', 1100);
@@ -234,11 +234,39 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await p.clock.runFor(500); await bajarA(p, '.sum-row', 160); await foto(p, 'relevo_resumen');
   await ctx.close(); }
 
+// 3e. Opciones avanzadas (v23): estilo y ritmo de cada nadador, cada calle su prueba, rota y ritmo
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
+  await toca(p, '[data-action="pn-toggle"][data-ctx="ps"]');
+  for (const [i, r] of ['1:18.0', '1:20.5', '1:25.0', '1:22.0', '1:27.5', '1:30.0'].entries()) { await p.locator('input[data-pnk="ritmo"]').nth(i).fill(r); await p.locator('input[data-pnk="ritmo"]').nth(i).evaluate(e => e.blur()); await p.clock.runFor(150); }
+  await p.clock.runFor(300); await bajarA(p, '.quien', 60); await foto(p, 'estilo_ritmo');
+  await toca(p, '[data-action="pcalle-toggle"][data-t="ps"]'); await bajarA(p, '[data-action="pcalle-toggle"]', 120);
+  await p.selectOption('select[data-pcdist] >> nth=0', '200').catch(() => {});
+  await p.selectOption('select[data-pcdist] >> nth=2', '100').catch(() => {});
+  await p.selectOption('select[data-pcest] >> nth=1', 'estilos').catch(() => {});
+  await p.clock.runFor(300); await foto(p, 'calle_prueba');
+  await toca(p, '[data-action="pcalle-toggle"][data-t="ps"]');
+  await toca(p, '[data-action="rota-toggle"][data-t="ps"]'); await bajarA(p, '.rota-cfg', 190); await foto(p, 'rota');
+  await toca(p, '[data-action="rota-toggle"][data-t="ps"]');
+  await toca(p, '[data-action="ritmo-ref"][data-t="ps"][data-v="200"]');
+  await p.fill('input[data-ritmomas="ps"]', '+10'); await p.locator('input[data-ritmomas="ps"]').blur(); await p.clock.runFor(300);
+  await bajarA(p, '[data-action="ritmo-ref"]', 100); await foto(p, 'ritmo', 1000);
+  await ctx.close(); }
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="plan-editar"]');
+  await toca(p, '[data-action="bloque-toggle"]'); await bajarA(p, '.bloque-grid', 150); await foto(p, 'bloque');
+  await ctx.close(); }
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="tab"][data-to="historial"]'); await toca(p, '.hist-row');
+  await bajarA(p, '.concl', 80); await foto(p, 'conclusiones');
+  await toca(p, '[data-action="res-vista"][data-v="nadador"]'); await bajarA(p, '[data-action="res-vista"]', 60); await foto(p, 'por_nadador');
+  await ctx.close(); }
+
 // 4. La web del club: botón del cronómetro y sección Entrenamientos (modo entrenador)
 { const { ctx, p } = await abrir('club.html#entrenamientos');
   await p.clock.runFor(3000); await foto(p, 'web_entrenos', 1500);
-  await bajarA(p, '#ent-gs', 160); await p.evaluate(() => { document.querySelector('#ent-gf').open = true; }); await p.clock.runFor(200); await foto(p, 'web_grafica', 1300);
-  await bajarA(p, '[data-chips="cev"]', 120); await foto(p, 'web_comparar', 1100);
+  await bajarA(p, '#ent-comparar', 100); await foto(p, 'web_comparar', 1300);
+  await toca(p, '[data-pt="ritmo"]'); await bajarA(p, '[data-pt="ritmo"]', 100); await foto(p, 'web_grafica', 1300);
   await bajarA(p, '.ent-ses', 120); await p.locator('.ent-ses summary').first().click(); await p.clock.runFor(300); await foto(p, 'web_sesion', 1100);
   await p.evaluate(() => { location.hash = '#directo'; }); await p.clock.runFor(1500); await arriba(p); await foto(p, 'web_directo');
   await p.evaluate(() => { location.hash = '#directo?c=9000'; }); await p.clock.runFor(1500); await arriba(p); await foto(p, 'web_directo_resultados');
