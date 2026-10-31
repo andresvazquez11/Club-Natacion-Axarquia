@@ -439,7 +439,7 @@ function entDatosRitmo(tabla, rondas, sel, ref) {
     });
     if (!pts.length) return null;
     const media = pts.reduce((a, x) => a + x.pct, 0) / pts.length, limPct = pts.reduce((a, x) => a + x.limPct, 0) / pts.length;
-    return {nId: f.nId, n: f.n, rfen: f.rfen, pts, media, limPct, base: pts[0].o.base, zona: media <= 100 ? 'dentro' : media <= limPct ? 'cerca' : 'fuera'};
+    return {nId: f.nId, n: f.n, rfen: f.rfen, y: f.y, pts, media, limPct, base: pts[0].o.base, zona: media <= 100 ? 'dentro' : media <= limPct ? 'cerca' : 'fuera'};
   }).filter(Boolean).sort((a, b) => a.media - b.media);
   return {filas, sinDatos: tabla.filas.filter(f => sel.has(f.nId)).length - filas.length};
 }
@@ -523,7 +523,7 @@ function entTablaRitmo(D, serieTxt, fichaA) {
   if (!D.filas.length) return '';
   const rondas = [...new Set(D.filas.flatMap(f => f.pts.map(x => x.r)))].sort((a, b) => a - b);
   return `<details class="ent-tabla-ritmo"><summary class="small">Ver en tabla</summary><div class="tw"><table class="rt ent-mat"><tr><th>Nadador</th><th class="num">Objetivo</th>${rondas.map(r => `<th class="num">${serieTxt(r)}</th>`).join('')}<th class="num">Media</th></tr>
-    ${D.filas.map(f => `<tr><td style="white-space:nowrap"><b>${fichaA(f.rfen, esc(f.n))}</b>${entAn((D.filas.find(x => x.nId === f.nId) || f).y)}<div class="tiny muted">${ENT_BASE[f.base]}</div></td><td class="num">${fmt(f.pts[0].o.cs)}</td>
+    ${D.filas.map(f => `<tr><td style="white-space:nowrap"><b>${fichaA(f.rfen, esc(f.n))}</b>${entAn(f.y)}<div class="tiny muted">${ENT_BASE[f.base]}</div></td><td class="num">${fmt(f.pts[0].o.cs)}</td>
       ${rondas.map(r => { const x = f.pts.find(p => p.r === r); if (!x) return '<td class="num vacia">—</td>'; const d = (x.t.cs - x.o.cs) / 100;
         return `<td class="num">${fmt(x.t.cs)}<div class="tiny ${d <= 0 ? 'good' : 'bad'}">${ENT_FORMA[x.zona]} ${d <= 0 ? '−' : '+'}${Math.abs(d).toFixed(1)}</div></td>`; }).join('')}
       <td class="num"><b>${f.media.toFixed(1)} %</b></td></tr>`).join('')}</table></div></details>`;
