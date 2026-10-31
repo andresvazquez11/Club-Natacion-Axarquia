@@ -13,6 +13,7 @@ const BASE = (process.argv[3] || 'http://localhost:8766/').replace(/\/?$/, '/');
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 fs.mkdirSync(path.join(OUT, 'z'), { recursive: true });
 fs.copyFileSync(path.join(AQUI, 'manual.html'), path.join(OUT, 'manual.html'));
+fs.copyFileSync(path.join(AQUI, 'novedades-v24.html'), path.join(OUT, 'novedades-v24.html'));
 
 // ── Datos ficticios ──────────────────────────────────────────────────────────
 const AHORA = new Date('2026-10-22T18:05:00+02:00').getTime();      // jueves, 18:05 en la piscina
@@ -309,4 +310,8 @@ await pg.pdf({ path: path.join(OUT, 'manual.pdf'), format: 'A4', printBackground
   margin: { top: '13mm', bottom: '15mm', left: '14mm', right: '14mm' }, displayHeaderFooter: true, headerTemplate: '<span></span>',
   footerTemplate: '<div style="font-size:8px;color:#888;width:100%;text-align:center">Manual del cronómetro · C.N. Axarquía · <span class="pageNumber"></span>/<span class="totalPages"></span></div>' });
 console.log('PDF', path.join(OUT, 'manual.pdf'));
+// Hoja de novedades (2 páginas, con capturas) para mandar por WhatsApp
+await pg.goto('file://' + path.join(OUT, 'novedades-v24.html')); await pg.waitForTimeout(1200);
+await pg.pdf({ path: path.join(OUT, 'novedades-v24.pdf'), width: '210mm', height: '297mm', printBackground: true, margin: { top: '0', bottom: '0', left: '0', right: '0' } });
+console.log('PDF', path.join(OUT, 'novedades-v24.pdf'));
 await br.close();
