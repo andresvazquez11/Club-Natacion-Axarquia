@@ -134,6 +134,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .ciclo-seg{display:flex;align-items:center;gap:10px;font-size:14px}
 .ciclo-seg span{flex:1}
 .ciclo-seg .input{width:90px;text-align:center;font-size:18px;font-weight:700}
+.desc-tiempo .input{width:64px}
+.desc-tiempo span:not(.muted){color:var(--mut);font-size:13px}
 .ciclo-cd{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--brd);border-radius:12px;padding:8px 12px;margin-bottom:10px}
 .ciclo-cd b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--amb)}
 .quien summary{cursor:pointer;font-weight:600;font-size:14px}
@@ -2462,16 +2464,15 @@ function descCfgHTML(o, t) {
       <div style="flex:1"><div style="font-weight:600;font-size:14px">⏳ Salir de nuevo cada…</div>
         <div class="muted" style="font-size:12px">Series de 100 cada 1:45, por ejemplo. <b>Se cuenta desde la salida de la serie</b> (la primera salida), <b>no desde que llegan los nadadores</b>: con 1:45, la serie siguiente sale 1:45 después de que salió la anterior. Al acabar el tiempo te avisa (pita y vibra).</div></div>
       <div class="sw${on?' on':''}"></div></div>
-    ${on ? `<label class="ciclo-seg"><span class="muted">Salir cada (m:ss o segundos)</span>
-        <input class="input" type="text" inputmode="numeric" data-descanso="${t}" value="${esc(fmtDescCampo(o.desc))}"></label>
+    ${on ? `<div class="ciclo-seg desc-tiempo"><span class="muted">Salir cada…</span>
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" aria-label="Minutos" data-descmin="${t}" value="${Math.floor(o.desc/60)}"><span style="flex:0">min</span>
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" aria-label="Segundos" data-descseg="${t}" value="${String(o.desc%60).padStart(2,'0')}"><span style="flex:0">s</span></div>
       <div class="muted" style="font-size:12px;margin:4px 0">Al llegar a ese tiempo, la siguiente serie…</div>
       <div class="seg desc-seg">${op('desc-auto', 'manual', !auto, '✋ Sale a mano', 'Pita y vibra; tú das la salida cuando quieras. Lo más seguro.')}${op('desc-auto', 'auto', auto, '⚡ Sale sola', 'Pita y la serie sale sola. Con las calles ya listas.')}</div>
       <div class="muted" style="font-size:12px;margin:4px 0">El reloj…</div>
       <div class="seg desc-seg">${op('desc-reloj', 'atras', atras, '⏬ Cuenta atrás', 'Ves lo que falta para salir: 0:20, 0:19…')}${op('desc-reloj', 'adelante', !atras, '⏫ Cuenta adelante', 'Ves lo que lleva la serie, con el objetivo al lado.')}</div>` : ''}
   </div>`;
 }
-// 30 → «30»; 90 → «1:30»
-const fmtDescCampo = s => s >= 60 && s % 60 === 0 ? `${s/60}:00` : s > 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : String(s);
 function cicloHTML(o, t) {
   return descCfgHTML(o, t) + `<div class="ciclo-row">
     <div class="toggle-row" style="margin:0;flex:1" data-action="ciclo-auto" data-t="${t}">
@@ -4173,9 +4174,11 @@ document.getElementById('app').addEventListener('input', function(e) {
     if (o) o.ciclo = parseCiclo(e.target.value);   // vacío o inválido: se usarán 3 s
   }
   // Descanso entre series: se guarda al escribir, sin redibujar
-  if (e.target.dataset.descanso) {
-    const o = cicloObj(e.target.dataset.descanso), n = parseCiclo(e.target.value);
-    if (o) o.desc = n && n <= DESC_MAX ? n : DESC_DEF;   // vacío o inválido: 30 s
+  if (e.target.dataset.descmin != null || e.target.dataset.descseg != null) {
+    const t = e.target.dataset.descmin ?? e.target.dataset.descseg, caja = e.target.closest('.desc-tiempo'), o = cicloObj(t);
+    const num = sel => Math.max(0, parseInt(caja.querySelector(sel).value, 10) || 0);   // 90 s = 1:30
+    const n = Math.min(DESC_MAX, (parseInt(caja.querySelector(`[data-descmin]`).value, 10) || 0) * 60 + num('[data-descseg]'));
+    if (o && n >= 1) o.desc = n;   // mientras escribe y queda a 0, se conserva el valor anterior
   }
   // Campo de notas
   if (e.target.id==='notas-input' && PS) {

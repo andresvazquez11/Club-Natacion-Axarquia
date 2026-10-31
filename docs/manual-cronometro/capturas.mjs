@@ -234,7 +234,7 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
   await toca(p, '[data-action="desc-toggle"][data-t="ps"]');
-  await p.fill('input[data-descanso="ps"]', '0:45'); await p.locator('input[data-descanso="ps"]').blur(); await p.clock.runFor(300);
+  await p.fill('input[data-descmin="ps"]', '0'); await p.fill('input[data-descseg="ps"]', '45'); await p.locator('input[data-descseg="ps"]').blur(); await p.clock.runFor(300);
   await bajarA(p, '.desc-cfg', 60); await foto(p, 'descanso_ajustes', 1250);
   await toca(p, '[data-action="desc-auto"][data-t="ps"][data-v="auto"]');
   await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
@@ -248,7 +248,7 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
   await toca(p, '[data-action="desc-toggle"][data-t="ps"]');
-  await p.fill('input[data-descanso="ps"]', '0:50'); await p.locator('input[data-descanso="ps"]').blur();
+  await p.fill('input[data-descmin="ps"]', '0'); await p.fill('input[data-descseg="ps"]', '50'); await p.locator('input[data-descseg="ps"]').blur();
   await toca(p, '[data-action="desc-reloj"][data-t="ps"][data-v="adelante"]');
   await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
   await tresTandas(p); await p.clock.runFor(20000); await llegaTodos(p); await p.clock.runFor(12000);
