@@ -40,6 +40,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .btn-surf{background:var(--surf);color:var(--txt);border:1px solid var(--brd);}
 .btn-red-line{background:transparent;color:var(--red);border:1px solid var(--red);}
 /* Papelera del entreno: pequeña y lejos de los botones principales, para no pulsarla sin querer */
+.serie-sigue{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 0 12px;padding:10px;border-radius:14px;background:var(--surf);border:2px solid var(--blu)}
+.serie-sigue b{font-size:40px;line-height:1.05;font-variant-numeric:tabular-nums;color:var(--blu-l)}
 .papelera-pie{margin:56px 0 24px;text-align:center}
 .papelera-link{background:none;border:none;padding:6px 10px;color:var(--mut);font-size:12px;text-decoration:underline;cursor:pointer;-webkit-tap-highlight-color:transparent}
 /* Volver, arriba del todo y fácil de pulsar */
@@ -2672,7 +2674,7 @@ function renderEnCurso() {
 
   // Ronda terminada → resumen
   if (SA.relevo && !SA.editando) return html + renderRelevo(now);
-  if (rondaTerminada()) return html + renderResumenRonda();
+  if (rondaTerminada()) return html + relojSerieTerminada(now) + renderResumenRonda();
 
   // SALIDA común: muestra quién sale en cada calle. Tocar un nombre = "no sale"
   if (SA.planEdit && SA.plan) {
@@ -2744,6 +2746,13 @@ function renderEnCurso() {
 // ── Series solapadas: cada serie con su color y su tiempo total (primera salida → última llegada) ──
 const SERIE_COL = ['#38bdf8','#f472b6','#a3e635','#fb923c','#c084fc','#facc15'];
 const serieCol = r => SERIE_COL[(Math.max(1, r) - 1) % SERIE_COL.length];
+// Todos han llegado y aún no sale la siguiente serie: el reloj de ESTA serie sigue contando desde su salida (por ejemplo, en un ciclo de 1:45,
+// se ve 1:30 aunque el último llegara a 1:15) para saber cuándo dar la salida; el tiempo en que llegaron todos queda al lado
+function relojSerieTerminada(now) {
+  const t = SA.seriesT && SA.seriesT[SA.ronda]; if (!t || !t.ini) return '';
+  return `<div class="serie-sigue"><span class="muted">Serie ${SA.ronda} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b>
+    <span class="muted">${t.fin ? `todos llegaron en ${fmtNado(t.fin - t.ini)}` : ''}${SA.ciclo ? `${t.fin ? ' · ' : ''}ciclo ${fmtNado(SA.ciclo * 1000)}` : ''}</span></div>`;
+}
 function renderTiraSeries(now) {
   const rs = Object.keys(SA.seriesT || {}).map(Number).sort((a,b)=>a-b).filter(r => r >= SA.ronda - 1);
   if (!rs.length) return '';
