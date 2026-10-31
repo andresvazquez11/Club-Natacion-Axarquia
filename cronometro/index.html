@@ -129,16 +129,25 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .lanes-grid .sw-card.espera[data-est]::before{background:transparent;color:var(--mut);border-bottom:1px dashed var(--mut)}
 .lanes-grid .sw-card:not(.espera):not(.done){background:color-mix(in srgb,var(--sc) 24%,var(--surf));box-shadow:0 0 0 2px color-mix(in srgb,var(--sc) 70%,transparent) inset}
 .lanes-grid .sw-card.espera{filter:grayscale(1);opacity:.5;border-style:dashed}
-.salida-card.salida-lista{border:3px solid var(--sc);background:color-mix(in srgb,var(--sc) 24%,var(--surf));padding-top:0;overflow:hidden}
-.salida-banda{margin:0 -12px 10px;padding:6px 12px;background:var(--sc);color:#032a4d;font-size:13px;font-weight:900;letter-spacing:.6px;text-align:center}
+.salida-card.salida-lista{border:3px solid var(--sc);margin-bottom:10px;background:color-mix(in srgb,var(--sc) 24%,var(--surf));padding-top:0;overflow:hidden}
+.salida-banda{margin:0 -12px 8px;padding:4px 8px 4px 12px;background:var(--sc);color:#032a4d;font-size:12px;font-weight:900;letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px}
+.banda-aj{flex:none;width:34px;height:26px;border:none;border-radius:8px;background:rgba(0,0,0,.18);color:#032a4d;font-size:17px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.aj-menu{display:flex;flex-direction:column;gap:6px;margin:0 0 8px}
+.aj-menu button{text-align:left;padding:8px 10px;border:1px solid var(--brd);border-radius:10px;background:var(--bg);color:var(--txt);font-size:14px;font-weight:700;cursor:pointer}
+.aj-menu small{display:block;margin-top:1px;color:var(--mut);font-size:11px;font-weight:500}
+.salida-pista{font-size:11px;color:var(--mut);margin:-2px 0 6px}
+.salida-lista .salida-btn{min-height:56px;font-size:20px}
+.ciclo-cd.compacto{padding:3px 10px;margin-bottom:6px;gap:8px;font-size:12px}
+.ciclo-cd.compacto b{font-size:19px}
+.salida-lista .salida-next{margin-bottom:6px}
 .salida-lista .next-chip{background:color-mix(in srgb,var(--sc) 30%,var(--bg));border:1px solid var(--sc)}
 .salida-lista .next-chip.off{background:var(--bg);border-color:var(--red)}
 .serie-sep{margin:4px 4px 0;padding:2px 6px;border-radius:6px;background:var(--sc);color:#032a4d;font-size:11px;font-weight:900;letter-spacing:.5px;text-align:center}
 .serie-sep.pend{background:transparent;color:var(--mut);border:1px dashed var(--mut)}
 .serie-tag{color:var(--sc);font-size:1.05em}
 .desc-nomas{margin-top:4px;background:none;border:none;color:var(--mut);font-size:12px;text-decoration:underline;cursor:pointer;padding:4px 8px}
-.serie-sigue.compacta{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:4px 10px;margin:0 0 8px;padding:6px 10px;border-width:1px}
-.serie-sigue.compacta b{font-size:24px}
+.serie-sigue.compacta{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:2px 10px;margin:0 0 8px;padding:3px 10px;border-width:1px}
+.serie-sigue.compacta b{font-size:20px}
 .serie-sigue.desc{border-color:var(--amb)}
 .serie-sigue.desc b{color:var(--amb)}
 .serie-sigue.desc.ultimos b{animation:rotaLatido .5s infinite alternate;color:#fff}
@@ -154,11 +163,9 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .ciclo-cd b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--amb)}
 .quien summary{cursor:pointer;font-weight:600;font-size:14px}
 .nota-r{font-size:12px;font-weight:500;color:var(--blu-l);font-style:italic}
-.nado-clk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:6px 14px;margin:-4px 0 12px}
-.nado-clk span{font-size:12px;text-transform:uppercase;letter-spacing:.6px}
-.nado-clk b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
+.nado-clk b{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--grn-l)}
 .nado-clk.parado b{color:var(--mut)}
-.ec-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.ec-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
 .salida-card{background:var(--surf);border:1px solid var(--brd);border-radius:16px;padding:12px;margin-bottom:18px;}
 .salida-next{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
 .salida-btn{display:block;width:100%;min-height:68px;border:none;border-radius:14px;background:var(--grn);color:#fff;font-size:22px;font-weight:800;letter-spacing:.5px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
@@ -393,7 +400,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s;}
 .sw.on{background:var(--grn);}
 .sw.on::after{left:21px;}
-.next-chip{border:1px solid transparent;cursor:pointer;touch-action:manipulation;min-height:40px;font-family:inherit;color:var(--txt);}
+.next-chip{border:1px solid transparent;cursor:pointer;touch-action:manipulation;min-height:36px;font-family:inherit;color:var(--txt);}
 .next-chip{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
 .next-chip.off{opacity:.55;border-style:dashed;border-color:var(--red);}
 .next-chip.off .nm{text-decoration:line-through;}
@@ -2731,13 +2738,12 @@ function renderEnCurso() {
     <div class="ec-top">
       <div style="flex:1;min-width:0">
         <div style="font-size:17px;font-weight:700">${titulo} · <span style="color:var(--blu-l)">Serie ${SA.ronda}</span> ${iniTag(SA)}</div>
-        <div class="muted" style="font-size:13px">${esc(eq)}${SA.relevo ? ` · ${SA.grupos.filter(g=>g.nads.length).length} equipos` : ` · ${SA.llegados.length}/${totalNads} llegados`}</div>
+        <div class="muted" style="font-size:13px">${esc(eq)}${SA.relevo ? ` · ${SA.grupos.filter(g=>g.nads.length).length} equipos` : ` · ${SA.llegados.length}/${totalNads} llegados`} · <span class="nado-clk${SA.nado.some(x=>x.fin==null)?'':' parado'}">nadando <b id="live-nado">${fmtNado(msNadando(SA.nado, now))}</b></span></div>
       </div>
       ${SA.plan?`<button class="edit-link" style="margin-right:6px" data-action="plan-ec">✎ Plan</button>`:''}
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
     </div>
-    ${'wakeLock' in navigator ? '' : '<div class="muted" style="font-size:11px;margin:-6px 0 8px">Este móvil no permite mantener la pantalla encendida: súbele el tiempo de bloqueo en Ajustes.</div>'}
-    <div class="nado-clk${SA.nado.some(x=>x.fin==null)?'':' parado'}"><span class="muted">Tiempo nadando</span><b id="live-nado">${fmtNado(msNadando(SA.nado, now))}</b></div>`;
+    ${'wakeLock' in navigator ? '' : '<div class="muted" style="font-size:11px;margin:-6px 0 8px">Este móvil no permite mantener la pantalla encendida: súbele el tiempo de bloqueo en Ajustes.</div>'}`;
   if (SA.entreAbierto) html += `<div class="card">${entreHTML(SA, 'sa')}<button class="btn btn-surf btn-sm" data-action="entre-abrir">✓ Listo</button></div>`;   // el tiempo entre series se puede cambiar en cualquier momento
 
   // Ronda terminada → resumen
@@ -2754,41 +2760,34 @@ function renderEnCurso() {
       <button class="btn btn-green btn-sm btn-inline" data-action="pn-cerrar">✓ Listo</button></div>
       <div class="muted" style="font-size:12px">Vale para las próximas salidas; los que ya nadan siguen con lo que tenían.</div>${porNadHTML('sa', true)}</div>`;
   } else if (pendientes.length) {
-    if (SA.ronda > 1 && !SA.seriesT[SA.ronda]) html += relojEntreSeries(now, SA.ronda - 1);   // preparando la siguiente: sigue la cuenta del descanso o el reloj de la anterior
+    if (SA.ronda > 1 && !SA.seriesT[SA.ronda]) html += relojEntreSeries(now, SA.ronda - 1, true);   // preparando la siguiente: sigue la cuenta del descanso o el reloj de la anterior
     const salen = pendientes.filter(g=>!SA.noSale.has(g.gId)).length;
     html += `
       <div class="salida-card salida-lista" style="--sc:${serieCol(SA.ronda)}">
-        <div class="salida-banda">SERIE ${SA.ronda} · LISTOS PARA SALIR${SA.nSalida?` · TANDA ${SA.nSalida+1}`:''}</div>
-        <div class="sec-hdr" style="margin:0 0 8px">
-          <span class="label">Próxima salida</span>
-          <span><button class="edit-link" style="margin-right:10px" data-action="pn-abrir">🎯 Estilos y ritmos</button><button class="edit-link" style="margin-right:10px" data-action="entre-abrir">⏳ Entre series</button><button class="edit-link" data-action="edit-abrir">✎ Calles</button></span>
-        </div>
+        <div class="salida-banda"><span>SERIE ${SA.ronda} · LISTOS PARA SALIR${SA.nSalida?` · TANDA ${SA.nSalida+1}`:''}</span>${ajustesBtn()}</div>
+        ${ajustesMenu()}
         ${pruebasCalleHTML()}
         <div class="salida-next">
           ${pendientes.map(g=>{ const off = SA.noSale.has(g.gId); return `<button class="next-chip${off?' off':''}" data-action="no-sale" data-gid="${esc(g.gId)}" data-nid="${esc(g.nads[g.next].nId)}">${laneTag(laneShort(g), g.color)}<span class="nm">${esc(g.nads[g.next].n)}${SA.notasEsp && SA.notasEsp[g.nads[g.next].nId] ? ' 📝' : ''}</span>${off?'<span class="ns">no sale</span>':''}</button>`; }).join('')}
         </div>
-        <div class="muted" style="font-size:12px;margin:-4px 0 8px">Toca un nombre si ese nadador no sale · mantén pulsado un nombre para anotarle algo (la nota pasa a su tiempo)</div>
-        ${SA.ciclo ? `<div class="ciclo-cd">
-          <div style="flex:1"><div class="muted" style="font-size:12px">${SA.auto?`Salida automática · cada ${esc(SA.ciclo)} s`:'Salida automática en pausa'}</div>
-            ${!SA.auto?'':SA.nSalida>0?`<b id="live-ciclo">${fmtNado(Math.max(0, Math.ceil(cicloEstado(SA.tUltSalida, SA.ciclo, now, true).restaMs/1000)*1000))}</b>`:'<span style="font-size:13px">Empieza a contar con la primera SALIDA</span>'}</div>
-          <button class="btn btn-surf btn-sm btn-inline" data-action="ciclo-sa">${SA.auto?'⏸ Pausar':'▶ Reanudar'}</button>
-        </div>` : ''}
+        <div class="salida-pista">Toca un nombre: no sale · Mantén pulsado: anotarle algo</div>
+        ${SA.ciclo ? `<div class="ciclo-cd compacto"><span class="muted">${SA.auto?`Tandas automáticas cada ${esc(SA.ciclo)} s`:'Tandas automáticas en pausa'}</span>${!SA.auto?'':SA.nSalida>0?`<b id="live-ciclo">${fmtNado(Math.max(0, Math.ceil(cicloEstado(SA.tUltSalida, SA.ciclo, now, true).restaMs/1000)*1000))}</b>`:'<span class="muted">· empiezan con la 1.ª salida</span>'}<button class="btn btn-surf btn-sm btn-inline" style="margin-left:auto" data-action="ciclo-sa" aria-label="${SA.auto?'Pausar':'Reanudar'} las tandas automáticas">${SA.auto?'⏸ Pausar':'▶ Reanudar'}</button></div>` : ''}
         <button class="salida-btn" data-action="salida-tanda" ${salen?'':'disabled'}>🚀 SALIDA · S${SA.ronda}${SA.nSalida?` · tanda ${SA.nSalida+1}`:''}${salen<pendientes.length&&salen?` (${salen})`:''}</button>
       </div>`;
   } else {
     // Todos han salido: la siguiente serie puede empezar aunque alguno siga nadando (descanso de 2 min, el último aún no llegó)
     const quedan = SA.agua.length;
     const sig = SA.plan && SA.plan.series[SA.planIdx+1];
-    html += relojEntreSeries(now, SA.ronda);   // todos han salido y alguno sigue nadando: la cuenta hasta la siguiente salida o el reloj de esta serie
-    html += `<div class="salida-card">
-      <div style="display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:${quedan?10:0}px"><span class="muted" style="flex:1">Todos han salido · ${quedan?`${quedan} ${quedan===1?'nadador sigue':'nadadores siguen'} en el agua`:'esperando llegadas'}</span><button class="edit-link" data-action="edit-abrir">✎ Calles</button></div>
+    html += relojEntreSeries(now, SA.ronda, quedan > 0);   // todos han salido: la cuenta hasta la siguiente salida o el reloj de esta serie (compacto si aún hay nadadores que vigilar)
+    html += `<div class="salida-card salida-lista" style="--sc:${serieCol(SA.ronda + 1)}">
+      <div class="salida-banda"><span>${quedan ? `${quedan} nadando` : 'Esperando llegadas'} · SERIE ${SA.ronda+1} LISTA</span>${ajustesBtn()}</div>
+      ${ajustesMenu()}
       ${!quedan ? '' : SA.nuevaSerie ? renderNuevaSerie() : `
         <button class="salida-btn" data-action="siguiente-salida">🚀 SALIDA · serie ${SA.ronda+1}${sig?`: ${esc(comboTexto(sig.estilo, sig.dist))}`:' (igual)'}</button>
-        <button class="btn btn-surf mt8" style="min-height:44px;font-size:14px" data-action="serie-ya">✎ Preparar antes de salir (calles, estilos…)</button>
-        <div class="row mt8" style="gap:8px">
+        <div class="row" style="gap:6px;margin-top:6px">
+          <button class="btn btn-surf btn-sm" style="flex:1" data-action="serie-ya">✎ Preparar antes de salir</button>
           <button class="btn btn-surf btn-sm" style="flex:1" data-action="ns-abrir">➕ Otra prueba</button>
-        </div>
-        <div class="muted" style="font-size:12px;margin-top:6px">Los que siguen nadando no se paran: su tiempo cuenta para la serie ${SA.ronda}.</div>`}
+        </div>`}
     </div>`;
   }
 
@@ -2807,8 +2806,9 @@ function renderEnCurso() {
       const espera = g.nads.slice(g.next);
       const sep = (r, txt, cls) => `<div class="serie-sep${cls || ''}" style="--sc:${serieCol(r)}">${txt}</div>`;
       const tarjetas = []; let ultR = null;
-      [...previos, ...salidos].forEach(f => { if (f.ronda !== ultR) { ultR = f.ronda; tarjetas.push(sep(f.ronda, `SERIE ${f.ronda}`)); } tarjetas.push(renderSwCard(f, now)); });
-      if (espera.length) { tarjetas.push(sep(SA.ronda, `PENDIENTES · S${SA.ronda}`, ' pend')); espera.forEach((n, i) => tarjetas.push(renderEsperaCard(n, i === 0 && SA.noSale.has(g.gId)))); }
+      const variasSeries = previos.length > 0;   // con una sola serie en la calle, la franja de cada tarjeta ya lo dice todo: sin separadores
+      [...previos, ...salidos].forEach(f => { if (variasSeries && f.ronda !== ultR) { ultR = f.ronda; tarjetas.push(sep(f.ronda, `SERIE ${f.ronda}`)); } tarjetas.push(renderSwCard(f, now)); });
+      if (espera.length) { if (variasSeries) tarjetas.push(sep(SA.ronda, `PENDIENTES · S${SA.ronda}`, ' pend')); espera.forEach((n, i) => tarjetas.push(renderEsperaCard(n, i === 0 && SA.noSale.has(g.gId)))); }
       return `<div class="lane-col" style="--lc:${g.color};--lt:${laneTxt(g.color)}">
         <div class="lane-head">${esc(laneShort(g))}</div>
         ${tarjetas.join('') || '<div class="lane-empty">—</div>'}
@@ -2826,7 +2826,7 @@ const serieCol = r => SERIE_COL[(Math.max(1, r) - 1) % SERIE_COL.length];
 function relojSerie(now, r, compacto) {
   const t = SA.seriesT && SA.seriesT[r]; if (!t || !t.ini) return '';
   const txt = `${t.fin ? `todos llegaron en ${fmtNado(t.fin - t.ini)}` : 'alguien sigue nadando'}${SA.ciclo ? ` · ciclo ${fmtNado(SA.ciclo * 1000)}` : ''}`;
-  if (compacto) return `<div class="serie-sigue compacta"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b><span class="muted">${esc(txt)}</span></div>`;
+  if (compacto) return `<div class="serie-sigue compacta"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b></div>`;
   return `<div class="serie-sigue"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b><span class="muted">${esc(txt)}</span>${SA.desc ? '' : '<button class="desc-nomas" data-action="entre-abrir">⏳ Programar el tiempo entre series</button>'}</div>`;
 }
 // ── Descanso entre series: desde que llega el último nadador hasta la siguiente salida ──
@@ -2854,7 +2854,13 @@ function descansoBloque(now, d, compacto) {
     <span><button class="desc-nomas" data-action="entre-abrir">⏳ Cambiar el tiempo</button><button class="desc-nomas" data-action="desc-no-mas">No habrá otra serie</button></span></div>`;
 }
 // En el hueco entre series: la cuenta programada si la hay; si no, el reloj de la serie desde su salida
-const relojEntreSeries = (now, r) => { const d = descansoActivo(); return d && d.r === r ? descansoBloque(now, d) : relojSerie(now, r); };
+const relojEntreSeries = (now, r, compacto) => { const d = descansoActivo(); return d && d.r === r ? descansoBloque(now, d, compacto) : relojSerie(now, r, compacto); };
+// Ajustes de la pantalla de salida, en un solo botón ⚙ (antes eran tres enlaces con nombres poco claros)
+const ajustesBtn = () => `<button class="banda-aj" data-action="ajustes-abrir" aria-label="Ajustes: estilo y ritmo de cada nadador, tiempo entre series, calles">⚙</button>`;
+const ajustesMenu = () => SA.ajustesAbierto ? `<div class="aj-menu">
+    <button data-action="pn-abrir">🎯 Estilo y ritmo de cada nadador<small>Qué estilo nada cada uno y a qué ritmo se compara</small></button>
+    <button data-action="entre-abrir">⏳ Tiempo entre series<small>Cuánto pasa entre la salida de una serie y la siguiente</small></button>
+    <button data-action="edit-abrir">✎ Cambiar calles o nadadores<small>Mover nadadores de calle o añadir alguno</small></button></div>` : '';
 // Acabó el tiempo y la salida es automática: pasa a la siguiente serie y da la salida (no lo hace si el entrenador está preparando algo o aún salen tandas)
 function descansoAuto(d) {
   if (!SA || SA.relevo || SA.editando || SA.planEdit || SA.editNad || SA.nuevaSerie || (SA.ronda === d.r && quedanPorSalir())) { render(); return; }
@@ -2864,7 +2870,7 @@ function descansoAuto(d) {
 }
 function renderTiraSeries(now) {
   const rs = Object.keys(SA.seriesT || {}).map(Number).sort((a,b)=>a-b).filter(r => r >= SA.ronda - 1);
-  if (!rs.length) return '';
+  if (rs.length < 2 || !rs.some(r => r !== SA.ronda && !SA.seriesT[r].fin)) return '';   // solo mientras la serie anterior aún tiene nadadores en el agua: si no, el reloj ya está en el cuadro de arriba
   return `<div class="tira-series">${rs.map(r => { const t = SA.seriesT[r];
     return `<div class="tira-s" style="--sc:${serieCol(r)}"><span class="sw-ser">S${r}</span>
       ${t.fin && SA.seriesT[r+1] ? `<b>${fmtNado(t.fin - t.ini)}</b><span class="muted">total ✓</span>`
@@ -2880,7 +2886,7 @@ function renderEsperaCard(n, noSale) {
   const selEst = est ? `<label class="est-nad" onclick="event.stopPropagation()">${estiloEmo(est)} ${esc(estiloNombre(est))} ▾
       <select data-estnad="${esc(n.nId)}">${misEstilos().map(e=>`<option value="${esc(e)}"${e===est?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>` : '';
   return `<div class="sw-card espera" data-est="${noSale?'NO SALE':'PENDIENTE'}" data-nid="${esc(n.nId)}" style="--sc:${serieCol(SA.ronda)}">
-    <span class="sw-meta"><span class="sw-ser">S${SA.ronda}</span>${noSale?'no sale':'en espera'}</span>
+    <span class="sw-meta"><span class="sw-ser">S${SA.ronda}</span>${noSale?'no sale':''}</span>
     <span class="sw-nm">${esc(n.n)}${SA.notasEsp && SA.notasEsp[n.nId] ? ' 📝' : ''}</span>${selEst}
     ${selEst ? '' : '<span class="sw-act">⏳</span>'}
   </div>${hayTramos() ? HUECO_EXTRA : ''}`;
@@ -3925,6 +3931,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
   e.stopPropagation();
   const act = btn.dataset.action;
   if (act !== 'menu') MENU_ABIERTO = false;
+  if (act !== 'ajustes-abrir' && SA) SA.ajustesAbierto = false;
   switch(act) {
     case 'menu':         MENU_ABIERTO = !MENU_ABIERTO; render(); break;
     case 'recargar':     location.reload(); break;
@@ -4087,6 +4094,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
+    case 'ajustes-abrir':   if (SA) { SA.ajustesAbierto = !SA.ajustesAbierto; render(); } break;
     case 'entre-abrir':     if (SA) { SA.entreAbierto = !SA.entreAbierto; render(); } break;
     case 'desc-no-mas':     if (SA) { const d = descansoActivo(); if (d) SA.descOff = d.r; render(); } break;
     case 'siguiente-salida': desbloquearAudio(); siguienteYSalir(tiempoToque(btn)); break;   // un solo toque: pasa a la serie siguiente y da su primera salida

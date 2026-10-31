@@ -309,6 +309,7 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
   await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]'); await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
   await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(2000);
   console.log('PRUEBA entre series · sin programar:', (await p.locator('#live-desc').count()) ? 'HAY CUENTA' : 'sin cuenta');
+  await toca(p, '[data-action="ajustes-abrir"]'); await foto(p, 'ajustes_salida', 700);
   await toca(p, '[data-action="entre-abrir"]'); await toca(p, '[data-action="desc-toggle"][data-t="sa"]');
   await p.fill('input[data-descmin="sa"]', '0'); await p.fill('input[data-descseg="sa"]', '40'); await p.locator('input[data-descseg="sa"]').blur();
   await arriba(p); await foto(p, 'entre_series_en_curso', 1100);
