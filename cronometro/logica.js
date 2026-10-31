@@ -66,7 +66,7 @@ function limpiarDoc(col, d) {
       const dist = Number(x.dist), ciclo = Math.round(Number(x.ciclo));
       const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
-              parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
+              parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true, ...descOk(x),
               inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota), ritmo: ritmoOk(x.ritmo),
               ...(x.porCalle === true && pruebaCalleOk(x.pruebaCalle) ? {porCalle: true, pruebaCalle: pruebaCalleOk(x.pruebaCalle)} : {})};
     });
@@ -131,6 +131,21 @@ function rotaDeshacer(f) {
   f.parc.pop();
   if (f.descHasta) f.descHasta = null; else if ((f.pausas || []).length > f.parc.length) f.pausas.pop();
   f.avisoS = null;
+}
+
+// ── Descanso entre series ──
+// desc = segundos de descanso tras llegar el último nadador (1 a 3600; sin valor = sin descanso programado);
+// descAuto = la siguiente serie sale sola al acabar el descanso (si no, solo pita y vibra);
+// relojAtras = el reloj cuenta hacia atrás (lo que falta) en vez de hacia delante (lo que llevan)
+const DESC_DEF = 30, DESC_MAX = 3600;
+function descOk(o) {
+  const n = Math.round(Number(o && o.desc)), desc = Number.isFinite(n) && n >= 1 && n <= DESC_MAX ? n : null;
+  return {desc, descAuto: !!desc && o.descAuto === true, relojAtras: !(o && o.relojAtras === false)};
+}
+// Cuánto falta para acabar el descanso, contado desde la llegada del último: {restaMs, ya (ha acabado), aviso (últimos 3 s)}
+function descansoEstado(finMs, descS, ahora) {
+  const restaMs = finMs + descS * 1000 - ahora;
+  return {restaMs, ya: restaMs <= 0, aviso: restaMs > 0 && restaMs <= 3000};
 }
 
 // ── Salidas por ciclo: cuánto falta para la siguiente desde la última ──
@@ -264,7 +279,7 @@ function bloqueSeries(b) {
   if (!pat || !(reps >= 1 && reps * pat.length <= 60) || !b.dist) return [];
   const out = [];
   for (let i = 0; i < reps; i++) pat.forEach(mas => out.push({estilo: b.estilo || 'libre', dist: Number(b.dist), parciales: false, ciclo: b.ciclo || null, auto: !!b.auto,
-    inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: ritmoOk({ref: b.ref || '200', mano: b.mano, mas, tol: b.tol})}));
+    inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: ritmoOk({ref: b.ref || '200', mano: b.mano, mas, tol: b.tol}), ...descOk(b)}));
   return out;
 }
 // ¿Cumplió el ritmo pedido? diferencia con el objetivo (centésimas) → 'ritmo' (dentro del margen), 'rapido' o 'lento'

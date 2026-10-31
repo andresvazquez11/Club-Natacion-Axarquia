@@ -72,8 +72,8 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
     series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
-  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null },
-    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null }]);
+  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, desc: null, descAuto: false, relojAtras: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null },
+    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, desc: null, descAuto: false, relojAtras: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null }]);
 });
 
 test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
@@ -316,4 +316,24 @@ test('limpiarDoc de un entreno preparado conserva cada calle su prueba y el esti
   assert.equal(d.series[0].porCalle, true);
   assert.equal(d.series[1].porCalle, undefined);
   assert.deepEqual(d.porNad, { n1: { estilo: 'espalda', ritmo: 8000 } });
+});
+
+test('descOk: descanso entre series válido, salida automática solo con descanso y reloj hacia atrás por defecto', () => {
+  assert.deepEqual(ev('descOk', { desc: 30 }), { desc: 30, descAuto: false, relojAtras: true });
+  assert.deepEqual(ev('descOk', { desc: '45', descAuto: true, relojAtras: false }), { desc: 45, descAuto: true, relojAtras: false });
+  assert.deepEqual(ev('descOk', { desc: 0, descAuto: true }), { desc: null, descAuto: false, relojAtras: true });
+  assert.deepEqual(ev('descOk', { desc: 99999 }), { desc: null, descAuto: false, relojAtras: true });
+  assert.deepEqual(ev('descOk', null), { desc: null, descAuto: false, relojAtras: true });
+});
+
+test('descansoEstado: cuenta desde la llegada del último y avisa en los últimos 3 s', () => {
+  assert.deepEqual(ev('descansoEstado', 1000, 30, 1000), { restaMs: 30000, ya: false, aviso: false });
+  assert.equal(ev('descansoEstado', 1000, 30, 28500).aviso, true);
+  const e = ev('descansoEstado', 1000, 30, 31000); assert.equal(e.ya, true); assert.equal(e.aviso, false);
+});
+
+test('un entreno preparado conserva el descanso entre series, su salida y el reloj', () => {
+  const d = ev('limpiarDoc', 'planes', { nombre: 'x', calles: [], series: [{ estilo: 'libre', dist: 100, desc: 20, descAuto: true, relojAtras: false }, { estilo: 'libre', dist: 100 }] });
+  assert.equal(d.series[0].desc, 20); assert.equal(d.series[0].descAuto, true); assert.equal(d.series[0].relojAtras, false);
+  assert.equal(d.series[1].desc, null); assert.equal(d.series[1].relojAtras, true);
 });

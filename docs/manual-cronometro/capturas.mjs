@@ -13,7 +13,7 @@ const BASE = (process.argv[3] || 'http://localhost:8766/').replace(/\/?$/, '/');
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 fs.mkdirSync(path.join(OUT, 'z'), { recursive: true });
 fs.copyFileSync(path.join(AQUI, 'manual.html'), path.join(OUT, 'manual.html'));
-fs.copyFileSync(path.join(AQUI, 'novedades-v24.html'), path.join(OUT, 'novedades-v24.html'));
+fs.copyFileSync(path.join(AQUI, 'novedades-v25.html'), path.join(OUT, 'novedades-v25.html'));
 
 // ── Datos ficticios ──────────────────────────────────────────────────────────
 const AHORA = new Date('2026-10-22T18:05:00+02:00').getTime();      // jueves, 18:05 en la piscina
@@ -121,7 +121,7 @@ async function abrir(url, { usuario = USUARIO, coach = 'Laura', datos = D, modo,
   await ctx.addInitScript(firebaseFalso, { datos: JSON.parse(JSON.stringify(datos)), usuario });
   // la web carga el SDK con comprobación de integridad: en este navegador de pruebas se ignora (el SDK es el falso de arriba)
   await ctx.addInitScript(() => Object.defineProperty(HTMLScriptElement.prototype, 'integrity', { get: () => '', set: () => {}, configurable: true }));
-  await ctx.addInitScript(([c, m, av]) => { try { if (c) localStorage.setItem('coach_name', c); if (m) localStorage.setItem('cna_modo', m); if (!av) localStorage.setItem('crono_aviso_v24', '1'); } catch (e) {} }, [coach, modo, aviso]);
+  await ctx.addInitScript(([c, m, av]) => { try { if (c) localStorage.setItem('coach_name', c); if (m) localStorage.setItem('cna_modo', m); if (!av) localStorage.setItem('crono_aviso_v25', '1'); } catch (e) {} }, [coach, modo, aviso]);
   const p = await ctx.newPage();
   await p.clock.install({ time: AHORA });
   await p.goto(BASE + url, { waitUntil: 'load' });
@@ -228,6 +228,35 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await bajarA(p, '.tira-series', 20); await foto(p, 'series_solapadas', 1000);
   await ctx.close(); }
 
+// 3d. v25: descanso entre series (ajustes, cuenta atrás, salida sola y cuenta adelante)
+const llegaTodos = async p => { for (let i = 0; i < 12; i++) { const c = p.locator('.sw-card[data-action="llego"]'); if (!(await c.count())) break; await c.first().click(); await p.clock.runFor(200); } };
+const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(3000); } };
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
+  await toca(p, '[data-action="desc-toggle"][data-t="ps"]');
+  await p.fill('input[data-descanso="ps"]', '0:20'); await p.locator('input[data-descanso="ps"]').blur(); await p.clock.runFor(300);
+  await bajarA(p, '.desc-cfg', 60); await foto(p, 'descanso_ajustes', 1250);
+  await toca(p, '[data-action="desc-auto"][data-t="ps"][data-v="auto"]');
+  await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
+  await tresTandas(p); await p.clock.runFor(20000); await llegaTodos(p); await p.clock.runFor(5000);
+  await arriba(p); await foto(p, 'descanso_cuenta', 700);
+  const antes = await p.locator('.ec-top').innerText();
+  await p.clock.runFor(18000);
+  const despues = await p.locator('.ec-top').innerText(), enAgua = await p.locator('.sw-card[data-action="llego"]').count();
+  console.log('PRUEBA salida sola → antes:', antes.split('\n')[0], '| después:', despues.split('\n')[0], '| nadadores en el agua:', enAgua);
+  await ctx.close(); }
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
+  await toca(p, '[data-action="desc-toggle"][data-t="ps"]');
+  await p.fill('input[data-descanso="ps"]', '30'); await p.locator('input[data-descanso="ps"]').blur();
+  await toca(p, '[data-action="desc-reloj"][data-t="ps"][data-v="adelante"]');
+  await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
+  await tresTandas(p); await p.clock.runFor(20000); await llegaTodos(p); await p.clock.runFor(12000);
+  await arriba(p); await foto(p, 'descanso_adelante', 700);
+  await p.clock.runFor(25000);
+  console.log('PRUEBA salida a mano → reloj:', await p.locator('#live-desc').innerText(), '| serie:', (await p.locator('.ec-top').innerText()).split('\n')[0]);
+  await ctx.close(); }
+
 // 3c. Entreno preparado en curso: cambiar el orden de las series
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="plan-empezar"]'); await p.clock.runFor(800);
@@ -312,7 +341,7 @@ await pg.pdf({ path: path.join(OUT, 'manual.pdf'), format: 'A4', printBackground
   footerTemplate: '<div style="font-size:8px;color:#888;width:100%;text-align:center">Manual del cronómetro · C.N. Axarquía · <span class="pageNumber"></span>/<span class="totalPages"></span></div>' });
 console.log('PDF', path.join(OUT, 'manual.pdf'));
 // Hoja de novedades (2 páginas, con capturas) para mandar por WhatsApp
-await pg.goto('file://' + path.join(OUT, 'novedades-v24.html')); await pg.waitForTimeout(1200);
-await pg.pdf({ path: path.join(OUT, 'novedades-v24.pdf'), width: '210mm', height: '297mm', printBackground: true, margin: { top: '0', bottom: '0', left: '0', right: '0' } });
-console.log('PDF', path.join(OUT, 'novedades-v24.pdf'));
+await pg.goto('file://' + path.join(OUT, 'novedades-v25.html')); await pg.waitForTimeout(1200);
+await pg.pdf({ path: path.join(OUT, 'novedades-v25.pdf'), width: '210mm', height: '297mm', printBackground: true, margin: { top: '0', bottom: '0', left: '0', right: '0' } });
+console.log('PDF', path.join(OUT, 'novedades-v25.pdf'));
 await br.close();
