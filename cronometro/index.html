@@ -2767,7 +2767,7 @@ function renderEnCurso() {
   // Arriba los que aún nadan (o acaban de llegar) de la serie anterior, luego los que salieron y los que esperan.
   const cols = Math.min(SA.grupos.length, 6);
   const nAgua = SA.agua.filter(f=>f.ronda===SA.ronda).length;
-  { const dc = descansoActivo(); if (dc && dc.r === SA.ronda && quedanPorSalir()) html += descansoBloque(now, dc, true); }   // la cuenta ya corre mientras salen las tandas
+  if (quedanPorSalir() && SA.seriesT && SA.seriesT[SA.ronda]) { const dc = descansoActivo(); html += dc && dc.r === SA.ronda ? descansoBloque(now, dc, true) : relojSerie(now, SA.ronda, true); }   // mientras salen las tandas: la cuenta programada o, si no, el reloj de la serie
   html += renderTiraSeries(now);
   html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.rota?'<span class="muted" style="font-size:11px">Toca al llegar a la pared: el descanso se cuenta solo</span>':hayTramos()?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
     <div class="lanes-grid${cols>4?' muchas':''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
@@ -2790,12 +2790,13 @@ function renderEnCurso() {
 // ── Series solapadas: cada serie con su color y su tiempo total (primera salida → última llegada) ──
 const SERIE_COL = ['#38bdf8','#f472b6','#a3e635','#fb923c','#c084fc','#facc15'];
 const serieCol = r => SERIE_COL[(Math.max(1, r) - 1) % SERIE_COL.length];
-// Reloj grande de una serie, desde su salida, en todo el hueco entre series (todos llegados, preparando la siguiente o con alguien aún nadando):
+// Cuadro con el reloj de la serie desde su salida: SIEMPRE a la vista, se configure lo que se configure (compacto mientras salen las tandas, grande entre series):
 // por ejemplo, en un ciclo de 1:45 se ve 1:30 aunque el último llegara a 1:15, para saber cuándo dar la salida
-function relojSerie(now, r) {
+function relojSerie(now, r, compacto) {
   const t = SA.seriesT && SA.seriesT[r]; if (!t || !t.ini) return '';
-  return `<div class="serie-sigue"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b>
-    <span class="muted">${t.fin ? `todos llegaron en ${fmtNado(t.fin - t.ini)}` : 'alguien sigue nadando'}${SA.ciclo ? ` · ciclo ${fmtNado(SA.ciclo * 1000)}` : ''}</span></div>`;
+  const txt = `${t.fin ? `todos llegaron en ${fmtNado(t.fin - t.ini)}` : 'alguien sigue nadando'}${SA.ciclo ? ` · ciclo ${fmtNado(SA.ciclo * 1000)}` : ''}`;
+  if (compacto) return `<div class="serie-sigue compacta"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b><span class="muted">${esc(txt)}</span></div>`;
+  return `<div class="serie-sigue"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b><span class="muted">${esc(txt)}</span></div>`;
 }
 // ── Descanso entre series: desde que llega el último nadador hasta la siguiente salida ──
 function descansoActivo() {

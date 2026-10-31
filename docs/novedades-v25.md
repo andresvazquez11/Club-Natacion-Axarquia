@@ -23,7 +23,7 @@ Cierra la app y vuelve a abrirla con conexión para que se actualice (arriba, en
 
 **Mejoras durante el entreno**
 • Hasta 6 calles en paralelo. Nuevas pruebas: libre 800 y 1500 m, y Estilos 200 y 400 m.
-• Cuando ya han llegado todos, el reloj de la serie sigue contando hasta la salida de la siguiente.
+• Siempre ves un cuadro con el reloj de la serie desde su salida (sin configurar nada), aunque lleguen todos los nadadores, hasta que das la salida de la siguiente.
 • Llegadas casi iguales: puedes tocar a varios nadadores a la vez con varios dedos.
 
 **Más fácil de usar**

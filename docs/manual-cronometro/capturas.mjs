@@ -257,6 +257,23 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
   console.log('PRUEBA salida a mano → reloj:', await p.locator('#live-desc').innerText(), '| serie:', (await p.locator('.ec-top').innerText()).split('\n')[0]);
   await ctx.close(); }
 
+// 3e. v25: sin configurar nada, el reloj desde la salida de la serie está SIEMPRE a la vista en un cuadro
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
+  await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
+  const cuadro = async () => { const e = p.locator('.serie-sigue').first(); return (await e.count()) ? (await e.innerText()).replace(/\s+/g, ' ') : 'NO HAY CUADRO'; };
+  await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(4000);
+  console.log('PRUEBA reloj siempre · mientras salen tandas:', await cuadro()); await arriba(p); await foto(p, 'reloj_siempre', 700);
+  await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(3000); await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(12000);
+  console.log('PRUEBA reloj siempre · todos fuera, nadando:', await cuadro());
+  await p.clock.runFor(10000); await llegaTodos(p); await p.clock.runFor(4000);
+  console.log('PRUEBA reloj siempre · todos llegados:', await cuadro());
+  await toca(p, '[data-action="repetir-serie"]'); await p.clock.runFor(3000);
+  console.log('PRUEBA reloj siempre · preparando la siguiente:', await cuadro());
+  await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(5000);
+  console.log('PRUEBA reloj siempre · serie 2 saliendo:', await cuadro());
+  await ctx.close(); }
+
 // 3c. Entreno preparado en curso: cambiar el orden de las series
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="plan-empezar"]'); await p.clock.runFor(800);
