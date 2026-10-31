@@ -78,6 +78,7 @@ const GLOSARIO = {
   pts: ['Puntos World Aquatics', 'Una escala internacional que permite comparar marcas de pruebas, piscinas y edades distintas. 1000 puntos = récord del mundo.'],
   nivel: ['Nivel', 'Media de los puntos World Aquatics de sus 3 mejores pruebas en esa temporada. Sirve para ver su evolución global.'],
   mediana: ['Mediana', 'El tiempo del nadador del medio del grupo: la mitad nada más rápido y la otra mitad más lento. Se ve menos afectada por casos extremos que la media.'],
+  constancia: ['Constancia', 'Lo parecidos que son sus tiempos de una serie a otra. Se mide con la desviación típica (±): lo que se suele separar de su tiempo medio. Menos segundos = más constante.'],
   ritmo: ['Ritmo de 200 / de 400', 'Lo que tardaría en cada tramo si nadara a la velocidad media de su mejor 200 o 400. Sirve para saber si una serie va a su ritmo.'],
   caida: ['Caída', 'La diferencia entre su tramo más rápido y el más lento. Una caída pequeña indica que reparte bien el esfuerzo.'],
   split: ['Split negativo', 'Nadar la segunda mitad más rápido que la primera. Es la señal de una carrera bien repartida.'],

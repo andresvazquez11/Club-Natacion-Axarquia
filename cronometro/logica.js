@@ -39,7 +39,7 @@ function limpiarDoc(col, d) {
     d.rota = rotaOk(d.rota);   // tiempo neto de una rota (sin descansos): solo se compara con la misma rota
     // con qué ritmo se comparó al crear la serie (y el objetivo que tenía ese día)
     if (d.ritmo && typeof d.ritmo === 'object') { const r = ritmoOk(d.ritmo), cs = Math.round(Number(d.ritmo.cs));
-      d.ritmo = r ? {...r, cs: Number.isFinite(cs) && cs > 0 ? cs : null, base: ['marca', 'est', 'mano', 'media'].includes(d.ritmo.base) ? d.ritmo.base : null} : null; } else d.ritmo = null;
+      d.ritmo = r ? {...r, cs: Number.isFinite(cs) && cs > 0 ? cs : null, base: ['marca', 'est', 'mano', 'media', 'nad'].includes(d.ritmo.base) ? d.ritmo.base : null} : null; } else d.ritmo = null;
   }
   if (col==='sesiones') {
     d.fecha = Number(d.fecha) || 0; if (d.fin != null) d.fin = Number(d.fin) || null;
@@ -48,6 +48,7 @@ function limpiarDoc(col, d) {
       .map(t => ({r: Number(t.r), ini: Number(t.ini), fin: numOk(t.fin)}));
     if ('presentes' in d) d.presentes = (Array.isArray(d.presentes) ? d.presentes : []).filter(idOk);
     if ('planId' in d) d.planId = idOk(d.planId) ? d.planId : null;
+    if ('porNad' in d) d.porNad = porNadOk(d.porNad);
     if ('relevos' in d) d.relevos = (Array.isArray(d.relevos) ? d.relevos : []).filter(x => x && typeof x === 'object' && Array.isArray(x.nIds)).map(x => {
       const nIds = x.nIds.filter(idOk), num = v => Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0;
       return {ronda: Number.isInteger(Number(x.ronda)) && Number(x.ronda) > 0 ? Number(x.ronda) : 1, gId: idOk(x.gId) ? x.gId : null,
@@ -66,8 +67,10 @@ function limpiarDoc(col, d) {
       const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
               parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
-              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota), ritmo: ritmoOk(x.ritmo)};
+              inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota), ritmo: ritmoOk(x.ritmo),
+              ...(x.porCalle === true && pruebaCalleOk(x.pruebaCalle) ? {porCalle: true, pruebaCalle: pruebaCalleOk(x.pruebaCalle)} : {})};
     });
+    d.porNad = porNadOk(d.porNad);
   }
   if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
   if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
@@ -201,8 +204,9 @@ function parseCiclo(txt) {
 
 // ── Ritmo de 200 y de 400: con qué se compara cada tiempo de la serie ──
 // ref: 'mejor' (su mejor marca en esa distancia, lo de siempre), '200' o '400' (el ritmo medio de su mejor 200 / 400
-// llevado a la distancia de la serie). mano: ritmo cada 100 m que pone el entrenador (en centésimas) para quien no tenga marca.
-const RITMO_REFS = ['mejor', '200', '400'];
+// llevado a la distancia de la serie) o 'mio' (el ritmo cada 100 m que el entrenador pone a cada nadador al preparar el entreno).
+// mano: ritmo cada 100 m que pone el entrenador (en centésimas) para quien no tenga marca ni ritmo propio.
+const RITMO_REFS = ['mejor', '200', '400', 'mio'];
 const RIEGEL = 2 ** 1.06;   // 400 estimado = 200 × 2^1.06 (fórmula de Riegel)
 // mas: segundos que se suman al ritmo en esta serie («ritmo de 200 + 10 s»), en centésimas (puede ser negativo); null = ritmo tal cual.
 // tol: margen para contar como «en el ritmo» (± centésimas; 1 s por defecto). Solo cuenta si hay «mas».
@@ -276,8 +280,9 @@ function parseRitmo(txt) {
   const cs = (Number(m[1] || 0) * 60 + Number(m[2])) * 100 + Number((m[3] || '0').padEnd(2, '0'));
   return cs >= 1000 && cs <= 60000 ? cs : null;
 }
-// Objetivo de un nadador en una serie de «dist» metros: marcas = {200, 400, dist} en centésimas (25 m) o null.
-// Orden: su marca → (400) estimado de su 200 → ritmo a mano → null (la media del grupo la pone quien llama)
+// Objetivo de un nadador en una serie de «dist» metros: marcas = {200, 400, dist, mio} en centésimas (25 m) o null
+// (mio = su ritmo cada 100 m puesto por el entrenador). Orden: su marca → (400) estimado de su 200 → su ritmo puesto
+// → ritmo a mano → null (la media del grupo la pone quien llama). Con ref 'mio', primero su ritmo puesto.
 function objetivoRitmo(ref, dist, marcas, mano, mas) {
   const o = objetivoBase(ref, dist, marcas, mano);
   return o && mas ? {...o, cs: o.cs + mas} : o;   // «ritmo + 10 s»: se suma al objetivo de la serie
@@ -285,9 +290,12 @@ function objetivoRitmo(ref, dist, marcas, mano, mas) {
 function objetivoBase(ref, dist, marcas, mano) {
   if (!ref || !dist) return null;
   if (ref === 'mejor') return marcas.dist ? {cs: marcas.dist, base: 'marca'} : null;
+  const suyo = marcas.mio ? {cs: Math.round(marcas.mio * dist / 100), base: 'nad'} : null;
+  if (ref === 'mio') return suyo || (mano ? {cs: Math.round(mano * dist / 100), base: 'mano'} : null);
   const d = ref === '400' ? 400 : 200;
   if (marcas[d]) return {cs: Math.round(marcas[d] * dist / d), base: 'marca'};
   if (d === 400 && marcas[200]) return {cs: Math.round(marcas[200] * RIEGEL * dist / 400), base: 'est'};
+  if (suyo) return suyo;
   if (mano) return {cs: Math.round(mano * dist / 100), base: 'mano'};
   return null;
 }
@@ -330,4 +338,30 @@ function recalcularOrden(res, orden) {
     const r = porId.get(id), llegada = r.ts + r.ms, p = puestos[i];
     return {id, salida: p.salida, ts: p.ts, ms: llegada - p.ts};
   }).filter(x => { const r = porId.get(x.id); return r.salida !== x.salida || r.ts !== x.ts || r.ms !== x.ms; });
+}
+
+// ── Estilo y ritmo de cada nadador (se ponen al preparar el entreno, se cambian durante y se corrigen después) ──
+// {nId: {estilo, ritmo}}: estilo para las series «Cada nadador su estilo»; ritmo cada 100 m en centésimas (su objetivo
+// en las series «Su ritmo»). Se queda solo lo válido; un nadador sin nada no se guarda.
+function porNadOk(o) {
+  const out = {};
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return out;
+  Object.entries(o).slice(0, 200).forEach(([id, v]) => {
+    if (!idOk(id) || !v || typeof v !== 'object') return;
+    const r = Math.round(Number(v.ritmo)), x = {};
+    if (estiloOk(v.estilo)) x.estilo = v.estilo;
+    if (Number.isFinite(r) && r >= 1000 && r <= 60000) x.ritmo = r;
+    if (Object.keys(x).length) out[id] = x;
+  });
+  return out;
+}
+// ── Cada calle su prueba: {nombre de la calle: {estilo, dist}} (p. ej. calle 1 200 libre, calle 2 200 estilos, calle 3 100 libre) ──
+function pruebaCalleOk(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const out = {};
+  Object.entries(o).slice(0, 12).forEach(([k, v]) => {
+    const nombre = String(k).slice(0, 40), dist = Number(v && v.dist);
+    if (nombre && v && estiloOk(v.estilo) && Number.isInteger(dist) && dist > 0 && dist <= 1500) out[nombre] = {estilo: v.estilo, dist};
+  });
+  return Object.keys(out).length ? out : null;
 }

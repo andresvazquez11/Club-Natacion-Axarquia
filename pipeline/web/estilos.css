@@ -590,7 +590,7 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .ent-pick-list{display:flex;flex-wrap:wrap;gap:6px;max-height:190px;overflow-y:auto}
 .ent-pick-list label{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;padding:5px 11px;border-radius:99px;border:1px solid var(--ln);cursor:pointer;opacity:.45;transition:opacity .15s,border-color .15s}
 .ent-pick-list label.on{opacity:1;border-color:var(--ink2)}
-.ent-pick-list label:focus-within{outline:2px solid var(--hl);outline-offset:1px}
+.ent-pick-list label:has(input:focus-visible){outline:2px solid var(--hl);outline-offset:1px}   /* solo con teclado: al tocar, el nombre no se queda marcado */
 .ent-pick-list input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
 .ent-x-link{font:inherit;background:none;border:0;padding:0;color:var(--link);cursor:pointer;text-decoration:underline}
 .ent-pick-series{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
@@ -604,6 +604,10 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .ent-chart a .ent-bar{cursor:pointer}
 .ent-chart a:hover .ent-bar,.ent-chart .ent-bar.on{fill:var(--hl)}
 .ent-mat{font-variant-numeric:tabular-nums}
+/* al desplazar la tabla a los lados, el nombre del nadador se queda fijo a la izquierda */
+.ent-mat tr>:first-child{position:sticky;left:0;z-index:1;background:var(--solid);box-shadow:6px 0 6px -6px rgba(0,0,0,.35)}
+.ent-mat th:first-child{z-index:2}
+.ent-mat td:first-child{max-width:42vw;overflow:hidden;text-overflow:ellipsis}
 .ent-mat th{white-space:nowrap;vertical-align:bottom}
 .ent-mat th .tiny{display:block;font-weight:500}
 .ent-mat td.vacia{color:var(--ink2)}
@@ -921,3 +925,21 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .tt-ley{font-size:12px;color:var(--mut);margin:8px 2px;line-height:1.4;display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center}
 .tt-ley .tt-f{display:contents}.tt-ley .tt{font-size:11px;line-height:1.7;justify-self:stretch;text-align:center;min-width:64px}
 .tt-ley .tt-nota{grid-column:1/-1;margin:2px 0 0;font-size:12px}
+
+/* Línea de ritmo del entrenador (Comparar series): se arrastra, se escribe o se fija */
+.ent-rl-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:4px 0 6px}
+.ent-rl-ctl .ent-sw{margin:0}
+.ent-rl-in{width:92px;min-height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--ln);background:var(--inset);color:var(--ink);font:inherit;font-variant-numeric:tabular-nums}
+.ent-rl-ctl .chip{min-height:36px;padding:0 12px;font-size:.78rem}.ent-rl-ctl .chip:disabled{opacity:.4}
+.ent-rl-res{margin:0 0 4px}
+.ent-chart .ent-rl-l{stroke:var(--warn);stroke-width:2.5;stroke-dasharray:7 5}
+.ent-chart .ent-rl.fijo .ent-rl-l{stroke-dasharray:none}
+.ent-chart .ent-rl-tx{fill:var(--warn);font-size:11px;font-weight:800;paint-order:stroke;stroke:var(--solid);stroke-width:3px}
+.ent-chart .ent-rl-hit{fill:transparent;cursor:ns-resize;touch-action:none}
+.ent-chart .ent-rl.fijo .ent-rl-hit{cursor:default}
+.ent-chart .ent-rl-hit:focus-visible{outline:none;fill:var(--warn);fill-opacity:.12}
+.ent-rl-series{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px;font-size:.72rem;font-variant-numeric:tabular-nums}
+.ent-rl-series span{padding:2px 7px;border-radius:7px;background:var(--inset);color:var(--ink2)}
+/* Constancia de cada nadador */
+.ent-chart .ent-cst-banda{opacity:.22}
+.ent-chart .ent-cst-media{stroke:var(--ink);stroke-width:2}

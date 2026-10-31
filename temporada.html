@@ -598,7 +598,7 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .ent-pick-list{display:flex;flex-wrap:wrap;gap:6px;max-height:190px;overflow-y:auto}
 .ent-pick-list label{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;padding:5px 11px;border-radius:99px;border:1px solid var(--ln);cursor:pointer;opacity:.45;transition:opacity .15s,border-color .15s}
 .ent-pick-list label.on{opacity:1;border-color:var(--ink2)}
-.ent-pick-list label:focus-within{outline:2px solid var(--hl);outline-offset:1px}
+.ent-pick-list label:has(input:focus-visible){outline:2px solid var(--hl);outline-offset:1px}   /* solo con teclado: al tocar, el nombre no se queda marcado */
 .ent-pick-list input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
 .ent-x-link{font:inherit;background:none;border:0;padding:0;color:var(--link);cursor:pointer;text-decoration:underline}
 .ent-pick-series{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
@@ -612,6 +612,10 @@ tr.ent-fila-comp td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
 .ent-chart a .ent-bar{cursor:pointer}
 .ent-chart a:hover .ent-bar,.ent-chart .ent-bar.on{fill:var(--hl)}
 .ent-mat{font-variant-numeric:tabular-nums}
+/* al desplazar la tabla a los lados, el nombre del nadador se queda fijo a la izquierda */
+.ent-mat tr>:first-child{position:sticky;left:0;z-index:1;background:var(--solid);box-shadow:6px 0 6px -6px rgba(0,0,0,.35)}
+.ent-mat th:first-child{z-index:2}
+.ent-mat td:first-child{max-width:42vw;overflow:hidden;text-overflow:ellipsis}
 .ent-mat th{white-space:nowrap;vertical-align:bottom}
 .ent-mat th .tiny{display:block;font-weight:500}
 .ent-mat td.vacia{color:var(--ink2)}
@@ -930,6 +934,24 @@ tr.dir-yo td{background:color-mix(in srgb,var(--hl) 30%,transparent);font-weight
 .tt-ley .tt-f{display:contents}.tt-ley .tt{font-size:11px;line-height:1.7;justify-self:stretch;text-align:center;min-width:64px}
 .tt-ley .tt-nota{grid-column:1/-1;margin:2px 0 0;font-size:12px}
 
+/* Línea de ritmo del entrenador (Comparar series): se arrastra, se escribe o se fija */
+.ent-rl-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:4px 0 6px}
+.ent-rl-ctl .ent-sw{margin:0}
+.ent-rl-in{width:92px;min-height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--ln);background:var(--inset);color:var(--ink);font:inherit;font-variant-numeric:tabular-nums}
+.ent-rl-ctl .chip{min-height:36px;padding:0 12px;font-size:.78rem}.ent-rl-ctl .chip:disabled{opacity:.4}
+.ent-rl-res{margin:0 0 4px}
+.ent-chart .ent-rl-l{stroke:var(--warn);stroke-width:2.5;stroke-dasharray:7 5}
+.ent-chart .ent-rl.fijo .ent-rl-l{stroke-dasharray:none}
+.ent-chart .ent-rl-tx{fill:var(--warn);font-size:11px;font-weight:800;paint-order:stroke;stroke:var(--solid);stroke-width:3px}
+.ent-chart .ent-rl-hit{fill:transparent;cursor:ns-resize;touch-action:none}
+.ent-chart .ent-rl.fijo .ent-rl-hit{cursor:default}
+.ent-chart .ent-rl-hit:focus-visible{outline:none;fill:var(--warn);fill-opacity:.12}
+.ent-rl-series{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px;font-size:.72rem;font-variant-numeric:tabular-nums}
+.ent-rl-series span{padding:2px 7px;border-radius:7px;background:var(--inset);color:var(--ink2)}
+/* Constancia de cada nadador */
+.ent-chart .ent-cst-banda{opacity:.22}
+.ent-chart .ent-cst-media{stroke:var(--ink);stroke-width:2}
+
 </style>
 </head>
 <body>
@@ -1037,6 +1059,7 @@ const GLOSARIO = {
   pts: ['Puntos World Aquatics', 'Una escala internacional que permite comparar marcas de pruebas, piscinas y edades distintas. 1000 puntos = récord del mundo.'],
   nivel: ['Nivel', 'Media de los puntos World Aquatics de sus 3 mejores pruebas en esa temporada. Sirve para ver su evolución global.'],
   mediana: ['Mediana', 'El tiempo del nadador del medio del grupo: la mitad nada más rápido y la otra mitad más lento. Se ve menos afectada por casos extremos que la media.'],
+  constancia: ['Constancia', 'Lo parecidos que son sus tiempos de una serie a otra. Se mide con la desviación típica (±): lo que se suele separar de su tiempo medio. Menos segundos = más constante.'],
   ritmo: ['Ritmo de 200 / de 400', 'Lo que tardaría en cada tramo si nadara a la velocidad media de su mejor 200 o 400. Sirve para saber si una serie va a su ritmo.'],
   caida: ['Caída', 'La diferencia entre su tramo más rápido y el más lento. Una caída pequeña indica que reparte bien el esfuerzo.'],
   split: ['Split negativo', 'Nadar la segunda mitad más rápido que la primera. Es la señal de una carrera bien repartida.'],
@@ -4057,12 +4080,13 @@ function entComparativaRango(T, ev, nIds, desde, hasta) {
   });
   return {slots: [...slots.values()].sort((a, b) => a.fecha - b.fecha || a.ronda - b.ronda), lineas: [...lineas.values()].filter(Boolean)};
 }
-function entGraficoRango(CR, colorDe) {
+/* rl = línea de ritmo del entrenador {cs, fijo}: una raya horizontal que se arrastra (o se escribe) para ver quién va por debajo */
+function entGraficoRango(CR, colorDe, rl) {
   if (!CR || !CR.lineas.length || !CR.slots.length) return '<p class="empty">Sin tiempos de estos nadadores entre esas fechas.</p>';
   const movil = typeof window !== 'undefined' && window.innerWidth < 600;
   const pocos = CR.lineas.length <= 4;
   const W = movil ? 400 : 760, H = movil ? 260 : 290, P = {l: 50, r: pocos ? 58 : 14, t: 16, b: 40}, n = CR.slots.length;
-  const cs = CR.lineas.flatMap(l => Object.values(l.t).map(t => t.cs));
+  const cs = [...CR.lineas.flatMap(l => Object.values(l.t).map(t => t.cs)), ...(rl && rl.cs ? [rl.cs] : [])];
   const mn = Math.min(...cs), mx = Math.max(...cs), pad = Math.max((mx - mn) * .1, 20), lo = mn - pad, hi = mx + pad;
   const X = i => n === 1 ? (P.l + W - P.r) / 2 : P.l + i * (W - P.l - P.r) / (n - 1);
   const Y = c => P.t + (hi - c) / (hi - lo) * (H - P.t - P.b);
@@ -4084,7 +4108,47 @@ function entGraficoRango(CR, colorDe) {
     const u = [...CR.slots].reverse().find(s => l.t[s.k]);
     if (pocos && u) puntos += `<text x="${X(CR.slots.indexOf(u)) + 8}" y="${Y(l.t[u.k].cs) + 4}" class="ent-etq">${fmt(l.t[u.k].cs)}</text>`;
   });
-  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}${puntos}</svg></div>`;
+  // la línea de ritmo va encima de todo; su zona de toque (más alta que la raya) es la que se arrastra
+  const linea = rl && rl.cs ? `<g class="ent-rl${rl.fijo ? ' fijo' : ''}" data-rl><line x1="${P.l}" x2="${W - P.r}" y1="${Y(rl.cs)}" y2="${Y(rl.cs)}" class="ent-rl-l"/>
+    <text x="${P.l + 6}" y="${Y(rl.cs) - 6}" class="ent-rl-tx">${rl.fijo ? 'Ritmo fijado' : 'Ritmo'} ${fmt(rl.cs)}${rl.fijo ? '' : ' · arrástrala'}</text>
+    <rect x="${P.l}" y="${Y(rl.cs) - 14}" width="${W - P.l - P.r}" height="28" class="ent-rl-hit"${rl.fijo ? '' : ' role="slider" tabindex="0" aria-label="Línea de ritmo: flechas arriba y abajo para moverla" aria-valuetext="' + fmt(rl.cs) + '"'}/></g>` : '';
+  return `<div class="ent-graf"><svg class="chart ent-chart" viewBox="0 0 ${W} ${H}" data-lo="${lo}" data-hi="${hi}" data-t="${P.t}" data-b="${H - P.b}" role="img" aria-label="Todas las series de los nadadores elegidos">${g}${puntos}${linea}</svg></div>`;
+}
+/* Cuántos tiempos van por debajo de la línea de ritmo (más rápidos): en total, por serie y por nadador */
+function entBajoRitmo(CR, cs) {
+  const T = CR.lineas.flatMap(l => Object.values(l.t));
+  const porSlot = CR.slots.map(s => { const L = CR.lineas.map(l => l.t[s.k]).filter(Boolean); return {s, bajo: L.filter(t => t.cs <= cs).length, n: L.length}; });
+  const porNad = new Map(CR.lineas.map(l => { const L = Object.values(l.t); return [l.nId, {bajo: L.filter(t => t.cs <= cs).length, n: L.length}]; }));
+  return {bajo: T.filter(t => t.cs <= cs).length, n: T.length, porSlot, porNad};
+}
+const entBajoTxt = (B, cs) => `Con el ritmo en <b>${fmt(cs)}</b>: <b>${B.bajo} de ${B.n}</b> tiempos por debajo (más rápidos)${B.n ? ` · ${Math.round(B.bajo / B.n * 100)} %` : ''}`;
+/* ── Constancia de cada nadador con muchas series: en el centro su tiempo medio; cada punto, una serie (lo que se separa de su media);
+   la franja, su dispersión habitual (± una desviación típica). Arriba, el más constante. Solo nadadores con 3 series o más. */
+function entConstanciaNad(CR) {
+  return CR.lineas.map(l => { const L = CR.slots.map(s => l.t[s.k] && {t: l.t[s.k], s}).filter(Boolean);
+    if (L.length < 3) return null;
+    const media = L.reduce((a, x) => a + x.t.cs, 0) / L.length, sd = Math.sqrt(L.reduce((a, x) => a + (x.t.cs - media) ** 2, 0) / L.length);
+    return {nId: l.nId, n: l.n, rfen: l.rfen, media, sd, L}; }).filter(Boolean).sort((a, b) => a.sd - b.sd);
+}
+function entGraficoConstanciaNad(R, colorDe) {
+  if (!R.length) return '';
+  const movil = entMovil(), W = movil ? 400 : 760, FH = 30, P = {l: movil ? 104 : 170, r: movil ? 52 : 66, t: 30, b: 22}, H = P.t + R.length * FH + P.b;
+  const m = Math.max(50, ...R.flatMap(r => r.L.map(x => Math.abs(x.t.cs - r.media)))) * 1.08, x0 = P.l + (W - P.l - P.r) / 2, k = (W - P.l - P.r) / 2 / m;
+  const X = d => x0 + d * k;
+  let g = `<text x="${X(-m) + 2}" y="16" class="ent-tx">← más rápido que su media</text><text x="${X(m) - 2}" y="16" text-anchor="end" class="ent-tx">más lento →</text>`;
+  const marcas = [-1, -.5, .5, 1].map(f => Math.round(m * f / 50) * 50).filter((v, i, a) => v && a.indexOf(v) === i);
+  marcas.forEach(v => { g += `<line x1="${X(v)}" x2="${X(v)}" y1="${P.t - 4}" y2="${H - P.b}" class="ent-eje"/><text x="${X(v)}" y="${H - 6}" text-anchor="middle" class="ent-tx">${v < 0 ? '−' : '+'}${(Math.abs(v) / 100).toFixed(1).replace('.', ',')} s</text>`; });
+  R.forEach((r, i) => {
+    const y = P.t + i * FH, yc = y + FH / 2, col = colorDe(r.nId);
+    const nom = r.n.length > (movil ? 13 : 22) ? r.n.slice(0, movil ? 11 : 21) + '…' : r.n;
+    g += `<text x="${P.l - 8}" y="${yc - 1}" text-anchor="end" class="ent-tx ent-tx-nom">${esc(nom)}</text><text x="${P.l - 8}" y="${yc + 11}" text-anchor="end" class="ent-tx">media ${fmt(Math.round(r.media))}</text>`
+      + `<rect x="${X(-r.sd)}" y="${y + 7}" width="${Math.max(2, 2 * r.sd * k)}" height="${FH - 14}" rx="4" fill="${col}" class="ent-cst-banda"/>`
+      + `<line x1="${x0}" x2="${x0}" y1="${y + 4}" y2="${y + FH - 4}" class="ent-cst-media"/>`;
+    r.L.forEach(x => { const d = x.t.cs - r.media;
+      g += entPunto(X(d), yc, col, `${fmt(x.t.cs)} · ${r.n}\n${dfmt(x.s.dia)} · serie ${x.s.ronda}\n${d <= 0 ? '−' : '+'}${secs(Math.round(d))} s de su media`); });
+    g += `<text x="${W - P.r + 8}" y="${yc + 4}" class="ent-etq">±${(r.sd / 100).toFixed(2).replace('.', ',')}</text>`;
+  });
+  return `<div class="ent-graf"><svg class="chart ent-chart ent-chart-ritmo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Constancia de cada nadador: lo que se separa cada serie de su tiempo medio">${g}</svg></div>`;
 }
 
 /* ── Piezas comunes de las gráficas ──
@@ -4103,10 +4167,10 @@ function entTips() {}
    Si no tiene 400, se estima de su 200 (fórmula de Riegel: ×2^1.06). Si no tiene marca, el ritmo que puso el entrenador
    a mano en el cronómetro y, si tampoco, la media del grupo en esa serie (para tener algo con lo que comparar). */
 const ENT_RIEGEL = 2 ** 1.06;
-const ENT_REFS = [['200', 'Ritmo de 200'], ['400', 'Ritmo de 400'], ['mejor', 'Mejor marca de la prueba']];
-const ENT_BASE = {marca: 'su mejor marca', est: 'estimado de su 200', mano: 'puesto por el entrenador', media: 'media del grupo'};
+const ENT_REFS = [['200', 'Ritmo de 200'], ['400', 'Ritmo de 400'], ['mejor', 'Mejor marca de la prueba'], ['mio', 'Su ritmo (del entrenador)']];
+const ENT_BASE = {marca: 'su mejor marca', est: 'estimado de su 200', mano: 'puesto por el entrenador', media: 'media del grupo', nad: 'su ritmo, puesto por el entrenador'};
 function entRitmoGuardado(x) {
-  if (!x || typeof x !== 'object' || !['200', '400', 'mejor'].includes(x.ref)) return null;
+  if (!x || typeof x !== 'object' || !['200', '400', 'mejor', 'mio'].includes(x.ref)) return null;
   const n = v => Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null;
   const mas = Number(x.mas), tol = n(x.tol);
   return {ref: x.ref, mano: n(x.mano), cs: n(x.cs), base: Object.hasOwn(ENT_BASE, x.base) ? x.base : null,
@@ -4122,8 +4186,10 @@ function entObjetivoPropio(t, ref) {
   // el objetivo que tenía ese día en el cronómetro (así se ve como se creó la serie aunque luego mejore su marca)
   if (t.ritmo && t.ritmo.ref === ref && t.ritmo.cs && ref !== 'mejor') return {cs: t.ritmo.cs, base: t.ritmo.base || 'marca'};
   if (ref === 'mejor') { const c = marca(t.dist); return c ? {cs: c.cs, base: 'marca'} : null; }
-  const d = ref === '400' ? 400 : 200, c = marca(d);
   const mas = entMas(t, ref);
+  // «su ritmo»: el que el entrenador puso a cada nadador en el cronómetro (sin él, el ritmo a mano de la serie)
+  if (ref === 'mio') return t.ritmo && t.ritmo.mano ? {cs: Math.round(t.ritmo.mano * t.dist / 100) + mas, base: 'mano'} : null;
+  const d = ref === '400' ? 400 : 200, c = marca(d);
   if (c) return {cs: Math.round(c.cs * t.dist / d) + mas, base: 'marca'};
   if (d === 400) { const c2 = marca(200); if (c2) return {cs: Math.round(c2.cs * ENT_RIEGEL * t.dist / 400) + mas, base: 'est'}; }
   if (t.ritmo && t.ritmo.mano && ref !== 'mejor') return {cs: Math.round(t.ritmo.mano * t.dist / 100) + mas, base: 'mano'};
@@ -4141,6 +4207,7 @@ function entObjetivos(L, ref) {
 function entZonas(ref) {
   return ref === '200' ? {dentro: 'A su ritmo de 200 o mejor', cerca: 'Entre su ritmo de 200 y el de 400', fuera: 'Más lento que su ritmo de 400'}
     : ref === '400' ? {dentro: 'A su ritmo de 400 o mejor', cerca: 'Hasta un 3 % más lento', fuera: 'Más de un 3 % más lento'}
+    : ref === 'mio' ? {dentro: 'A su ritmo o mejor', cerca: 'Hasta un 3 % más lento', fuera: 'Más de un 3 % más lento'}
     : {dentro: 'Igual o mejor que su marca', cerca: 'Hasta un 3 % más lento', fuera: 'Más de un 3 % más lento'};
 }
 const ENT_FORMA = {dentro: '●', cerca: '◆', fuera: '▲'};
@@ -4188,7 +4255,7 @@ function entGraficoRitmo(D, ref, serieTxt) {
       g += `<g class="ent-pt-g"${entTip(tip)}><circle cx="${xx}" cy="${yc}" r="14" class="ent-hit"/>${entForma(x.zona, xx, yc)}</g>`; });
     g += `<text x="${W - P.r + 8}" y="${yc + 4}" class="ent-tx ent-tx-media">${f.media.toFixed(1)} %</text>`;
   });
-  g += `<line x1="${X(100)}" x2="${X(100)}" y1="${P.t - 6}" y2="${H - P.b}" class="ent-cien"/><text x="${X(100)}" y="${P.t - 10}" text-anchor="middle" class="ent-tx ent-tx-cien">${ref === 'mejor' ? 'su marca' : 'su ritmo de ' + ref}</text>`;
+  g += `<line x1="${X(100)}" x2="${X(100)}" y1="${P.t - 6}" y2="${H - P.b}" class="ent-cien"/><text x="${X(100)}" y="${P.t - 10}" text-anchor="middle" class="ent-tx ent-tx-cien">${ref === 'mejor' ? 'su marca' : (ref === 'mio' ? 'su ritmo' : 'su ritmo de ' + ref)}</text>`;
   const cuenta = z => D.filas.filter(f => f.zona === z).length;
   return `<div class="ent-ritmo-res">${['dentro', 'cerca', 'fuera'].map(z => `<div class="ent-rz ent-rz-${z}"><b>${ENT_FORMA[z]} ${cuenta(z)}</b><span>${Z[z]}</span></div>`).join('')}</div>
     <div class="ent-graf"><svg class="chart ent-chart ent-chart-ritmo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cada nadador en % de su ritmo">${g}</svg></div>
@@ -4229,7 +4296,7 @@ function entGraficoPedido(P, ref, fichaA) {
       <td class="num"><b class="${f.ok === f.n2 ? 'good' : ''}">${f.ok}/${f.n2}</b></td></tr>`).join('')}
     <tr class="ent-cuad-grupo"><td>Grupo en el ritmo</td>${P.rondas.map(r => { const L = P.filas.map(f => f.c[r]).filter(Boolean); return `<td class="num">${L.filter(x => x.zona === 'ritmo').length}/${L.length}</td>`; }).join('')}<td></td></tr>
     </table></div>
-    <p class="tiny muted">Cada casilla: diferencia con su objetivo en segundos (su ritmo de ${ref} más lo que se pidió en esa serie, arriba de cada columna). Toca una casilla para ver el tiempo y el objetivo.</p>`;
+    <p class="tiny muted">Cada casilla: diferencia con su objetivo en segundos (${ref === 'mio' ? 'su ritmo' : 'su ritmo de ' + ref} más lo que se pidió en esa serie, arriba de cada columna). Toca una casilla para ver el tiempo y el objetivo.</p>`;
 }
 // Forma de cada zona (además del color): círculo, rombo, triángulo
 function entForma(z, x, y) {
@@ -4314,7 +4381,7 @@ function entMontarGraficaDia(host, G) {
   const pintarRitmo = () => {
     if (!outR) return;
     const creada = entRefDeSeries(G.tabla, rondas), r = ref || creada || '200';
-    const st = n => `Serie ${n}`, chipsRef = `<div class="chips sub" data-chips="gr">${ENT_REFS.map(([v, t]) => `<button class="chip ${v === r ? 'on' : ''}" data-v="${v}">${t}${v === creada ? ' <span class="tiny">· de la serie</span>' : ''}</button>`).join('')}</div>`;
+    const st = n => `Serie ${n}`, chipsRef = `<div class="chips sub" data-chips="gr">${ENT_REFS.filter(([v]) => v !== 'mio' || creada === 'mio' || r === 'mio').map(([v, t]) => `<button class="chip ${v === r ? 'on' : ''}" data-v="${v}">${t}${v === creada ? ' <span class="tiny">· de la serie</span>' : ''}</button>`).join('')}</div>`;
     if (!rondas.length || !sel.size) { outR.innerHTML = chipsRef + '<p class="empty">Elige series y nadadores arriba.</p>'; }
     else if (entEsPedido(G.tabla, rondas, r)) {
       // series con ritmo pedido («+10 s»): ¿fueron al ritmo? con el margen de la serie o el que elija el entrenador aquí
@@ -4460,22 +4527,80 @@ function entMontarParciales(host, tabla, st) {
   out.addEventListener('change', e => { if (e.target.matches('[data-ant]')) { ant = e.target.checked; pintar(); } });
   pintar();
 }
+/* Línea de ritmo fijada por el entrenador para cada prueba (se recuerda en este dispositivo) */
+const ENT_RL_LS = 'cna_ent_ritmo';
+const entRlFijos = () => { try { const o = JSON.parse(localStorage.getItem(ENT_RL_LS) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } };
+function entRlFijar(ev, cs) { const o = entRlFijos(); if (cs > 0) o[ev] = cs; else delete o[ev]; try { localStorage.setItem(ENT_RL_LS, JSON.stringify(o)); } catch (e) {} }
 function entMontarComparar(host, C) {
   const out = host.querySelector('#ent-comparar-out'); if (!out) return;
   entTips(host);
   let sel = new Set(C.elegidos), cd = C.cd, ch = C.ch;
+  // línea de ritmo: la fijada para esta prueba, la de la dirección (rl) o ninguna; se enciende con su interruptor
+  const fijada = () => Number(entRlFijos()[C.cev]) || 0;
+  let rl = fijada() || C.rl || 0, rlOn = !!rl, CR = null;
   const colorDe = id => (C.nads.find(m => m.nId === id) || {}).color || ENT_COL_SERIES[0];
+  const medianaDe = CR => { const v = CR.lineas.flatMap(l => Object.values(l.t).map(t => t.cs)).sort((a, b) => a - b); return v.length ? v[v.length >> 1] : 0; };
   const pintar = () => {
-    const CR = entComparativaRango(C.F, C.cev, C.nads.map(m => m.nId).filter(id => sel.has(id)), cd, ch);
-    out.innerHTML = entGraficoRango(CR, colorDe) + (CR.lineas.length ? `<div class="tw"><table class="rt" style="margin-top:8px"><tr><th>Nadador</th><th class="num">Series</th><th class="num">Mejor</th><th class="num">Media</th><th class="num">Primera → última</th><th class="num">Comp. 25 m</th></tr>
+    tipOcultar();
+    CR = entComparativaRango(C.F, C.cev, C.nads.map(m => m.nId).filter(id => sel.has(id)), cd, ch);
+    if (rlOn && !rl) rl = medianaDe(CR);
+    const fijo = rlOn && rl && rl === fijada(), B = rlOn && rl && CR.lineas.length ? entBajoRitmo(CR, rl) : null;
+    const ctl = CR.lineas.length ? `<div class="ent-rl-ctl">${gSwitch('data-rl-on', rlOn, 'Línea de ritmo')}${rlOn ? `
+        <input class="ent-rl-in" data-rl-in inputmode="decimal" value="${rl ? fmt(rl) : ''}" aria-label="Ritmo de la línea (por ejemplo 1:20.00)"${fijo ? ' disabled' : ''}>
+        <button type="button" class="chip" data-rl-paso="-50"${fijo ? ' disabled' : ''}>−0,5 s</button><button type="button" class="chip" data-rl-paso="50"${fijo ? ' disabled' : ''}>+0,5 s</button>
+        <button type="button" class="chip${fijo ? ' on' : ''}" data-rl-fijo>${fijo ? 'Fijada · soltar' : 'Fijar'}</button>` : ''}</div>
+      ${B ? `<p class="small ent-rl-res" data-rl-res>${entBajoTxt(B, rl)}</p>` : ''}` : '';
+    const R = entConstanciaNad(CR);
+    out.innerHTML = ctl + entGraficoRango(CR, colorDe, rlOn && rl ? {cs: rl, fijo} : null)
+      + (B && CR.slots.length > 1 && CR.slots.length <= 16 ? `<div class="ent-rl-series">${B.porSlot.map(x => `<span${tipAttr(`Serie ${x.s.ronda} · ${dfmt(x.s.dia)}\n${x.bajo} de ${x.n} por debajo del ritmo`)}><b>S${x.s.ronda}</b> ${x.bajo}/${x.n}</span>`).join('')}</div>` : '')
+      + (CR.lineas.length ? `<div class="tw"><table class="rt ent-mat" style="margin-top:8px"><tr><th>Nadador</th><th class="num">Series</th><th class="num">Mejor</th><th class="num">Media</th>${B ? '<th class="num">Bajo el ritmo</th>' : ''}<th class="num">Primera → última</th><th class="num">Comp. 25 m</th></tr>
       ${CR.lineas.map(l => { const L = CR.slots.map(s => l.t[s.k]).filter(Boolean), sw = l.rfen && Object.hasOwn(SW, l.rfen) ? SW[l.rfen] : null, c = sw ? entMejorCompeticion(sw, C.cev) : null;
-        const media = Math.round(L.reduce((a, t) => a + t.cs, 0) / L.length), primera = L[0], ultima = L[L.length - 1];
-        return `<tr><td style="max-width:0;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="ent-pt" style="background:${colorDe(l.nId)}"></i><b>${esc(l.n)}</b></td>
-          <td class="num">${L.length}</td><td class="num"><b>${fmt(Math.min(...L.map(t => t.cs)))}</b></td><td class="num">${fmt(media)}</td>
+        const media = Math.round(L.reduce((a, t) => a + t.cs, 0) / L.length), primera = L[0], ultima = L[L.length - 1], b = B && B.porNad.get(l.nId);
+        return `<tr><td style="white-space:nowrap;max-width:44vw;overflow:hidden;text-overflow:ellipsis"><i class="ent-pt" style="background:${colorDe(l.nId)}"></i><b>${esc(l.n)}</b></td>
+          <td class="num">${L.length}</td><td class="num"><b>${fmt(Math.min(...L.map(t => t.cs)))}</b></td><td class="num">${fmt(media)}</td>${B ? `<td class="num"><b class="${b.bajo * 2 >= b.n ? 'good' : 'bad'}">${b.bajo}</b> de ${b.n}</td>` : ''}
           <td class="num">${fmt(primera.cs)} → ${fmt(ultima.cs)} ${L.length > 1 ? entDif((ultima.cs - primera.cs) / 100) : ''}</td><td class="num">${c ? fmt(c.cs) : '—'}</td></tr>`; }).join('')}</table></div>
-      <p class="tiny muted">Todas las series de ${esc(C.cev)} entre el ${dfmt(cd)} y el ${dfmt(ch)}, en orden. Las de simulación de competición, en dorado.</p>` : '');
-    entRecordar({cev: C.cev, cn: sel.size === C.nads.length ? '' : [...sel].join(',') || '-', cd: cd === C.dia ? '' : cd, ch: ch === C.dia ? '' : ch});
+      <p class="tiny muted">Todas las series de ${esc(C.cev)} entre el ${dfmt(cd)} y el ${dfmt(ch)}, en orden. Las de simulación de competición, en dorado.${rlOn ? ' La línea de ritmo se mueve arrastrándola, escribiendo el tiempo o con ±0,5 s; «Fijar» la deja quieta y la recuerda para esta prueba en este dispositivo.' : ''}</p>` : '')
+      + (R.length ? `<div class="h h-sub" style="margin-top:14px">Constancia de cada nadador${glos('constancia')}</div>
+        <p class="tiny muted" style="margin:0 0 4px">En el centro, su tiempo medio en estas series; cada punto, una serie (a la izquierda, más rápida que su media). La franja es su dispersión habitual: cuanto más estrecha, más constante. Arriba, el más constante.</p>
+        ${entGraficoConstanciaNad(R, colorDe)}` : '');
+    entRecordar({cev: C.cev, cn: sel.size === C.nads.length ? '' : [...sel].join(',') || '-', cd: cd === C.dia ? '' : cd, ch: ch === C.dia ? '' : ch, rl: rlOn && rl && !fijo ? String(rl) : ''});
   };
+  // mover la línea sin redibujar la gráfica (se redibuja al soltar)
+  const moverA = (svg, cs) => {
+    const lo = +svg.dataset.lo, hi = +svg.dataset.hi, t = +svg.dataset.t, b = +svg.dataset.b;
+    rl = Math.max(Math.round(lo), Math.min(Math.round(hi), Math.round(cs)));
+    const y = t + (hi - rl) / (hi - lo) * (b - t), g = svg.querySelector('[data-rl]'); if (!g) return;
+    g.querySelector('line').setAttribute('y1', y); g.querySelector('line').setAttribute('y2', y);
+    g.querySelector('rect').setAttribute('y', y - 14); g.querySelector('text').setAttribute('y', y - 6);
+    g.querySelector('text').textContent = `Ritmo ${fmt(rl)} · arrástrala`;
+    const inp = out.querySelector('[data-rl-in]'); if (inp) inp.value = fmt(rl);
+    const res = out.querySelector('[data-rl-res]'); if (res && CR) res.innerHTML = entBajoTxt(entBajoRitmo(CR, rl), rl);
+  };
+  out.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.ent-rl:not(.fijo) .ent-rl-hit'); if (!h) return;
+    const svg = h.closest('svg'); e.preventDefault(); tipOcultar();
+    try { h.setPointerCapture(e.pointerId); } catch (x) {}
+    const lo = +svg.dataset.lo, hi = +svg.dataset.hi, t = +svg.dataset.t, b = +svg.dataset.b;
+    const aCs = ev => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; const y = p.matrixTransform(svg.getScreenCTM().inverse()).y;
+      return hi - (Math.min(b, Math.max(t, y)) - t) / (b - t) * (hi - lo); };
+    h.onpointermove = ev => moverA(svg, aCs(ev));
+    h.onpointerup = h.onpointercancel = () => { h.onpointermove = h.onpointerup = h.onpointercancel = null; pintar(); };
+  });
+  out.addEventListener('keydown', e => {   // con el teclado: flechas arriba / abajo (0,1 s; con mayúsculas, 1 s)
+    if (!e.target.closest('.ent-rl-hit') || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault(); rl += (e.key === 'ArrowUp' ? -1 : 1) * (e.shiftKey ? 100 : 10); pintar();
+    const h = out.querySelector('.ent-rl-hit'); if (h) h.focus();
+  });
+  out.addEventListener('click', e => {
+    const b = e.target.closest('[data-rl-paso],[data-rl-fijo]'); if (!b || b.disabled) return;
+    if (b.dataset.rlPaso) rl = Math.max(100, rl + Number(b.dataset.rlPaso));
+    else { if (rl && rl === fijada()) entRlFijar(C.cev, 0); else entRlFijar(C.cev, rl); }
+    pintar();
+  });
+  out.addEventListener('change', e => {
+    if (e.target.matches('[data-rl-on]')) { rlOn = e.target.checked; if (!rlOn && rl === fijada()) entRlFijar(C.cev, 0); if (!rlOn) rl = 0; pintar(); }
+    else if (e.target.matches('[data-rl-in]')) { const v = parseCs(e.target.value); if (v) rl = v; pintar(); }
+  });
   entSelNadBind(host, 'ent-cn', s2 => { sel = s2; pintar(); });
   const inD = host.querySelector('#ent-cd'), inH = host.querySelector('#ent-ch'), per = host.querySelector('[data-cper]');
   // atajos de periodo: el entreno del día, la última semana o el último mes (hasta el último día con tiempos) o todo
@@ -4617,7 +4742,7 @@ function vistaEntrenamientos(app, p) {
   const ok = (v, re) => re.test(String(v || '')) ? String(v) : '';
   const f = {cat: p.cat || 'all', estilo: p.estilo || 'all', dias: p.dias || 'all', cev: p.cev || '', cn: p.cn || '', gev: p.gev || '',
     sem: ok(p.sem, /^\d{4}-\d{2}-\d{2}$/), dia: ok(p.dia, /^\d{4}-\d{2}-\d{2}$/), ses: ok(p.ses, /^[A-Za-z0-9_-]{1,64}$/),
-    sa: ok(p.sa, /^\d{1,3}$/), sb: ok(p.sb, /^\d{1,3}$/), gs: ok(p.gs, /^(-|\d{1,3}(,\d{1,3}){0,30})$/), gf: ok(p.gf, /^[A-Za-z0-9_-]{1,64}(,[A-Za-z0-9_-]{1,64}){0,40}$/), gr: ok(p.gr, /^(200|400|mejor)$/), gt: ok(p.gt, /^\d{2,3}$/),
+    sa: ok(p.sa, /^\d{1,3}$/), sb: ok(p.sb, /^\d{1,3}$/), gs: ok(p.gs, /^(-|\d{1,3}(,\d{1,3}){0,30})$/), gf: ok(p.gf, /^[A-Za-z0-9_-]{1,64}(,[A-Za-z0-9_-]{1,64}){0,40}$/), gr: ok(p.gr, /^(200|400|mejor|mio)$/), gt: ok(p.gt, /^\d{2,3}$/), rl: ok(p.rl, /^\d{3,6}$/),
     cd: ok(p.cd, /^\d{4}-\d{2}-\d{2}$/), ch: ok(p.ch, /^\d{4}-\d{2}-\d{2}$/),
     pn: ok(p.pn, /^[A-Za-z0-9_-]{1,64}$/), pt: ok(p.pt, /^(series|ritmo|parc)$/), pr: ok(p.pr, /^\d{1,3}$/), pv: ok(p.pv, /^(constancia|mitades)$/)};
   app.innerHTML = `
@@ -4666,7 +4791,7 @@ function pintarEntrenamientos(host, f) {
     const gs = f.gs === '-' ? [] : f.gs ? f.gs.split(',').map(Number).filter(r => tabla.series.some(s => s.ronda === r))
       : tabla.series.filter(s => s.ev === evTop).map(s => s.ronda);
     const gf = f.gf ? f.gf.split(',').filter(n => tabla.filas.some(x => x.nId === n)) : [];   // nadadores elegidos (vacío = todo el grupo)
-    graficaDia = {tabla, gs, gf, serieTxt, fichaA, gr: ['200', '400', 'mejor'].includes(f.gr) ? f.gr : '', gt: [50, 100, 150, 200].includes(Number(f.gt)) ? Number(f.gt) : 0};
+    graficaDia = {tabla, gs, gf, serieTxt, fichaA, gr: ['200', '400', 'mejor', 'mio'].includes(f.gr) ? f.gr : '', gt: [50, 100, 150, 200].includes(Number(f.gt)) ? Number(f.gt) : 0};
     diaHTML = `
     <div class="card" id="ent-dia"><div class="h">${ico('crono')}Entrenamiento del ${entDiaSemana(diaVer)} ${dfmt(diaVer)} <span class="h-n">(${sesSel.hora}${sesSel.fin ? '–' + entHora(sesSel.fin) : ''} · ${esc(sesSel.coach)} · ${tabla.series.length} series · ${tabla.filas.length} nadadores)</span></div>
       ${sesDia.length > 1 ? `<div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos:</div>${chipsHTML('ses', sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series]), sesSel.sesId)}` : ''}
@@ -4737,7 +4862,7 @@ function pintarEntrenamientos(host, f) {
   const cd = f.cd || diaC, ch = f.ch || diaC;
   const elegidos = prC ? (f.cn ? f.cn.split(',') : prC.nads.map(m => m.nId)).filter(id => prC.nads.some(m => m.nId === id)) : [];   // por defecto, todo el grupo
   const colorDe = id => entColorIdx(Math.max(0, prC ? prC.nads.findIndex(m => m.nId === id) : 0));
-  const comparaDatos = prC ? {F, cev, nads: prC.nads.map(m => ({nId: m.nId, n: m.n, rfen: m.rfen, color: colorDe(m.nId)})), elegidos, cd, ch, dia: diaC, min: diasEv[0] || '', max: diasEv[diasEv.length - 1] || ''} : null;
+  const comparaDatos = prC ? {F, cev, nads: prC.nads.map(m => ({nId: m.nId, n: m.n, rfen: m.rfen, color: colorDe(m.nId)})), elegidos, cd, ch, dia: diaC, rl: /^\d{3,6}$/.test(f.rl || '') ? Number(f.rl) : 0, min: diasEv[0] || '', max: diasEv[diasEv.length - 1] || ''} : null;
   const comparaInner = prC ? `
       <p class="tiny muted" style="margin:0 0 4px">Cada línea es un nadador y cada punto, una serie.</p>
       ${chipsHTML('cev', R.pruebas.map(x => [x.ev, `${franja(x.ev)}${esc(x.ev)}`, x.nads.length]), cev)}
@@ -4766,7 +4891,7 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'cat', v => go({cat: v}));
   onChips(host, 'estilo', v => go({estilo: v}));
   onChips(host, 'dias', v => go({dias: v}));
-  onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: ''}));
+  onChips(host, 'cev', v => go({cev: v, cn: '', cd: '', ch: '', rl: ''}));
   onChips(host, 'gev', v => go({gev: v}));
   onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: '', pr: '', cev: '', cd: '', ch: ''}));
   onChips(host, 'ses', v => go({ses: v, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}));

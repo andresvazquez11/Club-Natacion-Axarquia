@@ -281,3 +281,39 @@ test('patrón del bloque: vale escrito junto, con espacios o con comas', () => {
   assert.match(ev('errorBloque', { reps: 1, patron: '+10+10 seg', tol: '1' }), /No entiendo «seg»/);
   assert.equal(ev('errorBloque', { reps: 1, patron: '+10+10+10+4', tol: '1' }), '');
 });
+
+test('objetivoRitmo con el ritmo que pone el entrenador a cada nadador (mio)', () => {
+  // «su ritmo»: 1:20 cada 100 → 200 m en 2:40, y «+10 s»
+  assert.deepEqual(ev('objetivoRitmo', 'mio', 200, { mio: 8000 }, null), { cs: 16000, base: 'nad' });
+  assert.deepEqual(ev('objetivoRitmo', 'mio', 100, { mio: 8000 }, null, 1000), { cs: 9000, base: 'nad' });
+  // sin ritmo propio: el ritmo a mano de la serie; sin nada: null (la media del grupo la pone quien llama)
+  assert.deepEqual(ev('objetivoRitmo', 'mio', 100, {}, 9000), { cs: 9000, base: 'mano' });
+  assert.equal(ev('objetivoRitmo', 'mio', 100, {}, null), null);
+  // en el ritmo de 200 su marca manda; sin marca, su ritmo puesto antes que el ritmo a mano
+  assert.deepEqual(ev('objetivoRitmo', '200', 100, { 200: 15560, mio: 8000 }, 9000), { cs: 7780, base: 'marca' });
+  assert.deepEqual(ev('objetivoRitmo', '200', 100, { mio: 8000 }, 9000), { cs: 8000, base: 'nad' });
+  assert.equal(ev('ritmoOk', { ref: 'mio', mas: 500 }).ref, 'mio');
+});
+
+test('porNadOk: solo estilos y ritmos válidos de nadadores con id', () => {
+  assert.deepEqual(ev('porNadOk', { n1: { estilo: 'espalda', ritmo: 8000 }, n2: { estilo: '<b>', ritmo: 5 }, 'mal id!': { ritmo: 8000 }, n3: { ritmo: '7550' } }),
+    { n1: { estilo: 'espalda', ritmo: 8000 }, n3: { ritmo: 7550 } });
+  assert.deepEqual(ev('porNadOk', null), {});
+  assert.deepEqual(ev('porNadOk', [1, 2]), {});
+});
+
+test('pruebaCalleOk: cada calle con su estilo y distancia', () => {
+  assert.deepEqual(ev('pruebaCalleOk', { 'Calle 1': { estilo: 'libre', dist: 200 }, 'Calle 2': { estilo: 'estilos', dist: 200 }, 'Calle 3': { estilo: 'libre', dist: '100' }, 'Calle 4': { estilo: 'libre', dist: 0 } }),
+    { 'Calle 1': { estilo: 'libre', dist: 200 }, 'Calle 2': { estilo: 'estilos', dist: 200 }, 'Calle 3': { estilo: 'libre', dist: 100 } });
+  assert.equal(ev('pruebaCalleOk', {}), null);
+  assert.equal(ev('pruebaCalleOk', 'x'), null);
+});
+
+test('limpiarDoc de un entreno preparado conserva cada calle su prueba y el estilo y ritmo de cada nadador', () => {
+  const d = ev('limpiarDoc', 'planes', { nombre: 'X', calles: [], porNad: { n1: { ritmo: 8000, estilo: 'espalda' } },
+    series: [{ estilo: 'libre', dist: 100, porCalle: true, pruebaCalle: { 'Calle 1': { estilo: 'libre', dist: 200 } } }, { estilo: 'libre', dist: 50, porCalle: true, pruebaCalle: {} }] });
+  assert.deepEqual(d.series[0].pruebaCalle, { 'Calle 1': { estilo: 'libre', dist: 200 } });
+  assert.equal(d.series[0].porCalle, true);
+  assert.equal(d.series[1].porCalle, undefined);
+  assert.deepEqual(d.porNad, { n1: { estilo: 'espalda', ritmo: 8000 } });
+});
