@@ -10,12 +10,17 @@ primer lugar, en el apartado «Novedades».
 
 Cierra la app y vuelve a abrirla con conexión para que se actualice (arriba, en Inicio, debe poner **v25**).
 
-**⏳ Salir de nuevo cada… (series «cada 1:45»)**
-• Al preparar una serie, activa «Salir de nuevo cada…» y escribe el tiempo (por ejemplo 1:45).
+**⏳ Tiempo entre series (una vez para todo el entreno)**
+• Un solo tiempo para todo el entreno, sean las series del estilo que sean (por ejemplo, 30 s entre cuatro series de estilos distintos).
+• Se pone en «Entre series» al preparar, en el entreno preparado (solo si tiene 2 series o más) o en pleno entreno con el botón ⏳ Entre series.
 • Se cuenta desde la salida de la serie (la primera salida), no desde que llegan los nadadores: con 1:45, la serie siguiente sale 1:45 después de que salió la anterior.
 • Al acabar el tiempo pita y vibra. ✋ Sale a mano: tú das la salida. ⚡ Sale sola: la serie sale sola (mejor con las calles ya listas).
-• ⏬ Cuenta atrás: ves lo que falta. ⏫ Cuenta adelante: ves lo que lleva la serie.
-• Cada botón lleva una explicación. Para empezar: tu ciclo, «Sale a mano» y «Cuenta atrás».
+• ⏬ Cuenta atrás: ves lo que falta. ⏫ Cuenta adelante: ves lo que lleva la serie. Cada botón lleva una explicación.
+• Tras la última serie de un entreno preparado no cuenta nada, y «No habrá otra serie» quita la cuenta en un entreno libre.
+
+**🚀 Salida en un solo toque y tarjetas más claras**
+• El botón verde SALIDA de la serie siguiente pasa a la serie y da la salida a la vez (antes eran dos toques).
+• Cada tarjeta dice NADANDO, LLEGÓ o PENDIENTE, cada calle separa las series con un bloque de color y al salir hay un destello «¡SALIÓ!».
 
 **Si te equivocas, ya se puede arreglar**
 • ¿Pusiste a otro nadador? En el resumen, toca su tiempo → «Nadador de este tiempo».

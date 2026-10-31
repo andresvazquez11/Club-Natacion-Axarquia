@@ -72,8 +72,8 @@ test('limpiarDoc: planes con calles y series normalizadas', () => {
     calles: [{ nombre: 'Calle 1', nIds: ['n1', '<b>'] }, 'basura'],
     series: [{ estilo: 'libre', dist: '50', parciales: 1, ciclo: '70', auto: true }, { estilo: '<b>', dist: 'x', ciclo: -3 }] });
   assert.deepEqual(p.calles, [{ nombre: 'Calle 1', nIds: ['n1'] }]);
-  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, desc: null, descAuto: false, relojAtras: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null },
-    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, desc: null, descAuto: false, relojAtras: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null }]);
+  assert.deepEqual(p.series, [{ estilo: 'libre', dist: 50, parciales: true, ciclo: 70, auto: true, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null },
+    { estilo: null, dist: null, parciales: false, ciclo: null, auto: false, inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: null }]);
 });
 
 test('fmtNado: minutos y segundos, con horas si pasa de una', () => {
@@ -332,8 +332,10 @@ test('descansoEstado: cuenta desde la llegada del último y avisa en los último
   const e = ev('descansoEstado', 1000, 30, 31000); assert.equal(e.ya, true); assert.equal(e.aviso, false);
 });
 
-test('un entreno preparado conserva el descanso entre series, su salida y el reloj', () => {
-  const d = ev('limpiarDoc', 'planes', { nombre: 'x', calles: [], series: [{ estilo: 'libre', dist: 100, desc: 20, descAuto: true, relojAtras: false }, { estilo: 'libre', dist: 100 }] });
-  assert.equal(d.series[0].desc, 20); assert.equal(d.series[0].descAuto, true); assert.equal(d.series[0].relojAtras, false);
-  assert.equal(d.series[1].desc, null); assert.equal(d.series[1].relojAtras, true);
+test('un entreno preparado guarda el tiempo entre series una sola vez, para todo el entreno, y solo con dos series o más', () => {
+  const dos = ev('limpiarDoc', 'planes', { nombre: 'x', calles: [], desc: 105, descAuto: true, relojAtras: false, series: [{ estilo: 'libre', dist: 100 }, { estilo: 'braza', dist: 50, desc: 20 }] });
+  assert.equal(dos.desc, 105); assert.equal(dos.descAuto, true); assert.equal(dos.relojAtras, false);
+  assert.equal(dos.series[1].desc, undefined);                      // ya no es un ajuste de cada serie
+  const una = ev('limpiarDoc', 'planes', { nombre: 'x', calles: [], desc: 105, descAuto: true, series: [{ estilo: 'libre', dist: 100 }] });
+  assert.equal(una.desc, null); assert.equal(una.descAuto, false);   // con una sola serie no hay tiempo entre series
 });

@@ -66,7 +66,7 @@ D.plantillas.p1 = { coach: 'Laura', ts: AHORA - 2 * DIA, estilo: 'libre', dist: 
   calles: CALLES.map(([nombre, nIds]) => ({ nombre, nIds })) };
 D.planes.plan1 = { coach: 'Laura', ts: AHORA - DIA, nombre: 'Jueves · velocidad', eqId: 'club_ale', calles: CALLES.map(([nombre, nIds]) => ({ nombre, nIds })),
   series: [{ estilo: 'libre', dist: 50, parciales: false, ciclo: 60, auto: true }, { estilo: 'libre', dist: 100, parciales: true, ciclo: null, auto: false },
-    { estilo: 'espalda', dist: 50, parciales: false, ciclo: 70, auto: false }] };
+    { estilo: 'espalda', dist: 50, parciales: false, ciclo: 70, auto: false }], desc: 40 };
 D.entrenadores['laura.entrenadora@gmail.com'] = { nombre: 'Laura Martín', admin: true, aprobado: true, alta: AHORA - 40 * DIA, ultimo: AHORA - 3600e3 };
 D.entrenadores['ana.monitora@gmail.com'] = { nombre: 'Ana López', aprobado: true, alta: AHORA - 20 * DIA, ultimo: AHORA - 2 * DIA };
 D.entrenadores['pedro.nuevo@gmail.com'] = { nombre: 'Pedro Sánchez', alta: AHORA - 3600e3, ultimo: AHORA - 3600e3 };
@@ -229,7 +229,7 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await ctx.close(); }
 
 // 3d. v25: «salir de nuevo cada…» (ajustes, cuenta atrás, salida sola y cuenta adelante); siempre se cuenta desde la salida de la serie
-const llegaTodos = async p => { for (let i = 0; i < 12; i++) { const c = p.locator('.sw-card[data-action="llego"]'); if (!(await c.count())) break; await c.first().click(); await p.clock.runFor(200); } };
+const llegaTodos = async p => { for (let i = 0; i < 40; i++) { const c = p.locator('.sw-card[data-action="llego"]'); if (!(await c.count())) break; await c.first().click(); await p.clock.runFor(200); } };
 const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(3000); } };
 { const { ctx, p } = await abrir('cronometro/');
   await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]');
@@ -287,6 +287,33 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
   console.log('PRUEBA nota antes de salir · tarjeta en el agua con 📝:', await p.locator('.sw-card .sw-nm', { hasText: '📝' }).count());
   await p.clock.runFor(30000); await llegaTodos(p); await p.clock.runFor(500);
   console.log('PRUEBA nota antes de salir · tiempos guardados con nota:', JSON.stringify(await p.evaluate(() => S.resultados.filter(r => r.nota).map(r => [nombreDe(r.nId), r.nota]))), '| nadador:', nombre);
+  await ctx.close(); }
+
+// 3g. Entreno preparado de 3 series: un toque en SALIDA para la serie siguiente, sin cuenta tras la última y tarjetas distinguibles
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="plan-empezar"]'); await p.clock.runFor(800);
+  const cuenta = async () => (await p.locator('#live-desc').count()) ? (await p.locator('#live-desc').innerText()) : 'SIN CUENTA';
+  for (let r = 1; r <= 3; r++) {
+    for (let s = 0; s < 4; s++) { const b = p.locator('[data-action="salida-tanda"]'); if (await b.count() && await b.isEnabled()) { await b.click(); await p.clock.runFor(2500); } }
+    await p.clock.runFor(4000);
+    if (r === 2) { await arriba(p); await foto(p, 'series_tarjetas', 1500); }
+    await llegaTodos(p); await p.clock.runFor(1500);
+    console.log(`PRUEBA serie ${r} completa · cuenta hasta la siguiente:`, await cuenta(), '| botón principal:', (await p.locator('.salida-btn').first().innerText()).replace(/\s+/g, ' '));
+    if (r < 3) { await p.locator('[data-action="siguiente-salida"]').click(); await p.clock.runFor(1500);
+      console.log('PRUEBA un solo toque →', (await p.locator('.ec-top').innerText()).split('\n')[0].trim(), '| nadando ya:', await p.locator('.sw-card[data-action="llego"]').count()); }
+  }
+  await ctx.close(); }
+
+// 3h. El tiempo entre series se programa una sola vez para el entreno, también en pleno entreno
+{ const { ctx, p } = await abrir('cronometro/');
+  await toca(p, '[data-action="nueva-sesion"]'); await toca(p, '[data-action="usar-plantilla"]'); await toca(p, '[data-action="iniciar-sesion"]'); await p.clock.runFor(800);
+  await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(2000);
+  console.log('PRUEBA entre series · sin programar:', (await p.locator('#live-desc').count()) ? 'HAY CUENTA' : 'sin cuenta');
+  await toca(p, '[data-action="entre-abrir"]'); await toca(p, '[data-action="desc-toggle"][data-t="sa"]');
+  await p.fill('input[data-descmin="sa"]', '0'); await p.fill('input[data-descseg="sa"]', '40'); await p.locator('input[data-descseg="sa"]').blur();
+  await arriba(p); await foto(p, 'entre_series_en_curso', 1100);
+  await toca(p, '[data-action="entre-abrir"]'); await p.clock.runFor(1500);
+  console.log('PRUEBA entre series · programada en pleno entreno:', (await p.locator('#live-desc').count()) ? await p.locator('#live-desc').innerText() : 'SIN CUENTA');
   await ctx.close(); }
 
 // 3c. Entreno preparado en curso: cambiar el orden de las series

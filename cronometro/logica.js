@@ -66,11 +66,12 @@ function limpiarDoc(col, d) {
       const dist = Number(x.dist), ciclo = Math.round(Number(x.ciclo));
       const comp = x.comp === true;
       return {estilo: estiloOk(x.estilo) ? x.estilo : null, dist: Number.isFinite(dist) && dist > 0 ? dist : null,
-              parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true, ...descOk(x),
+              parciales: !!x.parciales, ciclo: Number.isFinite(ciclo) && ciclo > 0 ? ciclo : null, auto: x.auto === true,
               inicio: comp ? 'plataforma' : INICIOS.includes(x.inicio) ? x.inicio : 'agua', comp, porNadador: x.porNadador === true, rota: rotaOk(x.rota), ritmo: ritmoOk(x.ritmo),
               ...(x.porCalle === true && pruebaCalleOk(x.pruebaCalle) ? {porCalle: true, pruebaCalle: pruebaCalleOk(x.pruebaCalle)} : {})};
     });
     d.porNad = porNadOk(d.porNad);
+    Object.assign(d, d.series.length >= 2 ? descOk(d) : descOk({}));   // tiempo entre series: del entreno entero, y solo con dos series o más
   }
   if (col==='estilos') { d.nombre = (txtCorto(d.nombre) || d.id || '').slice(0, 30); d.ts = Number(d.ts) || 0; }
   if (col==='nadadores') d.rfen = /^\d{3,12}$/.test(String(d.rfen||'')) ? String(d.rfen) : null;
@@ -134,6 +135,7 @@ function rotaDeshacer(f) {
 }
 
 // ── Descanso entre series ──
+// Ajuste de TODO el entreno (no de cada serie), sean las series del estilo que sean:
 // desc = segundos entre la salida de una serie y la de la siguiente: «salir cada 1:45» (1 a 3600; sin valor = sin cuenta programada);
 // descAuto = la siguiente serie sale sola al acabar el tiempo (si no, solo pita y vibra);
 // relojAtras = el reloj cuenta hacia atrás (lo que falta) en vez de hacia delante (lo que llevan)
@@ -279,7 +281,7 @@ function bloqueSeries(b) {
   if (!pat || !(reps >= 1 && reps * pat.length <= 60) || !b.dist) return [];
   const out = [];
   for (let i = 0; i < reps; i++) pat.forEach(mas => out.push({estilo: b.estilo || 'libre', dist: Number(b.dist), parciales: false, ciclo: b.ciclo || null, auto: !!b.auto,
-    inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: ritmoOk({ref: b.ref || '200', mano: b.mano, mas, tol: b.tol}), ...descOk(b)}));
+    inicio: 'agua', comp: false, porNadador: false, rota: null, ritmo: ritmoOk({ref: b.ref || '200', mano: b.mano, mas, tol: b.tol})}));
   return out;
 }
 // ¿Cumplió el ritmo pedido? diferencia con el objetivo (centésimas) → 'ritmo' (dentro del margen), 'rapido' o 'lento'
