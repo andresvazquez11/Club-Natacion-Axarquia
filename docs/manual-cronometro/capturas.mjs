@@ -209,6 +209,7 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await toca(p, '[data-action="ns-dist"][data-val="100"]'); await toca(p, '[data-action="ns-parc"]');
   await bajarA(p, '[data-action="ns-abrir"], .card.mt16'); await foto(p, 'nueva_serie');
   await toca(p, '[data-action="ns-empezar"]'); await p.clock.runFor(500);
+  await arriba(p); await foto(p, 'reloj_entre_series', 900);   // v24: preparando la siguiente serie, sigue el reloj de la anterior
   await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(10000); await toca(p, '[data-action="salida-tanda"]');
   await p.clock.runFor(31000);
   for (const n of ['Lucía Romero', 'Hugo Serrano']) { await p.locator('.sw-card[data-action="llego"]', { hasText: n }).first().click(); await p.clock.runFor(400); }

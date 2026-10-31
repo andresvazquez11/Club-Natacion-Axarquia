@@ -2674,7 +2674,7 @@ function renderEnCurso() {
 
   // Ronda terminada → resumen
   if (SA.relevo && !SA.editando) return html + renderRelevo(now);
-  if (rondaTerminada()) return html + relojSerieTerminada(now) + renderResumenRonda();
+  if (rondaTerminada()) return html + relojSerie(now, SA.ronda) + renderResumenRonda();
 
   // SALIDA común: muestra quién sale en cada calle. Tocar un nombre = "no sale"
   if (SA.planEdit && SA.plan) {
@@ -2686,6 +2686,7 @@ function renderEnCurso() {
       <button class="btn btn-green btn-sm btn-inline" data-action="pn-cerrar">✓ Listo</button></div>
       <div class="muted" style="font-size:12px">Vale para las próximas salidas; los que ya nadan siguen con lo que tenían.</div>${porNadHTML('sa', true)}</div>`;
   } else if (pendientes.length) {
+    if (SA.ronda > 1 && !SA.seriesT[SA.ronda]) html += relojSerie(now, SA.ronda - 1);   // preparando la siguiente: sigue el reloj de la anterior
     const salen = pendientes.filter(g=>!SA.noSale.has(g.gId)).length;
     html += `
       <div class="salida-card">
@@ -2709,6 +2710,7 @@ function renderEnCurso() {
     // Todos han salido: la siguiente serie puede empezar aunque alguno siga nadando (descanso de 2 min, el último aún no llegó)
     const quedan = SA.agua.length;
     const sig = SA.plan && SA.plan.series[SA.planIdx+1];
+    html += relojSerie(now, SA.ronda);   // todos han salido y alguno sigue nadando: reloj de esta serie para ir viendo el ciclo
     html += `<div class="salida-card">
       <div style="display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:${quedan?10:0}px"><span class="muted" style="flex:1">Todos han salido · ${quedan?`${quedan} ${quedan===1?'nadador sigue':'nadadores siguen'} en el agua`:'esperando llegadas'}</span><button class="edit-link" data-action="edit-abrir">✎ Calles</button></div>
       ${!quedan ? '' : SA.nuevaSerie ? renderNuevaSerie() : `
@@ -2746,12 +2748,12 @@ function renderEnCurso() {
 // ── Series solapadas: cada serie con su color y su tiempo total (primera salida → última llegada) ──
 const SERIE_COL = ['#38bdf8','#f472b6','#a3e635','#fb923c','#c084fc','#facc15'];
 const serieCol = r => SERIE_COL[(Math.max(1, r) - 1) % SERIE_COL.length];
-// Todos han llegado y aún no sale la siguiente serie: el reloj de ESTA serie sigue contando desde su salida (por ejemplo, en un ciclo de 1:45,
-// se ve 1:30 aunque el último llegara a 1:15) para saber cuándo dar la salida; el tiempo en que llegaron todos queda al lado
-function relojSerieTerminada(now) {
-  const t = SA.seriesT && SA.seriesT[SA.ronda]; if (!t || !t.ini) return '';
-  return `<div class="serie-sigue"><span class="muted">Serie ${SA.ronda} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b>
-    <span class="muted">${t.fin ? `todos llegaron en ${fmtNado(t.fin - t.ini)}` : ''}${SA.ciclo ? `${t.fin ? ' · ' : ''}ciclo ${fmtNado(SA.ciclo * 1000)}` : ''}</span></div>`;
+// Reloj grande de una serie, desde su salida, en todo el hueco entre series (todos llegados, preparando la siguiente o con alguien aún nadando):
+// por ejemplo, en un ciclo de 1:45 se ve 1:30 aunque el último llegara a 1:15, para saber cuándo dar la salida
+function relojSerie(now, r) {
+  const t = SA.seriesT && SA.seriesT[r]; if (!t || !t.ini) return '';
+  return `<div class="serie-sigue"><span class="muted">Serie ${r} · desde su salida</span><b class="live-clk" data-t0="${t.ini}" data-fmt="nado">${fmtNado(now - t.ini)}</b>
+    <span class="muted">${t.fin ? `todos llegaron en ${fmtNado(t.fin - t.ini)}` : 'alguien sigue nadando'}${SA.ciclo ? ` · ciclo ${fmtNado(SA.ciclo * 1000)}` : ''}</span></div>`;
 }
 function renderTiraSeries(now) {
   const rs = Object.keys(SA.seriesT || {}).map(Number).sort((a,b)=>a-b).filter(r => r >= SA.ronda - 1);
