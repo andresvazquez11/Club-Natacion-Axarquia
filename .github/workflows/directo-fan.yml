@@ -4,7 +4,8 @@ name: Directo FAN (competiciones y resultados)
 # y publica directo.json, que muestra la web en «Directo».
 # - Viernes a domingo (cuando hay competiciones): cada 10 minutos de 7:00 a 23:00 (hora de Madrid, aprox.).
 # - Lunes a jueves: cada hora de 8:00 a 23:00 (calendario, series y webs de competición nuevas…).
-# Solo se publica si algo cambió. GitHub retrasa estos disparos o se salta algunos cuando va cargado (sobre todo
+# Sin competición hoy, ayer ni mañana solo se lee en la pasada de cada hora; el resto de disparos acaban en segundos
+# (pipeline/toca_leer.py). Solo se publica si algo cambió. GitHub retrasa estos disparos o se salta algunos cuando va cargado (sobre todo
 # los de en punto): por eso van en minutos poco usados. Además la propia web busca al momento la web de cada
 # competición de la semana a través del intermediario (directo-proxy), así que esto es el respaldo.
 on:
@@ -29,21 +30,30 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: ¿Toca leer ahora?
+        id: gate
+        run: python3 pipeline/toca_leer.py --salida "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@v6
+        if: steps.gate.outputs.toca == 'si'
         with:
           python-version: '3.12'
 
-      - run: pip install pypdf==6.14.2   # para leer las series en PDF antes de que haya web de la competición
+      - if: steps.gate.outputs.toca == 'si'
+        run: pip install pypdf==6.14.2   # para leer las series en PDF antes de que haya web de la competición
 
       - name: Leer calendario y resultados de la FAN
+        if: steps.gate.outputs.toca == 'si'
         run: python pipeline/fan_directo.py
 
       # Al terminar un grupo (o la competición) con nadadores del club, sus tiempos pasan a las fichas como provisionales
       # (mínimas, marcas, rankings) sin esperar a que la RFEN los publique: se regenera la web una vez por grupo.
       - name: ¿Terminó algún grupo con nadadores del club?
+        if: steps.gate.outputs.toca == 'si'
         run: python pipeline/fan_directo.py --volcar "$RUNNER_TEMP/volcar"
 
       - name: Publicar si cambió
+        if: steps.gate.outputs.toca == 'si'
         run: |
           if [ -z "$(git status --porcelain -- directo.json parciales.json carreras)" ] && git ls-files --error-unmatch directo.json parciales.json >/dev/null 2>&1; then
             echo "Sin cambios"; exit 0
@@ -57,6 +67,7 @@ jobs:
           exit 1
 
       - name: Pasar los tiempos a las fichas
+        if: steps.gate.outputs.toca == 'si'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
