@@ -943,6 +943,7 @@ const ENT_SDK = [
   ['cronometro/firebase-config.js', null],
 ];
 let ENT = {estado: 'inicio', user: null, datos: null, T: null, cargado: 0, error: null};
+let ENT_FILTROS_ABIERTO = false;   // el botón «Filtros» va plegado por defecto
 function entScript(src, sri) {
   return new Promise((ok, ko) => {
     if (document.querySelector(`script[src="${src}"]`)) return ok();
@@ -1005,8 +1006,11 @@ async function entSincronizar(db, TS, previa, ahora, edadMax) {
 let _entIdb = null;
 function entIdb() {
   if (!_entIdb) _entIdb = new Promise(ok => {
-    try { const r = indexedDB.open('cna_web', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); r.onblocked = () => ok(null); }
-    catch { ok(null); }
+    // Si el navegador no llega a abrir la copia (base bloqueada por otra pestaña, modo privado, fallo raro), a los 3 s se sigue sin ella:
+    // se leen los datos del servidor como antes, en vez de quedarse esperando para siempre
+    const t = setTimeout(() => ok(null), 3000);
+    try { const r = indexedDB.open('cna_web', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => { clearTimeout(t); ok(r.result); }; r.onerror = () => { clearTimeout(t); ok(null); }; r.onblocked = () => { clearTimeout(t); ok(null); }; }
+    catch { clearTimeout(t); ok(null); }
   });
   return _entIdb;
 }
@@ -1016,6 +1020,27 @@ async function entCacheLeer() {
 }
 async function entCacheGuardar(v) { const db = await entIdb(); if (db) try { db.transaction('c', 'readwrite').objectStore('c').put(v, 'entrenamientos'); } catch {} }
 async function entCacheBorrar() { const db = await entIdb(); if (db) try { db.transaction('c', 'readwrite').objectStore('c').clear(); } catch {} }
+/* Jornada de simulacro: cada prueba (serie) en su propio bloque, una debajo de otra, con su cabecera (número, prueba, hora) y su
+   clasificación; en cada bloque solo los nadadores de esa prueba. TD = tiempos del día; fichaA(rfen, txt) = enlace a la ficha. */
+function entJornadaHTML(TD, fichaA) {
+  const grupos = new Map();
+  TD.forEach(t => { const k = t.sesId + '#' + t.ronda; (grupos.get(k) || grupos.set(k, {sesId: t.sesId, fecha: t.fecha, ronda: t.ronda, ts: []}).get(k)).ts.push(t); });
+  return [...grupos.values()].sort((a, b) => a.fecha - b.fecha || a.ronda - b.ronda).map((g, i) => {
+    const hora = (g.ts.map(t => t.horaSerie).filter(Boolean).sort()[0]) || g.ts[0].hora, comp = g.ts.some(t => t.comp);
+    const evs = [...new Set(g.ts.map(t => t.ev || 'Sin prueba'))];
+    const tabla = ev => {
+      const rs = g.ts.filter(t => (t.ev || 'Sin prueba') === ev).sort((a, b) => a.cs - b.cs);
+      return `<table class="rt ent-jor-t"><tr><th>#</th><th>Nadador</th><th class="num">Tiempo</th><th class="num">Dif.</th></tr>${rs.map((t, k) => `<tr class="${k === 0 ? 'ent-jor-1' : ''}"><td>${k + 1}</td>
+        <td><b>${fichaA(t.rfen, esc(t.n))}</b>${entAn(t.y)}${t.calle ? ` <span class="tiny muted">· ${esc(t.calle)}</span>` : ''}</td>
+        <td class="num">${k === 0 ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td><td class="num tiny muted">${k === 0 ? '' : '+' + ((t.cs - rs[0].cs) / 100).toFixed(2)}</td></tr>`).join('')}</table>`;
+    };
+    return `<section class="ent-jor-b${comp ? ' ent-jor-comp' : ''}">
+      <div class="ent-jor-h"><span class="ent-jor-n">Serie ${i + 1}</span><b>${evs.length === 1 ? franja(evs[0]) + esc(evs[0]) : 'Varias pruebas'}</b>
+        <span class="tiny muted">${esc(hora)}${comp ? ' · simulación de competición' : ''} · ${g.ts.length} ${g.ts.length === 1 ? 'nadador' : 'nadadores'}</span>
+        <button type="button" class="ent-jor-ver" data-jor-ses="${esc(g.sesId)}">Ver detalle ›</button></div>
+      ${evs.length === 1 ? tabla(evs[0]) : evs.map(ev => `<div class="ent-jor-sub">${franja(ev)}${esc(ev)}</div>${tabla(ev)}`).join('')}</section>`;
+  }).join('');
+}
 /* Comprueba que la cuenta es de un entrenador aprobado y descarga los datos (se guardan 5 minutos) */
 async function entCargar(forzar) {
   await entConectar();
@@ -1119,12 +1144,24 @@ function pintarEntrenamientos(host, f) {
   const TD = diaVer ? F0.filter(t => t.dia === diaVer) : [];
   const sesDia = entResumen(TD).entrenamientos.sort((a, b) => a.fecha - b.fecha);
   const sesSel = sesDia.find(e => e.sesId === f.ses) || sesDia[sesDia.length - 1];
+  // Cómo se llama cada entrenamiento en los botones: la hora y SU PRUEBA («11:10 · 200 Espalda»); el entrenador solo si ese día hubo varios
+  const variosCoach = new Set(sesDia.map(e => e.coach || '')).size > 1;
+  const etSes = e => `${e.hora} · ${e.pruebas.length ? esc(e.pruebas.join(' + ')) : esc(e.coach || 'Entreno')}${variosCoach && e.coach && e.pruebas.length ? ' · ' + esc(e.coach) : ''}`;
   const tabla = sesSel ? entTabla(TD.filter(t => t.sesId === sesSel.sesId)) : null;
   // Entrenamiento elegido arriba del todo: manda sobre todo lo de debajo (series, grupo, tiempos, asistencia…); se puede cambiar aquí o en la tarjeta del día
-  const filtrosSes = sesDia.length > 1 ? `<div class="flt"><span class="flt-l">Entrenamiento</span>${chipsHTML('ses', [['', 'Todos', sesDia.length], ...sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series])], f.ses)}</div>` : '';
+  const filtrosSes = sesDia.length > 1 ? `<div class="flt"><span class="flt-l">Entrenamiento</span>${chipsHTML('ses', [['', 'Todos', sesDia.length], ...sesDia.map(e => [e.sesId, `${etSes(e)}`, e.series])], f.ses)}</div>` : '';
   const fichaA = (rfen, txt) => rfen ? `<a href="#nadador/${rfen}">${txt}</a>` : txt;
+  // Día de simulacro de competición (cada prueba es un entrenamiento aparte): por defecto, TODAS las pruebas una debajo de otra, cada una con su
+  // clasificación; al elegir un entrenamiento se ve con todo el detalle de siempre (tabla por series, ritmo, parciales…)
+  const jornadaApilada = sesDia.length > 1 && !f.ses && TD.some(t => t.comp);
   let diaHTML = '', graficaDia = null;
-  if (tabla && tabla.series.length) {
+  if (jornadaApilada) {
+    const nPruebas = new Set(TD.map(t => t.sesId + '#' + t.ronda)).size, coaches = [...new Set(sesDia.map(e => e.coach).filter(Boolean))], ult = sesDia[sesDia.length - 1];
+    diaHTML = `
+    <div class="card" id="ent-dia"><div class="h">${ico('crono')}Jornada del ${entDiaSemana(diaVer)} ${dfmt(diaVer)} <span class="h-n">(${sesDia[0].hora}–${entHora(ult.fin || ult.fecha)} · ${esc(coaches.join(' y '))} · ${nPruebas} ${nPruebas === 1 ? 'prueba' : 'pruebas'} · ${new Set(TD.map(t => t.nId)).size} nadadores)</span></div>
+      <div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos (una prueba cada uno). Pulsa una prueba (aquí o en «Ver detalle» de cada bloque) para verla con todo el detalle:</div>${chipsHTML('ses', [['', 'Toda la jornada', sesDia.length], ...sesDia.map(e => [e.sesId, `${etSes(e)}`, e.series])], '')}
+      ${entJornadaHTML(TD, fichaA)}</div>`;
+  } else if (tabla && tabla.series.length) {
     const mejorDe = {}; tabla.series.forEach(s => { mejorDe[s.ronda] = Math.min(...tabla.filas.filter(x => x.t[s.ronda]).map(x => x.t[s.ronda].cs)); });
     const serieTxt = s => `Serie ${s.ronda}${s.ev ? ' · ' + esc(s.ev) : ''}`;
     // Series de la gráfica: las elegidas, o por defecto todas las de la prueba más repetida ('-' = ninguna)
@@ -1135,7 +1172,7 @@ function pintarEntrenamientos(host, f) {
     graficaDia = {tabla, gs, gf, serieTxt, fichaA, gr: ['200', '400', 'mejor', 'mio'].includes(f.gr) ? f.gr : '', gt: [50, 100, 150, 200].includes(Number(f.gt)) ? Number(f.gt) : 0};
     diaHTML = `
     <div class="card" id="ent-dia"><div class="h">${ico('crono')}Entrenamiento del ${entDiaSemana(diaVer)} ${dfmt(diaVer)} <span class="h-n">(${sesSel.hora}${sesSel.fin ? '–' + entHora(sesSel.fin) : ''} · ${esc(sesSel.coach)} · ${tabla.series.length} series · ${tabla.filas.length} nadadores)</span></div>
-      ${sesDia.length > 1 ? `<div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos:</div>${chipsHTML('ses', sesDia.map(e => [e.sesId, `${e.hora} · ${esc(e.coach || 'Entreno')}`, e.series]), sesSel.sesId)}` : ''}
+      ${sesDia.length > 1 ? `<div class="ent-sel">Ese día hubo ${sesDia.length} entrenamientos:</div>${chipsHTML('ses', [...(TD.some(t => t.comp) ? [['', 'Toda la jornada', sesDia.length]] : []), ...sesDia.map(e => [e.sesId, `${etSes(e)}`, e.series])], sesSel.sesId)}` : ''}
       <div class="tw"><table class="rt ent-mat"><tr><th>Nadador</th>${tabla.series.map(s => `<th class="num${s.comp ? ' ent-col-comp' : ''}">${serieTxt(s)}<span class="tiny">${s.hora || '&nbsp;'}${s.comp ? ' · <b>simulación de competición</b>' : s.inicio === 'plataforma' ? ' · plataforma' : ''}</span></th>`).join('')}</tr>
         ${tabla.filas.map(x => `<tr><td style="white-space:nowrap"><b>${fichaA(x.rfen, esc(x.n))}</b>${entAn(x.y)}</td>${tabla.series.map(s => { const t = x.t[s.ronda], c = s.comp ? ' ent-col-comp' : '';
           return t ? `<td class="num${c}">${t.cs === mejorDe[s.ronda] ? `<b class="good">${fmt(t.cs)}</b>` : fmt(t.cs)}</td>` : `<td class="num vacia${c}">—</td>`; }).join('')}</tr>`).join('')}</table></div>
@@ -1220,18 +1257,26 @@ function pintarEntrenamientos(host, f) {
   const comparar = prC ? `<div class="card" id="ent-comparar"><div class="h">${ico('balanza')}Comparar series</div>${comparaInner}</div>` : '';
   diaHTML = diaHTML.replace('%%COMPARAR%%', comparaInner || '<p class="empty">Sin series para comparar.</p>');
 
+  // Botón «＋ Filtros» (plegado): los botones por día siguen visibles; aquí van el resto, y al lado se resume solo lo que esté activo
+  const activos = [f.cat && f.cat !== 'all' ? catNom : '', f.anio && f.anio !== 'all' ? `nacidos en ${f.anio}` : '', f.estilo && f.estilo !== 'all' ? entEstiloNombre(f.estilo) : '',
+    f.dias && f.dias !== 'all' ? (f.dias === '30' ? 'último mes' : 'última semana') : '', f.ses ? 'un entrenamiento' : ''].filter(Boolean);
+  const resumenFiltros = activos.map(esc).join(' · ');
   host.innerHTML = `
     ${(n => n ? `<div class="ent-aviso-sim"><b>Datos de simulación.</b> ${n} de ${R.entrenamientos.length} entrenamientos son de prueba (marcados «Simulación») y se borrarán antes de empezar con datos reales. Lo que toméis vosotros no se toca.</div>` : '')(R.entrenamientos.filter(e => e.sim).length)}
     ${vacio ? filtrosCat + filtrosA + filtrosB : ''}
     ${vacio || `
     <p class="small muted" style="margin:2px 0 10px">${R.entrenamientos.length} entrenamientos · ${R.tiempos} tiempos · ${R.nadadores.length} nadadores · ${R.pruebas.length} pruebas</p>
-    ${filtrosCat}${filtrosB}${filtrosSes}
-    ${diaHTML || comparar}
-    <details class="ent-ajustes"><summary>Filtros · ${esc(catNom)} · ${f.estilo === 'all' ? 'todos los estilos' : esc(entEstiloNombre(f.estilo))} · ${f.dias === 'all' ? 'toda la temporada' : f.dias === '30' ? 'último mes' : 'última semana'}</summary>${filtrosA}</details>
+    ${filtrosB}
+    <details class="ent-filtros"${ENT_FILTROS_ABIERTO ? ' open' : ''}><summary><span class="ent-filtros-b">＋ Filtros${activos.length ? ` <i class="ent-filtros-n">${activos.length}</i>` : ''}</span>${resumenFiltros ? `<span class="ent-filtros-r">${resumenFiltros}</span>` : ''}</summary>
+      <div class="ent-filtros-panel">${filtrosCat}${filtrosA}${filtrosSes}</div></details>
+    ${diaHTML || comparar}${jornadaApilada ? comparar : ''}
     ${grupo}
-    <div class="card"><div class="h">${ico('crono')}Entrenamientos <span class="h-n">(${R.entrenamientos.length})</span></div>${ents}</div>
+    <details class="card ent-asist ent-lista"><summary><span class="h" style="margin:0">${ico('crono')}Lista de entrenamientos del periodo <span class="h-n">(${R.entrenamientos.length})</span></span><span class="dir-chev" aria-hidden="true">›</span></summary>
+      <p class="tiny muted" style="margin:8px 0 4px">Todos los entrenamientos que cumplen los filtros, uno a uno. Pulsa uno para ver sus tiempos.</p>${ents}</details>
     ${asistencia}`}
     <p class="small muted" style="margin-top:14px">Modo entrenador activo con ${esc(ENT.user && ENT.user.email)} · <a href="#" id="ent-salir">Salir del modo entrenador</a> · <a href="#" id="ent-act">Actualizar</a> · <a href="cronometro/">Abrir el cronómetro</a> · <a href="cronometro/manual.pdf" target="_blank" rel="noopener">Manual del cronómetro</a></p>`;
+  const fd = host.querySelector('.ent-filtros');   // si se deja abierto, sigue abierto al cambiar un filtro (se pliega al volver a entrar)
+  if (fd) fd.addEventListener('toggle', () => { ENT_FILTROS_ABIERTO = fd.open; });
   onChips(host, 'cat', v => go({cat: v}));
   onChips(host, 'anio', v => go({anio: v}));
   onChips(host, 'estilo', v => go({estilo: v}));
@@ -1240,6 +1285,7 @@ function pintarEntrenamientos(host, f) {
   onChips(host, 'gev', v => go({gev: v}));
   onChips(host, 'dia', v => go({dia: v, ses: '', sa: '', sb: '', gs: '', gf: '', pr: '', cev: '', cd: '', ch: ''}));
   onChips(host, 'ses', v => go({ses: v, dia: v ? diaVer : f.dia, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}));
+  host.querySelectorAll('[data-jor-ses]').forEach(b => { b.onclick = () => go({ses: b.dataset.jorSes, dia: diaVer, sa: '', sb: '', gs: '', gf: '', gr: '', pr: ''}); });
   if (graficaDia) { entMontarGraficaDia(host, graficaDia); entMontarParciales(host, graficaDia.tabla, f); }
   if (graficaDia) entMontarSimulacro(host, graficaDia.tabla);
   host.querySelectorAll('details[data-sec]').forEach(d => d.addEventListener('toggle', () => { if (d.open) entRecordar({pt: d.dataset.sec}); }));

@@ -399,3 +399,24 @@ test('entSincronizar: con edadMax de 6 horas (botón Actualizar) relee todo una 
   await evalIn(ctx, `entSincronizar(__db, __TS, __p, ${T0 + 8 * 3600e3}, 6 * 3600e3)`);   // con el botón: más de 6 h → entero
   assert.equal(db.lecturas, 3);
 });
+
+test('entJornadaHTML: cada prueba de la jornada en su bloque, en orden, con su clasificación y solo sus nadadores', () => {
+  const DIA = Date.UTC(2026, 9, 31, 11, 0), M = 60e3;
+  const t = (id, sesId, ronda, n, cs, ev, min, extra) => ({ id, sesId, ronda, n, cs, ev, fecha: DIA + min * M, hora: '11:0' + min, horaSerie: '', comp: true, nId: n, rfen: null, y: null, calle: '', ...extra });
+  ctx.__td = [
+    t('1', 's2', 1, 'Beto', 14000, '50 Braza', 12), t('2', 's2', 1, 'Cris', 13500, '50 Braza', 12),                                 // 2ª prueba
+    t('3', 's1', 1, 'Ana', 15500, '100 Libre', 0), t('4', 's1', 1, 'Beto', 15000, '100 Libre', 0, { calle: 'Calle 2' }),            // 1ª prueba
+    t('5', 's3', 1, 'Ana', 9000, '50 Libre', 20), t('6', 's3', 1, 'Dani', 9100, '50 Espalda', 20),                                    // 3ª: calles con pruebas distintas
+  ];
+  const h = evalIn(ctx, 'entJornadaHTML(__td, (rfen, txt) => txt)');
+  const bloques = h.split('<section').slice(1);
+  assert.equal(bloques.length, 3);
+  assert.match(bloques[0], /Serie 1[\s\S]*100 Libre[\s\S]*2 nadadores/);
+  assert.match(bloques[1], /Serie 2[\s\S]*50 Braza/);
+  assert.match(bloques[2], /Serie 3[\s\S]*Varias pruebas/);                          // dos pruebas en la misma serie: se separan dentro del bloque
+  // cada bloque solo lleva a sus nadadores, ordenados por tiempo, con la diferencia respecto al primero
+  assert.ok(bloques[0].indexOf('Beto') < bloques[0].indexOf('Ana'));                // Beto (más rápido) antes que Ana
+  assert.match(bloques[0], /\+5\.00/);                                               // Ana, 5,00 s por detrás
+  assert.ok(!bloques[0].includes('Cris') && !bloques[1].includes('Ana'));
+  assert.match(bloques[0], /Calle 2/);
+});
