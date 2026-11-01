@@ -130,6 +130,7 @@ function route() {
   contarVisita(lastHash);
   lastFicha = esFicha ? r.id : null;
 
+  document.documentElement.classList.toggle('ligero', sec === 'directo');   // en el directo, fondo quieto: menos trabajo para el móvil
   if (sec === 'club') {
     vistaClub(app, Object.assign({cat: r.parts[1], tab: r.parts[2]}, params));
     app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${FIRMA}</p>`);

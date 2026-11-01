@@ -66,7 +66,7 @@ function agitarAgua() {
   if (luz) { luz.classList.remove('agitada'); void luz.getBoundingClientRect(); luz.classList.add('agitada'); }
 }
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('pointerdown', e => {
-  if (!e.isPrimary || !document.documentElement.classList.contains('acuatico')) return;
+  if (!e.isPrimary || !document.documentElement.classList.contains('acuatico') || document.documentElement.classList.contains('ligero')) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   agitarAgua();
 }, {passive: true});

@@ -6,7 +6,9 @@
 
 const DIR_PROXY = 'https://cna-directo.andrescovidelpi.workers.dev';   // intermediario (directo-proxy/worker.js en Cloudflare); vacío = solo directo.json
 
-let DIR = null, DIR_T = 0, DIR_RELOJ = null;
+let DIR = null, DIR_T = 0, DIR_RELOJ = null, DIR_REPINTAR = null;
+/* Al volver a la pestaña, el directo se pone al día enseguida (mientras estaba oculta no se leía nada) */
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', () => { if (!document.hidden && DIR_RELOJ && DIR_REPINTAR) DIR_REPINTAR(); });
 /* Solo enlaces seguros a la federación (los datos vienen de su web) */
 const dirUrlOk = u => typeof u === 'string' && /^https:\/\/(www\.)?(fan\.es|fanatacion\.es)\//.test(u);
 /* En curso / próxima / terminada según la fecha de hoy en este móvil (directo.json puede llevar horas sin actualizarse:
@@ -596,7 +598,8 @@ function vistaDirecto(app, p) {
     if (c && c.lenex && !/^\d{3,12}$/.test(p.n || '')) carBotonesDetalle(host, c);   // foto finish y repetición en cada prueba con carrera guardada
     if (forzar) window.scrollTo(0, y);
   };
-  pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), DIR_PROXY ? 30e3 : 60e3); });
+  DIR_REPINTAR = () => pintar(true);
+  pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => { if (!document.hidden) pintar(true); }, DIR_PROXY ? 30e3 : 60e3); });   // con la pestaña oculta no se lee
 }
 
 /* En la ficha del nadador: sus próximas competiciones y lo último que ha nadado (según el directo) */

@@ -72,6 +72,7 @@ html.acuatico .agua{background:linear-gradient(180deg,#05365f,#032a4d)}
 .agua .agua-fondo{inset:-20px;width:calc(100% + 40px);height:calc(100% + 40px)}
 .agua .agua-carril{top:-20px;height:calc(100% + 40px);width:60px;left:calc(50% - 30px);opacity:.85}
 .agua .agua-luz{inset:-15%;width:130%;height:130%;opacity:.38;mix-blend-mode:screen;will-change:transform;animation:agua-luz 28s ease-in-out infinite alternate}
+html.ligero .agua .agua-luz,html.ligero .agua .agua-luz.agitada{animation:none!important;will-change:auto}   /* en el directo el fondo no se mueve */
 .agua .agua-hondo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(120,210,255,.18) 0%,rgba(4,40,80,.1) 35%,rgba(2,20,45,.55) 100%)}
 @media (min-width:900px){.agua .agua-carril{left:calc(var(--nav-w) + (100% - var(--nav-w)) / 2 - 30px)}}
 @keyframes agua-luz{from{transform:translate(0,0)}to{transform:translate(-5%,-4%)}}
@@ -5316,7 +5317,10 @@ function carPintar(host, c, op = {}) {
     if (E.last != null && E.play) { E.T += (ts - E.last) / 10 * E.vel; if (E.T >= T0() + 200) { E.T = T0() + 200; E.play = false; q('[data-car-play]').textContent = 'Ver otra vez'; } }
     if (E.espera) arrancar();
     if (host.clientWidth && host.clientWidth !== E.ancho) { E.ancho = host.clientWidth; foto(); }   // al hacerse visible (pestaña oculta) o cambiar el ancho
-    E.last = ts; repeticion(); requestAnimationFrame(t => bucle(t, my));
+    E.last = ts;
+    const kd = `${E.T}|${E.tab}|${host.clientWidth}`;      // en pausa y sin cambios no se redibuja (el lienzo no trabaja 60 veces por segundo para nada)
+    if (E.play || kd !== E.kd) { E.kd = kd; repeticion(); }
+    requestAnimationFrame(t => bucle(t, my));
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
@@ -5428,7 +5432,9 @@ async function carPintarFicha(host, s, ev) {
 
 const DIR_PROXY = 'https://cna-directo.andrescovidelpi.workers.dev';   // intermediario (directo-proxy/worker.js en Cloudflare); vacío = solo directo.json
 
-let DIR = null, DIR_T = 0, DIR_RELOJ = null;
+let DIR = null, DIR_T = 0, DIR_RELOJ = null, DIR_REPINTAR = null;
+/* Al volver a la pestaña, el directo se pone al día enseguida (mientras estaba oculta no se leía nada) */
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', () => { if (!document.hidden && DIR_RELOJ && DIR_REPINTAR) DIR_REPINTAR(); });
 /* Solo enlaces seguros a la federación (los datos vienen de su web) */
 const dirUrlOk = u => typeof u === 'string' && /^https:\/\/(www\.)?(fan\.es|fanatacion\.es)\//.test(u);
 /* En curso / próxima / terminada según la fecha de hoy en este móvil (directo.json puede llevar horas sin actualizarse:
@@ -6018,7 +6024,8 @@ function vistaDirecto(app, p) {
     if (c && c.lenex && !/^\d{3,12}$/.test(p.n || '')) carBotonesDetalle(host, c);   // foto finish y repetición en cada prueba con carrera guardada
     if (forzar) window.scrollTo(0, y);
   };
-  pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => pintar(true), DIR_PROXY ? 30e3 : 60e3); });
+  DIR_REPINTAR = () => pintar(true);
+  pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => { if (!document.hidden) pintar(true); }, DIR_PROXY ? 30e3 : 60e3); });   // con la pestaña oculta no se lee
 }
 
 /* En la ficha del nadador: sus próximas competiciones y lo último que ha nadado (según el directo) */
@@ -6272,7 +6279,7 @@ function agitarAgua() {
   if (luz) { luz.classList.remove('agitada'); void luz.getBoundingClientRect(); luz.classList.add('agitada'); }
 }
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('pointerdown', e => {
-  if (!e.isPrimary || !document.documentElement.classList.contains('acuatico')) return;
+  if (!e.isPrimary || !document.documentElement.classList.contains('acuatico') || document.documentElement.classList.contains('ligero')) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   agitarAgua();
 }, {passive: true});
@@ -6410,6 +6417,7 @@ function route() {
   contarVisita(lastHash);
   lastFicha = esFicha ? r.id : null;
 
+  document.documentElement.classList.toggle('ligero', sec === 'directo');   // en el directo, fondo quieto: menos trabajo para el móvil
   if (sec === 'club') {
     vistaClub(app, Object.assign({cat: r.parts[1], tab: r.parts[2]}, params));
     app.insertAdjacentHTML('beforeend', `<p class="small"><a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${FIRMA}</p>`);

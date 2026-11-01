@@ -64,6 +64,7 @@ html.acuatico .agua{background:linear-gradient(180deg,#05365f,#032a4d)}
 .agua .agua-fondo{inset:-20px;width:calc(100% + 40px);height:calc(100% + 40px)}
 .agua .agua-carril{top:-20px;height:calc(100% + 40px);width:60px;left:calc(50% - 30px);opacity:.85}
 .agua .agua-luz{inset:-15%;width:130%;height:130%;opacity:.38;mix-blend-mode:screen;will-change:transform;animation:agua-luz 28s ease-in-out infinite alternate}
+html.ligero .agua .agua-luz,html.ligero .agua .agua-luz.agitada{animation:none!important;will-change:auto}   /* en el directo el fondo no se mueve */
 .agua .agua-hondo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(120,210,255,.18) 0%,rgba(4,40,80,.1) 35%,rgba(2,20,45,.55) 100%)}
 @media (min-width:900px){.agua .agua-carril{left:calc(var(--nav-w) + (100% - var(--nav-w)) / 2 - 30px)}}
 @keyframes agua-luz{from{transform:translate(0,0)}to{transform:translate(-5%,-4%)}}

@@ -244,7 +244,10 @@ function carPintar(host, c, op = {}) {
     if (E.last != null && E.play) { E.T += (ts - E.last) / 10 * E.vel; if (E.T >= T0() + 200) { E.T = T0() + 200; E.play = false; q('[data-car-play]').textContent = 'Ver otra vez'; } }
     if (E.espera) arrancar();
     if (host.clientWidth && host.clientWidth !== E.ancho) { E.ancho = host.clientWidth; foto(); }   // al hacerse visible (pestaña oculta) o cambiar el ancho
-    E.last = ts; repeticion(); requestAnimationFrame(t => bucle(t, my));
+    E.last = ts;
+    const kd = `${E.T}|${E.tab}|${host.clientWidth}`;      // en pausa y sin cambios no se redibuja (el lienzo no trabaja 60 veces por segundo para nada)
+    if (E.play || kd !== E.kd) { E.kd = kd; repeticion(); }
+    requestAnimationFrame(t => bucle(t, my));
   }
   host.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return;
