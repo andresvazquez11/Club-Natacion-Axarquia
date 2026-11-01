@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
 <script src="firebase-config.js"></script>
+<script src="logica.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
@@ -117,27 +118,59 @@ function conectar() {
     if (err.code === 'permission-denied') { desconectar(); sinAcceso(_auth.currentUser && _auth.currentUser.email); }
     else { enLinea = false; pintar(); }
   }));
-  listen('nadadores', d => { S.nadadores = d; });
-  listen('equipos', d => { S.equipos = d; });
-  listen('estilos', d => { S.estilos = d; });
-  listen('sesiones', d => { S.sesiones = d.filter(s => s.borrado !== true).sort((a, b) => (b.fecha || 0) - (a.fecha || 0)).slice(0, 12); elegirSesion(); },
-    _db.collection('sesiones').orderBy('fecha', 'desc').limit(15));
+  listen('nadadores', d => { RAW.nadadores = d; recomponer(); });
+  listen('equipos', d => { RAW.equipos = d; recomponer(); });
+  listen('estilos', d => { RAW.estilos = d; S.estilos = d; });
+  listen('sesiones', d => { RAW.sesiones = d; recomponer(); }, _db.collection('sesiones').orderBy('fecha', 'desc').limit(60));
 }
-// Siempre mira el entrenamiento más reciente, salvo que se elija otro a mano
-function elegirSesion() {
-  const nueva = S.sesiones[0] && S.sesiones[0].id;
-  if (auto) { if (nueva !== sesId) cambiarSesion(nueva); }
-  else if (!S.sesiones.some(s => s.id === sesId)) { auto = true; cambiarSesion(nueva); }
+
+// ── Versión de entrenadores: la JORNADA (un entrenador, un día) con todos sus entrenamientos juntos ──
+// Un simulacro de competición guarda cada prueba como un entrenamiento aparte: aquí salen seguidas (serie 1, 2, 3…),
+// igual que en el enlace de familias (misma lógica: cronometro/logica.js). Por defecto se sigue la jornada más reciente.
+const RAW = {nadadores: [], equipos: [], estilos: [], sesiones: [], resultados: []};
+let JOR = [], JORNADA = null, jorKey = null, autoJ = true, _resChunks = {};
+const jorClave = s => new Date(s.fecha).toDateString() + '|' + (s.coachEmail ? String(s.coachEmail).toLowerCase() : 'n:' + (s.coach || ''));
+function agruparJornadas(sesiones) {
+  const libres = sesiones.filter(s => s.borrado !== true).sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
+  const out = [], usadas = new Set();
+  libres.forEach(s => {
+    if (usadas.has(s.id)) return;
+    const g = sesionesDelEnlace(s, libres.filter(x => !usadas.has(x.id)));
+    if (!g.some(x => x.id === s.id)) g.push(s);   // un entrenamiento sin entrenador anotado también cuenta
+    g.forEach(x => usadas.add(x.id));
+    out.push({key: jorClave(s), coach: s.coach || '', fecha: Math.max(...g.map(x => x.fecha || 0)), sesiones: g});
+  });
+  return out;
 }
-function cambiarSesion(id) {
-  sesId = id || null; marcado = null; vistos = new Set(); primera = true; S.resultados = [];
-  if (_unsubRes) { _unsubRes(); _unsubRes = null; }
-  if (!sesId) return;
-  _unsubRes = _db.collection('resultados').where('sesId', '==', sesId).onSnapshot(snap => {
-    S.resultados = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(r => r.borrado !== true);
-    enLinea = !snap.metadata.fromCache || enLinea;
-    pintar();
-  }, () => { enLinea = false; pintar(); });
+function recomponer() {
+  JOR = agruparJornadas(RAW.sesiones);
+  if (autoJ || !JOR.some(j => j.key === jorKey)) { autoJ = true; jorKey = JOR[0] && JOR[0].key; }
+  JORNADA = JOR.find(j => j.key === jorKey) || null;
+  escucharResultados(JORNADA ? JORNADA.sesiones.map(s => s.id) : []);
+  if (!JORNADA) { S.sesiones = []; S.resultados = []; return; }
+  const equipos = {};
+  JORNADA.sesiones.forEach(s => { const e = RAW.equipos.find(x => x.id === s.eqId); equipos[s.id] = e ? e.nombre : ''; });
+  cargarPublico(docPublico({fecha: JORNADA.sesiones[0].fecha, pub: {hasta: 0}}, {sesiones: JORNADA.sesiones, resultados: RAW.resultados, nadadores: RAW.nadadores, equipos}));
+  S.estilos = RAW.estilos;
+}
+// Los tiempos de todos los entrenamientos de la jornada (Firestore admite 10 valores por consulta «in»)
+// Al empezar una prueba nueva solo se pide la nueva (no se vuelven a leer los tiempos de las anteriores); al cambiar de jornada se empieza de cero.
+let _resCub = new Set(), _resSubs = [];
+function soltarResultados() { _resSubs.forEach(u => { try { u(); } catch {} }); _resSubs = []; _resCub = new Set(); }
+_unsubRes = soltarResultados;   // desconectar() también los suelta
+function escucharResultados(ids) {
+  if (![..._resCub].every(id => ids.includes(id))) { soltarResultados(); _resChunks = {}; RAW.resultados = []; }   // otra jornada
+  const nuevos = ids.filter(id => !_resCub.has(id));
+  for (let i = 0; i < nuevos.length; i += 10) {
+    const grupo = nuevos.slice(i, i + 10), k = grupo.join(',');
+    grupo.forEach(id => _resCub.add(id));
+    _resSubs.push(_db.collection('resultados').where('sesId', 'in', grupo).onSnapshot(snap => {
+      _resChunks[k] = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(r => r.borrado !== true);
+      RAW.resultados = Object.values(_resChunks).flat();
+      enLinea = !snap.metadata.fromCache || enLinea;
+      recomponer(); pintar();
+    }, () => { enLinea = false; pintar(); }));
+  }
 }
 
 const nomNad = id => { const n = S.nadadores.find(x => x.id === id); return n ? n.n : '?'; };
@@ -148,7 +181,8 @@ function estiloNombre(e) {
 }
 function tituloSesion(s) {
   const eq = S.equipos.find(e => e.id === s.eqId);
-  return `${esc(eq ? eq.nombre : 'Entrenamiento')}<small>${esc(new Date(s.fecha).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'}))}</small>`;
+  const quien = !publico && JORNADA ? `${esc(JORNADA.coach || 'Entrenador')} · ` : '';   // en la versión de entrenadores, de quién es la jornada
+  return `${quien}${esc(eq ? eq.nombre : 'Entrenamiento')}<small>${esc(new Date(s.fecha).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'}))}</small>`;
 }
 // Cada tiempo trae su prueba (estilo y distancia); si no, la del entrenamiento
 function pruebaTxt(r, s) {
@@ -216,7 +250,7 @@ function pintar() {
   const lista = document.getElementById('lista');
   const scroll = lista ? lista.scrollTop : 0;
   if (!lista || !abierto) {
-    const opSes = S.sesiones.map(x => `<option value="${esc(x.id)}"${x.id === sesId ? ' selected' : ''}>${esc(new Date(x.fecha).toLocaleString('es-ES', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}))} · ${esc(x.estilo && x.dist ? estiloNombre(x.estilo) + ' ' + x.dist : 'Serie libre')}</option>`).join('');
+    const opSes = JOR.map(j => { const n = j.sesiones.length; return `<option value="${esc(j.key)}"${j.key === jorKey ? ' selected' : ''}>${esc(new Date(j.fecha).toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'}))} · ${esc(j.coach || 'Entrenador')} · ${n} ${n === 1 ? 'entrenamiento' : 'entrenamientos'}</option>`; }).join('');
     app.innerHTML = `<div id="top"><div id="titulo">${tituloSesion(s)}</div>
       <div id="nav"><button data-v="directo" class="${vista === 'directo' ? 'on' : ''}">Directo</button><button data-v="anteriores" class="${vista === 'anteriores' ? 'on' : ''}">Anteriores</button></div>
       ${publico ? '' : `<select id="sel-ses">${opSes}</select>`}
@@ -225,7 +259,7 @@ function pintar() {
       <div id="lista">${cuerpo}</div>
       ${publico ? '<div id="pie">Enlace privado para las familias del club · por favor, no lo compartas fuera del grupo</div>' : ''}`;
     const selSes = document.getElementById('sel-ses');
-    if (selSes) selSes.onchange = e => { auto = e.target.value === S.sesiones[0].id; cambiarSesion(e.target.value); pintar(); };
+    if (selSes) selSes.onchange = e => { jorKey = e.target.value; autoJ = !!JOR[0] && jorKey === JOR[0].key; vistos = new Set(); primera = true; recomponer(); pintar(); };
     document.getElementById('btn-fs').onclick = () => { const d = document.documentElement; (document.fullscreenElement ? document.exitFullscreen() : (d.requestFullscreen || d.webkitRequestFullscreen).call(d)); };
     document.getElementById('nav').onclick = e => {
       const b = e.target.closest('button[data-v]'); if (!b) return;
