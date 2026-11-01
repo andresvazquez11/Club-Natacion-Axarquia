@@ -1850,18 +1850,44 @@ function pubActivoHTML() {
     ${_pubErr ? `<div style="color:var(--amb);font-size:12px;margin-bottom:8px">⚠ No se pudo publicar (${esc(_pubErr)}). Las familias todavía no ven nada.</div>` : ''}
     <div class="row" style="gap:8px"><button class="btn btn-green btn-sm" style="flex:1" data-action="pub-enviar">Compartir…</button>
       <button class="btn btn-surf btn-sm" data-action="pub-copiar">Copiar</button></div>
-    <div class="muted" style="font-size:12px;margin-top:8px">Los entrenamientos que hagas hoy se suman solos. Mientras compartes, no toques nada más: no hace falta.</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Esto es para las <b>familias</b>: ven los tiempos en su móvil. Los entrenamientos que hagas hoy se suman solos. Mientras compartes, no toques nada más: no hace falta.</div>
+    <div class="muted" style="font-size:12px;margin-top:6px">Para mostrar los tiempos a los <b>nadadores</b> en una tablet u ordenador es otra cosa: «Pantalla de piscina», al final del inicio.</div>
     <button class="btn btn-surf btn-sm mt8" data-action="pub-cerrar">Dejar de compartir</button></div>`;
 }
 // Enlace discreto al final del inicio (es algo de ocasiones especiales): al tocarlo se ofrece crear el enlace
 function pubPieHTML() {
   if (pubActivo()) return '';
-  return `<div style="margin:22px 0 14px;text-align:center">
-      <button class="edit-link" data-action="pub-abrir" style="opacity:.8">📡 Compartir en directo con las familias</button>
+  return `<div class="card" style="margin:22px 0 10px;text-align:center">
+      <div><b>📡 Para las familias</b></div>
+      <div class="muted" style="font-size:12.5px;margin:4px 0 12px">Ven los tiempos en su móvil, con nombres completos.</div>
+      <button class="edit-link" data-action="pub-abrir" style="padding:9px 16px">Compartir en directo con las familias</button>
     </div>${_pubAbierto ? `<div id="pub-card" class="card">
       <b>📡 Compartir en directo</b>
       <div class="muted" style="font-size:13px;margin:4px 0 10px">Crea un enlace para que las familias vean los tiempos en su móvil, con nombres completos. Hazlo antes de empezar: incluye todos tus entrenamientos de hoy, también los que empieces después, y no tienes que volver a tocarlo. Caduca solo a las ${PUB_HORAS} h y lo puedes cerrar cuando quieras.</div>
+      <div class="muted" style="font-size:12px;margin:0 0 10px">Para mostrar los tiempos a los <b>nadadores</b> en una tablet u ordenador es otra cosa: «Pantalla de piscina», más abajo.</div>
       <button class="btn btn-green" data-action="pub-crear">Crear enlace</button></div>` : ''}`;
+}
+// Pantalla de piscina (cronometro/pantalla.html): los tiempos en vivo, grandes y sobre fondo negro, para mostrarlos en una tablet u ordenador.
+// Pequeño, al final del inicio, debajo del enlace de las familias: tres botones del mismo tamaño para abrirla aquí, copiar su dirección
+// o mandarla por WhatsApp (para abrirla en una tablet u ordenador).
+const pantallaEnlace = () => new URL('pantalla.html', location.href).href;
+function pantallaPieHTML() {
+  const est = 'display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:34px;padding:0 14px;font-size:12.5px;line-height:1;text-decoration:none;opacity:.9';
+  const wa = 'https://wa.me/?text=' + encodeURIComponent('Pantalla de piscina del Club Natación Axarquía (tiempos en vivo): ' + pantallaEnlace());
+  return `<div class="card" style="margin:0 0 14px;text-align:center">
+      <div><b>🖥 Pantalla de piscina</b></div>
+      <div class="muted" style="font-size:12.5px;margin:4px 0 12px">Para los <b>nadadores</b>: los tiempos en grande, sobre fondo negro, en una tablet u ordenador (entra con la cuenta del club).</div>
+      <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:8px">
+        <a class="edit-link" href="pantalla.html" target="_blank" rel="noopener" style="${est}">Abrir</a>
+        <button class="edit-link" data-action="pantalla-copiar" style="${est}">Copiar enlace</button>
+        <a class="edit-link" href="${wa}" target="_blank" rel="noopener" style="${est}">WhatsApp</a>
+      </div>
+    </div>`;
+}
+async function pantallaCopiar(btn) {
+  const url = pantallaEnlace();
+  try { await navigator.clipboard.writeText(url); if (btn) { const t = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = t; }, 1500); } }
+  catch { prompt('Copia el enlace:', url); }
 }
 async function finalizarSesion() {
   if (!SA) return;
@@ -2378,7 +2404,8 @@ function renderHome() {
     ${tarjeta}
     <a class="manual-card" href="${MANUAL_URL}" target="_blank" rel="noopener"><span class="mi">📘</span>
       <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>
-    ${pubPieHTML()}`;
+    ${pubPieHTML()}
+    ${pantallaPieHTML()}`;
 }
 function renderPreparados() {
   const ps = misPlanes();
@@ -4435,6 +4462,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'pub-abrir':       _pubAbierto = !_pubAbierto; render(); if (_pubAbierto) setTimeout(() => { const c = document.getElementById('pub-card'); if (c) c.scrollIntoView({block: 'center', behavior: 'smooth'}); }, 60); break;
     case 'pub-crear':       pubCompartir(); break;
     case 'pub-copiar':      await pubCopiar(btn); break;
+    case 'pantalla-copiar': await pantallaCopiar(btn); break;
     case 'pub-enviar':      await pubEnviar(btn); break;
     case 'pub-cerrar':      if (confirm('¿Dejar de compartir? El enlace dejará de funcionar para todas las familias al instante. Si quieres volver a compartir, se crea un enlace nuevo.')) await pubCerrar(); break;
     case 'exportar':     await exportar(btn.dataset.ses||route.sesId); break;
