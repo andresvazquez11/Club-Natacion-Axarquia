@@ -15,6 +15,9 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+@supports (height:100dvh){html,body{height:100dvh}}   /* iPhone: la altura visible, sin contar la barra del navegador que sube y baja */
+/* iPhone: respeta la hora y el borde (muesca) de arriba, el indicador de inicio de abajo y los lados: antes la pantalla se dibujaba debajo de ellos */
+body{padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 #app{height:100%;display:flex;flex-direction:column}
 #top{flex:none;display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:2px solid #222;height:72px}
 #titulo{flex:1;min-width:0;font-size:clamp(20px,3.2vw,40px);font-weight:800;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -261,7 +264,8 @@ function pintar() {
     const lineas = res.length + faltan.length + (faltan.length ? 1 : 0) + (pruebasDe(res, s).length > 1 ? pruebasDe(res, s).length : 0);
     const movil = window.innerWidth < 700;   // en el móvil la cabecera ocupa dos filas y las filas del directo son más bajas
     const cabeceraDoble = window.innerWidth <= 900;   // móvil y tablet en vertical: la cabecera ocupa dos filas
-    const hay = Math.max(100, window.innerHeight - (cabeceraDoble ? 130 : 72) - 24 - 48 - (publico ? (movil ? 40 : 26) : 0));
+    const cs = getComputedStyle(document.body), seguro = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);   // lo que ocupan la hora y la barra inferior del iPhone
+    const hay = Math.max(100, window.innerHeight - seguro - (cabeceraDoble ? 130 : 72) - 24 - 48 - (publico ? (movil ? 40 : 26) : 0));
     const cols = lineas > 14 && window.innerWidth >= 900 ? 2 : 1;
     const porCol = Math.max(1, Math.ceil(lineas / cols));
     const rh = Math.max(30, Math.min(movil ? 60 : cabeceraDoble ? 90 : 120, Math.floor(hay / Math.max(porCol, 5))));
