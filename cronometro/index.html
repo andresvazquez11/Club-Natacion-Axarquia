@@ -2071,7 +2071,14 @@ function renderPantalla(app) {
   if (tab) app.insertAdjacentHTML('beforeend', FIRMA_HTML + renderTabs(tab));
 }
 function pintarPantalla(app) {
+  // Vista previa de un entreno de la papelera: se le presta a la app solo mientras se mira (nunca se guarda)
+  S.sesiones = S.sesiones.filter(s => !s._prev); S.resultados = S.resultados.filter(r => !r._prev);
+  if (route.screen === 'papelera-ver') {
+    const s = PAPELERA.find(x => x.id === route.sesId);
+    if (s) { S.sesiones.push({...s, _prev: true}); S.resultados.push(..._rawRes.filter(r => r.sesId === s.id && r.borrado !== true).map(r => ({...r, _prev: true}))); }
+  }
   switch(route.screen) {
+    case 'papelera-ver': app.innerHTML = renderPapeleraVer(route.sesId); break;
     case 'home':       app.innerHTML = renderHome(); break;
     case 'equipo':     app.innerHTML = renderEquipo(); break;
     case 'preparar':   app.innerHTML = renderPreparar(); break;
@@ -3798,12 +3805,20 @@ function renderEntrenadores() {
 // pero sus tiempos siguen guardados y se puede recuperar desde la papelera.
 // Cada entrenador ve y borra los suyos; el administrador, los de todos.
 let LIMP = null;   // {sel: Set de sesiones, estado}
-const puedoBorrar = s => soyAdmin() || esMio(s);
+const puedoBorrar = s => !s._prev && (soyAdmin() || esMio(s));   // _prev: vista previa de la papelera, solo lectura
 // Propuestos ya marcados: los de simulación y, para el administrador, sus propias pruebas
 const esDePrueba = s => esSim(s) || (soyAdmin() && (s.coachEmail ? s.coachEmail === miEmail() : /^andr[eé]s\b/i.test(String(s.coach||''))));
 function abrirLimpieza() {
   LIMP = {sel: new Set(S.sesiones.filter(s=>puedoBorrar(s) && esDePrueba(s)).map(s=>s.id)), estado: null};
   nav({screen:'limpieza'}); window.scrollTo(0,0);
+}
+function renderPapeleraVer(sesId) {
+  const s = PAPELERA.find(x => x.id === sesId);
+  if (!s) return `<button class="volver-top" data-action="limp-volver">← Papelera</button><div class="center-msg"><p>Este entrenamiento ya no está en la papelera.</p></div>`;
+  const aviso = `<div class="card" style="border-color:var(--red)"><b>🗑 Está en la papelera</b>
+      <div class="muted" style="font-size:12px;margin:2px 0 8px">Solo lectura: no se ve en el cronómetro ni en la web. Borrado ${esc(fmtFechaHora(s.borradoTs))}${s.borradoPor ? ` por ${esc(s.borradoPor)}` : ''}.</div>
+      ${puedoBorrar(s) ? `<button class="btn btn-green" style="min-height:50px" data-action="papelera-recuperar-ver" data-ses="${esc(s.id)}">↩ Recuperar este entrenamiento</button>` : ''}</div>`;
+  return renderResultados(sesId, 'limp-volver', '← Papelera').replace('</button>', '</button>' + aviso);
 }
 function renderLimpieza() {
   if (!LIMP) LIMP = {sel: new Set(), estado: null};
@@ -3832,8 +3847,10 @@ function renderLimpieza() {
         <button class="btn btn-surf btn-sm btn-inline" data-action="res-recuperar" data-id="${esc(r.id)}">↩ Recuperar</button></div>`).join('')}` : ''; })()}
     <span class="label mt24">Papelera (${papelera.length})</span>
     ${papelera.map(s=>`<div class="card row" style="gap:10px;opacity:.85"><span style="flex:1;min-width:0">${datos(s)}
+        <span class="muted" style="display:block;font-size:12px">${esc(fmtHora(s.fecha))}${s.fin?`–${esc(fmtHora(s.fin))}`:''} · ${new Set(RAW_RES().filter(r=>r.sesId===s.id).map(r=>r.nId)).size} nadadores${s.notas?` · 📝 ${esc(String(s.notas).slice(0,60))}`:''}</span>
         <span class="muted" style="display:block;font-size:11px">Borrado ${fmtFechaHora(s.borradoTs)}${s.borradoPor?` por ${esc(s.borradoPor)}`:''}</span></span>
-      <button class="btn btn-surf btn-sm btn-inline" data-action="papelera-recuperar" data-ses="${esc(s.id)}">↩ Recuperar</button></div>`).join('')
+      <span style="display:flex;flex-direction:column;gap:6px"><button class="btn btn-blue btn-sm btn-inline" data-action="papelera-ver" data-ses="${esc(s.id)}">👁 Ver</button>
+      <button class="btn btn-surf btn-sm btn-inline" data-action="papelera-recuperar" data-ses="${esc(s.id)}">↩ Recuperar</button></span></div>`).join('')
       || '<div class="muted" style="font-size:13px">Vacía.</div>'}`;
 }
 async function borrarLimpieza() {
@@ -3965,7 +3982,7 @@ function tiempoToque(btn) {
   return (t && Date.now()-t < 1500) ? t : Date.now();
 }
 // Deslizar desde el borde izquierdo hacia la derecha = volver. Solo en pantallas de consulta: nunca en un entreno en marcha ni al prepararlo
-const VOLVER_DESLIZANDO = {resultados: () => ({screen: 'home'}), 'hist-det': () => ({screen: 'historial'}), evolucion: () => ({screen: 'nadadores'}), 'evolucion-nad': () => route.desde || {screen: 'nadadores'}};
+const VOLVER_DESLIZANDO = {'papelera-ver': () => ({screen: 'limpieza'}), resultados: () => ({screen: 'home'}), 'hist-det': () => ({screen: 'historial'}), evolucion: () => ({screen: 'nadadores'}), 'evolucion-nad': () => route.desde || {screen: 'nadadores'}};
 let _sw = null;
 document.addEventListener('touchstart', e => {
   const t = e.touches[0]; _sw = e.touches.length === 1 && t.clientX < 28 && VOLVER_DESLIZANDO[route.screen] ? {x: t.clientX, y: t.clientY, t: Date.now()} : null;
@@ -4045,6 +4062,9 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'limpieza':     abrirLimpieza(); break;
     case 'limpieza-borrar': await borrarLimpieza(); break;
     case 'papelera-recuperar': await recuperarSesion(btn.dataset.ses); break;
+    case 'papelera-ver': nav({screen:'papelera-ver', sesId: btn.dataset.ses}); window.scrollTo(0,0); break;
+    case 'limp-volver': nav({screen:'limpieza'}); window.scrollTo(0,0); break;
+    case 'papelera-recuperar-ver': await recuperarSesion(btn.dataset.ses); nav({screen:'limpieza'}); window.scrollTo(0,0); break;
     case 'res-borrar':   await borrarTiempo(btn.dataset.id); break;
     case 'parcial-quitar': { const r = S.resultados.find(x => x.id === btn.dataset.id), k = Number(btn.dataset.k);
       if (r && Array.isArray(r.parciales) && k >= 0 && k < r.parciales.length - 1) { const p = [...r.parciales]; p[k] = null; DB.actualizarRes(r.id, {parciales: p}); render(); } break; }
