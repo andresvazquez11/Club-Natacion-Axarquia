@@ -223,9 +223,14 @@ class TestCompletarSeries(unittest.TestCase):
                                                                     {'n': 'Ana Mar', 'nac': 2015, 't': 7100, 'serie': 0, 'calle': 0, 'ins': None}]}
 
     def test_copia_de_la_version_anterior_sin_pedir_nada(self):
-        previa = {'filas': [{'n': 'Eva Sol', 'nac': 2014, 'serie': 4, 'calle': 2, 'ins': 7200}]}
+        previa = {'filas': [{'n': 'Eva Sol', 'nac': 2014, 'serie': 4, 'calle': 2, 'ins': 7200}, {'n': 'Ana Mar', 'nac': 2015, 'serie': 4, 'calle': 3, 'ins': None}]}
         p = F.completar_series(self.prueba(), previa, lambda: self.fail('no debía pedir la lista de salida'))
-        self.assertEqual([(f['serie'], f['calle'], f['ins']) for f in p['filas']], [(4, 2, 7200), (0, 0, None)])
+        self.assertEqual([(f['serie'], f['calle'], f['ins']) for f in p['filas']], [(4, 2, 7200), (4, 3, None)])
+
+    def test_quien_no_estaba_en_la_version_anterior_se_busca_en_la_lista_de_salida(self):
+        previa = {'filas': [{'n': 'Eva Sol', 'nac': 2014, 'serie': 4, 'calle': 2, 'ins': 7200}]}      # Ana Mar se inscribió después
+        p = F.completar_series(self.prueba(), previa, lambda: {(F.norm('Ana Mar'), 2015): (1, 1), (F.norm('Eva Sol'), 2014): (9, 9)})
+        self.assertEqual([(f['serie'], f['calle']) for f in p['filas']], [(4, 2), (1, 1)])      # lo ya copiado no se pisa
 
     def test_sin_version_anterior_pide_la_lista_de_salida_y_si_falla_sigue(self):
         p = F.completar_series(self.prueba(), None, lambda: {(F.norm('Ana Mar'), 2015): (3, 5)})

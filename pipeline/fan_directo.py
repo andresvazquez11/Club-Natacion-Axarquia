@@ -403,12 +403,20 @@ def completar_series(p, previa, pedir):
             mapa = {k: (v[0], v[1], None) for k, v in pedir().items()}
         except Exception as e:
             print('Aviso: sin lista de salida de', p.get('id'), e, file=sys.stderr)
-    for f in p['filas']:
-        sc = mapa.get((norm(f['n']), f.get('nac')))
-        if sc:
-            f['serie'], f['calle'] = sc[0], sc[1]
-            if sc[2] and not f.get('ins'):
-                f['ins'] = sc[2]
+    def poner(mapa):
+        for f in p['filas']:
+            sc = mapa.get((norm(f['n']), f.get('nac')))
+            if sc and not f.get('serie'):
+                f['serie'], f['calle'] = sc[0], sc[1]
+                if sc[2] and not f.get('ins'):
+                    f['ins'] = sc[2]
+    poner(mapa)
+    # alguien que no estaba en la versión anterior (inscrito más tarde): se busca en la lista de salida actual
+    if any(f.get('t') and not f.get('serie') for f in p['filas']):
+        try:
+            poner({k: (v[0], v[1], None) for k, v in pedir().items()})
+        except Exception as e:
+            print('Aviso: sin lista de salida de', p.get('id'), e, file=sys.stderr)
     return p
 
 
