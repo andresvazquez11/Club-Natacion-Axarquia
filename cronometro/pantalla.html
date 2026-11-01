@@ -46,9 +46,12 @@ button{cursor:pointer}
 .cab .prueba{margin-left:14px;color:#facc15;font-weight:600;letter-spacing:.5px}
 .cab .vivo{color:#22c55e}
 .cab small{letter-spacing:0;text-transform:none;font-size:.8em;color:#6b7280;margin-left:auto}
-.tarjetas{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:8px 36px;align-items:start}
-.tarjeta .cab{font-size:16px;padding-top:18px;height:auto}
-.tarjeta .fila{--rh:56px}
+/* Series anteriores: cada serie ocupa todo el ancho, bien separada de la siguiente, y los nombres salen completos (sin cortar) */
+.tarjetas{display:grid;grid-template-columns:1fr;gap:16px}
+.tarjeta{border:1px solid #262626;border-left:5px solid #4b5563;border-radius:12px;padding:2px 14px 8px}
+.tarjeta .cab{font-size:18px;padding:10px 0 4px;height:auto;border-bottom:1px solid #262626;margin-bottom:2px}
+.tarjeta .fila{--rh:56px;height:auto;min-height:var(--rh);padding:6px 4px}
+.tarjeta .fila .nom{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;overflow-wrap:anywhere}
 .tarjeta .fila .dif{min-width:3.6em}
 .centro{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
 .centro h1{font-size:clamp(28px,5vw,56px)}
@@ -208,7 +211,7 @@ function pintar() {
   const faltan = (s.presentes || []).filter(id => !llegados.has(id));
 
   const fila = (r, i, mejor) => {
-    const nuevo = !primera && !vistos.has(r.id);
+    const nuevo = vista === 'directo' && !primera && !vistos.has(r.id);   // solo la serie en directo resalta las llegadas nuevas
     return `<div class="fila${i === 0 ? ' p1' : ''}${nuevo ? ' nuevo' : ''}${marcado === r.nId ? ' sel' : ''}" data-n="${esc(r.nId)}">
       <span class="pos">${i + 1}</span><span class="nom">${esc(nomNad(r.nId))}</span>
       <span class="dif">${i === 0 ? '' : fmtDif(r.ms - mejor)}</span><span class="t">${fmt(r.ms)}</span></div>`;
@@ -281,7 +284,10 @@ function pintar() {
     lista.innerHTML = cuerpo;
   }
   document.getElementById('lista').scrollTop = scroll;
-  S.resultados.forEach(r => vistos.add(r.id)); primera = false;
+  S.resultados.forEach(r => vistos.add(r.id));
+  if (S.resultados.length) primera = false;   // la primera carga con tiempos no cuenta como «llegadas nuevas» (antes salía todo en verde)
+  clearTimeout(pintar._t);   // el resaltado de una llegada nueva se apaga solo a los 6 s
+  if (document.querySelector('.fila.nuevo')) pintar._t = setTimeout(() => document.querySelectorAll('.fila.nuevo').forEach(e => e.classList.remove('nuevo')), 6000);
 }
 window.addEventListener('resize', () => pintar());
 window.addEventListener('online', () => { enLinea = true; pintar(); });
