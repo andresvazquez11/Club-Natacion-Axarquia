@@ -962,6 +962,60 @@ function entConectar() {
   })().catch(e => { entPromesa = null; throw e; });
   return entPromesa;
 }
+/* Copia en este navegador + solo lo que cambió.
+   Antes cada visita descargaba TODO el histórico de entrenamientos (miles de lecturas de Firestore). Ahora se guarda en el navegador
+   (IndexedDB) y en las siguientes visitas solo se piden los documentos con «mod» (hora del servidor que sella el cronómetro) posterior
+   a lo último visto. Los borrados llegan por las marcas de «borrados». Cada semana se vuelve a leer todo, por si algo se escapó.
+   Mismas reglas que cronometro/logica.js (sync*). */
+const ENT_SYNC_V = 1, ENT_COMPLETA_MS = 86400e3, ENT_SOLAPE_MS = 10 * 60e3;
+const ENT_GRANDES = ['sesiones', 'resultados', 'nadadores', 'grupos'];
+const entNecesitaCompleta = (c, ahora, edad = ENT_COMPLETA_MS) => !c || c.v !== ENT_SYNC_V || !c.docs || typeof c.docs !== 'object'
+  || !Number.isFinite(c.completa) || !Number.isFinite(c.desde) || ahora - c.completa > edad || c.completa > ahora + 6 * 3600e3;
+const entMod = d => { const m = d && d.mod; return m && typeof m.toMillis === 'function' ? m.toMillis() : (Number.isFinite(m) ? m : 0); };
+const entDesde = ms => Math.max(0, (Number.isFinite(ms) ? ms : 0) - ENT_SOLAPE_MS);
+/* db: Firestore; TS: firebase.firestore.Timestamp; previa: la copia guardada (o null). Devuelve la copia al día y cuántos documentos se leyeron. */
+async function entSincronizar(db, TS, previa, ahora, edadMax) {
+  const cache = previa && previa.v === ENT_SYNC_V && previa.cols && previa.borr ? previa : {v: ENT_SYNC_V, cols: {}, borr: {desde: 0}};
+  let leidos = 0;
+  for (const col of ENT_GRANDES) {
+    try {
+      const c = cache.cols[col];
+      if (entNecesitaCompleta(c, ahora, edadMax)) {
+        const q = await db.collection(col).get(); const docs = {}; let desde = 0;
+        q.docs.forEach(d => { const x = d.data(); x.mod = entMod(x); docs[d.id] = x; if (x.mod > desde) desde = x.mod; });
+        leidos += q.docs.length; cache.cols[col] = {v: ENT_SYNC_V, docs, desde, completa: ahora};
+      } else {
+        const q = await db.collection(col).where('mod', '>', TS.fromMillis(entDesde(c.desde))).get();
+        q.docs.forEach(d => { const x = d.data(); x.mod = entMod(x); c.docs[d.id] = x; if (x.mod > c.desde) c.desde = x.mod; });
+        leidos += q.docs.length;
+      }
+    } catch (e) {
+      if (col !== 'grupos') throw e;   // las calles del cronómetro son un adorno: sin ellas se sigue
+      cache.cols[col] = {v: ENT_SYNC_V, docs: {}, desde: 0, completa: NaN};
+    }
+  }
+  const b = await db.collection('borrados').where('mod', '>', TS.fromMillis(entDesde(cache.borr.desde))).get().catch(() => ({docs: []}));
+  b.docs.forEach(d => {
+    const x = d.data(), m = entMod(x); if (m > cache.borr.desde) cache.borr.desde = m;
+    if (cache.cols[x.col]) delete cache.cols[x.col].docs[x.id];
+  });
+  leidos += b.docs.length;
+  return {cache, leidos};
+}
+let _entIdb = null;
+function entIdb() {
+  if (!_entIdb) _entIdb = new Promise(ok => {
+    try { const r = indexedDB.open('cna_web', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); r.onblocked = () => ok(null); }
+    catch { ok(null); }
+  });
+  return _entIdb;
+}
+async function entCacheLeer() {
+  const db = await entIdb(); if (!db) return null;
+  return new Promise(ok => { try { const q = db.transaction('c').objectStore('c').get('entrenamientos'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); } catch { ok(null); } });
+}
+async function entCacheGuardar(v) { const db = await entIdb(); if (db) try { db.transaction('c', 'readwrite').objectStore('c').put(v, 'entrenamientos'); } catch {} }
+async function entCacheBorrar() { const db = await entIdb(); if (db) try { db.transaction('c', 'readwrite').objectStore('c').clear(); } catch {} }
 /* Comprueba que la cuenta es de un entrenador aprobado y descarga los datos (se guardan 5 minutos) */
 async function entCargar(forzar) {
   await entConectar();
@@ -970,12 +1024,16 @@ async function entCargar(forzar) {
   const db = firebase.firestore();
   const ficha = await db.collection('entrenadores').doc(String(ENT.user.email || '').toLowerCase()).get().catch(() => null);
   const f = ficha && ficha.exists ? ficha.data() : null;
-  if (!f || f.bloqueado === true || (f.aprobado !== true && f.admin !== true)) { ENT.estado = 'denegado'; entMarcarLocal(false); return; }
+  if (!f || f.bloqueado === true || (f.aprobado !== true && f.admin !== true)) { ENT.estado = 'denegado'; entMarcarLocal(false); entCacheBorrar(); return; }
   const leer = c => db.collection(c).get().then(q => q.docs.map(d => Object.assign({id: d.id}, d.data())));
-  const [todas, resultados, nadadores] = await Promise.all(['sesiones', 'resultados', 'nadadores'].map(leer));
-  const sesiones = todas.filter(s => s.borrado !== true);   // los de la papelera del cronómetro no se ven (sus tiempos tampoco)
-  const estilos = await leer('estilos').catch(() => []);   // estilos propios: si las reglas aún no la permiten, sin ellos
-  const grupos = await leer('grupos').catch(() => []);   // las calles del cronómetro (nombre de cada una)
+  // Lo grande (sesiones, tiempos, nadadores, calles) sale de la copia del navegador + solo lo que cambió
+  // El botón «Actualizar» (forzar) relee todo si la copia tiene más de 6 horas: así se corrige cualquier cambio que no llegara sellado
+  const {cache} = await entSincronizar(db, firebase.firestore.Timestamp, await entCacheLeer(), Date.now(), forzar ? 6 * 3600e3 : ENT_COMPLETA_MS);
+  entCacheGuardar(cache);
+  const lista = col => Object.entries(cache.cols[col].docs).map(([id, d]) => Object.assign({id}, d));
+  const sesiones = lista('sesiones').filter(s => s.borrado !== true);   // los de la papelera del cronómetro no se ven (sus tiempos tampoco)
+  const resultados = lista('resultados'), nadadores = lista('nadadores'), grupos = lista('grupos');   // grupos: las calles del cronómetro (nombre de cada una)
+  const estilos = await leer('estilos').catch(() => []);   // estilos propios (pocos): si las reglas aún no la permiten, sin ellos
   ENT.datos = {sesiones, resultados, nadadores, estilos, grupos};
   ENT.T = entTiempos(ENT.datos, SW);
   ENT.cargado = Date.now(); ENT.estado = 'listo';
@@ -986,7 +1044,7 @@ async function entLogin() {
   try { const r = await firebase.auth().signInWithPopup(prov); ENT.user = r.user; }
   catch (e) { if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) await firebase.auth().signInWithRedirect(prov); else if (e.code !== 'auth/popup-closed-by-user') throw e; }
 }
-async function entSalir() { await firebase.auth().signOut(); ENT = {estado: 'login', user: null, datos: null, T: null, cargado: 0, error: null}; entMarcarLocal(false); }
+async function entSalir() { await firebase.auth().signOut(); await entCacheBorrar(); ENT = {estado: 'login', user: null, datos: null, T: null, cargado: 0, error: null}; entMarcarLocal(false); }
 
 /* Pantalla de acceso: aviso, entrar con Google o mensaje de cuenta sin permiso. pintar() vuelve a dibujar al terminar. */
 function entPuerta(host, pintar) {

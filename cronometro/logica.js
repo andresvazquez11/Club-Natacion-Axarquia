@@ -403,3 +403,71 @@ function pruebaCalleOk(o) {
   });
   return Object.keys(out).length ? out : null;
 }
+// ── Compartir en directo con las familias ──
+// El entrenador crea un enlace con un código largo; la web de familias lee solo la copia pública «directo_pub/<código>».
+const PUB_HORAS = 6;                       // el enlace caduca solo a las 6 h (el entrenador puede cerrarlo antes)
+const PUB_TOKEN_RE = /^[a-z0-9]{24}$/;
+const pubTokenOk = t => typeof t === 'string' && PUB_TOKEN_RE.test(t);
+// Compartir vigente: tiene código válido, no se ha cerrado y no ha caducado
+const pubVigente = (p, ahora) => !!(p && pubTokenOk(p.token) && p.cerrado !== true && Number(p.hasta) > ahora);
+// Un enlace recoge TODOS los entrenamientos del mismo entrenador ese día (el simulacro de competición, por ejemplo, guarda cada prueba
+// como un entrenamiento aparte), también los que empiece después: se suman solos al mismo enlace.
+const mismoDia = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const mismoCoach = (a, b) => !!a && !!b && (a.coachEmail && b.coachEmail ? String(a.coachEmail).toLowerCase() === String(b.coachEmail).toLowerCase() : !!a.coach && a.coach === b.coach);
+const sesionesDelEnlace = (ancla, todas) => (todas || []).filter(s => s.borrado !== true && mismoDia(s.fecha, ancla.fecha) && mismoCoach(s, ancla)).sort((a, b) => (a.fecha || 0) - (b.fecha || 0));
+// Copia pública del enlace: solo lo que ven las familias (nombres, series, pruebas y tiempos). Nada de correos, notas ni entrenadores.
+// «ancla» es el entrenamiento donde se creó el enlace; datos.sesiones son los que entran (por defecto, solo ella).
+// Las series se numeran seguidas a lo largo del día (1, 2, 3…) y cada tiempo lleva su prueba.
+function docPublico(ancla, datos) {
+  const grupo = (Array.isArray(datos.sesiones) ? datos.sesiones : [ancla]).slice().sort((a, b) => (a.fecha || 0) - (b.fecha || 0));   // vacío si todavía no hay ningún entrenamiento
+  const nad = new Map((datos.nadadores || []).map(n => [n.id, n]));
+  const nombre = id => { const n = nad.get(id); return n && n.n ? String(n.n).slice(0, 80) : '?'; };
+  const series = [];   // [{ses, res}] en orden: por entrenamiento y, dentro, por serie
+  grupo.forEach(s => {
+    const res = (datos.resultados || []).filter(r => r.sesId === s.id && r.borrado !== true && idOk(r.nId) && Number(r.ms) > 0);
+    [...new Set(res.map(r => Number(r.ronda) || 1))].sort((a, b) => a - b).forEach(k => series.push({ses: s, res: res.filter(r => (Number(r.ronda) || 1) === k)}));
+  });
+  const resultados = [];
+  series.forEach((x, i) => x.res.forEach(r => {
+    const propia = r.estilo && r.dist;
+    resultados.push({id: r.id, nId: r.nId, ms: Math.round(Number(r.ms)), ronda: i + 1,
+      estilo: (propia ? r.estilo : x.ses.estilo) || null, dist: Number(propia ? r.dist : x.ses.dist) || null});
+  }));
+  // Los «en el agua» son los presentes del entrenamiento de la última serie
+  const ultima = (series.length ? series[series.length - 1].ses : grupo[grupo.length - 1]) || {};
+  const presentes = [...new Set((ultima.presentes || []).filter(idOk))];
+  const nombres = {};
+  presentes.forEach(id => { nombres[id] = nombre(id); });
+  resultados.forEach(r => { nombres[r.nId] = nombre(r.nId); });
+  const equipos = [...new Set(grupo.map(s => (datos.equipos && datos.equipos[s.id]) || datos.equipo || '').filter(Boolean))];
+  return {
+    activo: true,
+    hasta: Number(ancla.pub && ancla.pub.hasta) || 0,
+    equipo: String(equipos.length > 1 ? 'Varios grupos' : equipos[0] || '').slice(0, 80),
+    fecha: Number(ancla.fecha) || 0,
+    estilo: ultima.estilo || null, dist: Number(ultima.dist) || null,
+    presentes, nombres,
+    resultados: resultados.slice(0, 3000)
+  };
+}
+// ── Sincronización: copia en el dispositivo + pedir solo lo que cambió ──
+// Cada escritura lleva «mod» (hora del servidor). Cada dispositivo guarda lo que ya leyó
+// y en las siguientes aperturas pide solo los documentos con mod posterior a lo último que vio.
+// Una copia de una colección: {v, docs: {id: datos}, desde: ms del cambio más reciente visto, completa: ms de la última lectura entera}
+const SYNC_V = 1;
+const SYNC_COMPLETA_MS = 86400e3;          // una vez al día se vuelve a leer todo, por si algo se escapó (escrituras de móviles con la versión antigua, borrados sin marca…)
+const SYNC_SOLAPE_MS = 10 * 60e3;          // se pide desde un poco antes de lo último visto (escrituras en vuelo, relojes)
+// ¿Hay que leer la colección entera? (sin copia, copia estropeada o de otra versión, o de hace más de una semana)
+const syncNecesitaCompleta = (c, ahora) => !c || c.v !== SYNC_V || !c.docs || typeof c.docs !== 'object'
+  || !Number.isFinite(c.completa) || !Number.isFinite(c.desde) || ahora - c.completa > SYNC_COMPLETA_MS || c.completa > ahora + 6 * 3600e3;
+// Desde cuándo pedir los cambios (en ms)
+const syncDesde = c => Math.max(0, (Number.isFinite(c && c.desde) ? c.desde : 0) - SYNC_SOLAPE_MS);
+// Mezcla en la copia lo que cambió (cambios: [{id, datos}]) y quita lo borrado (ids); devuelve el mod más reciente visto
+function syncMezclar(docs, cambios, borrados) {
+  let max = 0;
+  (cambios || []).forEach(c => { docs[c.id] = c.datos; const m = Number(c.datos && c.datos.mod); if (m > max) max = m; });
+  (borrados || []).forEach(id => { delete docs[id]; });
+  return max;
+}
+// Marca de borrado: al borrar un documento se deja «borrados/<colección>__<id>» para que los demás dispositivos lo quiten de su copia
+const syncIdBorrado = (col, id) => `${col}__${id}`;

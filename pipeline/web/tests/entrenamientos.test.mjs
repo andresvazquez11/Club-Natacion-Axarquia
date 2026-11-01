@@ -328,3 +328,74 @@ test('parciales: series con parciales del entreno y sus tres gráficas', () => {
   const cons = evalIn(ctx, 'entGraficoConstancia([{k: "r1", nombre: "Serie 1", sp: [3300, 3700], col: "red", on: true}, {k: "r2", nombre: "Serie 2", sp: [3400, 3400], col: "blue", on: false}], "Ana")');
   assert.equal((cons.match(/<polyline/g) || []).length, 2);
 });
+
+// ── Copia en el navegador + solo lo que cambió ──
+function bdFalsa(datos) {   // datos: {col: {id: {...campos, mod: ms}}}
+  const TS = { fromMillis: ms => ({ toMillis: () => ms }) };
+  const db = { lecturas: 0, datos, fallan: new Set(),
+    collection(c) {
+      const docs = f => { if (db.fallan.has(c)) throw new Error('permission-denied'); const l = Object.entries(db.datos[c] || {}).filter(([, d]) => f(d)); db.lecturas += l.length;
+        return { docs: l.map(([id, d]) => ({ id, data: () => ({ ...d }) })) }; };
+      return { get: async () => docs(() => true), where: (campo, op, ts) => ({ get: async () => docs(d => Number(d.mod) > ts.toMillis()) }) };
+    } };
+  return { db, TS };
+}
+const sync = async (db, TS, previa, ahora) => { ctx.__db = db; ctx.__TS = TS; ctx.__p = previa; ctx.__t = ahora; const r = await evalIn(ctx, 'entSincronizar(__db, __TS, __p, __t)'); return JSON.parse(JSON.stringify(r)); };
+const T0 = 1e12;
+
+test('entSincronizar: la primera vez lee todo y las siguientes casi nada', async () => {
+  const { db, TS } = bdFalsa({ sesiones: { s1: { fecha: 1 }, s2: { fecha: 2, mod: T0 } }, resultados: { r1: { ms: 1 }, r2: { ms: 2 }, r3: { ms: 3, mod: T0 + 5 } }, nadadores: { a: { n: 'A' } }, grupos: {}, borrados: {} });
+  let r = await sync(db, TS, null, T0 + 1000);
+  assert.equal(r.leidos, 2 + 3 + 1);                                    // sesiones + resultados + nadadores (grupos vacío, sin borrados)
+  assert.equal(r.cache.cols.resultados.desde, T0 + 5);
+  db.lecturas = 0;
+  r = await sync(db, TS, r.cache, T0 + 60e3);                           // nada ha cambiado desde hace 1 minuto
+  assert.equal(db.lecturas, 2);                                         // solo los 2 sellados dentro de los 10 min de solape (s2 y r3), no los 6 documentos
+  assert.equal(Object.keys(r.cache.cols.resultados.docs).length, 3);    // la copia sigue entera
+});
+
+test('entSincronizar: trae lo nuevo y lo modificado, y quita lo borrado por marca', async () => {
+  const { db, TS } = bdFalsa({ sesiones: { s1: { fecha: 1, mod: T0 } }, resultados: { r1: { ms: 1, mod: T0 }, r2: { ms: 2, mod: T0 } }, nadadores: {}, grupos: {}, borrados: {} });
+  let r = await sync(db, TS, null, T0 + 1000);
+  const hace = 40 * 60e3;                                               // 40 min después (fuera del solape de 10 min)
+  db.datos.resultados.r3 = { ms: 3, mod: T0 + hace };                   // nuevo
+  db.datos.resultados.r1 = { ms: 99, mod: T0 + hace + 1 };              // corregido
+  delete db.datos.resultados.r2; db.datos.borrados.resultados__r2 = { col: 'resultados', id: 'r2', mod: T0 + hace + 2 };
+  db.lecturas = 0;
+  r = await sync(db, TS, r.cache, T0 + hace + 5000);
+  const ids = Object.keys(r.cache.cols.resultados.docs).sort();
+  assert.deepEqual(ids, ['r1', 'r3']);                                  // r2 quitado, r3 añadido
+  assert.equal(r.cache.cols.resultados.docs.r1.ms, 99);                 // r1 con su corrección
+  assert.equal(db.lecturas, 4);                                         // r3 + r1 + la marca de borrado + s1 (dentro del solape); no r2 ni nadie más
+});
+
+test('entSincronizar: con la copia de más de un día vuelve a leer todo; una copia rota también', async () => {
+  const { db, TS } = bdFalsa({ sesiones: { s1: { mod: T0 } }, resultados: { r1: { mod: T0 }, r2: { mod: T0 } }, nadadores: {}, grupos: {}, borrados: {} });
+  const r1 = await sync(db, TS, null, T0 + 1000);
+  db.lecturas = 0;
+  await sync(db, TS, r1.cache, T0 + 2 * 86400e3);
+  assert.equal(db.lecturas, 3);                                         // sesiones + resultados otra vez enteras
+  db.lecturas = 0;
+  await sync(db, TS, { v: 0, cols: {} }, T0 + 1000);                    // copia de otra versión: se ignora
+  assert.equal(db.lecturas, 3);
+});
+
+test('entSincronizar: si fallan las calles (grupos) se sigue; si falla otra colección, se avisa', async () => {
+  const { db, TS } = bdFalsa({ sesiones: { s1: {} }, resultados: {}, nadadores: {}, grupos: {}, borrados: {} });
+  db.fallan.add('grupos');
+  const r = await sync(db, TS, null, T0);
+  assert.deepEqual(Object.keys(r.cache.cols.grupos.docs), []);
+  db.fallan.add('resultados');
+  await assert.rejects(() => sync(db, TS, null, T0), /permission-denied/);
+});
+
+test('entSincronizar: con edadMax de 6 horas (botón Actualizar) relee todo una copia de más de 6 horas', async () => {
+  const { db, TS } = bdFalsa({ sesiones: { s1: { mod: T0 } }, resultados: { r1: { mod: T0 - 3600e3 }, r2: { mod: T0 - 7200e3 } }, nadadores: {}, grupos: {}, borrados: {} });
+  const r1 = await sync(db, TS, null, T0 + 1000);
+  db.lecturas = 0; await sync(db, TS, r1.cache, T0 + 8 * 3600e3);                         // sin edadMax: pasaron 8 h, menos de un día → solo cambios
+  assert.equal(db.lecturas, 2);                                                          // solo el último de cada colección (s1 y r1), dentro del solape
+  db.lecturas = 0;
+  ctx.__db = db; ctx.__TS = TS; ctx.__p = r1.cache;
+  await evalIn(ctx, `entSincronizar(__db, __TS, __p, ${T0 + 8 * 3600e3}, 6 * 3600e3)`);   // con el botón: más de 6 h → entero
+  assert.equal(db.lecturas, 3);
+});

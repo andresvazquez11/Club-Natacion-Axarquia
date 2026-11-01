@@ -44,9 +44,21 @@ service cloud.firestore {
       allow delete: if esAdmin();
     }
 
+    // Compartir en directo con las familias: copia pública de UN entrenamiento, que se lee solo conociendo
+    // su código (24 caracteres al azar en la dirección). No se puede listar la colección, solo se lee mientras
+    // esté activa y sin caducar (campo hasta, en milisegundos), y solo los entrenadores aprobados la escriben.
+    // Dejar de compartir borra el documento y el enlace deja de funcionar al instante.
+    match /directo_pub/{token} {
+      allow get: if resource.data.activo == true && request.time.toMillis() < resource.data.hasta;
+      allow create, update: if esEntrenador() && token.matches('[a-z0-9]{24}')
+        && request.resource.data.activo == true
+        && request.resource.data.resultados.size() <= 3000;
+      allow delete: if esEntrenador();
+    }
+
     match /{coleccion}/{doc} {
       allow read, write: if esEntrenador()
-        && coleccion in ['equipos', 'nadadores', 'sesiones', 'grupos', 'gnads', 'resultados', 'plantillas', 'planes'];
+        && coleccion in ['equipos', 'nadadores', 'sesiones', 'grupos', 'gnads', 'resultados', 'plantillas', 'planes', 'borrados'];
     }
   }
 }

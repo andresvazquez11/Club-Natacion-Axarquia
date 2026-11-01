@@ -47,6 +47,9 @@
 <script>
 'use strict';
 const COLS = ['equipos','nadadores','sesiones','grupos','gnads','resultados','plantillas','planes'];
+// Colecciones que el cronómetro y la web sincronizan por «mod»: sus escrituras se sellan y sus borrados dejan una marca en «borrados»
+const SINC = ['sesiones','resultados','grupos','gnads','nadadores'];
+const sello = () => firebase.firestore.FieldValue.serverTimestamp();
 const ESTILOS = ['libre','braza','mariposa','espalda'];
 // Campos admitidos por colección; el resto se descarta
 const CAMPOS = {
@@ -103,7 +106,7 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
       $('btn-marcar').onclick = async () => {
         const ids = [...caja.querySelectorAll('input:checked')].map(i => i.value);
         if (!ids.length) return alert('No has elegido ninguno.');
-        const batch = db.batch(); ids.forEach(id => batch.update(db.collection('sesiones').doc(id), {sim: true}));
+        const batch = db.batch(); ids.forEach(id => batch.update(db.collection('sesiones').doc(id), {sim: true, mod: sello()}));
         try { await batch.commit(); log(`✓ ${ids.length} entrenamientos marcados como simulación`); $('btn-ver-sin-marcar').onclick(); }
         catch (err) { log('✗ Error: ' + err.message); }
       };
@@ -129,8 +132,10 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
       const resumen = Object.entries(borrarDe).map(([c, l]) => `${c}: ${l.length}`).join(', ');
       if (!confirm(`Se borrarán para siempre ${simSes.size} entrenamientos de simulación (${resumen}).\nSe quedan ${quedan} entrenamientos reales sin tocar.\n¿Borrar?`)) { log('Borrado cancelado.'); return; }
       for (const [c, docs] of Object.entries(borrarDe)) {
-        for (let i = 0; i < docs.length; i += 400) {
-          const batch = db.batch(); docs.slice(i, i + 400).forEach(d => batch.delete(d.ref)); await batch.commit();
+        for (let i = 0; i < docs.length; i += 200) {   // 200 y no 400: cada borrado lleva además su marca en «borrados» (límite de 500 operaciones por lote)
+          const batch = db.batch();
+          docs.slice(i, i + 200).forEach(d => { batch.delete(d.ref); if (SINC.includes(c)) batch.set(db.collection('borrados').doc(c + '__' + d.id), {col: c, id: d.id, mod: sello()}); });
+          await batch.commit();
         }
         log(`✓ ${c}: ${docs.length} borrados`);
       }
@@ -165,7 +170,7 @@ if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
         const docs = s[c];
         for (let i = 0; i < docs.length; i += 400) {
           const batch = db.batch();
-          docs.slice(i, i+400).forEach(d => batch.set(db.collection(c).doc(d.id), d.data));
+          docs.slice(i, i+400).forEach(d => batch.set(db.collection(c).doc(d.id), SINC.includes(c) ? {...d.data, mod: sello()} : d.data));
           await batch.commit();
         }
         log(`✓ ${c}: ${docs.length}`);

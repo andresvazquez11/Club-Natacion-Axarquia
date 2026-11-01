@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="Directo · Club Natación Axarquía">
+<meta property="og:description" content="Tiempos del entrenamiento en directo. Enlace privado para las familias del club.">
+<title>Directo · Club Natación Axarquía</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
+<script src="firebase-config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column}
+#top{flex:none;display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:2px solid #222;height:72px}
+#titulo{flex:1;min-width:0;font-size:clamp(20px,3.2vw,40px);font-weight:800;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#titulo small{font-weight:500;color:#9ca3af;margin-left:12px;font-size:.6em}
+#live{display:flex;align-items:center;gap:8px;color:#9ca3af;font-size:16px;white-space:nowrap}
+#live i{width:12px;height:12px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e;animation:lat 1.6s infinite}
+#live.off i{background:#ef4444;box-shadow:0 0 10px #ef4444;animation:none}
+@keyframes lat{50%{opacity:.35}}
+select,button{background:#111;color:#fff;border:1px solid #333;border-radius:10px;padding:8px 12px;font-size:16px;font-family:inherit}
+button{cursor:pointer}
+#nav{display:flex;gap:6px}
+#nav button{font-weight:600;color:#9ca3af}
+#nav button.on{background:#fff;color:#000;border-color:#fff}
+#lista{flex:1;min-height:0;overflow-y:auto;padding:8px 20px 16px}
+.fila{display:grid;grid-template-columns:1.6em 1fr auto auto;align-items:center;gap:.6em;height:var(--rh,80px);font-size:calc(var(--rh,80px)*.52);border-bottom:1px solid #1c1c1c;padding:0 8px;transition:background .6s;cursor:pointer;break-inside:avoid}
+.fila .pos{color:#6b7280;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.fila .nom{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila .dif{color:#9ca3af;font-size:.6em;font-variant-numeric:tabular-nums;min-width:4.5em;text-align:right}
+.fila .t{font-weight:800;font-variant-numeric:tabular-nums;min-width:4.2em;text-align:right}
+.fila.p1 .pos,.fila.p1 .t{color:#facc15}
+.fila.nuevo{background:#14532d}
+.fila.sel{background:#1e3a8a !important;box-shadow:inset 6px 0 0 #60a5fa}
+.fila.espera .nom,.fila.espera .t{color:#4b5563;font-weight:500}
+.fila.espera .t{font-size:.7em}
+.sep{height:var(--rh,80px);display:flex;align-items:flex-end;padding:0 8px 4px;color:#4b5563;font-size:min(18px,calc(var(--rh,80px)*.4));letter-spacing:3px;text-transform:uppercase;break-inside:avoid}
+.filas{column-gap:48px;column-fill:auto}
+.cab{display:flex;align-items:baseline;gap:14px;padding:6px 8px 2px;color:#9ca3af;font-size:20px;letter-spacing:3px;text-transform:uppercase;height:48px}
+.cab b{color:#fff;font-size:1.3em;letter-spacing:1px}
+.cab .prueba{margin-left:14px;color:#facc15;font-weight:600;letter-spacing:.5px}
+.cab .vivo{color:#22c55e}
+.cab small{letter-spacing:0;text-transform:none;font-size:.8em;color:#6b7280;margin-left:auto}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:8px 36px;align-items:start}
+.tarjeta .cab{font-size:16px;padding-top:18px;height:auto}
+.tarjeta .fila{--rh:56px}
+.tarjeta .fila .dif{min-width:3.6em}
+.centro{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
+.centro h1{font-size:clamp(28px,5vw,56px)}
+.centro p{color:#9ca3af;font-size:clamp(16px,2vw,24px);max-width:36em}
+.centro button{font-size:22px;padding:14px 28px;background:#16a34a;border:0}
+#pie{flex:none;height:26px;line-height:26px;text-align:center;color:#6b7280;font-size:13px;border-top:1px solid #151515}
+</style>
+</head>
+<body>
+<div id="app"><div class="centro"><h1>Cargando…</h1></div></div>
+<script>
+'use strict';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Tiempo con centésimas (se trunca, igual que el cronómetro)
+function fmt(ms) {
+  if (ms == null || ms < 0) return '--';
+  const c = Math.floor(ms / 10) % 100, s = Math.floor(ms / 1000) % 60, m = Math.floor(ms / 60000);
+  const cc = String(c).padStart(2, '0');
+  return m > 0 ? `${m}:${String(s).padStart(2, '0')}.${cc}` : `${s}.${cc}`;
+}
+const fmtDif = ms => '+' + fmt(ms);
+
+const S = {sesiones: [], resultados: [], nadadores: [], equipos: [], estilos: []};
+let _db, _auth, _unsubs = [], _unsubRes = null;
+let sesId = null, auto = true, marcado = null, vistos = new Set(), primera = true, enLinea = true;
+// Dos pantallas: «directo» (la serie en curso, todo a la vista) y «anteriores» (las series ya nadadas, con scroll).
+// Se elige con la dirección: pantalla.html  o  pantalla.html?vista=anteriores
+let vista = 'directo';
+try { if (new URLSearchParams(location.search).get('vista') === 'anteriores') vista = 'anteriores'; } catch {}
+// Con el código del enlace (pantalla.html?c=…) es la versión para las familias: sin login, solo lectura,
+// y lee la copia pública que el entrenador comparte desde el cronómetro (directo_pub/<código>).
+let TOKEN = null;
+try { TOKEN = new URLSearchParams(location.search).get('c'); } catch {}
+const publico = TOKEN !== null;
+try { if (publico) marcado = localStorage.getItem('pantalla_marcado') || null; } catch {}
+
+function pantalla(titulo, texto, boton) {
+  document.getElementById('app').innerHTML = `<div class="centro"><h1>${esc(titulo)}</h1><p>${texto}</p>${boton || ''}</div>`;
+}
+function pantallaLogin() {
+  pantalla('Pantalla de piscina', 'Entra una vez con la cuenta de Google de un entrenador del club. Quedará guardada en este dispositivo.',
+    '<button id="btn-login">Entrar con Google</button>');
+  document.getElementById('btn-login').onclick = loginGoogle;
+}
+async function loginGoogle() {
+  const prov = new firebase.auth.GoogleAuthProvider();
+  prov.setCustomParameters({prompt: 'select_account'});
+  try { await _auth.signInWithPopup(prov); }
+  catch (e) {
+    if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) await _auth.signInWithRedirect(prov);
+    else if (e.code !== 'auth/popup-closed-by-user') pantalla('No se pudo entrar', esc(e.message), '<button id="btn-login">Reintentar</button>'), document.getElementById('btn-login').onclick = loginGoogle;
+  }
+}
+function sinAcceso(email) {
+  pantalla('Cuenta sin acceso', `<b>${esc(email)}</b> no tiene acceso al cronómetro. Pídele al administrador que la apruebe o entra con otra cuenta.`,
+    '<button id="btn-otra">Usar otra cuenta</button>');
+  document.getElementById('btn-otra').onclick = () => { desconectar(); _auth.signOut(); };
+}
+function desconectar() { _unsubs.forEach(u => { try { u(); } catch {} }); _unsubs = []; if (_unsubRes) { _unsubRes(); _unsubRes = null; } }
+
+function conectar() {
+  const listen = (col, fn, q) => _unsubs.push((q || _db.collection(col)).onSnapshot(snap => {
+    enLinea = !snap.metadata.fromCache || enLinea;
+    fn(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    pintar();
+  }, err => {
+    if (err.code === 'permission-denied') { desconectar(); sinAcceso(_auth.currentUser && _auth.currentUser.email); }
+    else { enLinea = false; pintar(); }
+  }));
+  listen('nadadores', d => { S.nadadores = d; });
+  listen('equipos', d => { S.equipos = d; });
+  listen('estilos', d => { S.estilos = d; });
+  listen('sesiones', d => { S.sesiones = d.filter(s => s.borrado !== true).sort((a, b) => (b.fecha || 0) - (a.fecha || 0)).slice(0, 12); elegirSesion(); },
+    _db.collection('sesiones').orderBy('fecha', 'desc').limit(15));
+}
+// Siempre mira el entrenamiento más reciente, salvo que se elija otro a mano
+function elegirSesion() {
+  const nueva = S.sesiones[0] && S.sesiones[0].id;
+  if (auto) { if (nueva !== sesId) cambiarSesion(nueva); }
+  else if (!S.sesiones.some(s => s.id === sesId)) { auto = true; cambiarSesion(nueva); }
+}
+function cambiarSesion(id) {
+  sesId = id || null; marcado = null; vistos = new Set(); primera = true; S.resultados = [];
+  if (_unsubRes) { _unsubRes(); _unsubRes = null; }
+  if (!sesId) return;
+  _unsubRes = _db.collection('resultados').where('sesId', '==', sesId).onSnapshot(snap => {
+    S.resultados = snap.docs.map(d => ({id: d.id, ...d.data()})).filter(r => r.borrado !== true);
+    enLinea = !snap.metadata.fromCache || enLinea;
+    pintar();
+  }, () => { enLinea = false; pintar(); });
+}
+
+const nomNad = id => { const n = S.nadadores.find(x => x.id === id); return n ? n.n : '?'; };
+function estiloNombre(e) {
+  const x = S.estilos.find(y => y.id === e);
+  const t = x ? x.nombre : String(e || '').replace(/-/g, ' ');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+function tituloSesion(s) {
+  const eq = S.equipos.find(e => e.id === s.eqId);
+  return `${esc(eq ? eq.nombre : 'Entrenamiento')}<small>${esc(new Date(s.fecha).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'}))}</small>`;
+}
+// Cada tiempo trae su prueba (estilo y distancia); si no, la del entrenamiento
+function pruebaTxt(r, s) {
+  const e = r.estilo && r.dist ? r.estilo : s.estilo, d = r.estilo && r.dist ? r.dist : s.dist;
+  return e && d ? `${estiloNombre(e)} ${d} m` : 'Serie libre';
+}
+const pruebasDe = (lista, s) => [...new Set(lista.map(r => pruebaTxt(r, s)))];
+
+function pintar() {
+  if (!publico && (!_auth || !_auth.currentUser)) return;
+  if (terminadoYa) return;
+  const app = document.getElementById('app');
+  const s = S.sesiones.find(x => x.id === sesId);
+  if (!s) { pantalla('Sin entrenamientos', 'En cuanto el entrenador empiece uno en el cronómetro, aparecerá aquí.'); return; }
+
+  const rondas = [...new Set(S.resultados.map(r => r.ronda || 1))].sort((a, b) => a - b);
+  const ultima = rondas.length ? rondas[rondas.length - 1] : 1;
+  const deRonda = k => S.resultados.filter(r => (r.ronda || 1) === k).sort((a, b) => a.ms - b.ms);
+  const res = deRonda(ultima);
+
+  // Presentes que aún no han llegado en la serie actual (en gris, al final)
+  const llegados = new Set(res.map(r => r.nId));
+  const faltan = (s.presentes || []).filter(id => !llegados.has(id));
+
+  const fila = (r, i, mejor) => {
+    const nuevo = !primera && !vistos.has(r.id);
+    return `<div class="fila${i === 0 ? ' p1' : ''}${nuevo ? ' nuevo' : ''}${marcado === r.nId ? ' sel' : ''}" data-n="${esc(r.nId)}">
+      <span class="pos">${i + 1}</span><span class="nom">${esc(nomNad(r.nId))}</span>
+      <span class="dif">${i === 0 ? '' : fmtDif(r.ms - mejor)}</span><span class="t">${fmt(r.ms)}</span></div>`;
+  };
+  // Si en una serie hay pruebas distintas (cada calle o cada nadador la suya) se ordena por separado
+  const rank = l => l.map((r, i) => fila(r, i, l[0].ms)).join('');
+  const bloque = lista => {
+    const ps = pruebasDe(lista, s);
+    return ps.length > 1 ? ps.map(p => `<div class="sep">${esc(p)}</div>` + rank(lista.filter(r => pruebaTxt(r, s) === p))).join('') : rank(lista);
+  };
+  const cabSerie = (k, lista) => { const ps = pruebasDe(lista, s); return `Serie ${k}${ps.length ? `<span class="prueba">${ps.length === 1 ? esc(ps[0]) : 'pruebas distintas'}</span>` : ''}`; };
+
+  let cuerpo;
+  if (vista === 'directo') {
+    // Todo cabe en pantalla: la altura de cada fila se calcula para que entren todos los nadadores
+    // (si son muchos, se reparten en dos columnas)
+    const lineas = res.length + faltan.length + (faltan.length ? 1 : 0) + (pruebasDe(res, s).length > 1 ? pruebasDe(res, s).length : 0);
+    const hay = Math.max(100, window.innerHeight - 72 - 24 - 48 - (publico ? 26 : 0));
+    const cols = lineas > 14 && window.innerWidth >= 900 ? 2 : 1;
+    const porCol = Math.max(1, Math.ceil(lineas / cols));
+    const rh = Math.max(30, Math.min(120, Math.floor(hay / Math.max(porCol, 5))));
+    let filas = bloque(res);
+    if (faltan.length) filas += `<div class="sep">Nadando…</div>` + faltan.map(id => `<div class="fila espera${marcado === id ? ' sel' : ''}" data-n="${esc(id)}"><span class="pos"></span><span class="nom">${esc(nomNad(id))}</span><span></span><span class="t">en el agua</span></div>`).join('');
+    cuerpo = res.length || faltan.length
+      ? `<div class="cab"><b>${cabSerie(ultima, res)}</b><span class="vivo">● en directo</span></div>
+         <div class="filas" style="--rh:${rh}px;${cols === 2 ? `column-count:2;height:${porCol * rh + 2}px` : ''}">${filas}</div>`
+      : '<div class="centro"><p>Esperando la primera llegada…</p></div>';
+  } else {
+    // Series anteriores: la más reciente primero, en tarjetas para buscarse (esta pantalla sí se desplaza)
+    const previas = rondas.filter(k => k !== ultima).reverse();
+    cuerpo = previas.length
+      ? `<div class="cab"><b>Series anteriores</b><small>Toca tu nombre para marcarte en todas las series</small></div>
+         <div class="tarjetas">${previas.map(k => `<div class="tarjeta"><div class="cab"><b>${cabSerie(k, deRonda(k))}</b></div>${bloque(deRonda(k))}</div>`).join('')}</div>`
+      : '<div class="centro"><p>Cuando empiece la segunda serie, aquí irán quedando las anteriores.</p></div>';
+  }
+
+  // No se reconstruye el selector mientras está abierto (se cerraría en pleno uso)
+  const abierto = document.activeElement && document.activeElement.tagName === 'SELECT';
+  const lista = document.getElementById('lista');
+  const scroll = lista ? lista.scrollTop : 0;
+  if (!lista || !abierto) {
+    const opSes = S.sesiones.map(x => `<option value="${esc(x.id)}"${x.id === sesId ? ' selected' : ''}>${esc(new Date(x.fecha).toLocaleString('es-ES', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}))} · ${esc(x.estilo && x.dist ? estiloNombre(x.estilo) + ' ' + x.dist : 'Serie libre')}</option>`).join('');
+    app.innerHTML = `<div id="top"><div id="titulo">${tituloSesion(s)}</div>
+      <div id="nav"><button data-v="directo" class="${vista === 'directo' ? 'on' : ''}">Directo</button><button data-v="anteriores" class="${vista === 'anteriores' ? 'on' : ''}">Anteriores</button></div>
+      ${publico ? '' : `<select id="sel-ses">${opSes}</select>`}
+      <button id="btn-fs" title="Pantalla completa">⛶</button>
+      <div id="live" class="${enLinea ? '' : 'off'}"><i></i>${enLinea ? 'En directo' : 'Sin conexión'}</div></div>
+      <div id="lista">${cuerpo}</div>
+      ${publico ? '<div id="pie">Enlace privado para las familias del club · por favor, no lo compartas fuera del grupo</div>' : ''}`;
+    const selSes = document.getElementById('sel-ses');
+    if (selSes) selSes.onchange = e => { auto = e.target.value === S.sesiones[0].id; cambiarSesion(e.target.value); pintar(); };
+    document.getElementById('btn-fs').onclick = () => { const d = document.documentElement; (document.fullscreenElement ? document.exitFullscreen() : (d.requestFullscreen || d.webkitRequestFullscreen).call(d)); };
+    document.getElementById('nav').onclick = e => {
+      const b = e.target.closest('button[data-v]'); if (!b) return;
+      vista = b.dataset.v;
+      try {   // la dirección conserva el código del enlace
+        const p = new URLSearchParams(location.search);
+        if (vista === 'anteriores') p.set('vista', 'anteriores'); else p.delete('vista');
+        history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : ''));
+      } catch {}
+      pintar();
+    };
+    document.getElementById('lista').onclick = e => {
+      const f = e.target.closest('.fila[data-n]'); if (!f) return;
+      marcado = marcado === f.dataset.n ? null : f.dataset.n;
+      if (publico) try { marcado ? localStorage.setItem('pantalla_marcado', marcado) : localStorage.removeItem('pantalla_marcado'); } catch {}   // cada familia recuerda a su nadador
+      pintar();
+    };
+  } else {
+    lista.innerHTML = cuerpo;
+  }
+  document.getElementById('lista').scrollTop = scroll;
+  S.resultados.forEach(r => vistos.add(r.id)); primera = false;
+}
+window.addEventListener('resize', () => pintar());
+window.addEventListener('online', () => { enLinea = true; pintar(); });
+window.addEventListener('offline', () => { enLinea = false; pintar(); });
+
+// Mantiene la pantalla encendida mientras se usa
+let _wl = null;
+async function mantenerEncendida() { try { if ('wakeLock' in navigator) _wl = await navigator.wakeLock.request('screen'); } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') mantenerEncendida(); });
+
+// ── Versión para familias: lee la copia pública del entrenamiento ──
+let terminadoYa = false, _tFin = null;
+function terminado() {
+  terminadoYa = true; desconectar(); clearTimeout(_tFin);
+  pantalla('Este directo ya ha terminado', 'El entrenador ha dejado de compartir el enlace o ha caducado. Si quieres seguir viéndolo, pídele un enlace nuevo.');
+}
+function cargarPublico(d) {
+  S.equipos = [{id: 'pub', nombre: d.equipo || 'Entrenamiento'}];
+  S.nadadores = Object.entries(d.nombres || {}).map(([id, n]) => ({id, n: String(n)}));
+  S.sesiones = [{id: 'pub', eqId: 'pub', fecha: Number(d.fecha) || Date.now(), estilo: d.estilo || null, dist: d.dist || null, presentes: Array.isArray(d.presentes) ? d.presentes : []}];
+  S.resultados = (Array.isArray(d.resultados) ? d.resultados : []).filter(r => r && Number(r.ms) > 0)
+    .map(r => ({id: String(r.id), sesId: 'pub', nId: String(r.nId), ms: Number(r.ms), ronda: Number(r.ronda) || 1, estilo: r.estilo || null, dist: Number(r.dist) || null}));
+  sesId = 'pub';
+  // El enlace caduca solo: al llegar la hora se cierra aunque no cambie nada
+  clearTimeout(_tFin);
+  const resta = Number(d.hasta) - Date.now();
+  if (resta > 0 && resta < 2 ** 31) _tFin = setTimeout(terminado, resta + 500);
+}
+function conectarPublico() {
+  if (!/^[a-z0-9]{24}$/.test(TOKEN)) { terminadoYa = true; pantalla('Enlace no válido', 'Revisa que el enlace esté completo o pídele uno nuevo al entrenador.'); return; }
+  pantalla('Cargando…', '');
+  mantenerEncendida();
+  _db = firebase.firestore();
+  _unsubs.push(_db.collection('directo_pub').doc(TOKEN).onSnapshot(snap => {
+    if (!snap.exists) { terminado(); return; }
+    enLinea = !snap.metadata.fromCache || enLinea;
+    cargarPublico(snap.data());
+    pintar();
+  }, err => {
+    if (err.code === 'permission-denied' || err.code === 'not-found') terminado();   // cerrado, caducado o código que no existe
+    else { enLinea = false; pintar(); }
+  }));
+}
+
+async function init() {
+  if (!window.FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) { pantalla('Falta configurar Firebase', 'Revisa firebase-config.js'); return; }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  if (publico) { conectarPublico(); return; }
+  _auth = firebase.auth(); _db = firebase.firestore();
+  try { await Promise.race([_auth.getRedirectResult(), new Promise(r => setTimeout(r, 4000))]); } catch {}
+  _auth.onAuthStateChanged(async u => {
+    desconectar();
+    if (!u) { pantallaLogin(); return; }
+    pantalla('Entrando…', '');
+    mantenerEncendida();
+    conectar();
+  });
+}
+init();
+</script>
+</body>
+</html>

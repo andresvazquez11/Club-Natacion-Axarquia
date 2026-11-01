@@ -510,17 +510,20 @@ async function loginGoogle() {
   }
 }
 async function logout() {
+  if (_pub && _db) { const t = _pub.token; _pub = null; pubGuardar(); await _db.collection('directo_pub').doc(t).delete().catch(() => {}); }   // al salir se deja de compartir
   _unsubs.forEach(u => { try { u(); } catch {} });
   _unsubs = [];
   Object.keys(S).forEach(k => { S[k] = []; });
   PAPELERA = []; _rawRes = [];
   _dbReady = false; _initN = 0; _db = null; SA = null; PS = null;
+  _cacheCols = {}; _publicarCol = {}; await idbBorrarTodo();   // la copia del histórico no se queda en un móvil sin sesión
   route = {screen:'home'};
   await _auth.signOut();
 }
 function sinAcceso() {
   _unsubs.forEach(u => { try { u(); } catch {} });
   _unsubs = [];
+  _cacheCols = {}; _publicarCol = {}; idbBorrarTodo();
   pantallaMensaje('Cuenta sin acceso',
     `El administrador del club no ha dado acceso a <b>${esc(_user && _user.email)}</b> o lo ha retirado. Si crees que es un error, habla con él.`,
     `<button class="btn btn-surf" style="max-width:320px;margin:0 auto" data-action="logout">Usar otra cuenta</button>`);
@@ -549,6 +552,7 @@ async function dbInit() {
     return;
   }
   firebase.initializeApp(FIREBASE_CONFIG);
+  sellarEscrituras();
   _auth = firebase.auth();
   const fs = firebase.firestore();
   // Datos guardados en el móvil: la app sigue funcionando con mala cobertura en la piscina
@@ -628,20 +632,141 @@ function conectarColecciones() {
   document.getElementById('app').innerHTML = '<div class="center-msg"><h2>Cargando...</h2></div>';
   _dbReady = false; _initN = 0;
   _initTimer = setTimeout(() => { if (!_dbReady) { _dbReady = true; render(); } }, 6000);
+  _llegadas = new Set();
+  pubCargar();   // si este móvil tenía un enlace de hoy compartido, sigue activo
   for (const col of COLS) {
-    _unsubs.push(_db.collection(col).onSnapshot(snap => {
-      const docs = snap.docs.filter(d => d.exists).map(d => limpiarDoc(col, {id:d.id,...d.data()}));
-      if (col === 'sesiones') { PAPELERA = docs.filter(s => s.borrado === true); S.sesiones = docs.filter(s => s.borrado !== true); aplicarPapelera(); }
-      else if (col === 'resultados') { docs.forEach(r => { r._raw = true; }); _rawRes = docs; aplicarPapelera(); }
-      else S[col] = docs;
-      if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
-      else if (canRerender()) render();
-    }, err => {
-      console.warn(col, err.code);
-      if (err.code === 'permission-denied' && !COLS_OPCIONALES.includes(col)) { clearTimeout(_initTimer); sinAcceso(); return; }
-      if (!_dbReady) { if (++_initN >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
-    }));
+    if (COLS_INC.includes(col)) sincronizarCol(col);   // las grandes: copia en el móvil y solo lo que cambió
+    else _unsubs.push(_db.collection(col).onSnapshot(snap => recibirCol(col, snap.docs.filter(d => d.exists).map(d => limpiarDoc(col, {id:d.id,...d.data()}))), err => errCol(col, err)));
   }
+  sincronizarBorrados();
+}
+// Lo que se hacía con cada lista completa que llegaba de la base de datos
+function recibirCol(col, docs) {
+  if (col === 'sesiones') { PAPELERA = docs.filter(s => s.borrado === true); S.sesiones = docs.filter(s => s.borrado !== true); aplicarPapelera(); }
+  else if (col === 'resultados') { docs.forEach(r => { r._raw = true; }); _rawRes = docs; aplicarPapelera(); }
+  else S[col] = docs;
+  if (col === 'sesiones' || col === 'resultados' || col === 'nadadores') pubProgramar();   // si se está compartiendo en directo, se actualiza la copia pública
+  if (!_dbReady) { _llegadas.add(col); if (_llegadas.size >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
+  else if (canRerender()) render();
+}
+function errCol(col, err) {
+  console.warn(col, err.code);
+  if (err.code === 'permission-denied' && !COLS_OPCIONALES.includes(col)) { clearTimeout(_initTimer); sinAcceso(); return; }
+  if (!_dbReady) { _llegadas.add(col); if (_llegadas.size >= COLS.length) { clearTimeout(_initTimer); _dbReady = true; render(); } }
+}
+
+// ── Copia en el móvil + solo lo que cambió ───────────────────
+// Antes cada apertura descargaba TODO el histórico (miles de lecturas). Ahora cada colección grande se guarda en el
+// dispositivo (IndexedDB) y en las siguientes aperturas solo se piden los documentos con «mod» posterior a lo último visto.
+// Cada semana (o sin copia) se vuelve a leer todo. Los borrados se avisan con marcas en «borrados».
+const COLS_INC = ['sesiones', 'resultados', 'grupos', 'gnads', 'nadadores'];
+let _llegadas = new Set(), _cacheCols = {}, _publicarCol = {}, SELLADO = false;
+let _idb = null;
+function idbAbrir() {
+  if (!_idb) _idb = new Promise(ok => {
+    try { const r = indexedDB.open('cna_crono', 1); r.onupgradeneeded = () => r.result.createObjectStore('cols'); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); r.onblocked = () => ok(null); }
+    catch { ok(null); }
+  });
+  return _idb;
+}
+async function idbLeer(k) {
+  const db = await idbAbrir(); if (!db) return null;
+  return new Promise(ok => { try { const q = db.transaction('cols').objectStore('cols').get(k); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); } catch { ok(null); } });
+}
+async function idbGuardar(k, v) {
+  const db = await idbAbrir(); if (!db) return;
+  try { db.transaction('cols', 'readwrite').objectStore('cols').put(v, k); } catch (e) { console.warn('copia', e.message); }
+}
+async function idbBorrarTodo() {
+  const db = await idbAbrir(); if (!db) return;
+  try { db.transaction('cols', 'readwrite').objectStore('cols').clear(); } catch {}
+}
+// El «mod» se guarda como número (ms): el Timestamp de Firebase no sirve de copia
+function normDoc(d) {
+  const x = d.data(), m = x.mod;
+  x.mod = m && typeof m.toMillis === 'function' ? m.toMillis() : (Number.isFinite(m) ? m : 0);
+  return x;
+}
+function sincronizarCol(col) {
+  let cache = null, tG = null;
+  const guardar = () => { clearTimeout(tG); tG = setTimeout(() => idbGuardar(col, cache), 800); };
+  const publicar = () => recibirCol(col, Object.entries(cache.docs).map(([id, d]) => limpiarDoc(col, {id, ...d})));
+  idbLeer(col).then(c => {
+    if (!_db) return;   // se cerró la sesión mientras tanto
+    const entera = !SELLADO || syncNecesitaCompleta(c, Date.now());   // sin sellado de escrituras no hay forma segura de pedir solo cambios
+    if (!entera) { cache = _cacheCols[col] = c; _publicarCol[col] = publicar; publicar(); }   // lo guardado se ve al instante, también sin conexión
+    if (entera) {
+      cache = _cacheCols[col] = {v: SYNC_V, docs: {}, desde: 0, completa: NaN}; _publicarCol[col] = publicar;
+      // includeMetadataChanges: si Firebase ya tenía los datos en su propia caché y el servidor los confirma sin cambios, no avisaría;
+      // así se entera de que la lectura ya vino del servidor y se puede dar la copia por entera.
+      _unsubs.push(_db.collection(col).onSnapshot({includeMetadataChanges: true}, snap => {
+        const docs = {}; let max = 0;
+        snap.docs.forEach(d => { if (!d.exists) return; const x = normDoc(d); docs[d.id] = x; if (x.mod > max) max = x.mod; });
+        cache.docs = docs; cache.desde = Math.max(cache.desde, max);
+        if (!snap.metadata.fromCache && !(cache.completa > 0)) cache.completa = Date.now();   // solo cuenta como lectura entera si vino del servidor
+        guardar(); publicar();
+      }, err => errCol(col, err)));
+    } else {
+      const q = _db.collection(col).where('mod', '>', firebase.firestore.Timestamp.fromMillis(syncDesde(cache)));
+      _unsubs.push(q.onSnapshot(snap => {
+        const cambios = [], borrados = [];
+        snap.docChanges().forEach(ch => { if (ch.type === 'removed') borrados.push(ch.doc.id); else cambios.push({id: ch.doc.id, datos: normDoc(ch.doc)}); });
+        cache.desde = Math.max(cache.desde, syncMezclar(cache.docs, cambios, borrados));
+        guardar(); publicar();
+      }, err => errCol(col, err)));
+    }
+  });
+}
+// Los documentos borrados se quitan de la copia de este dispositivo
+function sincronizarBorrados() {
+  idbLeer('borrados').then(c => {
+    if (!_db) return;
+    let desde = c && Number.isFinite(c.desde) ? c.desde : 0;
+    const q = _db.collection('borrados').where('mod', '>', firebase.firestore.Timestamp.fromMillis(syncDesde({desde})));
+    _unsubs.push(q.onSnapshot(snap => {
+      const porCol = {};
+      snap.docChanges().forEach(ch => {
+        if (ch.type === 'removed') return;
+        const x = ch.doc.data(), m = x.mod && typeof x.mod.toMillis === 'function' ? x.mod.toMillis() : 0;
+        if (m > desde) desde = m;
+        if (COLS_INC.includes(x.col)) (porCol[x.col] = porCol[x.col] || []).push(x.id);
+      });
+      for (const [col, ids] of Object.entries(porCol)) {
+        const cc = _cacheCols[col]; if (!cc) continue;
+        const antes = Object.keys(cc.docs).length; syncMezclar(cc.docs, [], ids);
+        if (Object.keys(cc.docs).length !== antes) { idbGuardar(col, cc); if (_publicarCol[col]) _publicarCol[col](); }
+      }
+      idbGuardar('borrados', {desde});
+    }, err => console.warn('borrados', err.code)));
+  });
+}
+// Cada escritura de las colecciones grandes lleva «mod» (hora del servidor) y cada borrado deja una marca en «borrados».
+// Las reglas no permiten «mod» en «entrenadores», por eso solo se sellan estas colecciones.
+function sellarEscrituras() {
+  try {
+    const DR = firebase.firestore.DocumentReference.prototype;
+    if (DR._sellado) { SELLADO = true; return; }
+    const set = DR.set, upd = DR.update, del = DR.delete;
+    if (typeof set !== 'function' || typeof upd !== 'function' || typeof del !== 'function') return;
+    const hora = () => firebase.firestore.FieldValue.serverTimestamp();
+    const sella = ref => COLS_INC.includes(ref.parent.id);
+    DR.set = function (data, opts) {
+      const d = sella(this) && data && typeof data === 'object' ? {...data, mod: hora()} : data;
+      return opts === undefined ? set.call(this, d) : set.call(this, d, opts);
+    };
+    DR.update = function (...a) {
+      if (!sella(this)) return upd.apply(this, a);
+      return a.length === 1 && a[0] && typeof a[0] === 'object' ? upd.call(this, {...a[0], mod: hora()}) : upd.apply(this, [...a, 'mod', hora()]);
+    };
+    DR.delete = function () {
+      const col = this.parent.id, id = this.id, fs = this.firestore, marca = sella(this);
+      return del.call(this).then(r => {
+        if (marca) fs.collection('borrados').doc(syncIdBorrado(col, id)).set({col, id, mod: hora()}).catch(e => console.warn('borrados', e.code));
+        return r;
+      });
+    };
+    DR._sellado = true; SELLADO = true;
+  } catch (e) { console.warn('sellado', e.message); }
 }
 
 // ── DB Mutations ─────────────────────────────────────────────
@@ -1645,6 +1770,96 @@ function repetirSerie(cfg) {
   render();
   window.scrollTo(0,0);
 }
+// ── Compartir en directo con las familias ──────────────────────
+// Desde el inicio, ANTES de empezar, el entrenador crea un enlace (pantalla.html?c=código) para su jornada. Mientras esté activo,
+// su móvil copia a «directo_pub/<código>» lo que ven las familias: nombres, series y tiempos de TODOS los entrenamientos que ese
+// entrenador haga ese día (también los que empiece después). Dejar de compartir borra esa copia y el enlace deja de funcionar.
+// El estado del enlace vive solo en el móvil que lo creó (localStorage): es el que sube la copia. Caduca solo a las 6 h.
+const pubEnlace = token => new URL('pantalla.html', location.href).href + '?c=' + token;
+function pubNuevoToken() {
+  const b = new Uint8Array(24); crypto.getRandomValues(b);
+  return Array.from(b, x => 'abcdefghijklmnopqrstuvwxyz0123456789'[x % 36]).join('');
+}
+let _pub = null, _pubAbierto = false, _pubT = null, _pubUlt = {}, _pubErr = null;
+function pubCargar() {
+  try { const p = JSON.parse(localStorage.getItem('crono_pub') || 'null'); _pub = p && p.por === miEmail() && pubVigente(p, Date.now()) ? p : null; } catch { _pub = null; }
+}
+function pubGuardar() { try { if (_pub) localStorage.setItem('crono_pub', JSON.stringify(_pub)); else localStorage.removeItem('crono_pub'); } catch {} }
+// El enlace vigente de este móvil (si ya caducó, se olvida)
+function pubActivo() {
+  if (_pub && !pubVigente(_pub, Date.now())) { _pub = null; pubGuardar(); }
+  return _pub;
+}
+const pubAncla = () => ({fecha: _pub.dia, coachEmail: _pub.por, coach: _pub.coach, pub: _pub});
+function pubProgramar() {
+  if (!pubActivo()) return;
+  clearTimeout(_pubT); _pubT = setTimeout(pubSubir, 600);
+}
+function pubSubir() {
+  const p = pubActivo(); if (!_db || !p) return;
+  const ancla = pubAncla(), grupo = sesionesDelEnlace(ancla, S.sesiones), equipos = {};
+  grupo.forEach(x => { equipos[x.id] = catSesion(x); });
+  const doc = docPublico(ancla, {nadadores: S.nadadores, resultados: S.resultados, sesiones: grupo, equipos});
+  const txt = JSON.stringify(doc);
+  if (_pubUlt[p.token] === txt) return;
+  _pubUlt[p.token] = txt;
+  _db.collection('directo_pub').doc(p.token).set(doc).then(() => {
+    if (_pubErr) { _pubErr = null; if (canRerender()) render(); }
+  }).catch(e => {
+    delete _pubUlt[p.token];
+    _pubErr = e.code || e.message || 'error'; console.warn('compartir', _pubErr);
+    if (canRerender()) render();
+  });
+}
+function pubCompartir() {
+  if (pubActivo()) return;
+  _pub = {token: pubNuevoToken(), hasta: Date.now() + PUB_HORAS * 3600e3, dia: Date.now(), por: miEmail(), coach: coachName};
+  pubGuardar(); _pubErr = null; render();
+  pubSubir();
+}
+async function pubCerrar() {
+  const p = _pub; if (!p) return;
+  _pub = null; pubGuardar(); delete _pubUlt[p.token]; _pubErr = null; _pubAbierto = false; render();
+  await _db.collection('directo_pub').doc(p.token).delete().catch(e => console.warn('compartir', e.code));   // el enlace deja de funcionar
+}
+async function pubCopiar(btn) {
+  const p = pubActivo(); if (!p) return;
+  const url = pubEnlace(p.token);
+  try { await navigator.clipboard.writeText(url); if (btn) { const t = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = t; }, 1500); } }
+  catch { prompt('Copia el enlace:', url); }
+}
+async function pubEnviar(btn) {
+  const p = pubActivo(); if (!p) return;
+  if (navigator.share) {
+    try { await navigator.share({title: 'Directo · Club Natación Axarquía', text: 'Tiempos en directo del entrenamiento de hoy. Enlace solo para las familias del club:', url: pubEnlace(p.token)}); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  await pubCopiar(btn);
+}
+// Tarjeta del enlace activo (arriba, en el inicio): copiarlo, volver a enviarlo o cerrarlo
+function pubActivoHTML() {
+  const p = pubActivo(); if (!p) return '';
+  const hasta = new Date(p.hasta).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+  const n = sesionesDelEnlace(pubAncla(), S.sesiones).length;
+  return `<div class="card" style="border-color:var(--grn)">
+    <b>📡 Compartiendo en directo</b> <span class="muted" style="font-size:12px">· ${n ? `${n} ${n === 1 ? 'entrenamiento' : 'entrenamientos'} de hoy` : 'todavía sin entrenamientos'} · caduca a las ${hasta}</span>
+    <div style="margin:8px 0;padding:8px;background:var(--bg);border-radius:8px;font-size:12px;word-break:break-all;user-select:all">${esc(pubEnlace(p.token))}</div>
+    ${_pubErr ? `<div style="color:var(--amb);font-size:12px;margin-bottom:8px">⚠ No se pudo publicar (${esc(_pubErr)}). Las familias todavía no ven nada.</div>` : ''}
+    <div class="row" style="gap:8px"><button class="btn btn-green btn-sm" style="flex:1" data-action="pub-enviar">Compartir…</button>
+      <button class="btn btn-surf btn-sm" data-action="pub-copiar">Copiar</button></div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Los entrenamientos que hagas hoy se suman solos. Mientras compartes, no toques nada más: no hace falta.</div>
+    <button class="btn btn-surf btn-sm mt8" data-action="pub-cerrar">Dejar de compartir</button></div>`;
+}
+// Enlace discreto al final del inicio (es algo de ocasiones especiales): al tocarlo se ofrece crear el enlace
+function pubPieHTML() {
+  if (pubActivo()) return '';
+  return `<div style="margin:22px 0 14px;text-align:center">
+      <button class="edit-link" data-action="pub-abrir" style="opacity:.8">📡 Compartir en directo con las familias</button>
+    </div>${_pubAbierto ? `<div id="pub-card" class="card">
+      <b>📡 Compartir en directo</b>
+      <div class="muted" style="font-size:13px;margin:4px 0 10px">Crea un enlace para que las familias vean los tiempos en su móvil, con nombres completos. Hazlo antes de empezar: incluye todos tus entrenamientos de hoy, también los que empieces después, y no tienes que volver a tocarlo. Caduca solo a las ${PUB_HORAS} h y lo puedes cerrar cuando quieras.</div>
+      <button class="btn btn-green" data-action="pub-crear">Crear enlace</button></div>` : ''}`;
+}
 async function finalizarSesion() {
   if (!SA) return;
   // Si aún hay nadadores en el agua o por salir, pedir un segundo toque
@@ -2155,10 +2370,12 @@ function renderHome() {
     ${pend ? `<button class="btn mb16" style="background:#2a1c0c;color:var(--amb);border:1px solid var(--amb)" data-action="entrenadores">🔔 ${pend} ${pend===1?'solicitud':'solicitudes'} de acceso</button>` : ''}
     <button class="salida-btn" style="margin-bottom:6px" data-action="nueva-sesion">▶ Nuevo entrenamiento</button>
     ${p ? `<div class="muted" style="font-size:12px;text-align:center;margin-bottom:10px">Calles de la última vez: ${p.calles.length} calle${p.calles.length!==1?'s':''} · ${p.calles.reduce((s,c)=>s+c.nads.length,0)} nadadores</div>` : '<div style="height:14px"></div>'}
+    ${pubActivoHTML()}
     ${renderPreparados()}
     ${tarjeta}
     <a class="manual-card" href="${MANUAL_URL}" target="_blank" rel="noopener"><span class="mi">📘</span>
-      <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>`;
+      <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>
+    ${pubPieHTML()}`;
 }
 function renderPreparados() {
   const ps = misPlanes();
@@ -4212,6 +4429,11 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'pdf':             await generarPDF(btn.dataset.ses||route.sesId, btn); break;
     case 'pdf-compartir':   await generarPDF(btn.dataset.ses||route.sesId, btn, true); break;
     case 'finalizar-sesion': await finalizarSesion(); break;
+    case 'pub-abrir':       _pubAbierto = !_pubAbierto; render(); if (_pubAbierto) setTimeout(() => { const c = document.getElementById('pub-card'); if (c) c.scrollIntoView({block: 'center', behavior: 'smooth'}); }, 60); break;
+    case 'pub-crear':       pubCompartir(); break;
+    case 'pub-copiar':      await pubCopiar(btn); break;
+    case 'pub-enviar':      await pubEnviar(btn); break;
+    case 'pub-cerrar':      if (confirm('¿Dejar de compartir? El enlace dejará de funcionar para todas las familias al instante. Si quieres volver a compartir, se crea un enlace nuevo.')) await pubCerrar(); break;
     case 'exportar':     await exportar(btn.dataset.ses||route.sesId); break;
   }
   if (route.screen==='en-curso') { if (!_clk) startClock(); }

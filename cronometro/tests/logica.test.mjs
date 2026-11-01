@@ -361,3 +361,126 @@ test('nomCorto en vistas estrechas: letras justas del apellido para distinguir',
   assert.equal(ev('nomCorto', 'Alexis Gonzalez Garcia', ['Alexis Diaz Fernandez', 'Alexis Gonzalez Garcia'], 4), 'Alexis Gonz.');
   assert.equal(ev('nomCorto', 'Lucía Romero Gil', g, 4), 'Lucía R.');
 });
+
+test('docPublico: solo nombres, series y tiempos; sin borrados ni datos del entrenador', () => {
+  const ses = { id: 's1', eqId: 'e1', fecha: 1000, estilo: 'libre', dist: 100, coachEmail: 'x@y.z', notas: 'privado', presentes: ['n1', 'n2', 'n3'], pub: { token: 'a'.repeat(24), hasta: 9999 } };
+  const datos = {
+    equipo: 'Alevín A',
+    nadadores: [{ id: 'n1', n: 'Lucía García' }, { id: 'n2', n: 'Pablo Ruiz' }, { id: 'n3', n: 'Marta López' }],
+    resultados: [
+      { id: 'r1', sesId: 's1', nId: 'n1', ms: 68410.4, ronda: 1, nota: 'privada' },
+      { id: 'r2', sesId: 's1', nId: 'n2', ms: 41200, ronda: 2, estilo: 'braza', dist: 50 },
+      { id: 'r3', sesId: 's1', nId: 'n3', ms: 50000, ronda: 1, borrado: true },
+      { id: 'r4', sesId: 'otra', nId: 'n1', ms: 50000, ronda: 1 },
+    ],
+  };
+  const d = ev('docPublico', ses, datos);
+  assert.equal(d.activo, true);
+  assert.equal(d.hasta, 9999);
+  assert.equal(d.equipo, 'Alevín A');
+  assert.deepEqual(d.presentes, ['n1', 'n2', 'n3']);
+  assert.equal(d.nombres.n1, 'Lucía García');
+  assert.deepEqual(d.resultados.map(r => r.id), ['r1', 'r2']);                    // sin el borrado ni el de otro entreno
+  assert.deepEqual(d.resultados[1], { id: 'r2', nId: 'n2', ms: 41200, ronda: 2, estilo: 'braza', dist: 50 });
+  assert.equal(d.resultados[0].ms, 68410);
+  const txt = JSON.stringify(d);
+  for (const privado of ['x@y.z', 'privado', 'privada', 'coachEmail', 'notas']) assert.ok(!txt.includes(privado), privado);
+});
+
+test('pubVigente: código válido, sin cerrar y sin caducar', () => {
+  const ok = { token: 'a1b2c3d4e5f6g7h8i9j0k1l2', hasta: 2000 };
+  assert.equal(ev('pubVigente', ok, 1000), true);
+  assert.equal(ev('pubVigente', ok, 3000), false);                                 // caducado
+  assert.equal(ev('pubVigente', { ...ok, cerrado: true }, 1000), false);
+  assert.equal(ev('pubVigente', { token: 'corto', hasta: 2000 }, 1000), false);
+  assert.equal(ev('pubVigente', null, 1000), false);
+});
+
+test('syncNecesitaCompleta: lee todo sin copia, con copia estropeada o de más de un día', () => {
+  const ahora = 100 * 86400e3, ok = { v: 1, docs: {}, desde: ahora - 1000, completa: ahora - 3 * 3600e3 };
+  assert.equal(ev('syncNecesitaCompleta', ok, ahora), false);
+  assert.equal(ev('syncNecesitaCompleta', null, ahora), true);
+  assert.equal(ev('syncNecesitaCompleta', { ...ok, v: 0 }, ahora), true);                       // otra versión de la copia
+  assert.equal(ev('syncNecesitaCompleta', { ...ok, docs: null }, ahora), true);
+  assert.equal(ev('syncNecesitaCompleta', { ...ok, completa: ahora - 2 * 86400e3 }, ahora), true);       // más de un día
+  assert.equal(ev('syncNecesitaCompleta', { ...ok, completa: ahora + 86400e3 }, ahora), true);       // hora imposible (reloj mal)
+  assert.equal(ev('syncNecesitaCompleta', { ...ok, desde: 'x' }, ahora), true);
+});
+
+test('syncDesde: pide desde un poco antes de lo último visto y nunca negativo', () => {
+  assert.equal(ev('syncDesde', { desde: 1000000 }), 1000000 - 600000);
+  assert.equal(ev('syncDesde', { desde: 5 }), 0);
+  assert.equal(ev('syncDesde', null), 0);
+});
+
+test('syncMezclar: añade y cambia lo recibido, quita lo borrado y da el mod más reciente', () => {
+  ctx.__docs = { a: { n: 'vieja', mod: 10 }, b: { n: 'b', mod: 20 } };
+  const max = evalIn(ctx, `syncMezclar(__docs, [{id:'a', datos:{n:'nueva', mod:50}}, {id:'c', datos:{n:'c', mod:40}}], ['b'])`);
+  assert.equal(max, 50);
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.__docs)), { a: { n: 'nueva', mod: 50 }, c: { n: 'c', mod: 40 } });
+  assert.equal(evalIn(ctx, 'syncMezclar({}, [], [])'), 0);
+  assert.equal(evalIn(ctx, 'syncIdBorrado("resultados","abc")'), 'resultados__abc');
+});
+
+test('sesionesDelEnlace: los entrenamientos del mismo entrenador ese día, en orden; no los de otro ni otro día ni borrados', () => {
+  const D = new Date(2026, 9, 31, 11, 0).getTime(), H = 3600e3;
+  const todas = [
+    { id: 'c', fecha: D + 2 * H, coachEmail: 'Ruben@x.es', coach: 'Rubén' },
+    { id: 'a', fecha: D, coachEmail: 'ruben@x.es', coach: 'Rubén' },                         // mayúsculas del correo no importan
+    { id: 'b', fecha: D + H, coachEmail: 'ruben@x.es', coach: 'Rubén' },
+    { id: 'otro', fecha: D + H, coachEmail: 'andres@x.es', coach: 'andres' },                 // otro entrenador
+    { id: 'ayer', fecha: D - 24 * H, coachEmail: 'ruben@x.es', coach: 'Rubén' },             // otro día
+    { id: 'borr', fecha: D + 3 * H, coachEmail: 'ruben@x.es', coach: 'Rubén', borrado: true },
+    { id: 'viejo', fecha: D + 4 * H, coach: 'Rubén' },                                       // creado antes de guardar el correo: se reconoce por el nombre del entrenador
+  ];
+  ctx.__t = todas;
+  assert.deepEqual(evalIn(ctx, 'sesionesDelEnlace(__t[1], __t)').map(s => s.id), ['a', 'b', 'c', 'viejo']);
+  assert.deepEqual(evalIn(ctx, 'sesionesDelEnlace(__t[3], __t)').map(s => s.id), ['otro']);
+  assert.deepEqual(evalIn(ctx, 'sesionesDelEnlace(__t[6], __t)').map(s => s.id), ['a', 'b', 'c', 'viejo']);   // el sin correo se une a los de su mismo nombre
+});
+
+test('docPublico: una jornada de competición (cada prueba es un entrenamiento) sale como series seguidas con su prueba', () => {
+  const D = new Date(2026, 9, 31, 11, 0).getTime();
+  const mk = (id, h, extra) => ({ id, fecha: D + h * 60e3, coachEmail: 'r@x.es', coach: 'Rubén', estilo: 'libre', dist: 100, presentes: ['n1', 'n2', 'n3'], ...extra });
+  const s0 = mk('s0', 0, { pub: { token: 'a'.repeat(24), hasta: 9999 }, presentes: ['n1', 'n2', 'n3', 'n4'] });   // vacío: nadie nadó
+  const s1 = mk('s1', 2), s2 = mk('s2', 12, { estilo: 'braza', dist: 50 }), s3 = mk('s3', 20, { presentes: ['n2', 'n3'], estilo: 'espalda', dist: 200 });
+  const datos = {
+    sesiones: [s3, s0, s2, s1],                                                      // desordenadas a propósito
+    equipos: { s0: 'Multicategoría', s1: 'Multicategoría', s2: 'Alevín', s3: 'Multicategoría' },
+    nadadores: [{ id: 'n1', n: 'Ana Ruiz' }, { id: 'n2', n: 'Beto Gil' }, { id: 'n3', n: 'Cris Paz' }, { id: 'n4', n: 'Dani Sol' }],
+    resultados: [
+      { id: 'a', sesId: 's1', nId: 'n1', ms: 70000, ronda: 1 }, { id: 'b', sesId: 's1', nId: 'n2', ms: 72000, ronda: 1 },
+      { id: 'c', sesId: 's2', nId: 'n1', ms: 41000, ronda: 1 },
+      { id: 'd', sesId: 's3', nId: 'n2', ms: 150000, ronda: 1, estilo: 'espalda', dist: 200 },
+      { id: 'e', sesId: 's3', nId: 'n3', ms: 155000, ronda: 2 },                       // 2ª serie del último: sigue la numeración
+    ],
+  };
+  const d = ev('docPublico', s0, datos);
+  assert.deepEqual(d.resultados.map(r => [r.id, r.ronda]), [['a', 1], ['b', 1], ['c', 2], ['d', 3], ['e', 4]]);   // series seguidas 1…4, sin hueco por el entrenamiento vacío
+  assert.deepEqual(d.resultados.map(r => `${r.estilo} ${r.dist}`), ['libre 100', 'libre 100', 'braza 50', 'espalda 200', 'espalda 200']);   // cada tiempo con su prueba
+  assert.equal(d.equipo, 'Varios grupos');                                              // Multicategoría + Alevín
+  assert.deepEqual(d.presentes, ['n2', 'n3']);                                          // los del entrenamiento de la última serie, no los del vacío
+  assert.equal(d.nombres.n4, undefined);
+  assert.equal(d.hasta, 9999);
+  assert.equal(d.fecha, s0.fecha);
+  // un solo entrenamiento (lo de siempre) sigue igual
+  const solo = ev('docPublico', s1, { nadadores: datos.nadadores, resultados: datos.resultados, equipo: 'Alevín A' });
+  assert.deepEqual(solo.resultados.map(r => r.id), ['a', 'b']);
+  assert.equal(solo.equipo, 'Alevín A');
+});
+
+test('docPublico: el enlace de la jornada creado antes de empezar (sin ningún entrenamiento) sale vacío y sin fallar', () => {
+  const ancla = { fecha: 5000, coachEmail: 'r@x.es', coach: 'Rubén', pub: { token: 'a'.repeat(24), hasta: 9999 } };
+  const d = ev('docPublico', ancla, { sesiones: [], nadadores: [], resultados: [], equipos: {} });
+  assert.equal(d.activo, true);
+  assert.equal(d.hasta, 9999);
+  assert.equal(d.fecha, 5000);
+  assert.deepEqual(d.resultados, []);
+  assert.deepEqual(d.presentes, []);
+  assert.equal(d.equipo, '');
+  assert.equal(d.estilo, null);
+  // y en cuanto el entrenador empieza uno, entra solo (el ancla es solo la jornada: fecha y entrenador)
+  const ses = { id: 's1', fecha: 6000, coachEmail: 'r@x.es', coach: 'Rubén', estilo: 'libre', dist: 100, presentes: ['n1'] };
+  ctx.__todas = [ses, { id: 'x', fecha: 6000, coachEmail: 'otro@x.es', coach: 'Otro' }];
+  assert.deepEqual(evalIn(ctx, 'sesionesDelEnlace({fecha: 5000, coachEmail: "r@x.es", coach: "Rubén"}, __todas)').map(s => s.id), ['s1']);
+});
