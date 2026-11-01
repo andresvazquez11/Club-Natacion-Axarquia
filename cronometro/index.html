@@ -664,8 +664,11 @@ let _llegadas = new Set(), _cacheCols = {}, _publicarCol = {}, SELLADO = false;
 let _idb = null;
 function idbAbrir() {
   if (!_idb) _idb = new Promise(ok => {
-    try { const r = indexedDB.open('cna_crono', 1); r.onupgradeneeded = () => r.result.createObjectStore('cols'); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); r.onblocked = () => ok(null); }
-    catch { ok(null); }
+    // Si el navegador no llega a abrir la copia (base bloqueada por otra pestaña, modo privado, fallo raro), a los 3 s se sigue sin ella:
+    // se leen los datos del servidor como antes, en vez de quedarse esperando para siempre
+    const t = setTimeout(() => ok(null), 3000);
+    try { const r = indexedDB.open('cna_crono', 1); r.onupgradeneeded = () => r.result.createObjectStore('cols'); r.onsuccess = () => { clearTimeout(t); ok(r.result); }; r.onerror = () => { clearTimeout(t); ok(null); }; r.onblocked = () => { clearTimeout(t); ok(null); }; }
+    catch { clearTimeout(t); ok(null); }
   });
   return _idb;
 }
