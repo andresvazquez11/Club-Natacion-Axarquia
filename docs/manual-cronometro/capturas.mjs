@@ -138,7 +138,7 @@ const foto = async (p, nombre, alto) => {
 const toca = async (p, sel) => { await p.locator(sel).first().click(); await p.clock.runFor(250); };
 const arriba = p => p.evaluate(() => window.scrollTo(0, 0));
 const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = document.querySelector(s); if (e) window.scrollTo(0, scrollY + e.getBoundingClientRect().top - m); }, [sel, margen]);
-const desborda = p => p.evaluate(() => [...document.querySelectorAll('.lanes-grid .sw-card')].filter(e => e.scrollHeight > e.clientHeight + 1).map(e => (e.querySelector('.sw-nm') || {}).textContent));   // tarjetas con contenido cortado
+const desborda = p => p.evaluate(() => [...document.querySelectorAll('.lanes-grid .sw-card')].filter(e => { const n = e.querySelector('.sw-nm'); return e.scrollHeight > e.clientHeight + 1 || (n && (n.scrollWidth > n.clientWidth + 1 || n.scrollHeight > n.clientHeight + 1)); }).map(e => (e.querySelector('.sw-nm') || {}).textContent));   // tarjetas con contenido cortado
 
 // 1. Entrada: sin sesión, solicitud pendiente y primer nombre
 { const { ctx, p } = await abrir('cronometro/', { usuario: null }); await foto(p, 'login'); await ctx.close(); }
@@ -329,6 +329,7 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
 for (const nCalles of [5, 6]) {
   const d = JSON.parse(JSON.stringify(D));
   d.nadadores.n9 = { eqId: 'club_ale', n: 'Benicio Vazquez Altamirano', rfen: '990009' };
+  d.nadadores.n1.n = 'Alexis Diaz Fernandez'; d.nadadores.n2.n = 'Alexis Gonzalez Garcia';   // dos con el mismo nombre: se distinguen por el apellido
   const ids = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9'], cal = Array.from({ length: nCalles }, (_, i) => ({ nombre: 'Calle ' + (i + 1), nIds: [ids[i]] }));
   cal[0].nIds.push(ids[nCalles]); cal[1].nIds.push(ids[nCalles + 1 < ids.length ? nCalles + 1 : 0]);
   d.plantillas.p1.calles = cal;

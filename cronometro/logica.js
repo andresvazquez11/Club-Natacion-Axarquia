@@ -134,6 +134,27 @@ function rotaDeshacer(f) {
   f.avisoS = null;
 }
 
+// ── Nombre corto de un nadador (para tarjetas estrechas y para el orden provisional) ──
+// «Lucía Romero Gil» → «Lucía R.». Si en el grupo hay otro nadador con el MISMO nombre de pila, se pone el primer apellido entero
+// («Alexis Diaz», «Alexis Gonzalez»); si además coincide el primer apellido, también el segundo. grupo = nombres completos de todo el grupo.
+const _plano = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function _partes(n) {
+  const w = String(n || '').trim().split(/\s+/).filter(Boolean), aps = w.slice(1).filter(t => !/^(de|del|la|las|los|y)$/i.test(t));
+  return {pila: w[0] || '', ap1: aps[0] || '', ap2: aps[1] || ''};
+}
+function nomCorto(n, grupo, max) {   // max: si se da (vistas estrechas), el apellido se acorta a las letras necesarias para distinguir (mínimo max)
+  const me = _partes(n); if (!me.pila) return '';
+  const otros = (grupo || []).filter(x => _plano(x) !== _plano(n) && _plano(_partes(x).pila) === _plano(me.pila));
+  if (!otros.length) return me.ap1 ? `${me.pila} ${me.ap1[0].toUpperCase()}.` : me.pila;           // nombre de pila único: la inicial basta
+  const mismoAp = otros.filter(x => _plano(_partes(x).ap1) === _plano(me.ap1));
+  if (!mismoAp.length) {                                                                             // mismo nombre de pila: el apellido (entero, o sus primeras letras si no cabe)
+    if (!max || me.ap1.length <= max) return `${me.pila} ${me.ap1}`.trim();
+    let L = max; while (L < me.ap1.length && otros.some(x => _plano(_partes(x).ap1).slice(0, L) === _plano(me.ap1).slice(0, L))) L++;
+    return `${me.pila} ${L >= me.ap1.length ? me.ap1 : me.ap1.slice(0, L) + '.'}`;
+  }
+  return `${me.pila} ${me.ap1} ${me.ap2 ? (mismoAp.some(x => _plano(_partes(x).ap2) === _plano(me.ap2)) ? me.ap2 : me.ap2[0].toUpperCase() + '.') : ''}`.trim();   // igual también el primer apellido
+}
+
 // ── Descanso entre series ──
 // Ajuste de TODO el entreno (no de cada serie), sean las series del estilo que sean:
 // desc = segundos entre la salida de una serie y la de la siguiente: «salir cada 1:45» (1 a 3600; sin valor = sin cuenta programada);

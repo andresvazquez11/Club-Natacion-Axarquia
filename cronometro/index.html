@@ -369,7 +369,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .lanes-grid.muchas .sw-card{margin:0 2px;padding:6px 3px 0;border-width:2px;}
 .lanes-grid.muchas .sw-card[data-est]::before{content:attr(data-ec);font-size:9px;letter-spacing:0}
 .lanes-grid.muchas .sw-card[data-est]{padding-top:17px}
-.lanes-grid.muchas .sw-nm{font-size:12px;line-height:1.1}
+.lanes-grid.muchas .sw-nm.largo{font-size:9.5px;letter-spacing:-.3px}
+.lanes-grid.muchas .sw-nm{font-size:11px;line-height:1.1;letter-spacing:-.2px;overflow-wrap:anywhere}
 .lanes-grid.muchas .sw-undo-esq{width:20px;right:1px}
 .lanes-grid.muchas .sw-card.done::before{text-align:left;padding-left:5px}
 .lanes-grid.muchas .sw-marca{font-size:10px}
@@ -2899,7 +2900,7 @@ function renderEsperaCard(n, noSale) {
   const selEst = est ? `<label class="est-nad" onclick="event.stopPropagation()">${estiloEmo(est)} ${esc(estiloNombre(est))} ▾
       <select data-estnad="${esc(n.nId)}">${misEstilos().map(e=>`<option value="${esc(e)}"${e===est?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>` : '';
   return `<div class="sw-card espera" data-est="S${SA.ronda} · ${noSale?'NO SALE':'PENDIENTE'}" data-ec="${noSale?'NO':'S'+SA.ronda}" data-nid="${esc(n.nId)}" style="--sc:${serieCol(SA.ronda)}">
-    <span class="sw-nm">${esc(SA.grupos.length > 4 ? nomCorto(n.n, SA.grupos.flatMap(g => g.nads.map(x => nomCorto(x.n, [])))) : n.n)}${SA.notasEsp && SA.notasEsp[n.nId] ? ' 📝' : ''}</span>${selEst}
+    <span class="sw-nm${SA.grupos.length > 4 && nomCorto(n.n, nombresGrupo(), 4).split(' ').some(w => w.length >= 8) ? ' largo' : ''}">${esc(SA.grupos.length > 4 ? nomCorto(n.n, nombresGrupo(), 4) : n.n)}${SA.notasEsp && SA.notasEsp[n.nId] ? ' 📝' : ''}</span>${selEst}
     ${selEst ? '' : '<span class="sw-act">⏳</span>'}
   </div>${hayTramos() ? HUECO_EXTRA : ''}`;
 }
@@ -2912,12 +2913,12 @@ function renderSwCard(f, now) {
   // La franja de arriba lleva la serie y el estado (y el estilo de ese nadador si no es el de la serie): ya no hay línea de «S2 · sal. 1 · ●○»
   const emoEst = SA.porNadador || f.estilo !== SA.estilo ? estiloEmo(f.estilo) + ' ' : '';
   const etq = txt => `S${f.ronda} · ${emoEst}${txt}`;
-  const muchas = SA.grupos.length > 4, nomF = muchas ? nomCorto(f.n, SA.grupos.flatMap(g => g.nads.map(n => nomCorto(n.n, [])))) : f.n;   // con 5 o 6 calles, nombre y franja más cortos
+  const muchas = SA.grupos.length > 4, nomF = muchas ? nomCorto(f.n, nombresGrupo(), 4) : f.n;   // con 5 o 6 calles, nombre y franja más cortos
   const cls = (f.comp?' comp':'') + (otra?' prev':'');
   if (done) {
     return `<div class="sw-card done${cls}" data-est="S${f.ronda}" data-ec="S${f.ronda}" style="--sc:${serieCol(f.ronda)}" data-key="${esc(f.key)}">
       <button class="sw-undo-esq" data-action="deshacer" data-key="${esc(f.key)}" aria-label="Deshacer llegada">↶</button>
-      <span class="sw-nm">${esc(nomF)}${f.nota?' 📝':''}</span>
+      <span class="sw-nm${muchas && nomF.split(' ').some(w => w.length >= 8) ? ' largo' : ''}">${esc(nomF)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
       ${f.obj ? (f.obj.mas != null ? `<span class="sw-obj zona-${zonaRitmo(Math.round(f.ms/10) - f.obj.cs, f.obj.tol)}">${ZONA_TXT[zonaRitmo(Math.round(f.ms/10) - f.obj.cs, f.obj.tol)].split(' de lo')[0]} ${difRitmo(f.ms - f.obj.cs*10)}</span>`
         : `<span class="sw-obj">${difRitmo(f.ms - f.obj.cs*10)} vs ${f.obj.ref === 'mio' ? 'su ritmo' : 'ritmo ' + f.obj.ref}</span>`) : ''}
@@ -2932,7 +2933,7 @@ function renderSwCard(f, now) {
   if (f.rota && f.descHasta) {   // descansando en la pared: cuenta atrás grande y el tramo que viene
     const s = Math.max(0, Math.ceil((f.descHasta - now)/1000));
     return `<div class="sw-card rota-desc${s<=3?' ultimos':''}${cls}" data-est="${etq('DESCANSA')}" data-ec="S${f.ronda}" style="--sc:${serieCol(f.ronda)}">
-      <span class="sw-nm">${esc(nomF)}</span>
+      <span class="sw-nm${muchas && nomF.split(' ').some(w => w.length >= 8) ? ' largo' : ''}">${esc(nomF)}</span>
       <span class="sw-clk">${metros(f.parc.length)}m ${fmtTime(ultimo)}</span>
       <span class="rota-cd-box">⏸ <b class="rota-cd" data-hasta="${f.descHasta}">${s}</b> s</span>
       <span class="sw-act"><small>descansa · luego</small>${f.rota.tramos[f.parc.length]} m</span>
@@ -2944,7 +2945,7 @@ function renderSwCard(f, now) {
   const recienSale = f.rota && f.salioEn && now - f.salioEn < 3000;
   const salio = !f.rota && f.salioEn && now - f.salioEn < 3000;   // acaba de dar la salida: destello verde para ver que ha salido
   return `<button class="sw-card${esParcial?' parcial':''}${recienSale||salio?' rota-sale':''}${cls}" data-est="${etq('NADANDO')}" data-ec="S${f.ronda}" style="--sc:${serieCol(f.ronda)}" data-action="llego" data-key="${esc(f.key)}">
-      <span class="sw-nm">${esc(nomF)}${f.nota?' 📝':''}</span>
+      <span class="sw-nm${muchas && nomF.split(' ').some(w => w.length >= 8) ? ' largo' : ''}">${esc(nomF)}${f.nota?' 📝':''}</span>
       <span class="sw-clk live-clk" data-t0="${t0}">${fmtTime(now-t0)}</span>
       ${ultimo!=null?`<span class="sw-last">${metros(f.parc.length)}m ${fmtTime(ultimo)}${f.obj && f.dist ? ` ${difRitmo(ultimo - f.obj.cs*10*metros(f.parc.length)/f.dist)}` : ''}</span>`:''}
       ${f.obj && ultimo==null ? `<span class="sw-obj">obj. ${fmtTime(f.obj.cs*10)}</span>` : ''}
@@ -3292,16 +3293,13 @@ function renderResumenRonda() {
 }
 // Orden provisional de la serie: una línea por nadador, ordenada sola a medida que llegan. Va arriba del todo y reserva siempre el mismo
 // alto (hasta 3 filas de 2) para que nada se mueva al llegar alguien; con más nadadores, «ver todos» la despliega.
-const nomCorto = (n, todos) => {
-  const w = String(n || '').split(/\s+/).filter(Boolean), ap = w.slice(1).find(t => !/^(de|del|la|las|los)$/i.test(t)), c = w[0] ? w[0] + (ap ? ' ' + ap[0].toUpperCase() + '.' : '') : '';
-  return todos.filter(x => x === c).length > 1 ? String(n) : c;   // si dos se llamarían igual, el nombre entero
-};
+const nombresGrupo = () => SA.grupos.flatMap(g => g.nads.map(n => n.n));   // nombres completos de todo el grupo del entreno (para no confundir a dos con el mismo nombre)
 function ordenProvisionalHTML() {
   if (SA.relevo || !SA.agua.length && !SA.llegados.length) return '';
   const lleg = SA.llegados.filter(l => l.ms != null), total = SA.grupos.reduce((t, g) => t + g.nads.length, 0);
   const k = l => `${l.estilo}|${l.dist}`, ks = [...new Set(lleg.map(k))];
   const listas = (ks.length ? ks : [null]).map(c => lleg.filter(l => c == null || k(l) === c).sort((a, b) => a.ms - b.ms));
-  const todos = lleg.map(l => nomCorto(l.n, []));
+  const todos = nombresGrupo();
   const celdas = listas.flatMap((L, g) => [...(ks.length > 1 ? [`<div class="orden-sub">${esc(comboTexto(...ks[g].split('|').map((v, i) => i ? Number(v) : v)))}</div>`] : []),
     ...L.map((l, i) => `<div class="orden-c${i === 0 ? ' primero' : ''}" style="--lc:${l.color}"><b>${i + 1}</b><span class="nm">${esc(nomCorto(l.n, todos))}</span><span class="t">${fmtTime(l.ms)}</span></div>`)]);
   const filas = SA.ordenTodos ? Math.max(1, Math.ceil(Math.max(celdas.length, total) / 2)) : Math.min(3, Math.max(1, Math.ceil(total / 2)));

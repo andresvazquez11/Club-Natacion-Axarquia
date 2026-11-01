@@ -339,3 +339,25 @@ test('un entreno preparado guarda el tiempo entre series una sola vez, para todo
   const una = ev('limpiarDoc', 'planes', { nombre: 'x', calles: [], desc: 105, descAuto: true, series: [{ estilo: 'libre', dist: 100 }] });
   assert.equal(una.desc, null); assert.equal(una.descAuto, false);   // con una sola serie no hay tiempo entre series
 });
+
+test('nomCorto: inicial del apellido, y el apellido entero si en el grupo hay otro con el mismo nombre', () => {
+  const g = ['Alexis Diaz Fernandez', 'Alexis Gonzalez Garcia', 'Lucía Romero Gil', 'Ana Garcia Lopez', 'Ana Garcia Ruiz', 'María de la Cruz Pérez', 'Maria Cruz Soto'];
+  assert.equal(ev('nomCorto', 'Lucía Romero Gil', g), 'Lucía R.');                     // nombre único: la inicial basta
+  assert.equal(ev('nomCorto', 'Alexis Diaz Fernandez', g), 'Alexis Diaz');               // mismo nombre: apellido entero
+  assert.equal(ev('nomCorto', 'Alexis Gonzalez Garcia', g), 'Alexis Gonzalez');
+  assert.equal(ev('nomCorto', 'Ana Garcia Lopez', g), 'Ana Garcia L.');                  // mismo nombre y primer apellido: se añade el segundo
+  assert.equal(ev('nomCorto', 'Ana Garcia Ruiz', g), 'Ana Garcia R.');
+  assert.equal(ev('nomCorto', 'María de la Cruz Pérez', g), 'María Cruz P.');           // sin acentos ni partículas, «María» y «Maria» cuentan como iguales y comparten apellido
+  assert.equal(ev('nomCorto', 'Maria Cruz Soto', g), 'Maria Cruz S.');
+  assert.equal(ev('nomCorto', 'Pablo', g), 'Pablo');
+  assert.equal(ev('nomCorto', '', g), '');
+});
+
+test('nomCorto en vistas estrechas: letras justas del apellido para distinguir', () => {
+  const g = ['Alexis Diaz Fernandez', 'Alexis Gonzalez Garcia', 'Alexis Gonzalo Perez', 'Lucía Romero Gil'];
+  assert.equal(ev('nomCorto', 'Alexis Diaz Fernandez', g, 4), 'Alexis Diaz');
+  assert.equal(ev('nomCorto', 'Alexis Gonzalez Garcia', g, 4), 'Alexis Gonzale.');   // «Gonz» lo comparte Gonzalo: se alargan las letras hasta distinguir
+  assert.equal(ev('nomCorto', 'Alexis Gonzalo Perez', g, 4), 'Alexis Gonzalo');
+  assert.equal(ev('nomCorto', 'Alexis Gonzalez Garcia', ['Alexis Diaz Fernandez', 'Alexis Gonzalez Garcia'], 4), 'Alexis Gonz.');
+  assert.equal(ev('nomCorto', 'Lucía Romero Gil', g, 4), 'Lucía R.');
+});
