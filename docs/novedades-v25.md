@@ -21,6 +21,7 @@ Cierra la app y vuelve a abrirla con conexión para que se actualice (arriba, en
 **🚀 Salida en un solo toque y tarjetas más claras**
 • Al terminar una serie la pantalla no cambia: el botón verde SALIDA de la serie siguiente está arriba y pasa a la serie y da la salida a la vez (antes eran dos toques), las calles siguen debajo con los tiempos y el resumen de la serie queda plegado al final.
 • Cada tarjeta dice NADANDO, LLEGÓ o PENDIENTE, cada calle separa las series con un bloque de color y al salir hay un destello «¡SALIÓ!».
+• Orden provisional arriba del todo: una línea por nadador (puesto, nombre y tiempo) que se ordena sola a medida que llegan, siempre del mismo alto para que nada se mueva. Con 5 o 6 calles las tarjetas usan nombres y franjas más cortos.
 
 **Si te equivocas, ya se puede arreglar**
 • ¿Pusiste a otro nadador? En el resumen, toca su tiempo → «Nadador de este tiempo».

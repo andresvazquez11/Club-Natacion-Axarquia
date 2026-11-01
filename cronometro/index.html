@@ -124,7 +124,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .desc-seg button{min-height:64px;padding:6px 6px;line-height:1.2}
 .desc-seg button small{display:block;margin-top:3px;font-size:11px;font-weight:500;opacity:.85}
 .lanes-grid .sw-card[data-est]{position:relative;padding-top:19px}
-.lanes-grid .sw-card[data-est]::before{content:attr(data-est);position:absolute;left:0;right:0;top:0;height:15px;line-height:15px;text-align:center;font-size:9.5px;font-weight:900;letter-spacing:.7px;background:var(--sc);color:#032a4d}
+.lanes-grid .sw-card[data-est]::before{white-space:nowrap;overflow:hidden;content:attr(data-est);position:absolute;left:0;right:0;top:0;height:15px;line-height:15px;text-align:center;font-size:9.5px;font-weight:900;letter-spacing:.7px;background:var(--sc);color:#032a4d}
 .lanes-grid .sw-card.done[data-est]::before{background:#16a34a;color:#fff}
 .lanes-grid .sw-card.espera[data-est]::before{background:transparent;color:var(--mut);border-bottom:1px dashed var(--mut)}
 .lanes-grid .sw-card:not(.espera):not(.done){background:color-mix(in srgb,var(--sc) 24%,var(--surf));box-shadow:0 0 0 2px color-mix(in srgb,var(--sc) 70%,transparent) inset}
@@ -138,6 +138,17 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .salida-pista{font-size:11px;color:var(--mut);margin:-2px 0 6px}
 .salida-lista .salida-btn{min-height:56px;font-size:20px}
 .salida-lista .row{flex-wrap:wrap}
+.orden-prov{background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:3px 8px 4px;margin:0 0 8px}
+.orden-cab{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--mut);text-transform:uppercase;min-height:16px}
+.orden-cab button{background:none;border:none;color:var(--blu-l);font-size:11px;font-weight:700;text-transform:none;padding:0 2px;cursor:pointer}
+.orden-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(var(--filas,3),auto);grid-auto-flow:column;gap:0 10px}   /* se lee en columnas: 1, 2, 3 a la izquierda y 4, 5, 6 a la derecha */
+.orden-c{display:flex;align-items:baseline;gap:5px;min-height:21px;padding:1px 0 1px 5px;border-left:3px solid var(--lc,var(--brd));font-size:13px;white-space:nowrap}
+.orden-c b{width:14px;text-align:right;color:var(--mut);font-size:12px}
+.orden-c.primero b{color:var(--amb)}
+.orden-c .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.orden-c .t{font-variant-numeric:tabular-nums;font-weight:800;color:var(--grn-l)}
+.orden-c.vacia{opacity:.35;border-left-color:var(--brd)}
+.orden-sub{font-size:10px;font-weight:800;color:var(--mut);margin-top:2px}
 .ciclo-cd.compacto{padding:3px 10px;margin-bottom:6px;gap:8px;font-size:12px}
 .ciclo-cd.compacto b{font-size:19px}
 .salida-lista .salida-next{margin-bottom:6px}
@@ -356,7 +367,14 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .lanes-grid.muchas{gap:4px;}
 .lanes-grid.muchas .lane-head{font-size:15px;}
 .lanes-grid.muchas .sw-card{margin:0 2px;padding:6px 3px 0;border-width:2px;}
-.lanes-grid.muchas .sw-nm{font-size:12px;}
+.lanes-grid.muchas .sw-card[data-est]::before{content:attr(data-ec);font-size:9px;letter-spacing:0}
+.lanes-grid.muchas .sw-card[data-est]{padding-top:17px}
+.lanes-grid.muchas .sw-nm{font-size:12px;line-height:1.1}
+.lanes-grid.muchas .sw-undo-esq{width:20px;right:1px}
+.lanes-grid.muchas .sw-card.done::before{text-align:left;padding-left:5px}
+.lanes-grid.muchas .sw-marca{font-size:10px}
+.lanes-grid.muchas .sw-act{padding:4px 1px}
+.lanes-grid.muchas .sw-act small{font-size:8.5px}
 .lanes-grid.muchas .sw-clk{font-size:18px;}
 .lanes-grid.muchas .sw-last,.lanes-grid.muchas .sw-obj{font-size:10px;}
 .lanes-grid.muchas .sw-act{margin:auto -3px 0;font-size:12px;}
@@ -1201,6 +1219,7 @@ function llegoNad(key, t) {
 // Diferencia con el ritmo en la tarjeta: verde si va por delante, ámbar si va por detrás
 const difRitmo = ms => `<b class="${ms <= 0 ? 'mej' : 'peor'}">${ms <= 0 ? '−' : '+'}${(Math.abs(ms)/1000).toFixed(1)}</b>`;
 const MARCA_TXT = {comp:'🏅 ¡marca comp.!', entreno:'🏅 mejor entreno'};
+const MARCA_CORTA = {comp:'🏅 comp.', entreno:'🏅 mejor'};
 // Toque en el botón del nadador: parcial cada 50 m o llegada en el último tramo
 function marcaNad(key, t) {
   if (!SA) return;
@@ -2746,6 +2765,7 @@ function renderEnCurso() {
       <button class="fin-btn${SA.finArmed?' armed':''}" data-action="finalizar-sesion">${SA.finArmed?'¿Terminar? Toca otra vez':'Terminar'}</button>
     </div>
     ${'wakeLock' in navigator ? '' : '<div class="muted" style="font-size:11px;margin:-6px 0 8px">Este móvil no permite mantener la pantalla encendida: súbele el tiempo de bloqueo en Ajustes.</div>'}`;
+  html += ordenProvisionalHTML();   // arriba de todo, una línea por nadador, ordenada sola
   if (SA.entreAbierto) html += `<div class="card">${entreHTML(SA, 'sa')}<button class="btn btn-surf btn-sm" data-action="entre-abrir">✓ Listo</button></div>`;   // el tiempo entre series se puede cambiar en cualquier momento
 
   // Ronda terminada → resumen
@@ -2878,8 +2898,8 @@ function renderEsperaCard(n, noSale) {
   const est = SA.porNadador ? (SA.estiloNad.get(n.nId) || SA.estilo) : null;
   const selEst = est ? `<label class="est-nad" onclick="event.stopPropagation()">${estiloEmo(est)} ${esc(estiloNombre(est))} ▾
       <select data-estnad="${esc(n.nId)}">${misEstilos().map(e=>`<option value="${esc(e)}"${e===est?' selected':''}>${esc(estiloNombre(e))}</option>`).join('')}</select></label>` : '';
-  return `<div class="sw-card espera" data-est="S${SA.ronda} · ${noSale?'NO SALE':'PENDIENTE'}" data-nid="${esc(n.nId)}" style="--sc:${serieCol(SA.ronda)}">
-    <span class="sw-nm">${esc(n.n)}${SA.notasEsp && SA.notasEsp[n.nId] ? ' 📝' : ''}</span>${selEst}
+  return `<div class="sw-card espera" data-est="S${SA.ronda} · ${noSale?'NO SALE':'PENDIENTE'}" data-ec="${noSale?'NO':'S'+SA.ronda}" data-nid="${esc(n.nId)}" style="--sc:${serieCol(SA.ronda)}">
+    <span class="sw-nm">${esc(SA.grupos.length > 4 ? nomCorto(n.n, SA.grupos.flatMap(g => g.nads.map(x => nomCorto(x.n, [])))) : n.n)}${SA.notasEsp && SA.notasEsp[n.nId] ? ' 📝' : ''}</span>${selEst}
     ${selEst ? '' : '<span class="sw-act">⏳</span>'}
   </div>${hayTramos() ? HUECO_EXTRA : ''}`;
 }
@@ -2892,15 +2912,16 @@ function renderSwCard(f, now) {
   // La franja de arriba lleva la serie y el estado (y el estilo de ese nadador si no es el de la serie): ya no hay línea de «S2 · sal. 1 · ●○»
   const emoEst = SA.porNadador || f.estilo !== SA.estilo ? estiloEmo(f.estilo) + ' ' : '';
   const etq = txt => `S${f.ronda} · ${emoEst}${txt}`;
+  const muchas = SA.grupos.length > 4, nomF = muchas ? nomCorto(f.n, SA.grupos.flatMap(g => g.nads.map(n => nomCorto(n.n, [])))) : f.n;   // con 5 o 6 calles, nombre y franja más cortos
   const cls = (f.comp?' comp':'') + (otra?' prev':'');
   if (done) {
-    return `<div class="sw-card done${cls}" data-est="S${f.ronda}" style="--sc:${serieCol(f.ronda)}" data-key="${esc(f.key)}">
+    return `<div class="sw-card done${cls}" data-est="S${f.ronda}" data-ec="S${f.ronda}" style="--sc:${serieCol(f.ronda)}" data-key="${esc(f.key)}">
       <button class="sw-undo-esq" data-action="deshacer" data-key="${esc(f.key)}" aria-label="Deshacer llegada">↶</button>
-      <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
+      <span class="sw-nm">${esc(nomF)}${f.nota?' 📝':''}</span>
       <span class="sw-clk">${fmtTime(f.ms)}</span>
       ${f.obj ? (f.obj.mas != null ? `<span class="sw-obj zona-${zonaRitmo(Math.round(f.ms/10) - f.obj.cs, f.obj.tol)}">${ZONA_TXT[zonaRitmo(Math.round(f.ms/10) - f.obj.cs, f.obj.tol)].split(' de lo')[0]} ${difRitmo(f.ms - f.obj.cs*10)}</span>`
         : `<span class="sw-obj">${difRitmo(f.ms - f.obj.cs*10)} vs ${f.obj.ref === 'mio' ? 'su ritmo' : 'ritmo ' + f.obj.ref}</span>`) : ''}
-      ${f.marca?`<span class="sw-marca">${MARCA_TXT[f.marca]}</span>`:''}
+      ${f.marca?`<span class="sw-marca">${(muchas ? MARCA_CORTA : MARCA_TXT)[f.marca]}</span>`:''}
       <span class="sw-act">✓ Llegó</span>
     </div>${conParc ? HUECO_EXTRA : ''}`;
   }
@@ -2910,8 +2931,8 @@ function renderSwCard(f, now) {
   const metros = n => f.rota ? f.rota.tramos.slice(0, n).reduce((s,x)=>s+x, 0) : n*50;
   if (f.rota && f.descHasta) {   // descansando en la pared: cuenta atrás grande y el tramo que viene
     const s = Math.max(0, Math.ceil((f.descHasta - now)/1000));
-    return `<div class="sw-card rota-desc${s<=3?' ultimos':''}${cls}" data-est="${etq('DESCANSA')}" style="--sc:${serieCol(f.ronda)}">
-      <span class="sw-nm">${esc(f.n)}</span>
+    return `<div class="sw-card rota-desc${s<=3?' ultimos':''}${cls}" data-est="${etq('DESCANSA')}" data-ec="S${f.ronda}" style="--sc:${serieCol(f.ronda)}">
+      <span class="sw-nm">${esc(nomF)}</span>
       <span class="sw-clk">${metros(f.parc.length)}m ${fmtTime(ultimo)}</span>
       <span class="rota-cd-box">⏸ <b class="rota-cd" data-hasta="${f.descHasta}">${s}</b> s</span>
       <span class="sw-act"><small>descansa · luego</small>${f.rota.tramos[f.parc.length]} m</span>
@@ -2922,8 +2943,8 @@ function renderSwCard(f, now) {
   const t0 = f.t0 + (f.rota ? rotaPausa(f) : 0);   // rota: el reloj marca lo nadado, sin los descansos
   const recienSale = f.rota && f.salioEn && now - f.salioEn < 3000;
   const salio = !f.rota && f.salioEn && now - f.salioEn < 3000;   // acaba de dar la salida: destello verde para ver que ha salido
-  return `<button class="sw-card${esParcial?' parcial':''}${recienSale||salio?' rota-sale':''}${cls}" data-est="${etq('NADANDO')}" style="--sc:${serieCol(f.ronda)}" data-action="llego" data-key="${esc(f.key)}">
-      <span class="sw-nm">${esc(f.n)}${f.nota?' 📝':''}</span>
+  return `<button class="sw-card${esParcial?' parcial':''}${recienSale||salio?' rota-sale':''}${cls}" data-est="${etq('NADANDO')}" data-ec="S${f.ronda}" style="--sc:${serieCol(f.ronda)}" data-action="llego" data-key="${esc(f.key)}">
+      <span class="sw-nm">${esc(nomF)}${f.nota?' 📝':''}</span>
       <span class="sw-clk live-clk" data-t0="${t0}">${fmtTime(now-t0)}</span>
       ${ultimo!=null?`<span class="sw-last">${metros(f.parc.length)}m ${fmtTime(ultimo)}${f.obj && f.dist ? ` ${difRitmo(ultimo - f.obj.cs*10*metros(f.parc.length)/f.dist)}` : ''}</span>`:''}
       ${f.obj && ultimo==null ? `<span class="sw-obj">obj. ${fmtTime(f.obj.cs*10)}</span>` : ''}
@@ -3268,6 +3289,26 @@ function renderResumenRonda() {
       <button class="${SA.vista==='calle'?'on':''}" data-action="vista" data-v="calle">🏊 Por calle</button>
     </div>
     ${cuerpo}`;
+}
+// Orden provisional de la serie: una línea por nadador, ordenada sola a medida que llegan. Va arriba del todo y reserva siempre el mismo
+// alto (hasta 3 filas de 2) para que nada se mueva al llegar alguien; con más nadadores, «ver todos» la despliega.
+const nomCorto = (n, todos) => {
+  const w = String(n || '').split(/\s+/).filter(Boolean), ap = w.slice(1).find(t => !/^(de|del|la|las|los)$/i.test(t)), c = w[0] ? w[0] + (ap ? ' ' + ap[0].toUpperCase() + '.' : '') : '';
+  return todos.filter(x => x === c).length > 1 ? String(n) : c;   // si dos se llamarían igual, el nombre entero
+};
+function ordenProvisionalHTML() {
+  if (SA.relevo || !SA.agua.length && !SA.llegados.length) return '';
+  const lleg = SA.llegados.filter(l => l.ms != null), total = SA.grupos.reduce((t, g) => t + g.nads.length, 0);
+  const k = l => `${l.estilo}|${l.dist}`, ks = [...new Set(lleg.map(k))];
+  const listas = (ks.length ? ks : [null]).map(c => lleg.filter(l => c == null || k(l) === c).sort((a, b) => a.ms - b.ms));
+  const todos = lleg.map(l => nomCorto(l.n, []));
+  const celdas = listas.flatMap((L, g) => [...(ks.length > 1 ? [`<div class="orden-sub">${esc(comboTexto(...ks[g].split('|').map((v, i) => i ? Number(v) : v)))}</div>`] : []),
+    ...L.map((l, i) => `<div class="orden-c${i === 0 ? ' primero' : ''}" style="--lc:${l.color}"><b>${i + 1}</b><span class="nm">${esc(nomCorto(l.n, todos))}</span><span class="t">${fmtTime(l.ms)}</span></div>`)]);
+  const filas = SA.ordenTodos ? Math.max(1, Math.ceil(Math.max(celdas.length, total) / 2)) : Math.min(3, Math.max(1, Math.ceil(total / 2)));
+  const visibles = SA.ordenTodos ? celdas : celdas.slice(0, filas * 2);
+  const vacias = Array.from({length: Math.max(0, filas * 2 - visibles.length)}, () => '<div class="orden-c vacia"><b>·</b></div>').join('');
+  return `<div class="orden-prov"><div class="orden-cab"><span>Orden provisional · ${lleg.length}/${total}</span>${total > 6 || celdas.length > 6 ? `<button data-action="orden-todos">${SA.ordenTodos ? 'ver menos ▴' : 'ver todos ▾'}</button>` : ''}</div>
+    <div class="orden-grid" style="--filas:${filas}">${visibles.join('')}${vacias}</div></div>`;
 }
 // Botones para pasar a la serie siguiente: el principal es SALIDA, en un solo toque (antes estaban al final del resumen)
 function renderSiguienteSerie() {
@@ -4106,6 +4147,7 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'ed-nueva-calle':  await editNuevaCalle(); break;
     case 'vista':           if (SA) { SA.vista = btn.dataset.v; render(); } break;
     case 'repetir-serie':   repetirSerie(); break;
+    case 'orden-todos':     if (SA) { SA.ordenTodos = !SA.ordenTodos; render(); } break;
     case 'ajustes-abrir':   if (SA) { SA.ajustesAbierto = !SA.ajustesAbierto; render(); } break;
     case 'entre-abrir':     if (SA) { SA.entreAbierto = !SA.entreAbierto; render(); } break;
     case 'desc-no-mas':     if (SA) { const d = descansoActivo(); if (d) SA.descOff = d.r; render(); } break;
