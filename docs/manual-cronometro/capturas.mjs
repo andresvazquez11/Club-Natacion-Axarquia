@@ -138,6 +138,7 @@ const foto = async (p, nombre, alto) => {
 const toca = async (p, sel) => { await p.locator(sel).first().click(); await p.clock.runFor(250); };
 const arriba = p => p.evaluate(() => window.scrollTo(0, 0));
 const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = document.querySelector(s); if (e) window.scrollTo(0, scrollY + e.getBoundingClientRect().top - m); }, [sel, margen]);
+const desborda = p => p.evaluate(() => [...document.querySelectorAll('.lanes-grid .sw-card')].filter(e => e.scrollHeight > e.clientHeight + 1).map(e => (e.querySelector('.sw-nm') || {}).textContent));   // tarjetas con contenido cortado
 
 // 1. Entrada: sin sesión, solicitud pendiente y primer nombre
 { const { ctx, p } = await abrir('cronometro/', { usuario: null }); await foto(p, 'login'); await ctx.close(); }
@@ -193,7 +194,7 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
     const t = await p.evaluate(() => Date.now()); nombres.forEach(n => { salidas[n] = t; });
     if (s < 2) await p.clock.runFor(10000);
   }
-  await p.clock.runFor(14000); await foto(p, 'en_el_agua');
+  await p.clock.runFor(14000); console.log('PRUEBA tarjetas cortadas · serie 1 nadando:', JSON.stringify(await desborda(p))); await foto(p, 'en_el_agua');
   const pend = Object.keys(salidas).sort((a, b) => salidas[a] + OBJ[a] - salidas[b] - OBJ[b]);
   for (const n of pend) {
     const falta = salidas[n] + OBJ[n] - await p.evaluate(() => Date.now());
@@ -215,7 +216,7 @@ const bajarA = (p, sel, margen = 70) => p.evaluate(([s, m]) => { const e = docum
   await toca(p, '[data-action="salida-tanda"]'); await p.clock.runFor(10000); await toca(p, '[data-action="salida-tanda"]');
   await p.clock.runFor(31000);
   for (const n of ['Lucía Romero', 'Hugo Serrano']) { await p.locator('.sw-card[data-action="llego"]', { hasText: n }).first().click(); await p.clock.runFor(400); }
-  await p.clock.runFor(2000); await foto(p, 'parciales');
+  await p.clock.runFor(2000); console.log('PRUEBA tarjetas cortadas · 100 m con parciales:', JSON.stringify(await desborda(p))); await foto(p, 'parciales');
   await ctx.close(); }
 
 // 3b. Series solapadas y cada nadador su estilo
@@ -301,7 +302,7 @@ const tresTandas = async p => { for (let s = 0; s < 3; s++) { await toca(p, '[da
     if (r === 2) { await arriba(p); await foto(p, 'series_tarjetas', 1500); }
     await llegaTodos(p); await p.clock.runFor(1500);
     console.log(`PRUEBA serie ${r} completa · cuenta hasta la siguiente:`, await cuenta(), '| botón principal:', (await p.locator('.salida-btn').first().innerText()).replace(/\s+/g, ' '));
-    if (r < 3) { await p.locator('[data-action="siguiente-salida"]').click(); await p.clock.runFor(1500);
+    if (r < 3) { await p.locator('[data-action="siguiente-salida"]').click(); await p.clock.runFor(1500); console.log(`PRUEBA tarjetas cortadas · serie ${r+1} saliendo:`, JSON.stringify(await desborda(p)));
       console.log('PRUEBA un solo toque →', (await p.locator('.ec-top').innerText()).split('\n')[0].trim(), '| nadando ya:', await p.locator('.sw-card[data-action="llego"]').count()); }
   }
   await ctx.close(); }
