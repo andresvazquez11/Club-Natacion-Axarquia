@@ -116,9 +116,10 @@
       <button class="sec" id="ajnuevo" style="margin-top:6px;align-self:flex-start">＋ Añadir nadador</button>
       <div id="ajhist"></div>
       <div style="margin-top:14px;color:#fff;font-weight:700">Rendimiento</div>
-      <div style="font-size:13px;color:#9fb0d6;margin:2px 0 6px">Si ves pocos fps de análisis (a veces en Android), baja la resolución o cambia el procesador. La app también baja sola la resolución si va lento.</div>
+      <div style="font-size:13px;color:#9fb0d6;margin:2px 0 6px">La primera vez la app prueba sola las combinaciones y elige la mejor; puedes repetirlo con «Optimizar ahora».</div>
       <div class="fn"><span style="width:100px">Resolución</span><select id="rd_res" class="nn"><option value="480">480p (más rápido)</option><option value="720">720p (normal)</option><option value="1080">1080p (más calidad)</option></select></div>
       <div class="fn"><span style="width:100px">Procesador</span><select id="rd_del" class="nn"><option value="auto">Automático</option><option value="GPU">GPU</option><option value="CPU">CPU</option></select></div>
+      <button class="sec" id="rd_auto" style="margin:6px 0 4px;align-self:flex-start">Optimizar ahora (automático)</button>
       <div id="rd_info" style="font-size:13px;color:#cfd8f0"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
         <button class="sec" id="recal">Recalibrar</button>
@@ -1026,7 +1027,7 @@ function pinta(est) {
 }
 
 // ---------- rendimiento (cámara y procesador) ----------
-const rend = { res:"720", delegado:"auto" };
+const rend = { res:"720", delegado:"auto", auto:true, tuned:null };
 try { Object.assign(rend, JSON.parse(localStorage.getItem("cna_rend") || "{}")); } catch(e) {}
 const guardaRend = () => { try { localStorage.setItem("cna_rend", JSON.stringify(rend)); } catch(e) {} };
 let fileset = null, delegadoUsado = "", msIa = 0, nFrames = 0, ajusteAuto = 0, ultimoEst = null, hudT = 0, clavePinta = "";
@@ -1041,10 +1042,6 @@ function frame(now) {
     let res; try { res = landmarker.detectForVideo(video, now); } catch(e) { res = null; }
     msIa = msIa ? msIa*0.9 + (performance.now()-t0)*0.1 : performance.now()-t0; nFrames++;
     if (now - hudT > 500) { hudT = now; $("fps").textContent = fpsEma.toFixed(0)+" fps · "+msIa.toFixed(0)+" ms · "+(delegadoUsado || "?")+" · "+Math.min(W, H)+"p"; }
-    if (nFrames === 90 && fpsEma < 20) {   // va lento: se baja la resolución de la cámara automáticamente (hasta dos veces)
-      if (rend.res !== "480" && ajusteAuto < 2) { ajusteAuto++; rend.res = rend.res === "1080" ? "720" : "480"; guardaRend(); toast("Análisis lento ("+fpsEma.toFixed(0)+" fps): bajo la cámara a "+rend.res+"p para ir más rápido."); abreCamara().catch(() => {}); }
-      else if (delegadoUsado === "GPU" && rend.delegado === "auto") toast("Sigue lento. Prueba «Procesador: CPU» en ⚙ Nadadores → Rendimiento.");
-    }
     const lm = res && res.landmarks && res.landmarks[0];
     dibuja(lm);
     ultimoLm = lm;
@@ -1110,6 +1107,36 @@ async function carga() {
   fileset = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
   await creaLandmarker();
 }
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+let optimizando = false;
+// Búsqueda automática de la mejor combinación (la primera vez en cada móvil, o al pulsar «Optimizar»): se mide cuántos fps de análisis da cada una.
+async function optimiza() {
+  if (optimizando || rec) return;
+  optimizando = true;
+  const OBJ = 28;   // fps de análisis que se consideran suficientes
+  toast("Buscando la mejor configuración de este móvil (unos 10 s). Apunta la cámara a la zona de trabajo y no la muevas.");
+  const pruebas = [];
+  const mide = async (del, res) => {
+    try {
+      if (rend.res !== res) { rend.res = res; await abreCamara(); await dormir(700); }
+      if (delegadoUsado !== del || !landmarker) { rend.delegado = del; await recreaLandmarker(); await dormir(300); }
+      const n0 = nFrames, t0 = performance.now(); await dormir(2500);
+      const fps = (nFrames - n0)/((performance.now() - t0)/1000);
+      pruebas.push({ del, res, fps }); return fps;
+    } catch(e) { pruebas.push({ del, res, fps:0 }); return 0; }
+  };
+  try {
+    let f = await mide("GPU", "720");
+    if (f < OBJ) f = await mide("GPU", "480");
+    if (f < OBJ) await mide("CPU", "480");
+    const buena = pruebas.find(p => p.fps >= OBJ) || pruebas.reduce((a, b) => b.fps > a.fps ? b : a);
+    rend.res = buena.res; rend.delegado = buena.del; rend.tuned = { del:buena.del, res:buena.res, fps:Math.round(buena.fps) }; rend.auto = true; guardaRend();
+    if (delegadoUsado !== buena.del || !landmarker) await recreaLandmarker();
+    await abreCamara();
+    toast("Configuración elegida: "+buena.del+" · "+buena.res+"p ("+Math.round(buena.fps)+" fps de análisis).");
+  } catch(e) { toast("No se pudo optimizar: "+(e.message || e)); }
+  optimizando = false;
+}
 async function recreaLandmarker() { try { landmarker && landmarker.close && landmarker.close(); } catch(e) {} landmarker = null; await creaLandmarker(); nFrames = 0; fpsEma = 0; msIa = 0; }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 if (!(window.navigator.standalone || matchMedia("(display-mode:standalone)").matches)) $("instalar").style.display = "";
@@ -1120,6 +1147,7 @@ $("start").addEventListener("click", async () => {
     try { await navigator.wakeLock?.request("screen"); } catch(e) {}
     $("load").style.display = "none";
     video.requestVideoFrameCallback ? video.requestVideoFrameCallback(frame) : requestAnimationFrame(frame);
+    if (rend.auto && !rend.tuned) setTimeout(() => optimiza(), 1500);
   } catch(e) { $("loadmsg").textContent = "Error: " + (e.message||e); }
 });
 $("cam").addEventListener("click", async () => { facing = facing==="user" ? "environment" : "user"; try { await abreCamara(); } catch(e) { toast(e.message); } });
@@ -1171,11 +1199,12 @@ function renderAjustes() {
 }
 function abreAjustes() {
   renderAjustes(); $("rd_res").value = rend.res; $("rd_del").value = rend.delegado;
-  $("rd_info").textContent = "Ahora: "+fpsEma.toFixed(0)+" fps, "+msIa.toFixed(0)+" ms por foto, procesador "+(delegadoUsado || "?")+", cámara "+W+"×"+H+".";
+  $("rd_info").textContent = "Ahora: "+fpsEma.toFixed(0)+" fps, "+msIa.toFixed(0)+" ms por foto, procesador "+(delegadoUsado || "?")+", cámara "+W+"×"+H+(rend.auto && rend.tuned ? ". Elegido automáticamente: "+rend.tuned.del+" · "+rend.tuned.res+"p." : rend.auto ? "" : ". Configuración manual.");
   $("aju").style.display = "flex";
 }
-$("rd_res").addEventListener("change", async e => { rend.res = e.target.value; guardaRend(); ajusteAuto = 2; try { await abreCamara(); toast("Cámara a "+rend.res+"p"); } catch(err) { toast(err.message || err); } });
-$("rd_del").addEventListener("change", async e => { rend.delegado = e.target.value; guardaRend(); try { await recreaLandmarker(); toast("Procesador: "+delegadoUsado); } catch(err) { toast("No se pudo usar ese procesador: "+(err.message || err)); } });
+$("rd_auto").addEventListener("click", () => { $("aju").style.display = "none"; rend.auto = true; rend.tuned = null; optimiza(); });
+$("rd_res").addEventListener("change", async e => { rend.res = e.target.value; rend.auto = false; guardaRend(); try { await abreCamara(); toast("Cámara a "+rend.res+"p"); } catch(err) { toast(err.message || err); } });
+$("rd_del").addEventListener("change", async e => { rend.delegado = e.target.value; rend.auto = false; guardaRend(); try { await recreaLandmarker(); toast("Procesador: "+delegadoUsado); } catch(err) { toast("No se pudo usar ese procesador: "+(err.message || err)); } });
 $("ajustes").addEventListener("click", abreAjustes);
 $("ajcerrar").addEventListener("click", () => { $("aju").style.display = "none"; });
 $("ajnuevo").addEventListener("click", () => {
