@@ -93,6 +93,9 @@
   body.espejo #sr_ej { display:inline-block !important; }
   #sr_ej { display:none; }
   .esp { touch-action:pan-y; }
+  .load button#go_espejo { background:transparent; color:var(--acc); border:2px solid var(--acc); }
+  #cab_espejo { border:2px solid var(--acc); color:var(--acc); }
+  .bt#esp_salir { border-color:#ff5d6c; color:#ffb3bb; }
   @media (max-aspect-ratio:1/1) { #esp_tiles { grid-template-columns:repeat(2,1fr); } #esp_menu { overflow:auto; justify-content:flex-start; } #esp_menu .bar2 { order:-1; } #esp_serbar { flex-direction:column !important; } }
 </style>
 </head>
@@ -122,6 +125,7 @@
       <span class="lentes" id="lentes"></span>
       <button class="chip" id="cam">Trasera</button>
       <button class="chip" id="pant" title="Pantalla completa / horizontal">⛶</button>
+      <button class="chip" id="cab_espejo" title="Pantalla grande con gestos (tele)">🖥 Modo espejo</button>
       <span class="chip" id="objchip">Objetivo <input id="obj_n" type="number" min="0" max="999" inputmode="numeric" placeholder="libre" style="width:58px;background:#0b1220;color:#fff;border:1px solid #27365a;border-radius:6px;padding:3px;font-size:16px;text-align:center"> <span id="obj_u">reps</span></span>
     </div>
     <div class="marcasui" id="marcasui" style="display:none">
@@ -2228,6 +2232,7 @@ if (ESPEJO) {
   $("ser_fin").addEventListener("click", () => { if (!serie) return; if (serie.fase === "activa") cierraSerie("botón"); else if (serie.fase === "descanso") serie.descansoHasta = performance.now(); });
   $("ser_todo").addEventListener("click", () => { paraRec(); });
   $("go_espejo").textContent = "Salir del modo espejo"; espZoom(); addEventListener("resize", espZoom); $("esp_salir").addEventListener("click", () => { location.href = location.pathname; }); }
+$("cab_espejo").addEventListener("click", () => { if (rec) { toast("Para primero la grabación y luego cambia al modo espejo."); return; } location.href = location.pathname + "?modo=espejo"; });
 $("go_espejo").addEventListener("click", () => { location.href = ESPEJO ? location.pathname : location.pathname + "?modo=espejo"; });
 
 // ---------- rendimiento (cámara y procesador) ----------
