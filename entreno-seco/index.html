@@ -1165,15 +1165,23 @@ async function muestraRevision({ video, regs, base }) {
   $("revv").style.display = video ? "" : "none";
   if (video) $("revv").src = URL.createObjectURL(video);
   const inf = regs.length ? await creaInforme(regs, base) : null;
-  revActual = { video, inf, regs, base };
+  // En Android, WhatsApp no acepta bien vídeo + PDF juntos ("vacío"): se comparten por separado, uno tras otro.
+  const separado = /Android/i.test(navigator.userAgent) && !!video && !!inf;
+  revActual = { video, inf, regs, base, separado };
   $("revgraf").style.display = inf ? "" : "none"; if (inf) $("revgraf").src = inf.grafico;
   $("revinfo").textContent = inf ? inf.resumen : "No se detectó ningún salto ni repetición en esta grabación.";
-  $("revsave").textContent = video && inf ? "Compartir vídeo + informe (WhatsApp…)" : video ? "Compartir vídeo (WhatsApp…)" : "Compartir informe (WhatsApp…)";
+  $("revsave").textContent = separado ? "① Compartir vídeo (WhatsApp…)" : video && inf ? "Compartir vídeo + informe (WhatsApp…)" : video ? "Compartir vídeo (WhatsApp…)" : "Compartir informe (WhatsApp…)";
+  $("revpdf").textContent = separado ? "② Compartir informe PDF (WhatsApp…)" : "Solo informe";
+  $("revpdf").classList.toggle("sec", !separado); $("revpdf").style.margin = separado ? "0" : "";
   $("revpdf").style.display = video && inf ? "" : "none";
-  $("revvid").style.display = video && inf ? "" : "none";
+  $("revvid").style.display = video && inf && !separado ? "" : "none";
   $("revcsv").style.display = inf ? "" : "none";
 }
-$("revsave").addEventListener("click", () => revActual && entregaVarios([revActual.video, revActual.inf && revActual.inf.file].filter(Boolean)));
+$("revsave").addEventListener("click", async () => {
+  if (!revActual) return;
+  if (revActual.separado) { await entregaVarios([revActual.video]); toast("Ahora pulsa ② para compartir el informe PDF."); return; }
+  entregaVarios([revActual.video, revActual.inf && revActual.inf.file].filter(Boolean));
+});
 $("revvid").addEventListener("click", () => revActual && revActual.video && entregaVarios([revActual.video]));
 $("revdl").addEventListener("click", () => revActual && descargaArchivos([revActual.video, revActual.inf && revActual.inf.file].filter(Boolean)));
 $("revpdf").addEventListener("click", () => revActual && revActual.inf && entregaVarios([revActual.inf.file]));
