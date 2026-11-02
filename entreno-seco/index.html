@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="logo_cna.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -105,7 +106,7 @@
         <p>Apoya el móvil fijo, a 2–3 m, con el cuerpo entero a la vista (de pies a cabeza) y buena luz.</p>
         <button id="start">Activar cámara</button>
         <p id="loadmsg" style="font-size:14px"></p>
-        <p id="instalar" style="font-size:13px;color:#8fa0c4;display:none">Para verla <b>a pantalla completa</b>: toca Compartir y «Añadir a pantalla de inicio»; luego ábrela desde el icono «Seco CNA».</p>
+        <p id="instalar" style="font-size:13px;color:#8fa0c4;display:none">Para verla <b>a pantalla completa</b>: en iPhone toca Compartir y «Añadir a pantalla de inicio»; en Android, menú ⋮ y «Instalar aplicación». Luego ábrela desde el icono «Seco CNA».</p>
       </div>
     </div>
     <div class="load" id="aju" style="display:none;background:rgba(0,0,0,.94);flex-direction:column;justify-content:flex-start;align-items:stretch;overflow:auto;padding:14px;text-align:left">
@@ -1077,6 +1078,7 @@ async function carga() {
   try { landmarker = await PoseLandmarker.createFromOptions(fileset, opts("GPU")); }
   catch(e) { landmarker = await PoseLandmarker.createFromOptions(fileset, opts("CPU")); }
 }
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 if (!(window.navigator.standalone || matchMedia("(display-mode:standalone)").matches)) $("instalar").style.display = "";
 $("start").addEventListener("click", async () => {
   try {
@@ -1199,11 +1201,11 @@ const ORIENT = { plancha:"h", flexiones:"h", longitud:"h", salida:"h", sprint:"h
 function avisaOrientacion() {
   if (!W) return;
   const quiere = ORIENT[modo] || "v", esta = W > H ? "h" : "v";
-  if (quiere !== esta) toast(quiere === "h" ? "Este ejercicio va mejor con el móvil en HORIZONTAL (gíralo y desbloquea la rotación en el Centro de control)." : "Este ejercicio va mejor con el móvil en VERTICAL.");
+  if (quiere !== esta) toast(quiere === "h" ? "Este ejercicio va mejor con el móvil en HORIZONTAL (gíralo; si no gira, activa la rotación automática: Centro de control en iPhone, ajustes rápidos en Android)." : "Este ejercicio va mejor con el móvil en VERTICAL.");
 }
 $("pant").addEventListener("click", async () => {
   try { if (!document.fullscreenElement) { await $("stage").requestFullscreen(); await screen.orientation.lock("landscape").catch(() => {}); } else await document.exitFullscreen(); }
-  catch(e) { toast("Pantalla completa no disponible aquí. Gira el móvil a horizontal (y desbloquea la rotación en el Centro de control)."); }
+  catch(e) { toast("Pantalla completa no disponible aquí. Gira el móvil a horizontal (y activa la rotación automática)."); }
 });
 </script>
 </body>
