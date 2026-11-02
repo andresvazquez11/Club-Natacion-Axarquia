@@ -1094,7 +1094,7 @@ async function creaInforme(regs, base) {
     doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(255,255,255);
     let x = x0; cols.forEach((c, i) => { doc.text(c, x+2, y+5); x += anchos[i]; });
     doc.setFont("helvetica","normal"); doc.setTextColor(...NAVY);
-    const vis = filas.slice(0, 8);
+    const vis = filas.slice(0, 6);
     vis.forEach((f, j) => {
       const yy = y + 7 + j*6.5;
       if (j % 2) { doc.setFillColor(243,246,252); doc.rect(x0, yy, ancho, 6.5, "F"); }
@@ -1105,33 +1105,41 @@ async function creaInforme(regs, base) {
   };
   const foto = (f, y) => {   // devuelve hasta dónde llega la foto
     if (!f) return y;
-    const w = Math.min(56, 66/f.ar), hh = w*f.ar;
+    const w = Math.min(56, 50/f.ar), hh = w*f.ar;
     doc.addImage(f.u, "JPEG", 139, y, w, hh); doc.setFontSize(8); doc.setTextColor(...GRIS); doc.setFont("helvetica","normal");
     doc.text("Momento destacado", 139, y+hh+4);
     return y + hh + 6;
   };
   const caja = (titulo, lineas, x, y, ancho, col) => {
-    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...col); doc.text(titulo, x, y);
-    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...NAVY);
-    let yy = y + 5;
-    lineas.forEach(t => { const ls = doc.splitTextToSize("• "+t, ancho); doc.text(ls, x, yy); yy += ls.length*3.7 + 1.2; });
+    doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...col); doc.text(titulo, x, y);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...NAVY);
+    let yy = y + 4.5;
+    lineas.forEach(t => { const ls = doc.splitTextToSize("• "+t, ancho); doc.text(ls, x, yy); yy += ls.length*3.4 + 1; });
     return yy;
   };
-  const glos = [];
+  const glos = [], fichas = [];
   for (const clave of ["salto","sentadilla","plancha","flexiones","dominadas","longitud","salida","sprint","equilibrio","streamline"]) {
     const rs = regs.filter(r => r.ejercicio === clave);
     if (!rs.length) continue;
     const c = PAG[clave](rs);
     cabecera(c.titulo);
     c.kpis.forEach((k, i) => kpi(15 + i*61, k[0], k[1], k[2]));
-    const png = graficoBarras(c.graf).toDataURL("image/png"); grafico = grafico || png;
+    const gc = graficoBarras(c.graf), png = gc.toDataURL("image/png"); grafico = grafico || png;
     doc.addImage(png, "PNG", 15, 76, 180, 72);
+    const con = conclusiones(clave, rs), refo = refPara(clave, con), refCv = refo ? refCanvas(refo, 700, 500) : null;
     const yt = tabla(c.cols, c.anchos, c.filas, 154), yf = foto(rs[c.im].foto, 154);
-    const yc = Math.max(yt, yf) + 7, con = conclusiones(clave, rs);
-    doc.setFillColor(243,246,252); doc.roundedRect(13, yc - 5, 184, 270 - yc + 4, 2, 2, "F");
-    caja("Lo que va bien", con.bien, 17, yc, 84, VERDE);
-    caja("A corregir y mejorar", con.mejorar, 106, yc, 88, [200, 120, 0]);
+    const yc = Math.max(yt, yf) + 7;
+    doc.setFillColor(243,246,252); doc.roundedRect(13, yc - 5, 184, 271 - yc + 4, 2, 2, "F");
+    caja("Lo que va bien", con.bien.slice(0, 2), 17, yc, 46, VERDE);
+    caja("A corregir y mejorar", con.mejorar, 67, yc, 66, [200, 120, 0]);
+    if (refCv) {
+      const rh = 57*500/700;
+      doc.addImage(refCv.toDataURL("image/png"), "PNG", 138, yc - 3, 57, rh);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...GRIS);
+      doc.text(doc.splitTextToSize(refo.tips.join(" · "), 57), 138, yc - 3 + rh + 3.2);
+    }
     glos.push([c.titulo, c.notas]);
+    fichas.push({ titulo:c.titulo, kpis:c.kpis, graf:gc, con, resumen:c.resumen, ref:refCv, refTips:refo ? refo.tips : [] });
     const ant = comparaHistorial(clave, rs);
     if (ant) { doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...(ant.mejora ? VERDE : NAVY)); doc.text(ant.txt, 15, 272); resumen.push(ant.txt); }
     doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GRIS);
@@ -1154,24 +1162,24 @@ async function creaInforme(regs, base) {
     doc.text(doc.splitTextToSize("Las valoraciones son orientativas, se calculan con la cámara del móvil y no sustituyen al entrenador.", 180), 15, 282);
   }
   const blob = doc.output("blob");
-  return { file:new File([blob], base+"_informe.pdf", { type:"application/pdf" }), grafico, resumen:resumen.join(" — ") };
+  return { file:new File([blob], base+"_informe.pdf", { type:"application/pdf" }), grafico, fichas, resumen:resumen.join(" — ") };
 }
 
 // ---------- pantalla de revisión (vídeo + informe) ----------
 let revActual = null;
-async function muestraRevision({ video, regs, base }) {
+async function muestraRevision({ video, regs, base, inf:infPre }) {
   if (!regs.length && !video) { alert("Aún no hay datos."); return; }
   $("revinfo").textContent = "Preparando informe…"; $("rev").style.display = "flex";
   $("revv").style.display = video ? "" : "none";
   if (video) $("revv").src = URL.createObjectURL(video);
-  const inf = regs.length ? await creaInforme(regs, base) : null;
+  const inf = infPre || (regs.length ? await creaInforme(regs, base) : null);
   // En Android, WhatsApp no acepta bien vídeo + PDF juntos ("vacío"): se comparten por separado, uno tras otro.
   const separado = /Android/i.test(navigator.userAgent) && !!video && !!inf;
   revActual = { video, inf, regs, base, separado };
   $("revgraf").style.display = inf ? "" : "none"; if (inf) $("revgraf").src = inf.grafico;
   $("revinfo").textContent = inf ? inf.resumen : "No se detectó ningún salto ni repetición en esta grabación.";
   $("revsave").textContent = separado ? "① Compartir vídeo (WhatsApp…)" : video && inf ? "Compartir vídeo + informe (WhatsApp…)" : video ? "Compartir vídeo (WhatsApp…)" : "Compartir informe (WhatsApp…)";
-  $("revpdf").textContent = separado ? "② Compartir informe PDF (WhatsApp…)" : "Solo informe";
+  $("revpdf").textContent = separado ? "② Informe completo en PDF (WhatsApp…)" : "Solo informe";
   $("revpdf").classList.toggle("sec", !separado); $("revpdf").style.margin = separado ? "0" : "";
   $("revpdf").style.display = video && inf ? "" : "none";
   $("revvid").style.display = video && inf && !separado ? "" : "none";
@@ -1179,7 +1187,7 @@ async function muestraRevision({ video, regs, base }) {
 }
 $("revsave").addEventListener("click", async () => {
   if (!revActual) return;
-  if (revActual.separado) { await entregaVarios([revActual.video]); toast("Ahora pulsa ② para compartir el informe PDF."); return; }
+  if (revActual.separado) { await entregaVarios([revActual.video]); toast("El vídeo ya lleva los resultados y las conclusiones al final. Si quieres también el PDF completo, pulsa ②."); return; }
   entregaVarios([revActual.video, revActual.inf && revActual.inf.file].filter(Boolean));
 });
 $("revvid").addEventListener("click", () => revActual && revActual.video && entregaVarios([revActual.video]));
@@ -1188,6 +1196,156 @@ $("revpdf").addEventListener("click", () => revActual && revActual.inf && entreg
 $("revcsv").addEventListener("click", () => revActual && entregaVarios([new File([csvTexto(revActual.regs)], revActual.base+"_datos.csv", { type:"text/csv" })]));
 $("revclose").addEventListener("click", () => { $("rev").style.display = "none"; $("revv").pause(); });
 $("informe").addEventListener("click", () => muestraRevision({ video:null, regs:registros.slice(inicioSesion), base:"entreno-seco_"+marca()+(nombre ? "_"+nombre.replace(/\W+/g,"") : "") }));
+
+// ---------- imágenes de referencia: cómo se ve la postura correcta (dibujo esquemático) ----------
+const POSES_REF = {   // unidades: una persona de pie mide ≈100; y hacia abajo
+  lat_pie:   { head:[50,7,6], lines:[[[50,14],[50,54]], [[50,18],[53,36],[55,52]], [[50,54],[52,77],[50,100],[60,100]]] },
+  fr_pie:    { head:[50,7,6], lines:[[[50,14],[50,54]], [[38,18],[62,18]], [[38,18],[35,36],[34,52]], [[62,18],[65,36],[66,52]], [[44,54],[56,54]], [[44,54],[44,77],[44,100]], [[56,54],[56,77],[56,100]]] },
+  sentadilla:{ head:[53,32,6], lines:[[[34,76],[49,44]], [[34,76],[60,76],[54,100],[66,100]], [[49,46],[66,50],[77,50]]], extras:[[[20,100],[84,100]]] },
+  plancha:   { head:[97,56,6], lines:[[[0,92],[84,60]], [[84,60],[84,98],[102,98]], [[0,92],[0,100]]], extras:[[[-6,100],[110,100]]] },
+  flexion:   { head:[94,64,6], lines:[[[0,92],[82,74]], [[82,74],[68,88],[84,100]], [[0,92],[0,100]]], extras:[[[-6,100],[110,100]]] },
+  dominada:  { head:[50,11,6], lines:[[[40,2],[30,14],[40,24]], [[60,2],[70,14],[60,24]], [[40,24],[60,24]], [[50,26],[50,62]], [[46,62],[46,96]], [[54,62],[54,96]]], extras:[[[18,0],[82,0]]] },
+  longitud:  { head:[66,40,6], lines:[[[44,70],[60,48]], [[44,70],[66,82],[58,100],[70,100]], [[60,50],[48,60],[36,72]]], extras:[[[26,100],[90,100]]] },
+  equilibrio:{ head:[50,7,6], lines:[[[50,14],[50,54]], [[38,18],[62,18]], [[38,18],[35,36],[34,52]], [[62,18],[65,36],[66,52]], [[44,54],[56,54]], [[44,54],[44,77],[44,100]], [[56,54],[62,68],[56,82]]], extras:[[[28,100],[60,100]]] },
+  salida:    { head:[80,42,6], lines:[[[62,98],[74,78],[52,66]], [[52,66],[70,48]], [[70,48],[74,98]], [[62,98],[70,98]]], extras:[[[8,100],[74,100]], [[8,100],[8,125],[74,125],[74,100]]] },
+  entrada:   { head:[66,56,6], lines:[[[6,10],[20,22],[34,32],[56,50],[86,72]], [[56,50],[86,72]]], extras:[[[40,64],[110,64]]] },
+  sprint:    { head:[74,40,6], lines:[[[46,64],[66,44]], [[46,64],[60,76],[62,100]], [[46,64],[34,82],[22,98]], [[66,46],[58,60],[50,70]], [[66,46],[76,56],[84,48]]], extras:[[[10,100],[80,100]]] },
+  streamline:{ head:[50,7,6], lines:[[[50,14],[50,54]], [[50,18],[52,0],[53,-18]], [[50,54],[52,77],[50,100],[60,100]]] },
+};
+const REFS = {   // por ejercicio: figura, marcas [x, y, texto, lado] y consejos
+  salto:      [{ pose:"streamline", titulo:"Extensión completa", marcas:[[52,0,"brazos arriba","d"], [50,54,"cadera extendida","i"], [55,100,"puntas de pie","d"]], tips:["Flexiona, empuja y extiéndete del todo", "Brazos arriba y cuerpo en línea"] }],
+  sentadilla: [{ pose:"sentadilla", titulo:"Sentadilla profunda", marcas:[[60,76,"rodilla 90°","d"], [41,60,"tronco recto (< 45°)","i"], [54,100,"talones apoyados","d"]], tips:["Rodilla a 90° o menos", "Pecho arriba y talones en el suelo"] }],
+  plancha:    [{ pose:"plancha", titulo:"Plancha", marcas:[[42,76,"línea recta 180°","i"], [84,60,"hombro sobre el codo","d"]], tips:["Hombro, cadera y tobillo en línea", "Glúteos y abdomen apretados"] }],
+  flexiones:  [{ pose:"flexion", titulo:"Flexión abajo", marcas:[[41,83,"cuerpo recto","i"], [68,88,"codo 90°","d"]], tips:["Baja hasta 90° de codo", "Cuerpo recto de cabeza a pies"] }],
+  dominadas:  [{ pose:"dominada", titulo:"Dominada arriba", marcas:[[50,11,"barbilla sobre la barra","d"], [30,14,"baja con codos estirados","i"]], tips:["Barbilla por encima de las manos", "Baja estirando del todo los codos"] }],
+  longitud:   [{ pose:"longitud", titulo:"Preparación del salto", marcas:[[66,82,"rodillas flexionadas","d"], [36,72,"brazos atrás","i"]], tips:["Flexiona y lleva los brazos atrás", "Extiende todo y lanza los brazos"] }],
+  salida:     [{ pose:"salida", titulo:"En la plataforma", marcas:[[70,98,"pies en el borde","d"], [52,66,"cadera alta y atrás","i"]], tips:["Pies en el borde de la plataforma", "Cadera alta y mirada abajo"] },
+               { pose:"entrada", titulo:"Entrada al agua", marcas:[[34,32,"cuerpo recto","i"], [86,72,"manos juntas","d"]], tips:["Entra con el cuerpo recto", "Pies por el mismo agujero que las manos"] }],
+  sprint:     [{ pose:"sprint", titulo:"Arranque desde quieto", marcas:[[66,44,"tronco inclinado","d"], [60,76,"pierna flexionada","d"]], tips:["Tronco inclinado hacia delante", "Brazos opuestos a las piernas"] }],
+  equilibrio: [{ pose:"equilibrio", titulo:"A una pierna", marcas:[[50,54,"pelvis nivelada","i"], [56,82,"pie levantado","d"]], tips:["Pelvis nivelada, sin caer a un lado", "Mirada fija y abdomen apretado"] }],
+  streamline: [{ pose:"streamline", titulo:"Brazos estirados", marcas:[[53,-18,"brazos pegados a las orejas","d"], [50,18,"hombro 180°","i"]], tips:["Brazos rectos pegados a las orejas", "Codos estirados, cuerpo alineado"] }],
+};
+function bboxPose(p) {
+  let xs = [p.head[0]-p.head[2], p.head[0]+p.head[2]], ys = [p.head[1]-p.head[2], p.head[1]+p.head[2]];
+  for (const l of p.lines.concat(p.extras || [])) for (const [x, y] of l) { xs.push(x); ys.push(y); }
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+function refCanvas(ref, cw, ch) {   // imagen blanca con el dibujo y las marcas en verde
+  const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+  const c = cv.getContext("2d"), p = POSES_REF[ref.pose];
+  c.fillStyle = "#fff"; c.fillRect(0, 0, cw, ch);
+  // título: se reduce hasta que cabe
+  const titulo = "CORRECTO · "+ref.titulo.toUpperCase(); let ft = ch*0.07;
+  c.font = "800 "+ft+"px "+FUENTE_T; while (c.measureText(titulo).width > cw*0.94 && ft > 8) { ft *= 0.94; c.font = "800 "+ft+"px "+FUENTE_T; }
+  c.fillStyle = "#1fb86b"; c.textAlign = "left"; c.fillText(titulo, cw*0.03, ft*1.25);
+  // letra de las marcas: la mayor que deje cada etiqueta por debajo del 34 % del ancho
+  let fs = ch*0.062;
+  const ancho = f => Math.max(...ref.marcas.map(m => { c.font = "700 "+f+"px "+FUENTE_T; return c.measureText(m[2]).width + f*0.9; }));
+  while (ancho(fs) > cw*0.34 && fs > 8) fs *= 0.94;
+  c.font = "700 "+fs+"px "+FUENTE_T;
+  const [x0, y0, x1, y1] = bboxPose(p), ancha = (x1-x0)/(y1-y0) > 1.3, h = fs*1.5;
+  const ay = ft*2.2 + (ancha ? h*1.5 : 0), ah = ch - ay - ch*0.04;
+  const ax = ancha ? cw*0.08 : cw*0.33, aw = ancha ? cw*0.84 : cw*0.34;
+  const s = Math.min(aw/(x1-x0), ah/(y1-y0)), ox = ax + (aw-(x1-x0)*s)/2 - x0*s, oy = ay + (ah-(y1-y0)*s) - y0*s;
+  const T = ([x, y]) => [ox + x*s, oy + y*s];
+  c.lineCap = "round"; c.lineJoin = "round";
+  for (const l of p.extras || []) { c.strokeStyle = "#b9c3d9"; c.lineWidth = ch*0.014; c.beginPath(); l.forEach((q, i) => { const [x, y] = T(q); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); }
+  c.strokeStyle = "#1fb86b"; c.lineWidth = ch*0.022;
+  for (const l of p.lines) { c.beginPath(); l.forEach((q, i) => { const [x, y] = T(q); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); }
+  const [hx, hy] = T(p.head); c.fillStyle = "#fff"; c.beginPath(); c.arc(hx, hy, p.head[2]*s, 0, 7); c.fill(); c.stroke();
+  c.font = "700 "+fs+"px "+FUENTE_T; c.lineWidth = ch*0.008;
+  const ocupado = [];
+  ref.marcas.forEach(([mx, my, txt, lado], i) => {
+    const [px, py] = T([mx, my]), w = c.measureText(txt).width + fs*0.9, gap = fs*0.7;
+    let lx, ly;
+    if (ancha) { ly = ay - h*1.35; lx = i % 2 === 0 ? cw*0.03 : cw - w - cw*0.03; }
+    else {
+      lx = lado === "i" ? Math.max(cw*0.02, ax - gap - w) : Math.min(cw - w - cw*0.02, ax + aw + gap);
+      ly = Math.max(ay, Math.min(ch - h - ch*0.02, py - h/2));
+      while (ocupado.some(o => Math.abs(o[0] - ly) < h*1.15 && o[1] === lado)) ly += h*1.2;
+      ocupado.push([ly, lado]);
+    }
+    c.strokeStyle = "#1fb86b"; c.beginPath(); c.moveTo(px, py);
+    c.lineTo(ancha ? lx + w/2 : (lado === "i" ? lx + w : lx), ly + h/2 + (ancha ? h/2 : 0)); c.stroke();
+    c.fillStyle = "#1fb86b"; c.beginPath(); c.arc(px, py, fs*0.28, 0, 7); c.fill();
+    c.fillStyle = "#e3f7ec"; rectRedondo(c, lx, ly, w, h, h*0.3); c.fill(); c.stroke();
+    c.fillStyle = "#0b7a43"; c.textAlign = "left"; c.fillText(txt, lx + fs*0.45, ly + h*0.7);
+  });
+  return cv;
+}
+function refPara(clave, con) {   // qué referencia enseñar: en la salida, la de la entrada si las correcciones hablan de ella
+  const l = REFS[clave]; if (!l) return null;
+  if (clave === "salida" && con.mejorar.join(" ").match(/entra|flexionado|ángulo/i)) return l[1];
+  return l[0];
+}
+
+// ---------- tarjetas finales del vídeo: resultados y conclusiones, para mandarlo todo en un solo archivo ----------
+const FUENTE_T = "-apple-system,Helvetica,Arial,sans-serif";
+function lienzoTarjeta(cw, ch) {
+  const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+  const c = cv.getContext("2d"); c.fillStyle = "#0b1220"; c.fillRect(0, 0, cw, ch);
+  return [cv, c];
+}
+function rectRedondo(c, x, y, w, h, r) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); }
+function envuelve(c, texto, ancho) {
+  const ls = []; let l = "";
+  for (const p of texto.split(" ")) { const t = l ? l+" "+p : p; if (c.measureText(t).width > ancho && l) { ls.push(l); l = p; } else l = t; }
+  if (l) ls.push(l);
+  return ls;
+}
+function tarjetaResultados(f, cw, ch, meta) {
+  const [cv, c] = lienzoTarjeta(cw, ch), u = Math.min(cw, ch)/100;
+  c.textAlign = "left"; c.fillStyle = "#fff"; c.font = "800 "+(u*5)+"px "+FUENTE_T; c.fillText(f.titulo, u*5, u*9);
+  c.fillStyle = "#9fb0d6"; c.font = "600 "+(u*2.8)+"px "+FUENTE_T; c.fillText("Resultados · "+meta, u*5, u*14);
+  const kw = (cw - u*10 - u*4)/3, kh = u*15, ky = u*18;
+  f.kpis.forEach((k, i) => {
+    const x = u*5 + i*(kw + u*2), col = (k[2][0] < 40 && k[2][1] < 40) ? "#ffffff" : "rgb("+k[2].join(",")+")";
+    c.fillStyle = "#111a2e"; rectRedondo(c, x, ky, kw, kh, u*1.5); c.fill();
+    c.fillStyle = "#8fa0c4"; c.font = "600 "+(u*2.2)+"px "+FUENTE_T; c.fillText(k[0], x + u*2, ky + u*4);
+    c.fillStyle = col; c.font = "800 "+(u*5.6)+"px "+FUENTE_T; c.fillText(k[1], x + u*2, ky + u*11.5);
+  });
+  const gy = ky + kh + u*3, gw = cw - u*10;
+  let w = gw, h = w/2.5; const maxH = ch - gy - u*14; if (h > maxH) { h = maxH; w = h*2.5; }
+  const gx = (cw - w)/2;
+  c.fillStyle = "#fff"; rectRedondo(c, gx, gy, w, h, u*1.5); c.fill(); c.drawImage(f.graf, gx, gy, w, h);
+  c.fillStyle = "#cfd8f0"; c.font = "700 "+(u*3.2)+"px "+FUENTE_T;
+  const ls = envuelve(c, f.resumen, gw); ls.slice(0, 2).forEach((l, i) => c.fillText(l, u*5, gy + h + u*5 + i*u*4));
+  c.fillStyle = "#6b7a99"; c.font = "600 "+(u*2.2)+"px "+FUENTE_T; c.fillText("Entreno en seco · Club Natación Axarquía", u*5, ch - u*3);
+  return cv;
+}
+function tarjetaConclusiones(f, cw, ch, meta) {
+  const [cv, c] = lienzoTarjeta(cw, ch), u = Math.min(cw, ch)/100, vertical = ch >= cw;
+  c.textAlign = "left"; c.fillStyle = "#fff"; c.font = "800 "+(u*5)+"px "+FUENTE_T; c.fillText("Conclusiones", u*5, u*9);
+  c.fillStyle = "#9fb0d6"; c.font = "600 "+(u*2.8)+"px "+FUENTE_T; c.fillText(f.titulo+" · "+meta, u*5, u*14);
+  let ancho = cw - u*10, tope = ch - u*22;
+  if (f.ref) {   // dibujo de la postura correcta: abajo en vertical, a la derecha en horizontal
+    const ar = f.ref.width/f.ref.height;
+    let rw, rh, rx, ry;
+    if (vertical) { rw = Math.min(cw - u*10, ch*0.3*ar); rh = rw/ar; rx = (cw - rw)/2; ry = ch - rh - u*7; tope = ry - u*3 - u*22; }
+    else { rw = cw*0.36; rh = rw/ar; rx = cw - rw - u*4; ry = u*22; ancho = rx - u*8; }
+    c.drawImage(f.ref, rx, ry, rw, rh);
+    if (!vertical && f.refTips) { c.fillStyle = "#cfd8f0"; c.font = "600 "+(u*2.6)+"px "+FUENTE_T; let yy = ry + rh + u*4; f.refTips.forEach(t => envuelve(c, "• "+t, rw).forEach(l => { c.fillText(l, rx, yy); yy += u*3.4; })); }
+  }
+  // el texto se reduce hasta que todo cabe en la pantalla
+  const lista = (items, y0, fs, dibuja) => {
+    c.font = "600 "+fs+"px "+FUENTE_T; let y = y0;
+    items.forEach(t => { envuelve(c, "• "+t, ancho).forEach(l => { if (dibuja) { c.fillStyle = "#eef2ff"; c.fillText(l, u*5, y); } y += fs*1.3; }); y += fs*0.5; });
+    return y;
+  };
+  let fs = u*5.2;
+  for (let i = 0; i < 14; i++) {
+    c.font = "800 "+(fs*1.15)+"px "+FUENTE_T;
+    if (lista(f.con.bien, 0, fs, false) + fs*2.2 + lista(f.con.mejorar, 0, fs, false) <= tope) break;
+    fs *= 0.92;
+  }
+  let y = u*22;
+  c.fillStyle = "#35d07f"; c.font = "800 "+(fs*1.15)+"px "+FUENTE_T; c.fillText("Lo que va bien", u*5, y); y += fs*1.6;
+  y = lista(f.con.bien, y, fs, true) + fs*0.6;
+  c.fillStyle = "#ffb703"; c.font = "800 "+(fs*1.15)+"px "+FUENTE_T; c.fillText("A corregir y mejorar", u*5, y); y += fs*1.6;
+  lista(f.con.mejorar, y, fs, true);
+  c.fillStyle = "#6b7a99"; c.font = "600 "+(u*2.2)+"px "+FUENTE_T; c.fillText("Valoración orientativa con la cámara del móvil; no sustituye al entrenador.", u*5, ch - u*3);
+  return cv;
+}
 
 // vídeo comprimido: se graba un lienzo con el vídeo + esqueleto + resultado, a ~2 Mbps y máx. 960 px
 let rec = null;
@@ -1200,27 +1358,53 @@ function iniciaRec() {
   const ext = mime.includes("mp4") ? "mp4" : "webm";
   const mr = new MediaRecorder(cv.captureStream(30), { mimeType: mime || undefined, videoBitsPerSecond: 2000000 });
   const chunks = [];
-  rec = { cv, c:cv.getContext("2d"), k, mr, chunks, t0:performance.now(), ext,
+  rec = { cv, c:cv.getContext("2d"), k, mr, chunks, t0:performance.now(), ext, fase:"grabando",
           nombre:"entreno-seco_"+marca()+(nombre ? "_"+nombre.replace(/\W+/g,"") : "")+"_"+modo+"."+ext };
   mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   mr.start(1000);
   bucleRec();
   $("grabar").textContent = "■ Parar"; $("grabar").classList.add("rec");
 }
-function bucleRec() {   // el vídeo se compone con cada fotograma de la cámara (con el último esqueleto conocido)
+function bucleRec() {   // el vídeo se compone con cada fotograma de la cámara; al parar, se le añaden las tarjetas de resultados
   if (!rec) return;
-  if (video.readyState >= 2) componeRec(ultimoLm, ultimoEst || { t:"", big:"", sub:"" });
+  const r = rec;
+  if (video.readyState >= 2) {
+    if (r.fase === "tarjetas") {
+      const t = performance.now() - r.tCierre; let acc = 0, tj = r.tarjetas[r.tarjetas.length-1];
+      for (const x of r.tarjetas) { acc += x.dur; if (t < acc) { tj = x; break; } }
+      r.c.drawImage(tj.cv, 0, 0);
+    } else componeRec(ultimoLm, ultimoEst || { t:"", big:"", sub:"" });
+  }
+  if (r.fase === "tarjetas" && performance.now() - r.tCierre >= r.durTotal) { finalizaRec(); return; }
   if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(bucleRec); else requestAnimationFrame(bucleRec);
 }
-function paraRec() {
-  const r = rec; rec = null;
+async function paraRec() {
+  const r = rec; if (!r || r.fase !== "grabando") return;
+  r.fase = "preparando"; $("grabar").textContent = "Cerrando vídeo…";   // deja de contar y prepara el resumen
+  const regs = registros.filter(x => x.video === r.nombre), base = r.nombre.replace(/\.\w+$/, "");
+  try {
+    if (regs.length) {
+      r.inf = await creaInforme(regs, base);
+      const cw = r.cv.width, ch = r.cv.height, meta = (regs[0].nombre || "Nadador")+" · "+regs[0].fecha;
+      r.tarjetas = [];
+      for (const f of r.inf.fichas.slice(0, 3)) {
+        r.tarjetas.push({ cv:tarjetaResultados(f, cw, ch, meta), dur:4500 });
+        r.tarjetas.push({ cv:tarjetaConclusiones(f, cw, ch, meta), dur:Math.min(9000, 3500 + 700*(f.con.bien.length + f.con.mejorar.length)) });
+      }
+      r.durTotal = r.tarjetas.reduce((s, x) => s + x.dur, 0);
+    }
+  } catch(e) { r.tarjetas = null; }
+  if (r.tarjetas && r.tarjetas.length) { r.tCierre = performance.now(); r.fase = "tarjetas"; } else finalizaRec();
+}
+function finalizaRec() {
+  const r = rec; if (!r) return; rec = null;
   $("grabar").textContent = "● Grabar"; $("grabar").classList.remove("rec");
   r.mr.onstop = () => {
     const tipo = (r.mr.mimeType || ("video/"+r.ext)).split(";")[0];   // sin «;codecs=…»: con eso Android no deja compartirlo
     const vacio = r.chunks.reduce((s, c) => s + c.size, 0) < 4000;
     if (vacio) toast("La grabación salió vacía (muy corta). Graba al menos unos segundos.");
     const file = vacio ? null : new File(r.chunks, r.nombre, { type:tipo });
-    muestraRevision({ video:file, regs:registros.filter(x => x.video === r.nombre), base:r.nombre.replace(/\.\w+$/, "") });
+    muestraRevision({ video:file, regs:registros.filter(x => x.video === r.nombre), base:r.nombre.replace(/\.\w+$/, ""), inf:r.inf });
   };
   r.mr.stop();
 }
@@ -1271,7 +1455,7 @@ function frame(now) {
     dibuja(lm);
     ultimoLm = lm;
     let est;
-    if (!rec) est = { t:"Vista previa · todavía no cuenta", big: lm ? "Te veo" : "No te veo", cls: lm ? "ok" : "warn", sub:"Coloca el móvil y pulsa ● Grabar: se empieza a contar al grabar" };
+    if (!rec || rec.fase !== "grabando") est = { t:"Vista previa · todavía no cuenta", big: lm ? "Te veo" : "No te veo", cls: lm ? "ok" : "warn", sub:"Coloca el móvil y pulsa ● Grabar: se empieza a contar al grabar" };
     else if (!lm && modo !== "salida") est = { t:"Buscando", big:"No te veo", cls:"warn", sub:"Que se vea el cuerpo entero" };
     else est = PROC[modo](lm ? puntos(lm) : null, now);
     ultimoEst = est;
