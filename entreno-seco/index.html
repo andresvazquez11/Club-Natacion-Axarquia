@@ -65,6 +65,34 @@
   .sk b { font-size:24px; }
   #objchip { display:inline-flex; align-items:center; gap:6px; font-size:14px; }
   #incl { font-weight:700; }
+
+  /* ===== MODO ESPEJO (tele) ===== */
+  body.espejo .cab, body.espejo .lado, body.espejo .state { display:none !important; }
+  body.espejo .hud { position:absolute !important; left:12px; bottom:8px; top:auto !important; opacity:.55; font-size:13px !important; }
+  body.espejo { overflow:hidden; }
+  .esp { position:absolute; inset:0; z-index:6; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:#fff; font-family:-apple-system,Helvetica,Arial,sans-serif; }
+  #esp_menu { background:rgba(5,9,18,.78); padding:3vh 4vw; gap:2.2vh; }
+  #esp_menu h1 { margin:0; font-size:5.2vh; letter-spacing:-.5px; }
+  #esp_menu .sub { color:#9fb0d6; font-size:2.6vh; }
+  #esp_tiles { display:grid; grid-template-columns:repeat(5,1fr); gap:1.6vh; width:92vw; }
+  .tile { background:#14213d; border:.4vh solid #27365a; color:#fff; border-radius:2vh; padding:2.4vh 1vw; display:flex; flex-direction:column; align-items:center; gap:.8vh; font-family:inherit; cursor:pointer; position:relative; overflow:hidden; }
+  .tile b { font-size:3.2vh; } .tile small { font-size:2vh; color:#9fb0d6; } .tile .n { position:absolute; left:1vh; top:.6vh; font-size:2.2vh; color:#5d6e96; font-weight:800; }
+  .tile.sel { border-color:#4cc2ff; }
+  .bar2 { display:flex; gap:1.6vh; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .bt { background:#14213d; border:.4vh solid #27365a; color:#fff; border-radius:1.8vh; padding:1.6vh 2.4vw; font-size:3vh; font-weight:700; font-family:inherit; cursor:pointer; position:relative; overflow:hidden; }
+  .bt.go { background:#4cc2ff; color:#04121f; border-color:#4cc2ff; }
+  .bt.peq { font-size:2.4vh; padding:1.2vh 1.4vw; }
+  .dw { transition:transform .15s; } .dw.dw-on { transform:scale(1.06); border-color:#ffcc33 !important; box-shadow:0 0 0 .6vh rgba(255,204,51,.55); }
+  #esp_prep { background:rgba(5,9,18,.6); gap:2.6vh; justify-content:flex-start; padding-top:7vh; }
+  #esp_prep h1 { margin:0; font-size:7vh; } #prep_pos { font-size:3.4vh; color:#cfd8f0; max-width:70vw; }
+  #prep_prog { font-size:4vh; color:#ffcc33; font-weight:800; min-height:5vh; }
+  #esp_cuenta { background:rgba(0,0,0,.35); } #esp_cuenta #esp_cuenta_n { font-size:46vh; font-weight:900; color:#ffcc33; text-shadow:0 0 6vh #000; }
+  #esp_ayudaserie { position:absolute; left:50%; transform:translateX(-50%); bottom:2.2vh; z-index:6; display:none; background:rgba(11,18,32,.8); padding:1vh 2vw; border-radius:1.6vh; font-size:2.2vh; color:#cfd8f0; font-family:-apple-system,Helvetica,Arial,sans-serif; }
+  #cursor { position:fixed; left:0; top:0; width:0; height:0; z-index:50; pointer-events:none; display:none; }
+  #cursor svg { position:absolute; left:-4.5vh; top:-4.5vh; width:9vh; height:9vh; }
+  body.espejo #sr_ej { display:inline-block !important; }
+  #sr_ej { display:none; }
+  @media (max-aspect-ratio:1/1) { #esp_tiles { grid-template-columns:repeat(2,1fr); } #esp_menu { overflow:auto; justify-content:flex-start; } }
 </style>
 </head>
 <body>
@@ -108,6 +136,33 @@
       <button class="chip" id="informe">Informe (<span id="nreg">0</span>)</button>
       <button class="chip" id="ajustes">⚙ Nadadores</button>
     </div>
+    <div class="esp" id="esp_menu">
+      <h1>Entreno en seco · Club Natación Axarquía</h1>
+      <div class="sub">Levanta la mano y apunta a un ejercicio durante 1 segundo (o pulsa su número)</div>
+      <div id="esp_tiles"></div>
+      <div class="bar2">
+        <button class="bt peq dw" id="nad_ant">◀</button><span class="bt peq" id="nad_nom" style="cursor:default"></span><button class="bt peq dw" id="nad_sig">▶</button>
+        <button class="bt peq dw" id="obj_menos">−</button><span class="bt peq" style="cursor:default">Objetivo: <span id="obj_val"></span></span><button class="bt peq dw" id="obj_mas">+</button>
+        <button class="bt peq dw" id="esp_gest">Gestos: sí</button>
+        <button class="bt peq dw" id="esp_salir">Salir del espejo</button>
+      </div>
+    </div>
+    <div class="esp" id="esp_prep">
+      <h1 id="prep_tit"></h1>
+      <div id="prep_pos"></div>
+      <div id="prep_prog"></div>
+      <div class="bar2">
+        <button class="bt go dw" id="prep_ya">▶ Empezar ya</button>
+        <button class="bt dw" id="prep_auto">Inicio automático: sí</button>
+        <button class="bt dw" id="prep_vol">← Otro ejercicio</button>
+      </div>
+    </div>
+    <div class="esp" id="esp_cuenta"><div id="esp_cuenta_n"><span id="esp_cuenta_t"></span></div></div>
+    <div class="esp" id="esp_fin" style="z-index:60;inset:auto 0 3vh 0;background:none;flex-direction:row;gap:2vw;pointer-events:none"><button class="bt go dw" id="fin_nueva" style="pointer-events:auto;font-size:4vh">↺ Volver a empezar</button><button class="bt dw" id="fin_rep" style="pointer-events:auto;font-size:4vh">Repetir este ejercicio</button></div>
+    <div class="esc" id="esp_sc_up" style="display:none;position:absolute;right:1vw;top:22vh;width:9vw;height:22vh;z-index:61;background:rgba(76,194,255,.85);color:#04121f;border-radius:2vh;font-size:9vh;align-items:center;justify-content:center;font-family:sans-serif;user-select:none">▲</div>
+    <div class="esc" id="esp_sc_dn" style="display:none;position:absolute;right:1vw;top:52vh;width:9vw;height:22vh;z-index:61;background:rgba(76,194,255,.85);color:#04121f;border-radius:2vh;font-size:9vh;align-items:center;justify-content:center;font-family:sans-serif;user-select:none">▼</div>
+    <div id="esp_ayudaserie">Cruza los brazos sobre el pecho 1,5 s para terminar la serie · Espacio = terminar</div>
+    <div id="cursor"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="7" fill="#ffcc33" stroke="#000" stroke-width="2"/><circle id="cur_arco" cx="20" cy="20" r="15.9" fill="none" stroke="#4cc2ff" stroke-width="4" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 20 20)"/></svg></div>
     <div id="toast"></div>
     <div class="state" id="estado"></div>
     <div class="load" id="load">
@@ -115,6 +170,7 @@
         <div style="font-size:20px;color:#fff;font-weight:700">Entreno en seco · prototipo</div>
         <p>Apoya el móvil fijo, a 2–3 m, con el cuerpo entero a la vista (de pies a cabeza) y buena luz.</p>
         <button id="start">Activar cámara</button>
+        <button class="sec" id="go_espejo" style="margin-left:8px">Modo espejo (tele)</button>
         <p id="loadmsg" style="font-size:14px"></p>
         <p id="instalar" style="font-size:13px;color:#8fa0c4;display:none">Para verla <b>a pantalla completa</b>: en iPhone toca Compartir y «Añadir a pantalla de inicio»; en Android, menú ⋮ y «Instalar aplicación». Luego ábrela desde el icono «Seco CNA».</p>
       </div>
@@ -146,7 +202,7 @@
       <div id="sr_kpis" style="display:flex;gap:8px;margin:10px 0"></div>
       <img id="sr_graf" alt="" style="width:100%;border-radius:10px;background:#fff">
       <div id="sr_extra" style="font-size:14px;color:#cfd8f0;line-height:1.6;margin:10px 0"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="sr_sig" style="margin:0">Siguiente serie</button><button id="sr_fin" class="sec">Terminar y ver informe</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="sr_sig" class="dw" style="margin:0">Siguiente serie</button><button id="sr_ej" class="sec dw">Otro ejercicio</button><button id="sr_fin" class="sec dw">Terminar y ver informe</button></div>
     </div>
     <div class="load" id="rev" style="display:none;background:rgba(0,0,0,.94);flex-direction:column;justify-content:flex-start;overflow:auto;padding:14px">
       <video id="revv" controls playsinline style="position:static;width:auto;height:auto;max-width:100%;max-height:38%;object-fit:contain"></video>
@@ -160,7 +216,7 @@
         <button id="revpdf" class="sec">Solo informe</button>
         <button id="revdl" class="sec">Descargar</button>
         <button id="revcsv" class="sec">Datos (Excel)</button>
-        <button id="revclose" class="sec">Cerrar</button>
+        <button id="revclose" class="sec dw">Cerrar</button>
       </div>
     </div>
   </div>
@@ -178,7 +234,9 @@ const G = 9.81;
 const NOSE=0, SH_L=11, SH_R=12, HIP_L=23, HIP_R=24, KN_L=25, KN_R=26, AN_L=27, AN_R=28, FT_L=31, FT_R=32;
 const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[27,31],[28,32],[27,29],[28,30]];
 
-let landmarker = null, stream = null, facing = "environment", modo = "salto";
+const ESPEJO = /[?&]modo=espejo/.test(location.search);   // modo espejo: pantalla grande y manejo con gestos (ordenador + tele, o el móvil enviado a la tele)
+document.body.classList.toggle("espejo", ESPEJO);
+let landmarker = null, stream = null, facing = ESPEJO ? "user" : "environment", modo = "salto";
 let W = 0, H = 0, fpsEma = 0, lastT = 0;
 
 const S = { estatura: 170 };
@@ -868,6 +926,7 @@ function muestraResumenSerie(s) {
 
 // --- marcador sobre la imagen: contador grande, objetivo, cronómetro y avisos (también sale en el vídeo) ---
 function dibujaHUD(c) {
+  if (ESPEJO) return dibujaHUD_tv(c);
   c.save(); c.textAlign = "center";
   const u = Math.min(W, H)/100;
   if (guiaTxt) {
@@ -1937,6 +1996,235 @@ function pinta(est) {
     (modo==="salto" && hh ? `<div class="hist">${hh}</div>` : "");
 }
 
+// ========== MODO ESPEJO (prueba local: ordenador + webcam + tele por HDMI) ==========
+// Se maneja con la mano (puntero + permanencia 1 s), con el teclado o con el ratón. No cuenta nada hasta que empieza la serie.
+const ESP = { fase:"inicio", auto:true, gestos:true, p:{ x:0.5, y:0.5, vis:false }, dw:{ el:null, t0:0, bloq:false }, quieto:[], cuenta:null, xt:0, prepT:0 };
+const ESP_EJ = [
+  ["salto", "Salto vertical", "De frente, cuerpo entero"], ["sentadilla", "Sentadilla", "De frente o de lado"], ["plancha", "Plancha", "De lado, cuerpo entero"], ["flexiones", "Flexiones", "De lado, cuerpo entero"],
+  ["dominadas", "Dominadas", "De frente, con barra"], ["equilibrio", "Equilibrio", "De frente, un pie levantado"], ["streamline", "Streamline", "De lado, brazos arriba"],
+  ["hombro_lat", "Hombro lateral", "De frente, brazos por los lados"], ["hombro_fr", "Hombro frontal", "De lado, brazo hacia delante"], ["postura", "Postura", "De frente, quieto 3 s"] ];
+const ESP_POS = { salto:"De frente, de pies a cabeza, y deja espacio arriba.", sentadilla:"De frente o de lado, con cadera, rodilla y tobillo a la vista.", plancha:"De lado, tumbado, con el cuerpo entero a la vista.",
+  flexiones:"De lado, con hombro, codo y muñeca a la vista.", dominadas:"De frente, con la barra, los brazos y la cabeza a la vista.", equilibrio:"De frente, con los dos pies a la vista.",
+  streamline:"De lado, con espacio libre sobre las manos.", hombro_lat:"De frente, con cabeza, brazos y cintura a la vista.", hombro_fr:"De lado, con cabeza, brazo y cintura a la vista.", postura:"De frente, de pies a cabeza, relajado." };
+
+const espMostrar = (id, on) => { const e = $(id); if (e) e.style.display = on ? "flex" : "none"; };
+function espFase(f) {
+  ESP.fase = f;
+  espMostrar("esp_menu", f === "menu"); espMostrar("esp_prep", f === "prep"); espMostrar("esp_cuenta", f === "cuenta"); espMostrar("esp_fin", f === "fin");
+  $("esp_ayudaserie").style.display = (f === "serie") ? "block" : "none";
+  ESP.quieto.length = 0; ESP.prepT = 0;
+  if (f === "menu" || f === "prep") espRefresca();
+}
+function espRefresca() {
+  const n = nadadorActual(); $("nad_nom").textContent = n.nombre+" · "+n.estatura+" cm";
+  $("obj_val").textContent = cfgS.obj[modo] ? cfgS.obj[modo]+" "+(UNIDAD_C[modo] || "reps") : "libre";
+  $("esp_tiles").querySelectorAll(".tile").forEach(t => t.classList.toggle("sel", t.dataset.m === modo));
+  $("prep_tit").textContent = EJ_NOMBRE[modo] || "";
+  $("prep_pos").textContent = ESP_POS[modo] || "";
+  $("prep_auto").textContent = "Inicio automático: "+(ESP.auto ? "sí" : "no");
+  $("esp_gest").textContent = "Gestos: "+(ESP.gestos ? "sí" : "no");
+}
+function espEntra() {   // tras activar la cámara
+  const g = $("esp_tiles"); if (!g.children.length) ESP_EJ.forEach(([k, nom, sub], i) => {
+    const b = document.createElement("button"); b.className = "tile dw"; b.dataset.m = k; b.innerHTML = '<span class="n">'+((i + 1) % 10)+'</span><b>'+nom+'</b><small>'+sub+'</small>';
+    b.addEventListener("click", () => espEligeEjercicio(k)); g.appendChild(b);
+  });
+  if (!ESP_EJ.some(e => e[0] === modo)) espPonModo("salto");
+  espFase("menu");
+}
+function espPonModo(k) { const s = $("modo"); s.value = k; s.dispatchEvent(new Event("change")); }
+function espEligeEjercicio(k) { espPonModo(k); espFase("prep"); }
+function espCambiaNadador(d) { const i = nadadores.findIndex(n => n.id === nadadorActual().id), s = $("nadador"); s.value = nadadores[(i + d + nadadores.length) % nadadores.length].id; s.dispatchEvent(new Event("change")); espRefresca(); }
+function espObjetivo(d) { const v = Math.max(0, Math.min(999, (+cfgS.obj[modo] || 0) + d)); cfgS.obj[modo] = v; guardaCfgS(); if (serie && serie.fase === "activa") serie.obj = v; ponObjetivoUI(); espRefresca(); }
+
+// --- cuenta atrás y arranque ---
+function espCuenta() {
+  if (ESP.fase !== "prep") return;
+  espFase("cuenta"); let n = 3; $("esp_cuenta_t").textContent = n; sonidoCuenta(n);
+  ESP.cuenta = setInterval(() => {
+    n--;
+    if (n > 0) { $("esp_cuenta_t").textContent = n; sonidoCuenta(n); return; }
+    clearInterval(ESP.cuenta); ESP.cuenta = null; sonidoCuenta(0); espArranca();
+  }, 1000);
+}
+function espArranca() {
+  espFase("serie");
+  if (!rec) iniciaRec(); else iniciaSerie(seriesRec.length + 1);
+}
+function espCancelaCuenta() { if (ESP.cuenta) { clearInterval(ESP.cuenta); ESP.cuenta = null; } }
+
+// --- puntero con la mano: la muñeca más alta (por encima del hombro) mueve el cursor; se mide en anchos de hombro, así no depende de la distancia ---
+function espPuntero(lm) {
+  const p = ESP.p, vis = i => lm && (lm[i].visibility ?? 1) > 0.5;
+  if (!lm || !vis(11) || !vis(12)) { p.vis = false; return; }
+  const sw = Math.hypot((lm[11].x - lm[12].x)*W, (lm[11].y - lm[12].y)*H) || 1, cx = (lm[11].x + lm[12].x)/2*W, cy = (lm[11].y + lm[12].y)/2*H;
+  let mejor = null;
+  for (const i of [15, 16]) if (vis(i)) { const h = -((lm[i].y*H - cy)/sw); if (h > -0.5 && (!mejor || h > mejor.h)) mejor = { h, dx:(lm[i].x*W - cx)/sw }; }
+  if (!mejor) { p.vis = false; return; }
+  const sx = Math.max(0.02, Math.min(0.98, 0.5 - mejor.dx/2.6)), sy = Math.max(0.04, Math.min(0.96, 0.97 - (mejor.h + 0.5)/1.7*0.94));   // espejo: la mano derecha va a la derecha de la pantalla
+  if (!p.vis) { p.x = sx; p.y = sy; p.vis = true; } else { p.x += (sx - p.x)*0.35; p.y += (sy - p.y)*0.35; }
+}
+function espPunteroPermitido() {
+  if (!ESP.gestos) return false;
+  if ($("rev").style.display !== "none" && $("rev").style.display !== "") return true;
+  if (ESP.fase === "menu" || ESP.fase === "prep") return true;
+  if (rec && serie && (serie.fase === "resumen" || serie.fase === "descanso")) return true;
+  return false;
+}
+function espOverlayVisible() { for (const id of ["rev", "serieRes"]) { const e = $(id); if (e && e.style.display !== "none" && e.style.display !== "") return e; } return null; }
+function espScroll(d) { const o = espOverlayVisible(); if (o) o.scrollTop += d*22; }
+function espDwell(now) {
+  const ov = espOverlayVisible(), vis = ov ? "flex" : "none"; $("esp_sc_up").style.display = vis; $("esp_sc_dn").style.display = vis;
+  const cur = $("cursor"), p = ESP.p, d = ESP.dw;
+  const activo = p.vis && espPunteroPermitido();
+  cur.style.display = activo ? "block" : "none";
+  if (!activo) { if (d.el) d.el.classList.remove("dw-on"); d.el = null; return; }
+  const px = p.x*innerWidth, py = p.y*innerHeight;
+  cur.style.transform = "translate("+px+"px,"+py+"px)";
+  const el = document.elementFromPoint(px, py), dw = el && el.closest ? el.closest(".dw") : null;
+  const sc = el && el.closest ? el.closest(".esc") : null;
+  if (sc) { espScroll(sc.id === "esp_sc_up" ? -1 : 1); sc.style.filter = "brightness(1.25)"; } else { $("esp_sc_up").style.filter = $("esp_sc_dn").style.filter = ""; }
+  const ok = dw && !dw.disabled && dw.offsetParent !== null;
+  if (!ok) { if (d.el) d.el.classList.remove("dw-on"); d.el = null; d.bloq = false; $("cur_arco").style.strokeDashoffset = 100; return; }
+  if (dw !== d.el) { if (d.el) d.el.classList.remove("dw-on"); d.el = dw; d.t0 = now; d.bloq = false; dw.classList.add("dw-on"); }
+  const prog = Math.min(1, (now - d.t0)/1100);
+  $("cur_arco").style.strokeDashoffset = 100 - 100*prog;
+  if (prog >= 1 && !d.bloq) { d.bloq = true; pitido(760, 90, 0.25); dw.click(); }
+}
+// --- gesto para terminar la serie: brazos cruzados sobre el pecho 1,5 s (desactivable con la tecla G) ---
+function espCruz(lm, now) {
+  if (!ESP.gestos || !(rec && serie && serie.fase === "activa" && !serie.cerrando)) { ESP.xt = 0; return; }
+  const v = i => lm && (lm[i].visibility ?? 1) > 0.5;
+  if (!lm || !v(15) || !v(16) || !v(11) || !v(12) || !v(23)) { ESP.xt = 0; return; }
+  const sw = Math.hypot((lm[11].x - lm[12].x)*W, (lm[11].y - lm[12].y)*H) || 1;
+  const cruzados = (lm[16].x - lm[15].x)*W > 0.15*sw;   // la muñeca izquierda queda a la izquierda de la derecha
+  const juntas = Math.hypot((lm[15].x - lm[16].x)*W, (lm[15].y - lm[16].y)*H) < 0.9*sw;
+  const pecho = lm[15].y > lm[11].y && lm[16].y > lm[11].y && lm[15].y < lm[23].y && lm[16].y < lm[23].y;
+  if (cruzados && juntas && pecho) { if (!ESP.xt) ESP.xt = now; if (now - ESP.xt > 1500) { ESP.xt = 0; cierraSerie("gesto"); } } else ESP.xt = 0;
+}
+// --- inicio automático: bien colocado y quieto ~2 s ---
+function espAutoInicio(lm, now) {
+  if (ESP.fase !== "prep" || !ESP.auto) { $("prep_prog").textContent = ""; return; }
+  const P = lm ? puntos(lm) : null;
+  if (!P || guiaTxt) { ESP.quieto.length = 0; $("prep_prog").textContent = guiaTxt || "Colócate en la imagen"; return; }
+  ESP.quieto.push({ t:now, x:P[NOSE].x, y:P.cadera }); while (ESP.quieto.length && now - ESP.quieto[0].t > 2300) ESP.quieto.shift();
+  const rg = a => Math.max(...a) - Math.min(...a), q = ESP.quieto;
+  const quieto = q.length > 6 && rg(q.map(o => o.x)) < H*0.035 && rg(q.map(o => o.y)) < H*0.035;
+  const seg = quieto ? (now - q[0].t)/1000 : 0;
+  $("prep_prog").textContent = quieto ? "Quieto… "+Math.min(2, seg).toFixed(1)+" s" : "Quédate quieto 2 s para empezar";
+  if (quieto && now - q[0].t >= 1800) espCuenta();
+}
+// --- fin automático: objetivo (ya lo hace la app), parada de ~9 s o fin de la postura mantenida ---
+function espFinAuto(now) {
+  const s = serie; if (!rec || !s || s.fase !== "activa" || s.cerrando) return;
+  if (s.valor !== s.espPrev) { s.espPrev = s.valor; s.espT = now; }
+  if (["sentadilla", "flexiones", "dominadas", "hombro_lat", "hombro_fr", "salto"].includes(modo) && s.valor > 0 && now - s.espT > 9000) cierraSerie("sin movimiento");
+  if (MODOS_TIEMPO.includes(modo) && ex.n > 0 && !ex.hold.act) { if (!s.espHf) s.espHf = now; else if (now - s.espHf > 2000) cierraSerie("fin de la postura"); } else s.espHf = 0;
+  if (modo === "postura" && ex.n > 0) { if (!s.espHf) s.espHf = now; else if (now - s.espHf > 5000) cierraSerie("medida hecha"); }
+}
+function espEstadoReal() {   // sincroniza la pantalla con lo que hace la serie
+  if (!rec) return;
+  const rv = $("rev").style.display !== "none" && $("rev").style.display !== "";
+  if (rv) { if (ESP.fase !== "fin") espFase("fin"); return; }
+  if (ESP.fase === "serie" && serie && serie.fase === "resumen" && $("serieRes").style.display !== "none") espFase("resumen");
+}
+function espejoFrame(lm, now) {
+  try {
+    espPuntero(lm); espDwell(now); espCruz(lm, now); espAutoInicio(lm, now); espFinAuto(now); espEstadoReal();
+    if (ESP.fase === "resumen" && serie && serie.fase === "activa") espFase("serie");
+  } catch(e) { /* el espejo nunca debe parar el análisis */ }
+}
+
+// --- teclado ---
+function espAccion() {   // la tecla principal (espacio / intro): hace lo siguiente que toca
+  if ($("rev").style.display !== "none" && $("rev").style.display !== "") { $("revclose").click(); return; }
+  if (ESP.fase === "menu") { espFase("prep"); return; }
+  if (ESP.fase === "prep") { espCuenta(); return; }
+  if (ESP.fase === "cuenta") return;
+  if (rec && serie && serie.fase === "activa") { cierraSerie("tecla"); return; }
+  if (rec && serie && serie.fase === "resumen") { $("sr_sig").click(); return; }
+}
+async function espCambiaCamara() {
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+  if (devs.length < 2) { toast("Solo hay una cámara conectada."); return; }
+  const actual = lenteSel || (stream && stream.getVideoTracks()[0].getSettings().deviceId), i = devs.findIndex(d => d.deviceId === actual), sig = devs[(i + 1) % devs.length];
+  lenteSel = sig.deviceId; await abreCamara(); toast("Cámara: "+(sig.label || "otra"));
+}
+if (ESPEJO) {
+addEventListener("keydown", e => {
+  if ($("load").style.display !== "none") { $("start").click(); return; }
+  if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === " " || k === "enter") { e.preventDefault(); espAccion(); }
+  else if (k === "escape") { espCancelaCuenta(); if (rec && serie && serie.fase === "activa") cierraSerie("tecla"); else espFase("menu"); }
+  else if (k === "f") { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); }
+  else if (k === "g") { ESP.gestos = !ESP.gestos; toast("Gestos: "+(ESP.gestos ? "activados" : "desactivados")); espRefresca(); }
+  else if (k === "a") { ESP.auto = !ESP.auto; espRefresca(); }
+  else if (k === "c") espCambiaCamara();
+  else if (k === "m") { const h = document.querySelector(".hud"); h.style.display = h.style.display === "none" ? "flex" : "none"; }
+  else if (k === "arrowleft") espCambiaNadador(-1);
+  else if (k === "arrowright") espCambiaNadador(1);
+  else if ((k === "arrowup" || k === "arrowdown") && espOverlayVisible()) { espScroll(k === "arrowup" ? -8 : 8); }
+  else if (k === "arrowup") espObjetivo(e.shiftKey ? 5 : 1);
+  else if (k === "arrowdown") espObjetivo(e.shiftKey ? -5 : -1);
+  else if (/^[0-9]$/.test(k) && ESP.fase === "menu") { const i = (+k + 9) % 10; if (ESP_EJ[i]) espEligeEjercicio(ESP_EJ[i][0]); }
+});
+// --- botones de la pantalla ---
+$("nad_ant").addEventListener("click", () => espCambiaNadador(-1)); $("nad_sig").addEventListener("click", () => espCambiaNadador(1));
+$("obj_menos").addEventListener("click", () => espObjetivo(-1)); $("obj_mas").addEventListener("click", () => espObjetivo(1));
+$("prep_ya").addEventListener("click", () => espCuenta()); $("prep_vol").addEventListener("click", () => { espCancelaCuenta(); espFase("menu"); });
+$("prep_auto").addEventListener("click", () => { ESP.auto = !ESP.auto; espRefresca(); }); $("esp_gest").addEventListener("click", () => { ESP.gestos = !ESP.gestos; espRefresca(); });
+$("sr_ej").addEventListener("click", () => { $("serieRes").style.display = "none"; espFase("menu"); });
+$("sr_sig").addEventListener("click", () => { if (ESP.fase !== "serie") espFase("serie"); });
+$("sr_fin").addEventListener("click", () => { espFase("serie"); });
+$("revclose").addEventListener("click", () => { espFase("menu"); });
+$("fin_nueva").addEventListener("click", () => { $("rev").style.display = "none"; try { $("revv").pause(); } catch(e) {} espFase("menu"); });
+$("fin_rep").addEventListener("click", () => { $("rev").style.display = "none"; try { $("revv").pause(); } catch(e) {} espFase("prep"); });
+}
+
+// --- marcador para verse desde lejos (sustituye al del móvil) ---
+function dibujaHUD_tv(c) {
+  c.save(); c.textAlign = "center";
+  const u = Math.min(W, H)/100, F = FUENTE_T;
+  c.shadowColor = "rgba(0,0,0,.65)"; c.shadowBlur = u*1.2;
+  if (guiaTxt) {
+    c.font = "700 "+(u*4.2)+"px "+F; const w = Math.min(W*0.94, c.measureText(guiaTxt).width + u*8), h = u*8.5, y = H*0.04;
+    c.fillStyle = "rgba(255,204,51,.96)"; rectRedondo(c, W/2 - w/2, y, w, h, u*2.4); c.fill(); c.shadowBlur = 0;
+    c.fillStyle = "#1a1300"; textoLegible(c, guiaTxt, W/2, y + h*0.68);
+  }
+  if (rec && rec.fase === "grabando" && serie && (serie.fase === "activa" || serie.fase === "descanso")) {
+    const cx = W/2;
+    if (serie.fase === "descanso") {
+      const rest = Math.max(0, Math.ceil((serie.descansoHasta - performance.now())/1000));
+      c.fillStyle = "#cfd8f0"; c.font = "800 "+(u*5)+"px "+F; textoLegible(c, "DESCANSO", cx, H*0.34);
+      c.fillStyle = "#ffcc33"; c.font = "800 "+(u*34)+"px "+F; textoLegible(c, String(rest), cx, H*0.66);
+      c.fillStyle = "#cfd8f0"; c.font = "700 "+(u*4)+"px "+F; textoLegible(c, "Siguiente: serie "+(serie.n + 1), cx, H*0.76);
+    } else {
+      const esT = MODOS_TIEMPO.includes(modo), vtxt = esT ? serie.valor.toFixed(1) : String(serie.valor);
+      c.fillStyle = "rgba(11,18,32,.62)"; c.shadowBlur = 0;
+      const et = ("SERIE "+serie.n+" · "+(EJ_NOMBRE[modo] || modo)).toUpperCase(), tw = (c.font = "800 "+(u*4)+"px "+F, c.measureText(et).width) + u*8;
+      rectRedondo(c, cx - tw/2, H*0.035, tw, u*8, u*2.4); c.fill();
+      c.shadowBlur = u*1.2; c.fillStyle = "#fff"; textoLegible(c, et, cx, H*0.035 + u*5.6);
+      c.fillStyle = "rgba(11,18,32,.62)"; c.shadowBlur = 0; rectRedondo(c, u*3, H*0.035, u*18, u*8, u*2.4); c.fill();
+      c.shadowBlur = u*1.2; c.fillStyle = "#cfd8f0"; c.font = "800 "+(u*4.4)+"px "+F; textoLegible(c, mmss((performance.now() - serie.t0)/1000), u*12, H*0.035 + u*5.8);
+      c.fillStyle = serie.logrado ? "#35d07f" : "#fff"; c.font = "800 "+(u*(esT ? 26 : 38))+"px "+F;
+      if (serie.obj) {
+        const wb = c.measureText(vtxt).width; c.font = "700 "+(u*9)+"px "+F; const so = " / "+serie.obj+(esT ? " s" : ""), ws = c.measureText(so).width;
+        c.fillStyle = serie.logrado ? "#35d07f" : "#fff"; c.font = "800 "+(u*(esT ? 26 : 38))+"px "+F; textoLegible(c, vtxt, cx - ws/2, H*0.86);
+        c.fillStyle = "#cfd8f0"; c.font = "700 "+(u*9)+"px "+F; textoLegible(c, so, cx + wb/2, H*0.86);
+        const bw = Math.min(W*0.5, u*80), by = H*0.89; c.shadowBlur = 0; c.fillStyle = "rgba(255,255,255,.25)"; rectRedondo(c, cx - bw/2, by, bw, u*2.4, u*1.2); c.fill();
+        c.fillStyle = serie.logrado ? "#35d07f" : "#4cc2ff"; rectRedondo(c, cx - bw/2, by, Math.max(u*2.4, bw*Math.min(1, serie.valor/serie.obj)), u*2.4, u*1.2); c.fill();
+      } else textoLegible(c, vtxt, cx, H*0.86);
+    }
+  }
+  c.restore();
+}
+
+
+function espZoom() { const z = Math.max(1, Math.min(2.2, innerHeight/560)); $("serieRes").style.zoom = $("rev").style.zoom = ESPEJO ? z : ""; }
+if (ESPEJO) { espZoom(); addEventListener("resize", espZoom); $("esp_salir").addEventListener("click", () => { location.href = location.pathname; }); }
+$("go_espejo").addEventListener("click", () => { location.href = location.pathname + "?modo=espejo"; });
+
 // ---------- rendimiento (cámara y procesador) ----------
 const rend = { res:"720", delegado:"auto", auto:true, tuned:null };
 try { Object.assign(rend, JSON.parse(localStorage.getItem("cna_rend") || "{}")); } catch(e) {}
@@ -1964,6 +2252,7 @@ function frame(now) {
       $("incl").textContent = inclinacion === null ? "" : inclinacion > 4 ? "⚠ móvil inclinado "+inclinacion.toFixed(0)+"°" : "móvil nivelado"; $("incl").style.color = inclinacion !== null && inclinacion > 4 ? "#ffcc33" : "#35d07f"; }
     const lm = res && res.landmarks && res.landmarks[0];
     guiaTxt = guiaPosicion(lm);
+    if (ESPEJO) espejoFrame(lm, now);
     dibuja(lm);
     ultimoLm = lm;
     let est;
@@ -1981,13 +2270,13 @@ function frame(now) {
 
 // ---------- arranque ----------
 let lenteSel = null, lentes = [];
-try { lenteSel = localStorage.getItem("cna_lente"); } catch(e) {}
+try { lenteSel = ESPEJO ? null : localStorage.getItem("cna_lente"); } catch(e) {}
 async function abreCamara() {
   if (stream) stream.getTracks().forEach(t=>t.stop());
   const dims = { "480":[640, 480], "720":[1280, 720], "1080":[1920, 1080] }[rend.res] || [1280, 720];
   const base = { width:{ ideal:dims[0] }, height:{ ideal:dims[1] }, frameRate:{ ideal:60 } };
   const pide = v => navigator.mediaDevices.getUserMedia({ audio:false, video:v });
-  try { stream = await pide(lenteSel && facing === "environment" ? { ...base, deviceId:{ exact:lenteSel } } : { ...base, facingMode:{ ideal:facing } }); }
+  try { stream = await pide(lenteSel && (facing === "environment" || ESPEJO) ? { ...base, deviceId:{ exact:lenteSel } } : { ...base, facingMode:{ ideal:facing } }); }
   catch(e) { if (!lenteSel) throw e; lenteSel = null; stream = await pide({ ...base, facingMode:{ ideal:facing } }); }
   video.srcObject = stream; await video.play();
   const mir = facing==="user";
@@ -2076,7 +2365,7 @@ $("start").addEventListener("click", async () => {
     if (!navigator.mediaDevices) throw new Error("Este navegador no da acceso a la cámara (hace falta HTTPS).");
     await carga(); await abreCamara();
     try { await navigator.wakeLock?.request("screen"); } catch(e) {}
-    $("load").style.display = "none";
+    $("load").style.display = "none"; if (ESPEJO) espEntra();
     video.requestVideoFrameCallback ? video.requestVideoFrameCallback(frame) : requestAnimationFrame(frame);
     if (rend.auto && !rend.tuned) setTimeout(() => optimiza(), 1500);
   } catch(e) { $("loadmsg").textContent = "Error: " + (e.message||e); }
