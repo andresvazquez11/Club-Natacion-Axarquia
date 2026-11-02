@@ -2,7 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="logo_cna.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Seco CNA">
+<meta name="theme-color" content="#0b1220">
 <title>Entreno en seco · CNA (prototipo)</title>
 <style>
   :root { --bg:#0b1220; --panel:#111a2e; --txt:#eef2ff; --mut:#8fa0c4; --ok:#35d07f; --warn:#ffcc33; --bad:#ff5d6c; --acc:#4cc2ff; }
@@ -20,7 +27,7 @@
   .stage video, .stage canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
   .mirror { transform:scaleX(-1); }
   .hud { position:absolute; left:0; right:0; top:0; padding:10px 12px; display:flex; justify-content:space-between; pointer-events:none; font-size:13px; color:#fff; text-shadow:0 1px 3px #000; }
-  .state { position:absolute; left:12px; right:12px; bottom:12px; background:rgba(11,18,32,.88); border-radius:14px; padding:12px 14px; }
+  .state { position:absolute; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom) + 84px); background:rgba(11,18,32,.88); border-radius:14px; padding:12px 14px; }
   .state .t { font-size:15px; color:var(--mut); }
   .state .big { font-size:38px; font-weight:800; letter-spacing:-.5px; }
   .row { display:flex; gap:14px; flex-wrap:wrap; align-items:baseline; }
@@ -31,22 +38,27 @@
   .btn.rec { background:var(--bad); color:#fff; }
   .load { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:30px; background:var(--bg); z-index:5; color:var(--mut); }
   .load button { margin-top:16px; background:var(--acc); color:#04121f; border:0; border-radius:12px; padding:14px 22px; font-size:17px; font-weight:700; }
-  .top { position:absolute; left:8px; right:8px; top:calc(env(safe-area-inset-top) + 8px); display:flex; gap:6px; flex-wrap:wrap; align-items:center; z-index:3; }
-  .chip { background:rgba(17,26,46,.82); color:var(--txt); border:0; border-radius:999px; padding:8px 12px; font-size:14px; font-weight:700; backdrop-filter:blur(6px); max-width:46vw; }
+  .cab { position:absolute; left:8px; right:8px; top:calc(env(safe-area-inset-top) + 8px); display:flex; flex-direction:column; gap:6px; align-items:flex-start; z-index:3; pointer-events:none; }
+  .cab > * { pointer-events:auto; }
+  .top { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .chip { background:rgba(17,26,46,.82); color:var(--txt); border:0; border-radius:999px; padding:8px 12px; font-size:14px; font-weight:700; backdrop-filter:blur(6px); max-width:46vw; white-space:nowrap; }
   .chip.on { background:var(--acc); color:#04121f; }
   .lentes { display:flex; gap:4px; }
-  .lado { position:absolute; right:8px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; align-items:flex-end; z-index:3; }
+  .lado { position:absolute; right:calc(env(safe-area-inset-right) + 8px); max-width:46vw; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; align-items:flex-end; z-index:3; }
   .redondo { background:var(--bad); color:#fff; border:0; border-radius:999px; padding:14px 16px; font-size:15px; font-weight:800; box-shadow:0 2px 8px #0008; }
   .redondo.rec { background:#fff; color:var(--bad); }
-  .marcasui { position:absolute; left:8px; top:calc(env(safe-area-inset-top) + 52px); background:rgba(17,26,46,.85); border-radius:12px; padding:6px 10px; font-size:13px; display:flex; gap:10px; align-items:center; z-index:3; }
-  .marcasui input[type=number] { width:56px; background:#0b1220; color:var(--txt); border:1px solid #27365a; border-radius:6px; padding:4px; font-size:15px; }
-  .hud { top:calc(env(safe-area-inset-top) + 96px) !important; justify-content:flex-start !important; gap:10px; }
+  .marcasui { background:rgba(17,26,46,.85); border-radius:12px; padding:6px 10px; font-size:13px; display:flex; gap:10px; align-items:center; }
+  .marcasui input[type=number], .marcasui select { width:60px; background:#0b1220; color:var(--txt); border:1px solid #27365a; border-radius:6px; padding:4px; font-size:16px; }
+  select.chip { font-size:16px; }
+  .chip, .redondo, .marcasui, .state { touch-action:manipulation; }
+  .hud { position:static !important; padding:0 !important; display:flex; gap:10px; font-size:12px; color:#fff; text-shadow:0 1px 3px #000; pointer-events:none !important; }
   #toast { position:absolute; left:50%; top:30%; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#fff; padding:10px 14px; border-radius:12px; font-size:14px; z-index:6; display:none; max-width:80%; text-align:center; }
   .fn { display:flex; gap:6px; align-items:center; margin:6px 0; color:#fff; }
   .fn .nn { flex:1; min-width:0; background:#0b1220; color:#fff; border:1px solid #27365a; border-radius:8px; padding:9px; font-size:16px; }
   .fn .ne { width:70px; background:#0b1220; color:#fff; border:1px solid #27365a; border-radius:8px; padding:9px; font-size:16px; text-align:center; }
   #ajhist { color:#cfd8f0; font-size:14px; margin-top:10px; line-height:1.5; }
-  @media (orientation:landscape) { .state { right:auto !important; width:min(58%,560px); padding:8px 12px !important; } .state .big { font-size:28px !important; } .state .hist { display:none; } }
+  @media (display-mode:standalone) { .state { bottom:calc(env(safe-area-inset-bottom) + 12px) !important; } }
+  @media (orientation:landscape) { .state { bottom:calc(env(safe-area-inset-bottom) + 52px); right:auto !important; width:min(58%,560px); padding:8px 12px !important; } .state .big { font-size:28px !important; } .state .hist { display:none; } }
 </style>
 </head>
 <body>
@@ -54,6 +66,7 @@
   <div class="stage" id="stage">
     <video id="v" playsinline muted autoplay></video>
     <canvas id="c" style="touch-action:none"></canvas>
+    <div class="cab">
     <div class="top">
       <select id="nadador" class="chip"></select>
       <select id="modo" class="chip">
@@ -77,12 +90,13 @@
       <label id="mk_nl" style="display:none">Puertas <select id="mk_n"><option>2</option><option selected>3</option><option>4</option></select></label>
       <label><span id="mk_dl">A–B</span> <input id="mk_d" type="number" step="0.1" min="0.5" max="50" value="2"> m</label>
     </div>
+    <div class="hud"><span id="fps"></span><span id="res"></span></div>
+    </div>
     <div class="lado">
       <button class="redondo" id="grabar">● Grabar</button>
       <button class="chip" id="informe">Informe (<span id="nreg">0</span>)</button>
       <button class="chip" id="ajustes">⚙ Nadadores</button>
     </div>
-    <div class="hud"><span id="fps"></span><span id="res"></span></div>
     <div id="toast"></div>
     <div class="state" id="estado"></div>
     <div class="state" id="estado"></div>
@@ -92,6 +106,7 @@
         <p>Apoya el móvil fijo, a 2–3 m, con el cuerpo entero a la vista (de pies a cabeza) y buena luz.</p>
         <button id="start">Activar cámara</button>
         <p id="loadmsg" style="font-size:14px"></p>
+        <p id="instalar" style="font-size:13px;color:#8fa0c4;display:none">Para verla <b>a pantalla completa</b>: toca Compartir y «Añadir a pantalla de inicio»; luego ábrela desde el icono «Seco CNA».</p>
       </div>
     </div>
     <div class="load" id="aju" style="display:none;background:rgba(0,0,0,.94);flex-direction:column;justify-content:flex-start;align-items:stretch;overflow:auto;padding:14px;text-align:left">
@@ -1063,6 +1078,7 @@ async function carga() {
   try { landmarker = await PoseLandmarker.createFromOptions(fileset, opts("GPU")); }
   catch(e) { landmarker = await PoseLandmarker.createFromOptions(fileset, opts("CPU")); }
 }
+if (!(window.navigator.standalone || matchMedia("(display-mode:standalone)").matches)) $("instalar").style.display = "";
 $("start").addEventListener("click", async () => {
   try {
     if (!navigator.mediaDevices) throw new Error("Este navegador no da acceso a la cámara (hace falta HTTPS).");

@@ -1,0 +1,11 @@
+{
+  "name": "Entreno en seco · CNA",
+  "short_name": "Seco CNA",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "icons": [{ "src": "logo_cna.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }]
+}
