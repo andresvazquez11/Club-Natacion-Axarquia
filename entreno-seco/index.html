@@ -659,6 +659,61 @@ function dibujaMarcas(c) {
   }
   c.restore();
 }
+// ---------- ángulos sobre el esqueleto: verde = bien, ámbar = mejorable, rojo = a corregir, azul = informativo ----------
+const COLA = { ok:"#35d07f", warn:"#ffcc33", bad:"#ff5d6c", n:"#4cc2ff" };
+function chequeos(P) {
+  const d = ladoVisible(P), L = [];
+  const arriba = p => ({ x:p.x, y:p.y-100, v:1 });
+  const add = (a, b, c, est, suf) => { if (a && b && c && Math.min(a.v, b.v, c.v) > 0.5) { const g = ang(a, b, c); L.push({ a, b, c, g, est:est(g), suf:suf || "°" }); } };
+  const nivel = (ok, warn) => g => g >= ok ? "ok" : g >= warn ? "warn" : "bad";
+  switch (modo) {
+    case "salto": add(P[d.hip], P[d.kn], P[d.an], () => "n"); break;
+    case "sentadilla":
+      add(P[d.hip], P[d.kn], P[d.an], g => g <= 90 ? "ok" : g <= 110 ? "warn" : "n");
+      add(P[d.sh], P[d.hip], arriba(P[d.hip]), g => g <= 45 ? "ok" : g <= 60 ? "warn" : "bad", "° tronco");
+      break;
+    case "plancha": add(P[d.sh], P[d.hip], P[d.an], nivel(165, 150), "° línea"); break;
+    case "flexiones":
+      add(P[d.sh], P[d.hip], P[d.an], nivel(160, 145), "° línea");
+      add(P[d.sh], P[d.el], P[d.wr], g => g <= 90 ? "ok" : g <= 110 ? "warn" : "n");
+      break;
+    case "dominadas":
+      [[SH_L, EL_L, WR_L], [SH_R, EL_R, WR_R]].forEach(t => add(P[t[0]], P[t[1]], P[t[2]], g => (g >= 165 || g <= 90) ? "ok" : "n"));
+      break;
+    case "salida":
+      add(P[d.hip], P[d.kn], P[d.an], () => "n");
+      add(P[d.sh], P[d.hip], P[d.an], nivel(160, 140), "° cuerpo");
+      break;
+    case "equilibrio": {
+      const hl = P[HIP_L], hr = P[HIP_R];
+      if (Math.min(hl.v, hr.v) > 0.5) { let t = Math.abs(Math.atan2(hr.y-hl.y, hr.x-hl.x)*180/Math.PI); if (t > 90) t = 180 - t; L.push({ a:hl, b:hr, c:null, g:t, est:t <= 5 ? "ok" : t <= 10 ? "warn" : "bad", suf:"° pelvis" }); }
+      add(P[d.hip], P[d.kn], P[d.an], () => "n");
+      break;
+    }
+    case "streamline":
+      add(P[d.hip], P[d.sh], P[d.wr], nivel(165, 150), "° hombro");
+      add(P[d.sh], P[d.el], P[d.wr], nivel(165, 150), "° codo");
+      break;
+  }
+  return L;
+}
+function dibujaAngulos(c, lm) {
+  if (!lm || !["salto","sentadilla","plancha","flexiones","dominadas","salida","equilibrio","streamline"].includes(modo)) return;
+  const L = chequeos(puntos(lm)), fs = Math.max(16, W/38);
+  c.save(); c.lineCap = "round"; c.lineJoin = "round"; c.lineWidth = Math.max(5, W/150);
+  for (const k of L) { c.strokeStyle = COLA[k.est]; c.beginPath(); c.moveTo(k.a.x, k.a.y); c.lineTo(k.b.x, k.b.y); if (k.c) c.lineTo(k.c.x, k.c.y); c.stroke(); }
+  c.font = "bold "+fs+"px sans-serif"; c.textAlign = "center";
+  for (const k of L) {
+    const x = k.c ? k.b.x : (k.a.x+k.b.x)/2, y = k.c ? k.b.y : (k.a.y+k.b.y)/2, t = Math.round(k.g)+k.suf, w = c.measureText(t).width + fs*0.7;
+    const bx = Math.min(W - w/2, Math.max(w/2, x + fs*0.6)), by = Math.max(fs*1.2, y - fs*1.1);
+    c.fillStyle = "rgba(11,18,32,.8)"; c.beginPath();
+    if (c.roundRect) c.roundRect(bx - w/2, by - fs*0.85, w, fs*1.3, fs*0.3); else c.rect(bx - w/2, by - fs*0.85, w, fs*1.3);
+    c.fill();
+    c.fillStyle = COLA[k.est]; textoLegible(c, t, bx, by + fs*0.15);
+    c.beginPath(); c.arc(k.c ? k.b.x : x, k.c ? k.b.y : y, fs*0.28, 0, 7); c.fill();
+  }
+  c.restore();
+}
 function dibujaEn(c, lm) {
   if ((modo === "longitud" && marcas.on) || modo === "salida" || modo === "sprint") dibujaMarcas(c);
   if (!lm) return;
@@ -668,6 +723,7 @@ function dibujaEn(c, lm) {
     c.beginPath(); c.moveTo(lm[a].x*W, lm[a].y*H); c.lineTo(lm[b].x*W, lm[b].y*H); c.stroke();
   }
   for (let i=11;i<33;i++) { if ((lm[i].visibility??1)<0.4) continue; c.beginPath(); c.arc(lm[i].x*W, lm[i].y*H, Math.max(4,W/200), 0, 7); c.fill(); }
+  dibujaAngulos(c, lm);
   if (cal.ok && modo==="salto") { // línea del suelo calibrado
     c.strokeStyle="rgba(255,204,51,.8)"; c.setLineDash([14,10]); c.beginPath(); c.moveTo(0,cal.pieBase); c.lineTo(W,cal.pieBase); c.stroke(); c.setLineDash([]);
   }
@@ -780,6 +836,125 @@ async function cargaLogo() {
     return await new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result); f.readAsDataURL(b); });
   } catch(e) { return null; }
 }
+// ---------- conclusiones del informe: lo que va bien y lo que hay que corregir (reglas orientativas sobre los datos de la sesión) ----------
+function conclusiones(clave, rs) {
+  const bien = [], mejorar = [];
+  const media = a => a.reduce((s, v) => s + v, 0)/a.length;
+  const desv = a => { const m = media(a); return Math.sqrt(media(a.map(v => (v-m)**2))); };
+  const f = (v, d = 0) => (+v).toFixed(d).replace(".", ",");
+  const n = rs.length, fps = rs[0].fps || 30;
+  const mitades = a => a.length >= 4 ? [media(a.slice(0, Math.floor(a.length/2))), media(a.slice(Math.floor(a.length/2)))] : null;
+  switch (clave) {
+    case "salto": {
+      const hs = rs.map(r => r.hVuelo), cv = desv(hs)/media(hs), m = mitades(hs);
+      bien.push("Mejor salto: "+f(Math.max(...hs), 1)+" cm (media "+f(media(hs), 1)+" cm).");
+      if (n >= 3 && cv < 0.08) bien.push("Saltos muy regulares (variación del "+f(cv*100)+" %).");
+      if (n >= 3 && cv > 0.15) mejorar.push("Altura irregular (variación del "+f(cv*100)+" %): intenta repetir siempre el mismo gesto (flexión, brazos, extensión).");
+      if (m && m[1] < m[0]*0.93) mejorar.push("Los últimos saltos bajan respecto a los primeros: posible cansancio; descansa más entre saltos.");
+      if (fps < 30) mejorar.push("Con "+f(fps)+" fps de análisis la altura puede variar unos ±"+f(100*9.81*rs[0].vuelo/(4*fps))+" cm.");
+      if (mejorar.length < 2) mejorar.push("Para saltar más: fuerza de piernas (sentadillas, saltos al cajón) y buen impulso de brazos.");
+      break;
+    }
+    case "sentadilla": {
+      const pr = rs.filter(r => r.rodilla <= 90).length, co = rs.filter(r => r.rodilla > 110).length, tr = media(rs.map(r => r.tronco));
+      if (pr/n >= 0.7) bien.push("Buena profundidad: "+pr+" de "+n+" repeticiones a 90° o menos.");
+      if (tr <= 45) bien.push("Tronco controlado (inclinación media "+f(tr)+"°).");
+      if (co/n >= 0.3) mejorar.push(co+" repeticiones cortas (rodilla por encima de 110°): baja hasta que el muslo quede horizontal.");
+      if (tr > 45) mejorar.push("Tronco muy inclinado (media "+f(tr)+"°): saca el pecho, mira al frente y activa el abdomen.");
+      if (!bien.length) bien.push("Has completado "+n+" repeticiones: seguimos midiendo para ver la evolución.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: aumenta la dificultad poco a poco (más repeticiones o ritmo más lento al bajar).");
+      break;
+    }
+    case "plancha": {
+      const pct = media(rs.map(r => r.pct)), li = media(rs.map(r => r.linea)), mejor = Math.max(...rs.map(r => r.tiempo));
+      if (pct >= 85) bien.push("El cuerpo se mantiene recto el "+f(pct)+" % del tiempo.");
+      if (mejor >= 45) bien.push("Buena resistencia: "+f(mejor)+" s seguidos con el cuerpo recto.");
+      if (pct < 70) mejorar.push("La cadera se cae o se sube (solo "+f(pct)+" % del tiempo recta): aprieta glúteos y abdomen y mantén la cabeza neutra.");
+      if (li < 165) mejorar.push("Línea media de "+f(li)+"°: busca llegar a 170° o más.");
+      if (mejor < 30) mejorar.push("Aguanta más tiempo: sube 5–10 s por semana, siempre con la postura correcta.");
+      if (!bien.length) bien.push("Plancha completada: sigue registrándola para ver cómo mejora.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: prueba variantes (con un apoyo menos o con elevaciones de pierna).");
+      break;
+    }
+    case "flexiones": {
+      const pr = rs.filter(r => r.codo <= 90 && r.linea >= 160).length, cor = rs.filter(r => r.codo > 110).length, cur = rs.filter(r => r.linea < 160).length, m = mitades(rs.map(r => r.codo));
+      if (pr/n >= 0.7) bien.push(pr+" de "+n+" flexiones profundas y con el cuerpo recto.");
+      if (cor/n >= 0.3) mejorar.push(cor+" flexiones cortas (codo por encima de 110°): baja hasta 90° o menos.");
+      if (cur/n >= 0.3) mejorar.push("Cuerpo curvado en "+cur+" repeticiones: aprieta abdomen y glúteos para que cadera y hombros vayan alineados.");
+      if (m && m[1] > m[0] + 10) mejorar.push("Pierdes profundidad al final de la serie (cansancio): para antes de perder la técnica.");
+      if (!bien.length) bien.push("Has hecho "+n+" flexiones: seguimos midiendo para ver la evolución.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: aumenta repeticiones o prueba un ritmo más lento al bajar.");
+      break;
+    }
+    case "dominadas": {
+      const comp = rs.filter(r => r.top).length, ext = media(rs.map(r => r.ext));
+      if (comp/n >= 0.7) bien.push(comp+" de "+n+" dominadas completas (barbilla por encima de las manos).");
+      if (comp/n < 0.7) mejorar.push("Solo "+comp+" de "+n+" llegan arriba: sube hasta pasar la barbilla por encima de las manos (puedes ayudarte con goma).");
+      if (ext < 160) mejorar.push("No estiras del todo abajo (media "+f(ext)+"°): baja hasta extender los codos antes de cada repetición.");
+      if (!bien.length) bien.push("Has hecho "+n+" dominadas: seguimos midiendo para ver la evolución.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: sube el número de repeticiones poco a poco.");
+      break;
+    }
+    case "longitud": {
+      const ds = rs.map(r => r.valor), cv = desv(ds)/media(ds), mejor = Math.max(...ds), est = rs[0].estatura;
+      bien.push("Mejor salto: "+f(mejor)+" cm ("+f(100*mejor/est)+" % de tu estatura).");
+      if (n >= 3 && cv < 0.05) bien.push("Distancias muy regulares.");
+      if (n >= 3 && cv > 0.1) mejorar.push("Distancia irregular (variación del "+f(cv*100)+" %): repite el mismo gesto (flexión, balanceo de brazos, extensión completa).");
+      mejorar.push("Para saltar más lejos: potencia de piernas y un balanceo de brazos más amplio y rápido.");
+      break;
+    }
+    case "salida": {
+      const ds = rs.map(r => r.dist), mejor = Math.max(...ds), im = ds.indexOf(mejor), pb = media(rs.map(r => r.pieBorde)), rc = media(rs.map(r => r.recto));
+      const mp = rs.map(r => r.manosPies).filter(v => v !== null && v !== undefined && isFinite(v)), an = rs.map(r => r.ang);
+      bien.push("Mejor salida: "+f(mejor/100, 2)+" m (entrada a "+f(rs[im].ang)+"°, vuelo "+f(rs[im].vuelo*1000)+" ms).");
+      if (pb >= -3 && pb <= 12) bien.push("Pies bien colocados en el borde de la plataforma.");
+      if (rc >= 160) bien.push("Entras con el cuerpo bastante recto ("+f(rc)+"°).");
+      if (pb > 12) mejorar.push("Pies atrasados "+f(pb)+" cm respecto al borde: avanza los pies para empujar desde el borde.");
+      if (pb < -3) mejorar.push("Los pies pasan del borde de la plataforma: colócalos sobre el borde.");
+      if (rc < 160) mejorar.push("Cuerpo flexionado al entrar (media "+f(rc)+"°): estira cuerpo y piernas y mete la cabeza entre los brazos.");
+      if (mp.length && media(mp) > 150) mejorar.push("Los pies entran lejos de las manos ("+f(media(mp))+" cm): entra «por el mismo agujero» con el cuerpo compacto.");
+      if (n >= 3 && desv(an) > 8) mejorar.push("El ángulo de entrada cambia mucho (±"+f(desv(an))+"°): busca repetir el de tu mejor salida ("+f(rs[im].ang)+"°).");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: compara salidas y repite el gesto de la mejor.");
+      break;
+    }
+    case "sprint": {
+      const ts = rs.map(r => r.total), mejor = Math.min(...ts), cv = desv(ts)/media(ts);
+      bien.push("Mejor tiempo: "+f(mejor, 2)+" s en "+rs[0].dist+" m.");
+      const v = rs.filter(r => r.vels && r.vels.length >= 2), acel = v.filter(r => r.vels[r.vels.length-1] > r.vels[0]).length;
+      if (v.length && acel/v.length >= 0.6) bien.push("Aceleras de un tramo al siguiente (la velocidad sube).");
+      if (v.length && acel/v.length < 0.4) mejorar.push("Pierdes velocidad en el último tramo: mantén la postura y la frecuencia hasta la meta.");
+      if (n >= 3 && cv > 0.05) mejorar.push("Tiempos irregulares (variación del "+f(cv*100)+" %): cuida la salida para que sea siempre igual.");
+      const arr = media(rs.map(r => r.tArr));
+      if (arr > 0.7) mejorar.push("Tardas "+f(arr, 2)+" s en llegar a la puerta de salida: trabaja la primera zancada y la reacción.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: prueba tramos más largos para ver dónde pierdes velocidad.");
+      break;
+    }
+    case "equilibrio": {
+      const izq = rs.filter(r => r.pierna === "izquierda").map(r => r.tiempo), der = rs.filter(r => r.pierna === "derecha").map(r => r.tiempo), bal = media(rs.map(r => r.balanceo));
+      bien.push("Mejor equilibrio: "+f(Math.max(...rs.map(r => r.tiempo)), 1)+" s.");
+      if (bal <= 4) bien.push("Poco balanceo de cadera (media "+f(bal, 1)+" cm).");
+      if (izq.length && der.length) {
+        const a = media(izq), b = media(der);
+        if (Math.abs(a-b)/Math.max(a, b) > 0.25) mejorar.push("Diferencia entre piernas (izquierda "+f(a, 1)+" s, derecha "+f(b, 1)+" s): trabaja más la pierna más débil.");
+      } else mejorar.push("Prueba también con la otra pierna para comparar izquierda y derecha.");
+      if (bal > 6) mejorar.push("Mucho balanceo de cadera (media "+f(bal, 1)+" cm): aprieta el abdomen y fija la mirada en un punto.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: prueba con los ojos cerrados o sobre una superficie inestable.");
+      break;
+    }
+    case "streamline": {
+      const ho = media(rs.map(r => r.hombro)), co = media(rs.map(r => r.codos)), pct = media(rs.map(r => 100*r.tiempo/r.total));
+      if (pct >= 80) bien.push("Mantienes la postura correcta el "+f(pct)+" % del tiempo.");
+      if (ho >= 165) bien.push("Los brazos llegan a la vertical (hombro "+f(ho)+"°).");
+      if (ho < 165) mejorar.push("Los brazos no llegan a la vertical (hombro "+f(ho)+"°): sube más los brazos, pegados a las orejas. Puede indicar poca movilidad de hombro: trabaja estiramientos.");
+      if (co < 165) mejorar.push("Codos algo doblados (media "+f(co)+"°): estira del todo los brazos.");
+      if (!bien.length) bien.push("Postura realizada: seguimos midiendo para ver la evolución.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: aguanta más tiempo con la misma técnica.");
+      break;
+    }
+  }
+  return { bien:bien.slice(0, 3), mejorar:mejorar.slice(0, 3) };
+}
+
 async function creaInforme(regs, base) {
   const { jsPDF } = window.jspdf, doc = new jsPDF({ unit:"mm", format:"a4", compress:true });
   const logo = await cargaLogo(), r0 = regs[0];
@@ -919,7 +1094,7 @@ async function creaInforme(regs, base) {
     doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(255,255,255);
     let x = x0; cols.forEach((c, i) => { doc.text(c, x+2, y+5); x += anchos[i]; });
     doc.setFont("helvetica","normal"); doc.setTextColor(...NAVY);
-    const vis = filas.slice(0, 12);
+    const vis = filas.slice(0, 8);
     vis.forEach((f, j) => {
       const yy = y + 7 + j*6.5;
       if (j % 2) { doc.setFillColor(243,246,252); doc.rect(x0, yy, ancho, 6.5, "F"); }
@@ -928,13 +1103,21 @@ async function creaInforme(regs, base) {
     if (filas.length > vis.length) { doc.setTextColor(...GRIS); doc.text("... y "+(filas.length-vis.length)+" más (en el CSV)", x0+2, y+7+vis.length*6.5+5); }
     return y + 7 + vis.length*6.5 + 8;
   };
-  const foto = (f, y) => {
-    if (!f) return;
-    const w = Math.min(56, 100/f.ar), h = w*f.ar;
-    doc.addImage(f.u, "JPEG", 139, y, w, h); doc.setFontSize(8); doc.setTextColor(...GRIS); doc.setFont("helvetica","normal");
-    doc.text("Momento destacado", 139, y+h+4);
+  const foto = (f, y) => {   // devuelve hasta dónde llega la foto
+    if (!f) return y;
+    const w = Math.min(56, 66/f.ar), hh = w*f.ar;
+    doc.addImage(f.u, "JPEG", 139, y, w, hh); doc.setFontSize(8); doc.setTextColor(...GRIS); doc.setFont("helvetica","normal");
+    doc.text("Momento destacado", 139, y+hh+4);
+    return y + hh + 6;
   };
-
+  const caja = (titulo, lineas, x, y, ancho, col) => {
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...col); doc.text(titulo, x, y);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...NAVY);
+    let yy = y + 5;
+    lineas.forEach(t => { const ls = doc.splitTextToSize("• "+t, ancho); doc.text(ls, x, yy); yy += ls.length*3.7 + 1.2; });
+    return yy;
+  };
+  const glos = [];
   for (const clave of ["salto","sentadilla","plancha","flexiones","dominadas","longitud","salida","sprint","equilibrio","streamline"]) {
     const rs = regs.filter(r => r.ejercicio === clave);
     if (!rs.length) continue;
@@ -943,14 +1126,32 @@ async function creaInforme(regs, base) {
     c.kpis.forEach((k, i) => kpi(15 + i*61, k[0], k[1], k[2]));
     const png = graficoBarras(c.graf).toDataURL("image/png"); grafico = grafico || png;
     doc.addImage(png, "PNG", 15, 76, 180, 72);
-    const y = tabla(c.cols, c.anchos, c.filas, 154);
-    foto(rs[c.im].foto, 154);
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...NAVY); doc.text(doc.splitTextToSize(c.notas, 118), 15, y);
+    const yt = tabla(c.cols, c.anchos, c.filas, 154), yf = foto(rs[c.im].foto, 154);
+    const yc = Math.max(yt, yf) + 7, con = conclusiones(clave, rs);
+    doc.setFillColor(243,246,252); doc.roundedRect(13, yc - 5, 184, 270 - yc + 4, 2, 2, "F");
+    caja("Lo que va bien", con.bien, 17, yc, 84, VERDE);
+    caja("A corregir y mejorar", con.mejorar, 106, yc, 88, [200, 120, 0]);
+    glos.push([c.titulo, c.notas]);
     const ant = comparaHistorial(clave, rs);
     if (ant) { doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...(ant.mejora ? VERDE : NAVY)); doc.text(ant.txt, 15, 272); resumen.push(ant.txt); }
     doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GRIS);
     doc.text(doc.splitTextToSize("Prototipo CNA. Medida orientativa hecha con la cámara del móvil. "+c.pie, 180), 15, 282);
     resumen.push(c.resumen);
+  }
+  if (glos.length) {   // última página: cómo leer el informe
+    cabecera("Cómo leer este informe");
+    let y = 48;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...NAVY); doc.text("Colores sobre el esqueleto del vídeo", 15, y); y += 6;
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    doc.text(doc.splitTextToSize("Verde: el ángulo está dentro de lo esperado. Ámbar: mejorable. Rojo: a corregir. Azul: solo informativo. Los ángulos se escriben sobre cada articulación.", 180), 15, y); y += 12;
+    for (const [tit, notas] of glos) {
+      const ls = doc.splitTextToSize(notas.replace(/^Cómo leerlo\n/, ""), 180);
+      if (y + 8 + ls.length*4 > 275) { doc.addPage(); y = 20; }
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...NAVY); doc.text(tit, 15, y); y += 5;
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...GRIS); doc.text(ls, 15, y); y += ls.length*3.8 + 5;
+    }
+    doc.setFontSize(8); doc.setTextColor(...GRIS);
+    doc.text(doc.splitTextToSize("Las valoraciones son orientativas, se calculan con la cámara del móvil y no sustituyen al entrenador.", 180), 15, 282);
   }
   const blob = doc.output("blob");
   return { file:new File([blob], base+"_informe.pdf", { type:"application/pdf" }), grafico, resumen:resumen.join(" — ") };
@@ -983,6 +1184,7 @@ $("informe").addEventListener("click", () => muestraRevision({ video:null, regs:
 // vídeo comprimido: se graba un lienzo con el vídeo + esqueleto + resultado, a ~2 Mbps y máx. 960 px
 let rec = null;
 function iniciaRec() {
+  recalibrar(); hist = []; clavePinta = "";   // cada grabación empieza de cero: nada de cuentas anteriores
   const k = Math.min(1, 960/Math.max(W,H));
   const cv = document.createElement("canvas"); cv.width = Math.round(W*k); cv.height = Math.round(H*k);
   const tipos = ["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
@@ -1061,7 +1263,8 @@ function frame(now) {
     dibuja(lm);
     ultimoLm = lm;
     let est;
-    if (!lm && modo !== "salida") est = { t:"Buscando", big:"No te veo", cls:"warn", sub:"Que se vea el cuerpo entero" };
+    if (!rec) est = { t:"Vista previa · todavía no cuenta", big: lm ? "Te veo" : "No te veo", cls: lm ? "ok" : "warn", sub:"Coloca el móvil y pulsa ● Grabar: se empieza a contar al grabar" };
+    else if (!lm && modo !== "salida") est = { t:"Buscando", big:"No te veo", cls:"warn", sub:"Que se vea el cuerpo entero" };
     else est = PROC[modo](lm ? puntos(lm) : null, now);
     ultimoEst = est;
     pinta(est);
