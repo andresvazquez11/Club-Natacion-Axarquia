@@ -60,6 +60,11 @@
   #ajhist { color:#cfd8f0; font-size:14px; margin-top:10px; line-height:1.5; }
   @media (display-mode:standalone) { .state { bottom:calc(env(safe-area-inset-bottom) + 12px) !important; } }
   @media (orientation:landscape) { .state { bottom:calc(env(safe-area-inset-bottom) + 52px); right:auto !important; width:min(58%,560px); padding:8px 12px !important; } .state .big { font-size:28px !important; } .state .hist { display:none; } }
+  .sk { background:#111a2e; border-radius:12px; padding:8px 12px; flex:1; min-width:0; }
+  .sk small { display:block; color:#8fa0c4; font-size:11px; letter-spacing:.05em; }
+  .sk b { font-size:24px; }
+  #objchip { display:inline-flex; align-items:center; gap:6px; font-size:14px; }
+  #incl { font-weight:700; }
 </style>
 </head>
 <body>
@@ -78,6 +83,9 @@
         <option value="dominadas">Dominadas</option>
         <option value="longitud">Salto de longitud</option>
         <option value="salida">Salida desde la plataforma</option>
+        <option value="hombro_lat">Movilidad de hombro · lateral (de frente)</option>
+        <option value="hombro_fr">Movilidad de hombro · frontal (de lado)</option>
+        <option value="postura">Revisión de postura (de pie)</option>
         <option value="sprint">Sprint con puertas</option>
         <option value="equilibrio">Equilibrio a una pierna</option>
         <option value="streamline">Postura hidrodinámica</option>
@@ -85,15 +93,17 @@
       <span class="lentes" id="lentes"></span>
       <button class="chip" id="cam">Trasera</button>
       <button class="chip" id="pant" title="Pantalla completa / horizontal">⛶</button>
+      <span class="chip" id="objchip">Objetivo <input id="obj_n" type="number" min="0" max="999" inputmode="numeric" placeholder="libre" style="width:58px;background:#0b1220;color:#fff;border:1px solid #27365a;border-radius:6px;padding:3px;font-size:16px;text-align:center"> <span id="obj_u">reps</span></span>
     </div>
     <div class="marcasui" id="marcasui" style="display:none">
       <label><input type="checkbox" id="mk_on" checked> Marcas</label>
       <label id="mk_nl" style="display:none">Puertas <select id="mk_n"><option>2</option><option selected>3</option><option>4</option></select></label>
       <label><span id="mk_dl">A–B</span> <input id="mk_d" type="number" step="0.1" min="0.5" max="50" value="2"> m</label>
     </div>
-    <div class="hud"><span id="fps"></span><span id="res"></span></div>
+    <div class="hud"><span id="fps"></span><span id="res"></span><span id="incl"></span></div>
     </div>
     <div class="lado">
+      <button class="chip" id="finSerie" style="display:none">Terminar serie</button>
       <button class="redondo" id="grabar">● Grabar</button>
       <button class="chip" id="informe">Informe (<span id="nreg">0</span>)</button>
       <button class="chip" id="ajustes">⚙ Nadadores</button>
@@ -115,6 +125,10 @@
       <div id="ajlista"></div>
       <button class="sec" id="ajnuevo" style="margin-top:6px;align-self:flex-start">＋ Añadir nadador</button>
       <div id="ajhist"></div>
+      <div style="margin-top:14px;color:#fff;font-weight:700">Series, sonido y vídeo</div>
+      <div class="fn"><span style="width:100px">Descanso</span><select id="ser_desc" class="nn"><option value="0">Sin descanso</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">60 s</option><option value="90">90 s</option></select></div>
+      <div class="fn"><span style="width:100px">Sonido</span><select id="ser_son" class="nn"><option value="pitidos">Pitidos</option><option value="voz">Voz (cuenta en voz alta)</option><option value="silencio">Silencio</option></select></div>
+      <div class="fn"><span style="width:100px">Calidad vídeo</span><select id="ser_cal" class="nn"><option value="normal">Normal (ligero)</option><option value="alta">Alta (1280 px)</option><option value="maxima">Máxima (1920 px)</option></select></div>
       <div style="margin-top:14px;color:#fff;font-weight:700">Rendimiento</div>
       <div style="font-size:13px;color:#9fb0d6;margin:2px 0 6px">La primera vez la app prueba sola las combinaciones y elige la mejor; puedes repetirlo con «Optimizar ahora».</div>
       <div class="fn"><span style="width:100px">Resolución</span><select id="rd_res" class="nn"><option value="480">480p (más rápido)</option><option value="720">720p (normal)</option><option value="1080">1080p (más calidad)</option></select></div>
@@ -127,10 +141,19 @@
         <button id="ajcerrar" style="margin:0">Listo</button>
       </div>
     </div>
+    <div class="load" id="serieRes" style="display:none;background:#050912;flex-direction:column;justify-content:flex-start;align-items:stretch;overflow:auto;padding:14px;text-align:left">
+      <div id="sr_tit" style="font-size:20px;font-weight:800;color:#fff"></div>
+      <div id="sr_kpis" style="display:flex;gap:8px;margin:10px 0"></div>
+      <img id="sr_graf" alt="" style="width:100%;border-radius:10px;background:#fff">
+      <div id="sr_extra" style="font-size:14px;color:#cfd8f0;line-height:1.6;margin:10px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="sr_sig" style="margin:0">Siguiente serie</button><button id="sr_fin" class="sec">Terminar y ver informe</button></div>
+    </div>
     <div class="load" id="rev" style="display:none;background:rgba(0,0,0,.94);flex-direction:column;justify-content:flex-start;overflow:auto;padding:14px">
       <video id="revv" controls playsinline style="position:static;width:auto;height:auto;max-width:100%;max-height:38%;object-fit:contain"></video>
       <img id="revgraf" alt="" style="max-width:100%;max-height:26%;margin-top:8px;border-radius:8px;background:#fff">
       <div id="revinfo" style="margin-top:8px;font-size:14px;color:#fff"></div>
+      <div id="revvel" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:center;align-items:center;font-size:12px;color:#9fb0d6">Velocidad: <button class="sec" style="padding:4px 10px;font-size:12px" data-v="0.25">0,25×</button><button class="sec" style="padding:4px 10px;font-size:12px" data-v="0.5">0,5×</button><button class="sec" style="padding:4px 10px;font-size:12px" data-v="1">1×</button></div>
+      <div id="revser" style="display:none;margin-top:6px;font-size:13px;color:#cfd8f0;text-align:center"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center">
         <button id="revsave" style="margin:0">Compartir</button>
         <button id="revvid" class="sec">Solo vídeo</button>
@@ -299,14 +322,14 @@ function procesaSentadilla(P, now) {
   const a = izq>der+0.15 ? L : der>izq+0.15 ? R : (L+R)/2;
   const sh = {x:(P[SH_L].x+P[SH_R].x)/2, y:(P[SH_L].y+P[SH_R].y)/2}, hp = {x:(P[HIP_L].x+P[HIP_R].x)/2, y:P.cadera};
   const tronco = Math.atan2(Math.abs(sh.x-hp.x), Math.abs(hp.y-sh.y))*180/Math.PI;
-  if (sent.fase==="arriba" && a<120) { sent.fase="abajo"; sent.minAng=a; sent.tronco=tronco; sent.foto=fotoActual(); }
+  if (sent.fase==="arriba" && a<120) { sent.fase="abajo"; sent.minAng=a; sent.tronco=tronco; sent.foto=fotoActual(); sent.t0=now; }
   if (sent.fase==="abajo") {
     if (a < sent.minAng) { sent.minAng = a; sent.tronco = tronco; sent.foto = fotoActual(); }
     if (a>160) {
       sent.fase="arriba"; sent.reps++;
       sent.ultima = { reps:sent.reps, min:sent.minAng, tronco };
       sent.msg = sent.minAng<=90 ? ["Profunda","ok"] : sent.minAng<=110 ? ["Media","warn"] : ["Corta","bad"];
-      guarda({ n:sent.reps, rodilla:sent.minAng, tronco:sent.tronco, foto:sent.foto }, now);
+      guarda({ n:sent.reps, rodilla:sent.minAng, tronco:sent.tronco, t0:sent.t0, foto:sent.foto }, now);
     }
   }
   const u = sent.ultima;
@@ -324,6 +347,7 @@ function nuevoEx() { return { hold:nuevoHold(), fase:"arriba", reps:0, n:0, min:
 // Mantener una postura: cuenta el tiempo mientras estás "en posición" y aparte el tiempo "bien hecho".
 // Devuelve el resultado cuando sales de la posición durante más de salidaMs (y llevabas al menos minMs).
 function pasoHold(h, now, enPos, ok, valor, fotoMs, minMs, salidaMs) {
+  if (ex.forzarFin) { enPos = false; salidaMs = -1; }   // «Terminar serie» con la postura aún en marcha
   if (enPos) {
     if (!h.act) { Object.assign(h, { act:true, t:0, tOk:0, sum:0, n:0, fuera:null, foto:null, ult:now }); }
     const dt = Math.min(100, now - h.ult); h.ult = now;
@@ -371,14 +395,14 @@ function procesaFlexiones(P, now) {
   const codo = ang(sh, el, wr), linea = ang(sh, hp, an);
   const horiz = Math.abs(sh.y-an.y) < 0.4*Math.hypot(sh.x-an.x, sh.y-an.y);
   if (!horiz && ex.fase === "arriba") return aviso("Flexiones", ex.reps+" rep"+(ex.reps === 1 ? "" : "s"), "Ponte en posición de flexión, de lado");
-  if (ex.fase === "arriba" && codo < 130) { ex.fase = "abajo"; ex.min = codo; ex.sc = linea; ex.nc = 1; ex.foto = fotoActual(); }
+  if (ex.fase === "arriba" && codo < 130) { ex.fase = "abajo"; ex.min = codo; ex.sc = linea; ex.nc = 1; ex.foto = fotoActual(); ex.t0 = now; }
   else if (ex.fase === "abajo") {
     if (codo < ex.min) { ex.min = codo; ex.foto = fotoActual(); }
     ex.sc += linea; ex.nc++;
     if (codo > 155) {
       ex.fase = "arriba"; ex.reps++;
       const lm = ex.sc/ex.nc; ex.ult = { codo:ex.min, linea:lm };
-      guarda({ n:ex.reps, codo:ex.min, linea:lm, foto:ex.foto }, now);
+      guarda({ n:ex.reps, codo:ex.min, linea:lm, t0:ex.t0, foto:ex.foto }, now);
     }
   }
   const u = ex.ult;
@@ -393,7 +417,7 @@ function procesaDominadas(P, now) {
   const codo = brazos.reduce((s, t) => s + ang(...t), 0)/brazos.length;
   const manosY = brazos.reduce((s, t) => s + t[2].y, 0)/brazos.length;
   const barbilla = P[NOSE].y < manosY;
-  if (ex.fase === "arriba" && codo < 140) { ex.fase = "subiendo"; ex.min = codo; ex.top = barbilla; ex.foto = null; }   // "arriba" = colgado
+  if (ex.fase === "arriba" && codo < 140) { ex.fase = "subiendo"; ex.min = codo; ex.top = barbilla; ex.foto = null; ex.t0 = now; }   // "arriba" = colgado
   else if (ex.fase === "subiendo") {
     ex.min = Math.min(ex.min, codo);
     if (barbilla) { ex.top = true; if (!ex.foto) ex.foto = fotoActual(); }
@@ -401,7 +425,7 @@ function procesaDominadas(P, now) {
       ex.fase = "arriba";
       if (ex.min < 120) {
         ex.reps++; ex.ult = { top:ex.top, codo:ex.min };
-        guarda({ n:ex.reps, codo:ex.min, top:ex.top, ext:codo, foto:ex.foto }, now);
+        guarda({ n:ex.reps, codo:ex.min, top:ex.top, ext:codo, t0:ex.t0, foto:ex.foto }, now);
       }
     }
   }
@@ -615,8 +639,269 @@ function procesaSprint(P, now) {
   return aviso("Sprint con puertas", "Colócate", "Quieto antes de la primera puerta; arrastra las puertas a los conos");
 }
 
-const PROC = { sprint:procesaSprint, salida:procesaSalida, salto:procesaSalto, sentadilla:procesaSentadilla, plancha:procesaPlancha, flexiones:procesaFlexiones, dominadas:procesaDominadas,
+const PROC = { hombro_lat:procesaHombro, hombro_fr:procesaHombro, postura:procesaPostura, sprint:procesaSprint, salida:procesaSalida, salto:procesaSalto, sentadilla:procesaSentadilla, plancha:procesaPlancha, flexiones:procesaFlexiones, dominadas:procesaDominadas,
                longitud:procesaLongitud, equilibrio:procesaEquilibrio, streamline:procesaStreamline };
+
+// ---------- series, objetivo, sonido, guía de posición y resumen de serie ----------
+const cfgS = { descanso:45, sonido:"pitidos", calidad:"alta", obj:{} };
+try { Object.assign(cfgS, JSON.parse(localStorage.getItem("cna_series") || "{}")); } catch(e) {}
+const guardaCfgS = () => { try { localStorage.setItem("cna_series", JSON.stringify(cfgS)); } catch(e) {} };
+
+// --- sonido: pitidos o voz (hay que activarlo con un toque, por eso se crea al pulsar «Activar cámara») ---
+let audioCtx = null;
+function activaAudio() { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.resume) audioCtx.resume(); } catch(e) {} }
+function pitido(f, ms, vol) {
+  if (!audioCtx || cfgS.sonido === "silencio") return;
+  try {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime;
+    o.frequency.value = f || 880; g.gain.value = vol || 0.3; o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); g.gain.exponentialRampToValueAtTime(0.001, t + (ms || 90)/1000); o.stop(t + (ms || 90)/1000 + 0.02);
+  } catch(e) {}
+}
+function habla(t) { try { if (cfgS.sonido !== "voz" || !window.speechSynthesis) return; const u = new SpeechSynthesisUtterance(t); u.lang = "es-ES"; u.rate = 1.15; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch(e) {} }
+function sonidoRep(n) { if (cfgS.sonido === "voz") habla(String(n)); else pitido(880, 90); }
+function sonidoObjetivo() { if (cfgS.sonido === "voz") habla("¡Objetivo conseguido!"); else { pitido(660, 120); setTimeout(() => pitido(880, 120), 160); setTimeout(() => pitido(1175, 260), 320); } }
+function sonidoCuenta(s) { if (s > 0) pitido(520, 80, 0.25); else pitido(1000, 320, 0.35); }
+
+// --- qué se cuenta en cada ejercicio ---
+const MODOS_TIEMPO = ["plancha", "equilibrio", "streamline"];
+const UNIDAD_C = { sentadilla:"reps", flexiones:"reps", dominadas:"reps", hombro_lat:"reps", hombro_fr:"reps", salto:"saltos", longitud:"saltos", salida:"salidas", sprint:"sprints", plancha:"s", equilibrio:"s", streamline:"s", postura:"medidas" };
+function valorContador() {
+  switch (modo) {
+    case "sentadilla": return sent.reps;
+    case "flexiones": case "dominadas": case "hombro_lat": case "hombro_fr": return ex.reps;
+    case "salto": return hist.length;
+    case "plancha": case "streamline": return ex.hold.act ? ex.hold.tOk/1000 : 0;
+    case "equilibrio": return ex.hold.act ? ex.hold.t/1000 : 0;
+    default: return ex.n;
+  }
+}
+// ángulo clave de cada ejercicio (izquierda y derecha) para la curva de repeticiones, la asimetría y la fatiga
+function angulosClave(P) {
+  const tri = (a, b, c) => Math.min(P[a].v, P[b].v, P[c].v) > 0.5 ? ang(P[a], P[b], P[c]) : null;
+  const par = f => { const L = f(true), R = f(false); return (L === null && R === null) ? null : { L, R }; };
+  let r = null, tipo = "min";
+  switch (modo) {
+    case "sentadilla": case "salto": case "equilibrio": case "salida": case "sprint": case "longitud":
+      r = par(l => tri(l ? HIP_L : HIP_R, l ? KN_L : KN_R, l ? AN_L : AN_R)); break;
+    case "flexiones": case "dominadas":
+      r = par(l => tri(l ? SH_L : SH_R, l ? EL_L : EL_R, l ? WR_L : WR_R)); break;
+    case "hombro_lat": case "hombro_fr": case "streamline":
+      r = par(l => tri(l ? HIP_L : HIP_R, l ? SH_L : SH_R, l ? WR_L : WR_R)); tipo = "max"; break;
+    case "plancha": { const d = ladoVisible(P), g = tri(d.sh, d.hip, d.an); r = g === null ? null : { L:g, R:null }; tipo = "linea"; break; }
+    default: return null;
+  }
+  return r ? { L:r.L, R:r.R, tipo } : null;
+}
+const ETQ_CURVA = { sentadilla:"Ángulo de la rodilla", salto:"Ángulo de la rodilla", equilibrio:"Ángulo de la rodilla", salida:"Ángulo de la rodilla", sprint:"Ángulo de la rodilla", longitud:"Ángulo de la rodilla",
+  flexiones:"Ángulo del codo", dominadas:"Ángulo del codo", hombro_lat:"Elevación del hombro", hombro_fr:"Elevación del hombro", streamline:"Ángulo del hombro", plancha:"Línea del cuerpo" };
+
+// --- guía de posición: avisa si el cuerpo se sale de la imagen ---
+let guiaTxt = "";
+function guiaPosicion(lm) {
+  if (!lm) return "";
+  const ok = i => { const p = lm[i]; return !!p && (p.visibility ?? 1) > 0.5 && p.x > 0.015 && p.x < 0.985 && p.y > 0.015 && p.y < 0.985; };
+  const lado = (a, b) => (ok(a[0]) && ok(a[1])) || (ok(b[0]) && ok(b[1]));
+  const REQ = { salto:["cab","pie"], sentadilla:["cab","pie"], plancha:["cab","pie"], flexiones:["cab","pie","brazo"], dominadas:["cab","brazo"], longitud:["cab","pie"], salida:["cab","pie","brazo"],
+    sprint:["cab","pie"], equilibrio:["cab","pie"], streamline:["cab","pie","brazo"], hombro_lat:["cab","brazo","cad"], hombro_fr:["cab","brazo","cad"], postura:["cab","pie"] };
+  const req = REQ[modo] || ["cab", "pie"];
+  if (req.includes("cab") && !ok(NOSE)) return "Se corta la cabeza: aléjate o baja el móvil";
+  if (req.includes("cad") && !(ok(HIP_L) || ok(HIP_R))) return "Se corta la cintura: aléjate o baja el móvil";
+  if (req.includes("pie") && !lado([AN_L, FT_L], [AN_R, FT_R])) return "Se cortan los pies: aléjate o sube el móvil";
+  if (req.includes("brazo") && !lado([EL_L, WR_L], [EL_R, WR_R])) return "Se cortan los brazos: aléjate";
+  if (!["plancha", "flexiones", "hombro_lat", "hombro_fr"].includes(modo)) {
+    const ys = [NOSE, AN_L, AN_R].filter(ok).map(i => lm[i].y);
+    if (ys.length >= 2 && Math.max(...ys) - Math.min(...ys) < 0.33) return "Acércate un poco: se te ve muy pequeño";
+  }
+  return "";
+}
+
+// --- inclinación del móvil (sensor): para medir bien la cámara debe mirar recta ---
+let inclinacion = null;
+function iniciaInclinacion() {
+  window.addEventListener("devicemotion", e => {
+    const g = e.accelerationIncludingGravity; if (!g || g.x === null || g.x === undefined) return;
+    const n = Math.hypot(g.x, g.y, g.z) || 1; inclinacion = Math.abs(Math.asin(Math.max(-1, Math.min(1, g.z/n)))*180/Math.PI);
+  });
+}
+
+// --- análisis de la serie: ritmo, izquierda/derecha, fatiga y curva ---
+const mediaA = a => a.length ? a.reduce((x, y) => x + y, 0)/a.length : null;
+function resumenSerie(s) {
+  const rs = registros.slice(s.idx).filter(r => r.ejercicio === s.modo && r.serie === s.n && (!rec || r.video === rec.nombre));
+  const out = { n:s.n, modo:s.modo, obj:s.obj, logrado:s.logrado, reps:rs.length, repsInfo:[], tipo:s.tipo || "min" };
+  const tipo = out.tipo, base0 = rec ? rec.t0 : s.t0;
+  out.t = Math.max(0.1, (s.t1 - s.t0)/1000);
+  let prevT = s.t0;
+  rs.forEach((r, i) => {
+    const t1 = r.t1, t0 = (r.t0 === null || r.t0 === undefined) ? prevT : r.t0; prevT = t1;
+    const w = s.curva.filter(p => p.t >= t0 && p.t <= t1), vals = k => w.map(p => p[k]).filter(v => v !== null && v !== undefined);
+    const ext = a => a.length ? (tipo === "max" ? Math.max(...a) : Math.min(...a)) : null;
+    const L = vals("L"), R = vals("R"), picoL = ext(L), picoR = ext(R), todos = L.concat(R);
+    const rom = todos.length ? Math.max(...todos) - Math.min(...todos) : null;
+    const lado = L.length >= R.length ? "L" : "R"; let tp = t0;
+    if (w.length) { const ref = ext(vals(lado)); const hit = w.find(p => p[lado] === ref); if (hit) tp = hit.t; }
+    out.repsInfo.push({ i:i+1, dur:(t1 - t0)/1000, bajada:Math.max(0, (tp - t0)/1000), subida:Math.max(0, (t1 - tp)/1000), picoL, picoR, rom, a0:t0, a1:t1, t0rel:(t0 - base0)/1000, t1rel:(t1 - base0)/1000 });
+  });
+  const ri = out.repsInfo;
+  if (ri.length) {
+    out.t = Math.max(0.1, (ri[ri.length-1].a1 - ri[0].a0)/1000);
+    out.ritmo = ri.length/out.t*60;
+    const pl = ri.map(x => x.picoL).filter(v => v !== null), pr = ri.map(x => x.picoR).filter(v => v !== null), minN = Math.ceil(ri.length*0.6);
+    out.picoL = mediaA(pl); out.picoR = mediaA(pr);
+    out.asim = (pl.length >= minN && pr.length >= minN) ? Math.abs(out.picoL - out.picoR) : null;
+    const durs = ri.map(x => x.dur); out.durMedia = mediaA(durs);
+    out.regularidad = ri.length >= 3 ? 100*Math.sqrt(mediaA(durs.map(d => (d - out.durMedia)**2)))/out.durMedia : null;
+    out.bajada = mediaA(ri.map(x => x.bajada)); out.subida = mediaA(ri.map(x => x.subida));
+    if (ri.length >= 3) {
+      const k = Math.max(1, Math.round(ri.length/3)), prim = ri.slice(0, k), ult = ri.slice(-k);
+      const d1 = mediaA(prim.map(x => x.dur)), d2 = mediaA(ult.map(x => x.dur));
+      out.fatiga = d1 > 0 ? Math.max(0, (d2 - d1)/d1*100) : 0; out.fatigaTipo = "velocidad";
+      const r1 = mediaA(prim.map(x => x.rom).filter(v => v !== null)), r2 = mediaA(ult.map(x => x.rom).filter(v => v !== null));
+      out.perdidaRango = (r1 !== null && r2 !== null) ? Math.max(0, r1 - r2) : null;
+      const roms = ri.map(x => x.rom === null ? -1 : x.rom); out.mejor = roms.indexOf(Math.max(...roms)) + 1; out.peor = roms.indexOf(Math.min(...roms)) + 1;
+    }
+  }
+  if (s.modo === "salto" && rs.length >= 3) {   // en los saltos, la fatiga es cuánto baja la altura
+    const hs = rs.map(r => r.hVuelo), k = Math.max(1, Math.round(hs.length/3)), a = mediaA(hs.slice(0, k)), b = mediaA(hs.slice(-k));
+    out.fatiga = a > 0 ? Math.max(0, (a - b)/a*100) : 0; out.fatigaTipo = "altura";
+  }
+  return out;
+}
+const etiquetaFatiga = f => f < 10 ? "Sin ralentización" : f < 25 ? "Algo de ralentización" : "Ralentización notable";
+const mmss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60)+":"+String(s%60).padStart(2, "0"); };
+
+// curva de la serie: una onda por repetición, izquierda (azul) y derecha (naranja)
+function graficoCurva(s, titulo) {
+  const w = 1200, h = 480, cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c = cv.getContext("2d"), pts = s.curva, F = "Helvetica, Arial, sans-serif";
+  c.fillStyle = "#fff"; c.fillRect(0, 0, w, h);
+  c.fillStyle = "#0b1220"; c.font = "bold 28px "+F; c.textAlign = "left"; c.fillText(titulo || "Curva de la serie", 90, 38);
+  if (pts.length < 2) { c.fillStyle = "#6b7a99"; c.font = "26px "+F; c.fillText("Sin datos suficientes", 90, 240); return cv; }
+  const L = 90, R = 30, T = 62, B = 56;
+  const vs = []; pts.forEach(p => { if (p.L !== null && p.L !== undefined) vs.push(p.L); if (p.R !== null && p.R !== undefined) vs.push(p.R); });
+  let lo = Math.max(0, Math.floor((Math.min(...vs) - 8)/10)*10), hi = Math.min(180, Math.ceil((Math.max(...vs) + 8)/10)*10); if (hi - lo < 40) hi = Math.min(180, lo + 40);
+  const t0 = pts[0].t, t1 = pts[pts.length-1].t, X = t => L + (t - t0)/(t1 - t0)*(w - L - R), Y = v => T + (h - T - B)*(1 - (v - lo)/(hi - lo));
+  (s.res && s.res.repsInfo || []).forEach((r, i) => { if (i % 2 === 0) { c.fillStyle = "#f3f6fc"; c.fillRect(X(Math.max(t0, r.a0)), T, Math.max(2, X(Math.min(t1, r.a1)) - X(Math.max(t0, r.a0))), h - T - B); } });
+  c.font = "22px "+F; c.textAlign = "right";
+  const paso = (hi - lo) > 90 ? 30 : 10; for (let v = Math.ceil(lo/paso)*paso; v <= hi; v += paso) { c.strokeStyle = "#e3e8f2"; c.lineWidth = 2; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(w - R, Y(v)); c.stroke(); c.fillStyle = "#6b7a99"; c.fillText(v+"°", L - 10, Y(v) + 8); }
+  c.textAlign = "center"; const dur = (t1 - t0)/1000, pt = dur > 60 ? 10 : dur > 20 ? 5 : 2;
+  for (let sgs = 0; sgs <= dur; sgs += pt) { c.fillStyle = "#6b7a99"; c.fillText(sgs+" s", X(t0 + sgs*1000), h - 18); }
+  const linea = (k, col) => {
+    c.strokeStyle = col; c.lineWidth = 4; c.lineJoin = "round"; let abierto = false; c.beginPath();
+    pts.forEach(p => { const v = p[k]; if (v === null || v === undefined) { abierto = false; return; } if (!abierto) { c.moveTo(X(p.t), Y(v)); abierto = true; } else c.lineTo(X(p.t), Y(v)); });
+    c.stroke();
+  };
+  linea("L", "#3d8bff"); linea("R", "#ff9f1c");
+  if (s.res && s.res.mejor) { const r = s.res.repsInfo[s.res.mejor-1]; c.fillStyle = "#1fb86b"; c.beginPath(); c.arc(X((r.a0 + r.a1)/2), T + 12, 10, 0, 7); c.fill(); }
+  if (s.res && s.res.peor && s.res.peor !== s.res.mejor) { const r = s.res.repsInfo[s.res.peor-1]; c.fillStyle = "#ff5d6c"; c.beginPath(); c.arc(X((r.a0 + r.a1)/2), T + 12, 10, 0, 7); c.fill(); }
+  c.textAlign = "right"; c.font = "bold 22px "+F; c.fillStyle = "#3d8bff"; c.fillText("● Izquierda", w - R - 160, 38); c.fillStyle = "#ff9f1c"; c.fillText("● Derecha", w - R, 38);
+  return cv;
+}
+
+// --- vida de una serie: activa → resumen → descanso → siguiente serie ---
+let serie = null, seriesRec = [];
+function iniciaSerie(n) {
+  recalibrar(); hist = []; clavePinta = "";   // cada serie empieza de cero
+  serie = { n, modo, t0:performance.now(), curva:[], obj:+cfgS.obj[modo] || 0, fase:"activa", valor:0, prev:0, logrado:false, cerrando:false, idx:registros.length, tipo:"min" };
+  botonSerie();
+}
+function botonSerie() { const b = $("finSerie"); if (b) b.style.display = (rec && rec.fase === "grabando" && serie && serie.fase === "activa" && !serie.cerrando) ? "" : "none"; }
+function cierraSerie(motivo, sinOverlay) {
+  if (!serie || serie.fase !== "activa" || serie.cerrando) return;
+  serie.cerrando = true; serie.motivo = motivo; serie.sinOverlay = !!sinOverlay;
+  if (ex.hold && ex.hold.act) { ex.forzarFin = true; serie.limite = performance.now() + 1500; } else finalizaCierre();
+  botonSerie();
+}
+function finalizaCierre() {
+  const s = serie; if (!s || s.fase !== "activa") return;
+  s.fase = "resumen"; s.t1 = performance.now(); s.res = resumenSerie(s); seriesRec.push(s); botonSerie();
+  if (!s.sinOverlay) muestraResumenSerie(s);
+}
+function actualizaSerie(now, P) {   // se llama en cada fotograma mientras la serie está activa
+  const s = serie; if (!s || s.fase !== "activa") return;
+  const v = valorContador(), esT = MODOS_TIEMPO.includes(modo);
+  if (!esT && v > s.prev) { sonidoRep(v); s.prev = v; }
+  s.valor = v;
+  if (!s.cerrando) {
+    if (s.obj && !s.logrado && v >= s.obj) { s.logrado = true; s.tLogro = now; sonidoObjetivo(); }
+    if (s.logrado && now - s.tLogro > 1200) cierraSerie("objetivo");
+    if (P) { const a = angulosClave(P); if (a) { s.tipo = a.tipo; s.curva.push({ t:now, L:a.L, R:a.R }); } }
+  }
+  if (s.cerrando && (!ex.hold.act || performance.now() > s.limite)) finalizaCierre();
+}
+function siguienteSerie() {
+  $("serieRes").style.display = "none";
+  if (!serie || serie.fase !== "resumen") return;
+  if (cfgS.descanso > 0) { serie.fase = "descanso"; serie.descansoHasta = performance.now() + cfgS.descanso*1000; serie.cuentaPrev = 99; }
+  else iniciaSerie(serie.n + 1);
+}
+function textoDescanso(now) {   // cuenta atrás entre series (con pitidos en los últimos 3 s)
+  const s = serie, rest = Math.ceil((s.descansoHasta - now)/1000);
+  if (rest !== s.cuentaPrev) { s.cuentaPrev = rest; if (rest <= 3 && rest > 0) sonidoCuenta(rest); }
+  if (now >= s.descansoHasta) { sonidoCuenta(0); iniciaSerie(s.n + 1); return null; }
+  return rest;
+}
+
+// --- resumen de la serie en pantalla ---
+function muestraResumenSerie(s) {
+  const r = s.res, f = (v, d = 0) => (+v).toFixed(d).replace(".", ","), esT = MODOS_TIEMPO.includes(s.modo);
+  $("sr_tit").textContent = "Serie "+s.n+" · "+EJ_NOMBRE[s.modo];
+  const k = [];
+  k.push(["REPETICIONES", String(r.reps)+(r.obj ? " / "+r.obj : ""), r.logrado ? "#35d07f" : "#fff"]);
+  k.push(["TIEMPO", mmss(r.t), "#fff"]);
+  if (r.ritmo) k.push(["RITMO", f(r.ritmo)+"/min", "#fff"]);
+  $("sr_kpis").innerHTML = k.map(x => '<div class="sk"><small>'+x[0]+'</small><b style="color:'+x[2]+'">'+x[1]+'</b></div>').join("");
+  const ex_ = [];
+  if (r.picoL !== null && r.picoL !== undefined && r.picoR !== null && r.picoR !== undefined) ex_.push("<b>Pico por lado</b>: izquierda "+f(r.picoL)+"° · derecha "+f(r.picoR)+"°"+(r.asim !== null && r.asim !== undefined ? " · <b>"+f(r.asim)+"° de diferencia</b>" : ""));
+  else if (r.picoL !== null && r.picoL !== undefined) ex_.push("<b>Pico</b>: "+f(r.picoL)+"°");
+  if (r.fatiga !== undefined) ex_.push("<b>Fatiga</b>: "+f(r.fatiga)+" % · "+etiquetaFatiga(r.fatiga)+(r.fatigaTipo === "altura" ? " (caída de altura)" : " (caída de velocidad)"));
+  if (r.perdidaRango) ex_.push("<b>Rango</b>: pierdes "+f(r.perdidaRango)+"° entre la primera y la última");
+  if (r.regularidad !== null && r.regularidad !== undefined) ex_.push("<b>Regularidad</b>: ±"+f(r.regularidad)+" % · bajada "+f(r.bajada, 1)+" s · subida "+f(r.subida, 1)+" s");
+  if (r.mejor) ex_.push("<b>Mejor repetición</b>: nº "+r.mejor+" · <b>peor</b>: nº "+r.peor);
+  $("sr_extra").innerHTML = ex_.join("<br>") || "Sin más datos en esta serie.";
+  const g = r.repsInfo.length ? graficoCurva(s, "Curva de la serie · "+(ETQ_CURVA[s.modo] || "ángulo")) : null;
+  $("sr_graf").style.display = g ? "" : "none"; if (g) $("sr_graf").src = g.toDataURL("image/png");
+  $("sr_sig").textContent = cfgS.descanso > 0 ? "Siguiente serie (descanso "+cfgS.descanso+" s)" : "Siguiente serie";
+  $("serieRes").style.display = "flex";
+}
+
+// --- marcador sobre la imagen: contador grande, objetivo, cronómetro y avisos (también sale en el vídeo) ---
+function dibujaHUD(c) {
+  c.save(); c.textAlign = "center";
+  const u = Math.min(W, H)/100;
+  if (guiaTxt) {
+    c.font = "700 "+(u*3.6)+"px "+FUENTE_T;
+    const w = Math.min(W*0.94, c.measureText(guiaTxt).width + u*7), h = u*7.5, y = H*0.17;
+    c.fillStyle = "rgba(255,204,51,.95)"; rectRedondo(c, W/2 - w/2, y, w, h, u*2); c.fill();
+    c.fillStyle = "#1a1300"; textoLegible(c, guiaTxt, W/2, y + h*0.66);
+  }
+  if (rec && rec.fase === "grabando" && serie && (serie.fase === "activa" || serie.fase === "descanso")) {
+    const uc = u*0.8;   // tarjeta algo más pequeña para no tapar al nadador
+    const w = uc*(serie.obj && serie.fase === "activa" ? 54 : 46), h = uc*(serie.obj && serie.fase === "activa" ? 33 : 27), x0 = uc*3, y0 = H*0.235, cx = x0 + w/2;
+    c.fillStyle = "rgba(11,18,32,.68)"; rectRedondo(c, x0, y0, w, h, uc*3); c.fill();
+    c.fillStyle = "#9fb0d6"; c.font = "700 "+(uc*2.6)+"px "+FUENTE_T;
+    if (serie.fase === "descanso") {
+      const rest = Math.max(0, Math.ceil((serie.descansoHasta - performance.now())/1000));
+      textoLegible(c, "DESCANSO", cx, y0 + uc*5);
+      c.fillStyle = "#ffcc33"; c.font = "800 "+(uc*14)+"px "+FUENTE_T; textoLegible(c, String(rest), cx, y0 + uc*19);
+      c.fillStyle = "#9fb0d6"; c.font = "700 "+(uc*3)+"px "+FUENTE_T; textoLegible(c, "Siguiente: serie "+(serie.n + 1), cx, y0 + h - uc*3);
+    } else {
+      const esT = MODOS_TIEMPO.includes(modo), vtxt = esT ? serie.valor.toFixed(1) : String(serie.valor);
+      textoLegible(c, ("SERIE "+serie.n+" · "+(EJ_NOMBRE[modo] || modo)).toUpperCase().slice(0, 30), cx, y0 + uc*5);
+      c.font = "800 "+(uc*(esT ? 12 : 15))+"px "+FUENTE_T; c.fillStyle = serie.logrado ? "#35d07f" : "#fff";
+      if (serie.obj) {
+        const wb = c.measureText(vtxt).width; c.font = "700 "+(uc*6)+"px "+FUENTE_T; const so = " / "+serie.obj+(esT ? " s" : ""), ws = c.measureText(so).width;
+        c.font = "800 "+(uc*(esT ? 12 : 15))+"px "+FUENTE_T; textoLegible(c, vtxt, cx - ws/2, y0 + uc*19);
+        c.fillStyle = "#9fb0d6"; c.font = "700 "+(uc*6)+"px "+FUENTE_T; textoLegible(c, so, cx + wb/2, y0 + uc*19);
+        const bw = w*0.8, by = y0 + uc*22.5; c.fillStyle = "rgba(255,255,255,.22)"; rectRedondo(c, cx - bw/2, by, bw, uc*1.8, uc*0.9); c.fill();
+        c.fillStyle = serie.logrado ? "#35d07f" : "#4cc2ff"; rectRedondo(c, cx - bw/2, by, Math.max(uc*1.8, bw*Math.min(1, serie.valor/serie.obj)), uc*1.8, uc*0.9); c.fill();
+      } else textoLegible(c, vtxt, cx, y0 + uc*19);
+      c.fillStyle = "#cfd8f0"; c.font = "700 "+(uc*3.6)+"px "+FUENTE_T; textoLegible(c, mmss((performance.now() - serie.t0)/1000), cx, y0 + h - uc*2.8);
+    }
+  }
+  c.restore();
+}
 
 // ---------- dibujo ----------
 function dibuja(lm) {
@@ -659,27 +944,87 @@ function dibujaMarcas(c) {
   }
   c.restore();
 }
-// ---------- ángulos sobre el esqueleto: verde = bien, ámbar = mejorable, rojo = a corregir, azul = informativo ----------
 const COLA = { ok:"#35d07f", warn:"#ffcc33", bad:"#ff5d6c", n:"#4cc2ff" };
+// ----- Movilidad de hombro (elevación lateral de frente o frontal de lado): pico de elevación de cada brazo -----
+function angHombro(P, izq) { const s = P[izq ? SH_L : SH_R], h = P[izq ? HIP_L : HIP_R], w = P[izq ? WR_L : WR_R]; return Math.min(s.v, h.v, w.v) > 0.5 ? ang(h, s, w) : null; }
+function procesaHombro(P, now) {
+  const aL = angHombro(P, true), aR = angHombro(P, false), vals = [aL, aR].filter(v => v !== null);
+  const nom = modo === "hombro_lat" ? "Hombro (elevación lateral)" : "Hombro (elevación frontal)";
+  if (!vals.length || P[NOSE].v < 0.4) return aviso(nom, "Colócate", modo === "hombro_lat" ? "De frente: cabeza, hombros, brazos y cintura a la vista" : "De lado: cabeza, hombro, brazo y cintura a la vista");
+  const a = Math.max(...vals), mx = (x, y) => (x === null || x === undefined) ? y : (y === null || y === undefined ? x : Math.max(x, y));
+  if (ex.fase === "arriba" && a >= 45) { ex.fase = "subiendo"; ex.t0 = now; ex.pL = aL; ex.pR = aR; ex.pico = a; ex.foto = null; }   // "arriba" = brazos abajo
+  else if (ex.fase === "subiendo") {
+    ex.pL = mx(ex.pL, aL); ex.pR = mx(ex.pR, aR);
+    if (a > ex.pico) { ex.pico = a; if (a >= 80) ex.foto = fotoActual(); }
+    if (a < 35) {
+      ex.fase = "arriba";
+      if (ex.pico >= 80) { ex.reps++; ex.ult = { pico:ex.pico, pL:ex.pL, pR:ex.pR }; guarda({ n:ex.reps, pico:ex.pico, picoL:ex.pL, picoR:ex.pR, t0:ex.t0, foto:ex.foto }, now); }
+    }
+  }
+  const u = ex.ult, f0 = v => (v === null || v === undefined) ? "-" : v.toFixed(0)+"°";
+  return { t:nom+" · brazos "+f0(aL)+" / "+f0(aR), big:ex.reps+" rep"+(ex.reps === 1 ? "" : "s"), cls:"ok",
+    sub: u ? "Última: pico "+u.pico.toFixed(0)+"° (izq "+f0(u.pL)+", dcha "+f0(u.pR)+")" : "Sube los brazos estirados hasta la vertical (180°) y bájalos despacio" };
+}
+
+// ----- Revisión de postura de pie (de frente): inclinación de hombros y pelvis, plomada y alineación de rodillas -----
+function metricasPostura(P) {
+  const tilt = (a, b) => { const t = Math.abs(Math.atan2(b.y - a.y, b.x - a.x)*180/Math.PI); return t > 90 ? 180 - t : t; };
+  const mid = (a, b) => (a + b)/2, alto = Math.max(P[AN_L].y, P[AN_R].y) - P[NOSE].y, pxCm = alto/(S.estatura*0.88);
+  const rod = l => {
+    const h = P[l ? HIP_L : HIP_R], k = P[l ? KN_L : KN_R], a = P[l ? AN_L : AN_R];
+    const dev = Math.abs(180 - ang(h, k, a)), lx = h.x + (a.x - h.x)*((k.y - h.y)/((a.y - h.y) || 1));
+    return { dev, medial:(k.x - lx)*(mid(P[HIP_L].x, P[HIP_R].x) - h.x) > 0 };
+  };
+  const rI = rod(true), rD = rod(false);
+  return { alto, hombros:tilt(P[SH_L], P[SH_R]), pelvis:tilt(P[HIP_L], P[HIP_R]), plomada:Math.abs(mid(P[SH_L].x, P[SH_R].x) - mid(P[AN_L].x, P[AN_R].x))/pxCm,
+    rodI:rI.dev, rodD:rD.dev, valgoI:rI.medial, valgoD:rD.medial, altoH:P[SH_L].y < P[SH_R].y ? "izquierdo" : "derecho", altoP:P[HIP_L].y < P[HIP_R].y ? "izquierda" : "derecha" };
+}
+function procesaPostura(P, now) {
+  const po = ex.po || (ex.po = { buf:[], armado:true, res:null, tRes:0 });
+  const espera = aviso("Revisión de postura", "Colócate", "De pie y de frente, de pies a cabeza, relajado y quieto unos 3 s");
+  if (!P.completo) { po.buf.length = 0; return po.res && now < po.tRes + 9000 ? po.res : espera; }
+  const m = metricasPostura(P);
+  po.buf.push({ t:now, m, nx:P[NOSE].x, hy:P.cadera }); while (po.buf.length && now - po.buf[0].t > 2600) po.buf.shift();
+  const rg = a => Math.max(...a) - Math.min(...a), mov = Math.max(rg(po.buf.map(x => x.nx)), rg(po.buf.map(x => x.hy)));
+  if (!po.armado && po.buf.length > 8 && mov > m.alto*0.08) po.armado = true;
+  const quieto = po.buf.length > 8 && now - po.buf[0].t > 2400 && mov < m.alto*0.03;
+  if (quieto && po.armado) {
+    const k = f => po.buf.reduce((s, x) => s + x.m[f], 0)/po.buf.length, ult = po.buf[po.buf.length-1].m;
+    const r = { hombros:k("hombros"), pelvis:k("pelvis"), plomada:k("plomada"), rodI:k("rodI"), rodD:k("rodD") };
+    ex.n++; po.armado = false; po.tRes = now;
+    guarda({ n:ex.n, ...r, valgoI:ult.valgoI, valgoD:ult.valgoD, altoH:ult.altoH, altoP:ult.altoP, foto:fotoActual() }, now);
+    const peor = Math.max(r.hombros/2, r.pelvis/2, r.plomada/2, r.rodI/5, r.rodD/5);
+    po.res = { t:"Revisión de postura · medida "+ex.n, big:peor <= 1 ? "Muy alineada" : peor <= 2 ? "Casi alineada" : "Hay desvíos", cls:peor <= 1 ? "ok" : "warn",
+      sub:"Hombros "+r.hombros.toFixed(1)+"° ("+ult.altoH+" más alto) · pelvis "+r.pelvis.toFixed(1)+"° · plomada "+r.plomada.toFixed(1)+" cm · rodillas I "+r.rodI.toFixed(0)+"° D "+r.rodD.toFixed(0)+"°" };
+  }
+  if (po.res && now < po.tRes + 9000) return po.res;
+  if (po.armado && po.buf.length > 8) return { t:"Revisión de postura", big:Math.min(2.5, (now - po.buf[0].t)/1000).toFixed(1)+" s", cls:"ok", sub:"Quieto… midiendo" };
+  return espera;
+}
+
+// ---------- ángulos sobre el esqueleto (izquierda y derecha, con arco): verde = bien, ámbar = mejorable, rojo = a corregir, azul = informativo ----------
 function chequeos(P) {
   const d = ladoVisible(P), L = [];
   const arriba = p => ({ x:p.x, y:p.y-100, v:1 });
-  const add = (a, b, c, est, suf) => { if (a && b && c && Math.min(a.v, b.v, c.v) > 0.5) { const g = ang(a, b, c); L.push({ a, b, c, g, est:est(g), suf:suf || "°" }); } };
+  const add = (a, b, c, est, suf, lado) => { if (a && b && c && Math.min(a.v, b.v, c.v) > 0.5) { const g = ang(a, b, c); L.push({ a, b, c, g, est:est(g), suf:suf || "°", lado }); } };
+  const ambos = fn => { fn(true); fn(false); };
   const nivel = (ok, warn) => g => g >= ok ? "ok" : g >= warn ? "warn" : "bad";
+  const rodilla = est => ambos(l => add(P[l ? HIP_L : HIP_R], P[l ? KN_L : KN_R], P[l ? AN_L : AN_R], est, "°", l ? "I" : "D"));
+  const codo = est => ambos(l => add(P[l ? SH_L : SH_R], P[l ? EL_L : EL_R], P[l ? WR_L : WR_R], est, "°", l ? "I" : "D"));
+  const hombro = (est, suf) => ambos(l => add(P[l ? HIP_L : HIP_R], P[l ? SH_L : SH_R], P[l ? WR_L : WR_R], est, suf || "°", l ? "I" : "D"));
+  const inclin = (a, b, suf) => { if (Math.min(a.v, b.v) > 0.5) { let t = Math.abs(Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI); if (t > 90) t = 180 - t; L.push({ a, b, c:null, g:t, est:t <= 2 ? "ok" : t <= 4 ? "warn" : "bad", suf }); } };
   switch (modo) {
-    case "salto": add(P[d.hip], P[d.kn], P[d.an], () => "n"); break;
+    case "salto": rodilla(() => "n"); break;
     case "sentadilla":
-      add(P[d.hip], P[d.kn], P[d.an], g => g <= 90 ? "ok" : g <= 110 ? "warn" : "n");
+      rodilla(g => g <= 90 ? "ok" : g <= 110 ? "warn" : "n");
       add(P[d.sh], P[d.hip], arriba(P[d.hip]), g => g <= 45 ? "ok" : g <= 60 ? "warn" : "bad", "° tronco");
       break;
     case "plancha": add(P[d.sh], P[d.hip], P[d.an], nivel(165, 150), "° línea"); break;
     case "flexiones":
       add(P[d.sh], P[d.hip], P[d.an], nivel(160, 145), "° línea");
-      add(P[d.sh], P[d.el], P[d.wr], g => g <= 90 ? "ok" : g <= 110 ? "warn" : "n");
+      codo(g => g <= 90 ? "ok" : g <= 110 ? "warn" : "n");
       break;
-    case "dominadas":
-      [[SH_L, EL_L, WR_L], [SH_R, EL_R, WR_R]].forEach(t => add(P[t[0]], P[t[1]], P[t[2]], g => (g >= 165 || g <= 90) ? "ok" : "n"));
-      break;
+    case "dominadas": codo(g => (g >= 165 || g <= 90) ? "ok" : "n"); break;
     case "salida":
       add(P[d.hip], P[d.kn], P[d.an], () => "n");
       add(P[d.sh], P[d.hip], P[d.an], nivel(160, 140), "° cuerpo");
@@ -687,36 +1032,55 @@ function chequeos(P) {
     case "equilibrio": {
       const hl = P[HIP_L], hr = P[HIP_R];
       if (Math.min(hl.v, hr.v) > 0.5) { let t = Math.abs(Math.atan2(hr.y-hl.y, hr.x-hl.x)*180/Math.PI); if (t > 90) t = 180 - t; L.push({ a:hl, b:hr, c:null, g:t, est:t <= 5 ? "ok" : t <= 10 ? "warn" : "bad", suf:"° pelvis" }); }
-      add(P[d.hip], P[d.kn], P[d.an], () => "n");
+      rodilla(() => "n");
       break;
     }
-    case "streamline":
-      add(P[d.hip], P[d.sh], P[d.wr], nivel(165, 150), "° hombro");
-      add(P[d.sh], P[d.el], P[d.wr], nivel(165, 150), "° codo");
+    case "streamline": hombro(nivel(165, 150), "° hombro"); codo(nivel(165, 150)); break;
+    case "hombro_lat": case "hombro_fr": hombro(g => g >= 150 ? "ok" : g >= 85 ? "warn" : "n"); break;
+    case "postura":
+      inclin(P[SH_L], P[SH_R], "° hombros"); inclin(P[HIP_L], P[HIP_R], "° pelvis");
+      ambos(l => { const h = P[l ? HIP_L : HIP_R], k = P[l ? KN_L : KN_R], a = P[l ? AN_L : AN_R]; if (Math.min(h.v, k.v, a.v) > 0.5) { const dev = Math.abs(180 - ang(h, k, a)); L.push({ a:h, b:k, c:a, g:dev, est:dev <= 5 ? "ok" : dev <= 8 ? "warn" : "bad", suf:"° rodilla", lado:l ? "I" : "D" }); } });
       break;
   }
   return L;
 }
+function arcoAngulo(c, b, a, cc, r, col) {   // sector coloreado del ángulo en la articulación
+  const a1 = Math.atan2(a.y - b.y, a.x - b.x), a2 = Math.atan2(cc.y - b.y, cc.x - b.x);
+  let dd = a2 - a1; while (dd > Math.PI) dd -= 2*Math.PI; while (dd <= -Math.PI) dd += 2*Math.PI;
+  c.beginPath(); c.moveTo(b.x, b.y); c.arc(b.x, b.y, r, a1, a1 + dd, dd < 0); c.closePath();
+  c.globalAlpha = 0.32; c.fillStyle = col; c.fill(); c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = Math.max(2, W/400); c.stroke();
+}
+const MODOS_ANG = ["salto","sentadilla","plancha","flexiones","dominadas","salida","equilibrio","streamline","hombro_lat","hombro_fr","postura"];
 function dibujaAngulos(c, lm) {
-  if (!lm || !["salto","sentadilla","plancha","flexiones","dominadas","salida","equilibrio","streamline"].includes(modo)) return;
-  const L = chequeos(puntos(lm)), fs = Math.max(16, W/38);
-  c.save(); c.lineCap = "round"; c.lineJoin = "round"; c.lineWidth = Math.max(5, W/150);
+  if (!lm || !MODOS_ANG.includes(modo)) return;
+  const P = puntos(lm), L = chequeos(P), fs = Math.max(16, W/38);
+  c.save(); c.lineCap = "round"; c.lineJoin = "round";
+  for (const k of L) { if (k.c) arcoAngulo(c, k.b, k.a, k.c, fs*1.7, COLA[k.est]); }
+  c.lineWidth = Math.max(5, W/150);
   for (const k of L) { c.strokeStyle = COLA[k.est]; c.beginPath(); c.moveTo(k.a.x, k.a.y); c.lineTo(k.b.x, k.b.y); if (k.c) c.lineTo(k.c.x, k.c.y); c.stroke(); }
   c.font = "bold "+fs+"px sans-serif"; c.textAlign = "center";
+  const puestos = [];
   for (const k of L) {
-    const x = k.c ? k.b.x : (k.a.x+k.b.x)/2, y = k.c ? k.b.y : (k.a.y+k.b.y)/2, t = Math.round(k.g)+k.suf, w = c.measureText(t).width + fs*0.7;
+    const x = k.c ? k.b.x : (k.a.x+k.b.x)/2, y = k.c ? k.b.y : (k.a.y+k.b.y)/2;
+    if (puestos.some(p => p.suf === k.suf && Math.hypot(p.x - x, p.y - y) < fs*2)) continue;   // en una vista de lado las dos piernas se solapan
+    puestos.push({ x, y, suf:k.suf });
+    const t = (k.lado ? k.lado+" " : "")+Math.round(k.g)+k.suf, w = c.measureText(t).width + fs*0.7;
     const bx = Math.min(W - w/2, Math.max(w/2, x + fs*0.6)), by = Math.max(fs*1.2, y - fs*1.1);
     c.fillStyle = "rgba(11,18,32,.8)"; c.beginPath();
     if (c.roundRect) c.roundRect(bx - w/2, by - fs*0.85, w, fs*1.3, fs*0.3); else c.rect(bx - w/2, by - fs*0.85, w, fs*1.3);
     c.fill();
     c.fillStyle = COLA[k.est]; textoLegible(c, t, bx, by + fs*0.15);
-    c.beginPath(); c.arc(k.c ? k.b.x : x, k.c ? k.b.y : y, fs*0.28, 0, 7); c.fill();
+    c.beginPath(); c.arc(x, y, fs*0.28, 0, 7); c.fill();
+  }
+  if (modo === "postura") {   // plomada: línea vertical desde el centro de los tobillos
+    const x = (P[AN_L].x + P[AN_R].x)/2; c.strokeStyle = "rgba(255,255,255,.6)"; c.lineWidth = 2; c.setLineDash([10, 8]); c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); c.setLineDash([]);
   }
   c.restore();
 }
-function dibujaEn(c, lm) {
+
+function dibujaEn(c, lm, hud = true) {
   if ((modo === "longitud" && marcas.on) || modo === "salida" || modo === "sprint") dibujaMarcas(c);
-  if (!lm) return;
+  if (!lm) { if (hud) dibujaHUD(c); return; }
   c.lineWidth = Math.max(3, W/220); c.strokeStyle = "rgba(76,194,255,.9)"; c.fillStyle="#fff";
   for (const [a,b] of BONES) {
     if ((lm[a].visibility??1)<0.4 || (lm[b].visibility??1)<0.4) continue;
@@ -727,6 +1091,7 @@ function dibujaEn(c, lm) {
   if (cal.ok && modo==="salto") { // línea del suelo calibrado
     c.strokeStyle="rgba(255,204,51,.8)"; c.setLineDash([14,10]); c.beginPath(); c.moveTo(0,cal.pieBase); c.lineTo(W,cal.pieBase); c.stroke(); c.setLineDash([]);
   }
+  if (hud) dibujaHUD(c);
 }
 
 // ---------- registros, vídeo e informe ----------
@@ -738,7 +1103,7 @@ actualizaN();
 function guarda(r, now) {
   const d = new Date();
   registros.push({ fecha:d.toLocaleDateString("es-ES"), hora:d.toLocaleTimeString("es-ES"), nombre, nadador:nadadorId, ejercicio:modo, estatura:S.estatura,
-    fps:fpsEma, video: rec ? rec.nombre : "", seg: rec ? (now-rec.t0)/1000 : "", ...r });
+    fps:fpsEma, video: rec ? rec.nombre : "", seg: rec ? (now-rec.t0)/1000 : "", serie: serie ? serie.n : 1, t0:null, t1:now, ...r });
   try { localStorage.setItem("cna_registros", JSON.stringify(registros, (k, v) => k === "foto" ? undefined : v)); } catch(e) {}
   actualizaN();
 }
@@ -749,7 +1114,7 @@ function fotoActual() {   // miniatura (vídeo + esqueleto) para el informe
   fotoCv.width = w; fotoCv.height = Math.round(H*k);
   const c = fotoCv.getContext("2d"); c.save(); c.scale(k, k);
   if (facing === "user") { c.translate(W, 0); c.scale(-1, 1); }
-  c.drawImage(video, 0, 0, W, H); dibujaEn(c, ultimoLm); c.restore();
+  c.drawImage(video, 0, 0, W, H); dibujaEn(c, ultimoLm, false); c.restore();
   return { u:fotoCv.toDataURL("image/jpeg", 0.8), ar:H/W };
 }
 const num = (v, d=1) => (v===undefined || v==="" || v===null) ? "" : (+v).toFixed(d).replace(".", ",");
@@ -764,13 +1129,15 @@ function resumenReg(r) {   // [resultado principal, unidad, detalle] de cada tip
     case "equilibrio": return [num(r.tiempo), "s", "apoyo "+r.pierna+"; balanceo "+num(r.balanceo)+" cm"];
     case "sprint": return [num(r.total,2), "s (primer movimiento → última puerta)", (r.tramos || []).map((t, i) => "tramo "+(i+1)+": "+num(t,2)+" s ("+num(r.vels[i],1)+" m/s)").join("; ")+"; desde la puerta de salida "+num(r.totalPuerta,2)+" s"];
     case "salida": return [num(r.dist,0), "cm hasta la entrada de las manos", "vuelo "+num(r.vuelo*1000,0)+" ms; entrada "+num(r.ang,0)+"°; manos-pies "+(r.manosPies == null ? "-" : num(r.manosPies,0))+" cm; cuerpo "+num(r.recto,0)+"°; rodilla "+num(r.rodilla,0)+"°; tronco "+num(r.tronco,0)+"°; pies a "+num(r.pieBorde,0)+" cm del borde"];
+    case "hombro_lat": case "hombro_fr": return [num(r.pico,0), "° de elevación máxima", "izquierda "+num(r.picoL,0)+"°; derecha "+num(r.picoR,0)+"°"];
+    case "postura": return [num(r.hombros,1), "° de inclinación de hombros", "pelvis "+num(r.pelvis,1)+"°; plomada "+num(r.plomada,1)+" cm; rodilla izq "+num(r.rodI,0)+"° der "+num(r.rodD,0)+"°; hombro "+r.altoH+" más alto"];
     case "streamline": return [num(r.tiempo), "s en postura correcta", "total "+num(r.total)+" s; hombro "+num(r.hombro,0)+"°; codos "+num(r.codos,0)+"°"];
   }
   return ["", "", ""];
 }
 function csvTexto(lista) {
-  const cab = ["fecha","hora","nadador","ejercicio","n","resultado","unidad","detalle","estatura_cm","fps_analisis","video","segundo_en_video"];
-  const filas = lista.map(r => { const [v, u, d] = resumenReg(r); return [r.fecha,r.hora,r.nombre,r.ejercicio,r.n,v,u,d,r.estatura,num(r.fps,0),r.video,num(r.seg,1)]; });
+  const cab = ["fecha","hora","nadador","ejercicio","serie","n","resultado","unidad","detalle","estatura_cm","fps_analisis","video","segundo_en_video"];
+  const filas = lista.map(r => { const [v, u, d] = resumenReg(r); return [r.fecha,r.hora,r.nombre,r.ejercicio,r.serie || 1,r.n,v,u,d,r.estatura,num(r.fps,0),r.video,num(r.seg,1)]; });
   return "﻿" + [cab, ...filas].map(f => f.join(";")).join("\n");
 }
 const sinCodec = f => f.type.includes(";") ? new File([f], f.name, { type:f.type.split(";")[0] }) : f;
@@ -837,7 +1204,7 @@ async function cargaLogo() {
   } catch(e) { return null; }
 }
 // ---------- conclusiones del informe: lo que va bien y lo que hay que corregir (reglas orientativas sobre los datos de la sesión) ----------
-function conclusiones(clave, rs) {
+function conclusiones(clave, rs, ser) {
   const bien = [], mejorar = [];
   const media = a => a.reduce((s, v) => s + v, 0)/a.length;
   const desv = a => { const m = media(a); return Math.sqrt(media(a.map(v => (v-m)**2))); };
@@ -941,6 +1308,26 @@ function conclusiones(clave, rs) {
       if (!mejorar.length) mejorar.push("Sin fallos claros: prueba con los ojos cerrados o sobre una superficie inestable.");
       break;
     }
+    case "hombro_lat": case "hombro_fr": {
+      const ps = rs.map(r => r.pico), mejor = Math.max(...ps), pl = rs.map(r => r.picoL).filter(v => v !== null && v !== undefined), pr = rs.map(r => r.picoR).filter(v => v !== null && v !== undefined);
+      bien.push("Mejor elevación: "+f(mejor)+"° ("+(mejor >= 165 ? "casi la vertical" : mejor >= 120 ? "por encima de la horizontal" : "hasta la horizontal")+").");
+      if (mejor >= 165) bien.push("Buena movilidad de hombro: llegas casi a la vertical.");
+      if (mejor < 150) mejorar.push("No llegas a la vertical (mejor "+f(mejor)+"°): puede indicar poca movilidad de hombro; trabaja estiramientos y coméntalo con el entrenador.");
+      if (pl.length && pr.length && Math.abs(media(pl) - media(pr)) >= 10) mejorar.push("Diferencia entre hombros: izquierda "+f(media(pl))+"°, derecha "+f(media(pr))+"°. Trabaja más el lado que llega menos.");
+      if (!mejorar.length) mejorar.push("Sin fallos claros: mantén el movimiento lento y controlado, sin arquear la espalda.");
+      break;
+    }
+    case "postura": {
+      const ho = media(rs.map(r => r.hombros)), pe = media(rs.map(r => r.pelvis)), pl = media(rs.map(r => r.plomada)), ri = media(rs.map(r => r.rodI)), rd = media(rs.map(r => r.rodD)), ult = rs[rs.length-1];
+      if (ho <= 2 && pe <= 2) bien.push("Hombros y pelvis bien nivelados (hombros "+f(ho, 1)+"°, pelvis "+f(pe, 1)+"°).");
+      if (pl <= 2) bien.push("Buena alineación vertical (plomada "+f(pl, 1)+" cm).");
+      if (ho > 3) mejorar.push("Hombros inclinados "+f(ho, 1)+"° (el "+ult.altoH+" más alto): revisa la postura y el apoyo del peso.");
+      if (pe > 3) mejorar.push("Pelvis inclinada "+f(pe, 1)+"° (la "+ult.altoP+" más alta): puede indicar diferencia de apoyo entre las piernas.");
+      if (Math.max(ri, rd) > 6) mejorar.push("Rodillas con desvío (izquierda "+f(ri)+"°, derecha "+f(rd)+"°): fortalece el glúteo medio y cuida la alineación.");
+      if (!bien.length) bien.push("Medida realizada: repítela con el tiempo para ver la evolución.");
+      if (!mejorar.length) mejorar.push("Sin desvíos importantes. Valoración orientativa: ante dudas, consulta a un profesional.");
+      break;
+    }
     case "streamline": {
       const ho = media(rs.map(r => r.hombro)), co = media(rs.map(r => r.codos)), pct = media(rs.map(r => 100*r.tiempo/r.total));
       if (pct >= 80) bien.push("Mantienes la postura correcta el "+f(pct)+" % del tiempo.");
@@ -952,10 +1339,25 @@ function conclusiones(clave, rs) {
       break;
     }
   }
+  if (ser && ser.length) {   // lo que sale del análisis de las series: izquierda/derecha, fatiga y número de repeticiones
+    const asims = ser.map(s => s.asim).filter(v => v !== null && v !== undefined), fats = ser.map(s => s.fatiga).filter(v => v !== null && v !== undefined);
+    if (asims.length) {
+      const a = media(asims), s0 = ser.find(s => s.asim !== null && s.asim !== undefined);
+      if (a >= 8 && !/^hombro/.test(clave)) mejorar.unshift("Diferencia entre lados de "+f(a)+"° (izquierda "+f(s0.picoL)+"°, derecha "+f(s0.picoR)+"°): trabaja más el lado más débil.");
+      else if (a <= 4) bien.push("Lados equilibrados: solo "+f(a)+"° de diferencia entre izquierda y derecha.");
+    }
+    if (fats.length) {
+      const fm = media(fats), tipo = (ser.find(s => s.fatigaTipo) || {}).fatigaTipo === "altura" ? "altura" : "velocidad";
+      if (fm >= 25) mejorar.unshift("Fatiga: la "+tipo+" cae un "+f(fm)+" % de la primera a la última repetición; baja el ritmo o descansa más.");
+      else if (fm < 10 && ser.some(s => s.reps >= 3)) bien.push("Ritmo constante durante toda la serie (fatiga baja, "+f(fm)+" %).");
+    }
+    if (ser.length >= 2) { const rr = ser.map(s => s.reps); if (rr[rr.length-1] < rr[0]*0.8) mejorar.push("En la última serie hiciste menos repeticiones ("+rr[rr.length-1]+" frente a "+rr[0]+")."); }
+  }
   return { bien:bien.slice(0, 3), mejorar:mejorar.slice(0, 3) };
 }
 
-async function creaInforme(regs, base) {
+async function creaInforme(regs, base, series) {
+  series = series || [];
   const { jsPDF } = window.jspdf, doc = new jsPDF({ unit:"mm", format:"a4", compress:true });
   const logo = await cargaLogo(), r0 = regs[0];
   const NAVY = [11,18,32], GRIS = [107,122,153], VERDE = [31,184,107];
@@ -966,6 +1368,17 @@ async function creaInforme(regs, base) {
   const resumen = [];
 
   // Una configuración por ejercicio: lo que cambia es qué se cuenta, la gráfica, la tabla y el texto de ayuda.
+  const hombroPag = (titulo, rs) => {
+    const ps = rs.map(r => r.pico), mejor = Math.max(...ps), im = ps.indexOf(mejor);
+    const pl = rs.map(r => r.picoL).filter(v => v !== null && v !== undefined), pr = rs.map(r => r.picoR).filter(v => v !== null && v !== undefined);
+    const dif = pl.length && pr.length ? Math.abs(avg(pl) - avg(pr)) : null;
+    return { titulo, im, resumen:rs.length+" repeticiones · mejor elevación "+num(mejor, 0)+"°",
+      kpis:[["REPETICIONES", String(rs.length), NAVY], ["MEJOR ELEVACIÓN", num(mejor, 0)+"°", VERDE], ["DIFERENCIA IZQ-DCHA", dif === null ? "-" : num(dif, 0)+"°", NAVY]],
+      graf:{ titulo:"Elevación máxima del brazo en cada repetición (180° = vertical)", vals:ps, color:v => v >= 165 ? cVerde : v >= 120 ? cAmar : cRojo, ref:{ v:170, texto:"170° = completa" }, dec:0, x:"repetición" },
+      cols:["Nº","Pico (°)","Izq. (°)","Dcha. (°)"], anchos:[12,34,34,34], filas:rs.map((r, j) => [j+1, num(r.pico, 0), num(r.picoL, 0), num(r.picoR, 0)]),
+      notas:"Cómo leerlo\nPico: ángulo máximo entre el tronco y el brazo (0° = pegado al cuerpo, 90° = horizontal, 180° = vertical sobre la cabeza).\nIzq. / Dcha.: pico de cada brazo; si difieren mucho, un hombro tiene menos movilidad.\nColor: verde llega casi a la vertical, amarillo a media altura, rojo se queda corto.",
+      pie:"Medida orientativa: de frente (elevación lateral) o de lado (frontal), con cabeza, brazos y cintura a la vista." };
+  };
   const PAG = {
     salto: rs => {
       const hs = rs.map(r => r.hVuelo), mejor = Math.max(...hs), im = hs.indexOf(mejor), media = avg(hs);
@@ -1039,6 +1452,17 @@ async function creaInforme(regs, base) {
         filas:rs.map((r, j) => [j+1, num(r.total,2), ...t3(r), num(r.dist/r.total,1)]),
         notas:"Cómo leerlo\nTotal: desde el primer movimiento (arranque desde quieto) hasta cruzar la última puerta.\nTramos: tiempo entre puertas consecutivas ("+num(m.dist/Math.max(1,(m.tramos || []).length),1)+" m cada una); m/s medios = distancia total / tiempo total.\nUn tramo más rápido que el anterior indica que sigues acelerando.\nMejor sprint: "+(m.tramos || []).map((t, i) => "tramo "+(i+1)+" "+num(t,2)+" s").join(", ")+"; hasta la puerta de salida "+num(m.tArr,2)+" s.",
         pie:"Cada cruce tiene un error de ±1 fotograma ("+(1000/fps).toFixed(0)+" ms con "+fps.toFixed(0)+" fps). No sustituye a un cronometraje oficial; sirve para comparar tus propios sprints grabados igual." };
+    },
+    hombro_lat: rs => hombroPag("Movilidad de hombro · elevación lateral", rs),
+    hombro_fr: rs => hombroPag("Movilidad de hombro · elevación frontal", rs),
+    postura: rs => {
+      const vs = rs.map(r => (r.hombros + r.pelvis)/2), im = vs.indexOf(Math.min(...vs));
+      return { titulo:"Revisión de postura", im, resumen:rs.length+" medidas · inclinación media "+num(avg(vs), 1)+"°",
+        kpis:[["MEDIDAS", String(rs.length), NAVY], ["HOMBROS (MEDIA)", num(avg(rs.map(r => r.hombros)), 1)+"°", NAVY], ["PELVIS (MEDIA)", num(avg(rs.map(r => r.pelvis)), 1)+"°", NAVY]],
+        graf:{ titulo:"Inclinación media de hombros y pelvis en cada medida (menos = más nivelada)", vals:vs, color:v => v <= 2 ? cVerde : v <= 4 ? cAmar : cRojo, ref:{ v:2, texto:"2° = nivelada" }, dec:1, x:"medida" },
+        cols:["Nº","Hombros (°)","Pelvis (°)","Plomada (cm)","Rod. izq./dcha. (°)"], anchos:[9,24,22,26,41], filas:rs.map((r, j) => [j+1, num(r.hombros, 1), num(r.pelvis, 1), num(r.plomada, 1), num(r.rodI, 0)+" / "+num(r.rodD, 0)]),
+        notas:"Cómo leerlo\nHombros y pelvis: inclinación de la línea que une cada par de puntos respecto a la horizontal (0° = nivelada).\nPlomada: cuánto se desvía el centro de los hombros del centro de los tobillos (cm).\nRodillas: desvío respecto a la línea cadera-tobillo.\nVerde ≤ 2°, amarillo hasta 4°, rojo más.",
+        pie:"Valoración orientativa y solo de frente, de pies a cabeza; no es un diagnóstico." };
     },
     salida: rs => {
       const ds = rs.map(r => r.dist), mejor = Math.max(...ds), im = ds.indexOf(mejor), m = rs[im];
@@ -1118,7 +1542,7 @@ async function creaInforme(regs, base) {
     return yy;
   };
   const glos = [], fichas = [];
-  for (const clave of ["salto","sentadilla","plancha","flexiones","dominadas","longitud","salida","sprint","equilibrio","streamline"]) {
+  for (const clave of ["salto","sentadilla","plancha","flexiones","dominadas","hombro_lat","hombro_fr","longitud","salida","sprint","equilibrio","streamline","postura"]) {
     const rs = regs.filter(r => r.ejercicio === clave);
     if (!rs.length) continue;
     const c = PAG[clave](rs);
@@ -1126,7 +1550,7 @@ async function creaInforme(regs, base) {
     c.kpis.forEach((k, i) => kpi(15 + i*61, k[0], k[1], k[2]));
     const gc = graficoBarras(c.graf), png = gc.toDataURL("image/png"); grafico = grafico || png;
     doc.addImage(png, "PNG", 15, 76, 180, 72);
-    const con = conclusiones(clave, rs), refo = refPara(clave, con), refCv = refo ? refCanvas(refo, 700, 500) : null;
+    const sers = series.filter(s => s.modo === clave && s.res), con = conclusiones(clave, rs, sers.map(s => s.res)), refo = refPara(clave, con), refCv = refo ? refCanvas(refo, 700, 500) : null;
     const yt = tabla(c.cols, c.anchos, c.filas, 154), yf = foto(rs[c.im].foto, 154);
     const yc = Math.max(yt, yf) + 7;
     doc.setFillColor(243,246,252); doc.roundedRect(13, yc - 5, 184, 271 - yc + 4, 2, 2, "F");
@@ -1139,12 +1563,35 @@ async function creaInforme(regs, base) {
       doc.text(doc.splitTextToSize(refo.tips.join(" · "), 57), 138, yc - 3 + rh + 3.2);
     }
     glos.push([c.titulo, c.notas]);
-    fichas.push({ titulo:c.titulo, kpis:c.kpis, graf:gc, con, resumen:c.resumen, ref:refCv, refTips:refo ? refo.tips : [] });
+    fichas.push({ titulo:c.titulo, kpis:c.kpis, graf:gc, con, resumen:c.resumen, ref:refCv, refTips:refo ? refo.tips : [], series:sers });
     const ant = comparaHistorial(clave, rs);
     if (ant) { doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...(ant.mejora ? VERDE : NAVY)); doc.text(ant.txt, 15, 272); resumen.push(ant.txt); }
     doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...GRIS);
     doc.text(doc.splitTextToSize("Prototipo CNA. Medida orientativa hecha con la cámara del móvil. "+c.pie, 180), 15, 282);
     resumen.push(c.resumen);
+    if (sers.length) {   // página(s) con el análisis de cada serie: comparación, curva, izquierda/derecha, fatiga y ritmo
+      let i = 0, primera = true;
+      while (i < sers.length) {
+        cabecera("Series · "+c.titulo);
+        let y0 = 46;
+        const conTabla = primera && sers.length >= 2;
+        if (conTabla) {
+          y0 = tabla(["Serie","Reps","Tiempo","Fatiga %","Izq. (°)","Dcha. (°)","Dif. (°)"], [16,16,22,24,24,24,22],
+            sers.map(s => [s.n, s.res.reps, mmss(s.res.t), s.res.fatiga !== undefined ? num(s.res.fatiga, 0) : "-", s.res.picoL !== null && s.res.picoL !== undefined ? num(s.res.picoL, 0) : "-", s.res.picoR !== null && s.res.picoR !== undefined ? num(s.res.picoR, 0) : "-", s.res.asim !== null && s.res.asim !== undefined ? num(s.res.asim, 0) : "-"]), y0) + 2;
+        }
+        const cap = conTabla ? 2 : 3;
+        sers.slice(i, i + cap).forEach((s, j) => {
+          const yb = y0 + j*80, r = s.res, curva = graficoCurva(s, "Curva de la serie · "+(ETQ_CURVA[s.modo] || "ángulo"));
+          doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...NAVY); doc.text("Serie "+s.n+(r.obj ? " (objetivo "+r.obj+")" : ""), 15, yb);
+          doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+          const L = ["Repeticiones: "+r.reps+" · tiempo "+mmss(r.t)+(r.ritmo ? " · "+num(r.ritmo, 0)+"/min" : "")].concat(lineasSerie(r));
+          let yy = yb + 6; L.forEach(t => { const ls = doc.splitTextToSize("• "+t, 70); doc.text(ls, 15, yy); yy += ls.length*3.6 + 1.2; });
+          if (r.repsInfo.length) doc.addImage(curva.toDataURL("image/png"), "PNG", 90, yb - 4, 105, 42);
+        });
+        doc.setFontSize(8); doc.setTextColor(...GRIS); doc.text("Azul = lado izquierdo, naranja = lado derecho. Punto verde = mejor repetición, rojo = peor. Valoración orientativa.", 15, 282);
+        i += cap; primera = false;
+      }
+    }
   }
   if (glos.length) {   // última página: cómo leer el informe
     cabecera("Cómo leer este informe");
@@ -1167,12 +1614,12 @@ async function creaInforme(regs, base) {
 
 // ---------- pantalla de revisión (vídeo + informe) ----------
 let revActual = null;
-async function muestraRevision({ video, regs, base, inf:infPre }) {
+async function muestraRevision({ video, regs, base, inf:infPre, series, recT0 }) {
   if (!regs.length && !video) { alert("Aún no hay datos."); return; }
   $("revinfo").textContent = "Preparando informe…"; $("rev").style.display = "flex";
   $("revv").style.display = video ? "" : "none";
   if (video) $("revv").src = URL.createObjectURL(video);
-  const inf = infPre || (regs.length ? await creaInforme(regs, base) : null);
+  const inf = infPre || (regs.length ? await creaInforme(regs, base, series) : null);
   // En Android, WhatsApp no acepta bien vídeo + PDF juntos ("vacío"): se comparten por separado, uno tras otro.
   const separado = /Android/i.test(navigator.userAgent) && !!video && !!inf;
   revActual = { video, inf, regs, base, separado };
@@ -1184,7 +1631,18 @@ async function muestraRevision({ video, regs, base, inf:infPre }) {
   $("revpdf").style.display = video && inf ? "" : "none";
   $("revvid").style.display = video && inf && !separado ? "" : "none";
   $("revcsv").style.display = inf ? "" : "none";
+  // repetición del vídeo: velocidad lenta y saltos a cada serie o repetición
+  const lista = (series || []).filter(s => s.res && recT0 !== undefined);
+  $("revvel").style.display = video ? "flex" : "none";
+  $("revser").style.display = video && lista.length ? "" : "none";
+  $("revser").innerHTML = lista.map(s => '<div style="margin:4px 0"><b>Serie '+s.n+'</b> <button class="sec" style="padding:4px 10px;font-size:12px" data-t="'+Math.max(0, (s.t0 - recT0)/1000)+'">▶ serie</button> '+
+    s.res.repsInfo.map(r => '<button class="sec" style="padding:4px 9px;font-size:12px" data-t="'+Math.max(0, r.t0rel - 0.5)+'">R'+r.i+'</button>').join(" ")+'</div>').join("");
 }
+$("rev").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.v) { $("revv").playbackRate = +b.dataset.v; return; }
+  if (b.dataset.t !== undefined) { $("revv").currentTime = +b.dataset.t; $("revv").play(); }
+});
 $("revsave").addEventListener("click", async () => {
   if (!revActual) return;
   if (revActual.separado) { await entregaVarios([revActual.video]); toast("El vídeo ya lleva los resultados y las conclusiones al final. Si quieres también el PDF completo, pulsa ②."); return; }
@@ -1212,6 +1670,10 @@ const POSES_REF = {   // unidades: una persona de pie mide ≈100; y hacia abajo
   sprint:    { head:[74,40,6], lines:[[[46,64],[66,44]], [[46,64],[60,76],[62,100]], [[46,64],[34,82],[22,98]], [[66,46],[58,60],[50,70]], [[66,46],[76,56],[84,48]]], extras:[[[10,100],[80,100]]] },
   streamline:{ head:[50,7,6], lines:[[[50,14],[50,54]], [[50,18],[52,0],[53,-18]], [[50,54],[52,77],[50,100],[60,100]]] },
 };
+Object.assign(POSES_REF, {
+  fr_hombro:{ head:[50,7,6], lines:[[[50,14],[50,54]], [[38,18],[62,18]], [[38,18],[34,0],[32,-16]], [[62,18],[66,0],[68,-16]], [[44,54],[56,54]], [[44,54],[44,100]], [[56,54],[56,100]]], extras:[[[28,100],[72,100]]] },
+  postura:{ head:[50,7,6], lines:[[[50,14],[50,54]], [[38,18],[62,18]], [[38,18],[35,36],[34,52]], [[62,18],[65,36],[66,52]], [[44,54],[56,54]], [[44,54],[44,77],[44,100]], [[56,54],[56,77],[56,100]]], extras:[[[50,-8],[50,104]]] },
+});
 const REFS = {   // por ejercicio: figura, marcas [x, y, texto, lado] y consejos
   salto:      [{ pose:"streamline", titulo:"Extensión completa", marcas:[[52,0,"brazos arriba","d"], [50,54,"cadera extendida","i"], [55,100,"puntas de pie","d"]], tips:["Flexiona, empuja y extiéndete del todo", "Brazos arriba y cuerpo en línea"] }],
   sentadilla: [{ pose:"sentadilla", titulo:"Sentadilla profunda", marcas:[[60,76,"rodilla 90°","d"], [41,60,"tronco recto (< 45°)","i"], [54,100,"talones apoyados","d"]], tips:["Rodilla a 90° o menos", "Pecho arriba y talones en el suelo"] }],
@@ -1225,6 +1687,11 @@ const REFS = {   // por ejercicio: figura, marcas [x, y, texto, lado] y consejos
   equilibrio: [{ pose:"equilibrio", titulo:"A una pierna", marcas:[[50,54,"pelvis nivelada","i"], [56,82,"pie levantado","d"]], tips:["Pelvis nivelada, sin caer a un lado", "Mirada fija y abdomen apretado"] }],
   streamline: [{ pose:"streamline", titulo:"Brazos estirados", marcas:[[53,-18,"brazos pegados a las orejas","d"], [50,18,"hombro 180°","i"]], tips:["Brazos rectos pegados a las orejas", "Codos estirados, cuerpo alineado"] }],
 };
+Object.assign(REFS, {
+  hombro_lat: [{ pose:"fr_hombro", titulo:"Elevación completa", marcas:[[32,-16,"brazo vertical 180°","i"], [62,18,"sin encoger el hombro","d"]], tips:["Sube el brazo hasta la vertical", "Sin arquear la espalda ni encoger el hombro"] }],
+  hombro_fr:  [{ pose:"streamline", titulo:"Elevación frontal", marcas:[[53,-18,"brazo junto a la oreja","d"], [50,54,"espalda neutra","i"]], tips:["Sube el brazo estirado hasta la oreja", "Espalda neutra, sin arquear"] }],
+  postura:    [{ pose:"postura", titulo:"Postura alineada", marcas:[[50,18,"hombros nivelados","i"], [50,54,"pelvis nivelada","d"], [44,77,"rodillas alineadas","i"]], tips:["Hombros y pelvis a la misma altura", "Peso repartido y rodillas rectas"] }],
+});
 function bboxPose(p) {
   let xs = [p.head[0]-p.head[2], p.head[0]+p.head[2]], ys = [p.head[1]-p.head[2], p.head[1]+p.head[2]];
   for (const l of p.lines.concat(p.extras || [])) for (const [x, y] of l) { xs.push(x); ys.push(y); }
@@ -1293,6 +1760,31 @@ function envuelve(c, texto, ancho) {
   if (l) ls.push(l);
   return ls;
 }
+function lineasSerie(r) {   // texto plano de las cifras de una serie (informe y tarjeta del vídeo)
+  const f = (v, d = 0) => (+v).toFixed(d).replace(".", ","), L = [];
+  if (r.picoL !== null && r.picoL !== undefined && r.picoR !== null && r.picoR !== undefined) L.push("Pico por lado: izquierda "+f(r.picoL)+"° · derecha "+f(r.picoR)+"°"+(r.asim !== null && r.asim !== undefined ? " · "+f(r.asim)+"° de diferencia" : ""));
+  else if (r.picoL !== null && r.picoL !== undefined) L.push("Pico: "+f(r.picoL)+"°");
+  if (r.fatiga !== undefined) L.push("Fatiga: "+f(r.fatiga)+" % ("+etiquetaFatiga(r.fatiga)+")");
+  if (r.perdidaRango) L.push("Rango: pierdes "+f(r.perdidaRango)+"° entre la primera y la última repetición");
+  if (r.regularidad !== null && r.regularidad !== undefined) L.push("Regularidad ±"+f(r.regularidad)+" % · bajada "+f(r.bajada, 1)+" s · subida "+f(r.subida, 1)+" s");
+  if (r.mejor) L.push("Mejor repetición: nº "+r.mejor+" · peor: nº "+r.peor);
+  return L;
+}
+function tarjetaSerie(s, cw, ch, meta) {
+  const [cv, c] = lienzoTarjeta(cw, ch), u = Math.min(cw, ch)/100, r = s.res, f = (v, d = 0) => (+v).toFixed(d).replace(".", ",");
+  c.textAlign = "left"; c.fillStyle = "#fff"; c.font = "800 "+(u*5)+"px "+FUENTE_T; c.fillText("Serie "+s.n+" · "+(EJ_NOMBRE[s.modo] || ""), u*5, u*9);
+  c.fillStyle = "#9fb0d6"; c.font = "600 "+(u*2.8)+"px "+FUENTE_T; c.fillText("Análisis de la serie · "+meta, u*5, u*14);
+  const kp = [["REPETICIONES", r.reps+(r.obj ? " / "+r.obj : ""), "#ffffff"], ["TIEMPO", mmss(r.t), "#ffffff"], ["RITMO", r.ritmo ? f(r.ritmo)+"/min" : "-", "#ffffff"]];
+  const kw = (cw - u*10 - u*4)/3, kh = u*15, ky = u*18;
+  kp.forEach((k, i) => { const x = u*5 + i*(kw + u*2); c.fillStyle = "#111a2e"; rectRedondo(c, x, ky, kw, kh, u*1.5); c.fill(); c.fillStyle = "#8fa0c4"; c.font = "600 "+(u*2.2)+"px "+FUENTE_T; c.fillText(k[0], x + u*2, ky + u*4); c.fillStyle = k[2]; c.font = "800 "+(u*5.6)+"px "+FUENTE_T; c.fillText(k[1], x + u*2, ky + u*11.5); });
+  const gy = ky + kh + u*3, gw = cw - u*10; let w = gw, hh = w/2.5; const maxH = ch*0.38; if (hh > maxH) { hh = maxH; w = hh*2.5; }
+  const gx = (cw - w)/2, g = graficoCurva(s, "Curva · "+(ETQ_CURVA[s.modo] || "ángulo"));
+  c.fillStyle = "#fff"; rectRedondo(c, gx, gy, w, hh, u*1.5); c.fill(); c.drawImage(g, gx, gy, w, hh);
+  c.fillStyle = "#eef2ff"; c.font = "600 "+(u*3)+"px "+FUENTE_T; let yy = gy + hh + u*6;
+  lineasSerie(r).slice(0, 5).forEach(t => envuelve(c, "• "+t, gw).forEach(l => { if (yy < ch - u*6) { c.fillText(l, u*5, yy); yy += u*4.1; } }));
+  c.fillStyle = "#6b7a99"; c.font = "600 "+(u*2.2)+"px "+FUENTE_T; c.fillText("Azul = izquierda · naranja = derecha", u*5, ch - u*3);
+  return cv;
+}
 function tarjetaResultados(f, cw, ch, meta) {
   const [cv, c] = lienzoTarjeta(cw, ch), u = Math.min(cw, ch)/100;
   c.textAlign = "left"; c.fillStyle = "#fff"; c.font = "800 "+(u*5)+"px "+FUENTE_T; c.fillText(f.titulo, u*5, u*9);
@@ -1350,18 +1842,20 @@ function tarjetaConclusiones(f, cw, ch, meta) {
 // vídeo comprimido: se graba un lienzo con el vídeo + esqueleto + resultado, a ~2 Mbps y máx. 960 px
 let rec = null;
 function iniciaRec() {
-  recalibrar(); hist = []; clavePinta = "";   // cada grabación empieza de cero: nada de cuentas anteriores
-  const k = Math.min(1, 960/Math.max(W,H));
+  seriesRec = []; $("serieRes").style.display = "none";   // cada grabación empieza de cero: nada de cuentas anteriores
+  const calid = { normal:[960, 2000000], alta:[1280, 5000000], maxima:[1920, 9000000] }[cfgS.calidad] || [1280, 5000000];
+  const k = Math.min(1, calid[0]/Math.max(W,H));
   const cv = document.createElement("canvas"); cv.width = Math.round(W*k); cv.height = Math.round(H*k);
   const tipos = ["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
   const mime = tipos.find(t => MediaRecorder.isTypeSupported(t)) || "";
   const ext = mime.includes("mp4") ? "mp4" : "webm";
-  const mr = new MediaRecorder(cv.captureStream(30), { mimeType: mime || undefined, videoBitsPerSecond: 2000000 });
+  const mr = new MediaRecorder(cv.captureStream(30), { mimeType: mime || undefined, videoBitsPerSecond: calid[1] });
   const chunks = [];
   rec = { cv, c:cv.getContext("2d"), k, mr, chunks, t0:performance.now(), ext, fase:"grabando",
           nombre:"entreno-seco_"+marca()+(nombre ? "_"+nombre.replace(/\W+/g,"") : "")+"_"+modo+"."+ext };
   mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   mr.start(1000);
+  iniciaSerie(1);
   bucleRec();
   $("grabar").textContent = "■ Parar"; $("grabar").classList.add("rec");
 }
@@ -1380,15 +1874,23 @@ function bucleRec() {   // el vídeo se compone con cada fotograma de la cámara
 }
 async function paraRec() {
   const r = rec; if (!r || r.fase !== "grabando") return;
+  $("serieRes").style.display = "none";
+  if (serie && serie.fase === "activa") {   // se cierra la serie en curso (sin pantalla de resumen) y se espera a que guarde lo pendiente
+    cierraSerie("fin", true); const t0 = performance.now();
+    while (serie.fase === "activa" && performance.now() - t0 < 2500) await dormir(40);
+    if (serie.fase === "activa") finalizaCierre();
+  }
+  r.series = seriesRec.slice();
   r.fase = "preparando"; $("grabar").textContent = "Cerrando vídeo…";   // deja de contar y prepara el resumen
   const regs = registros.filter(x => x.video === r.nombre), base = r.nombre.replace(/\.\w+$/, "");
   try {
     if (regs.length) {
-      r.inf = await creaInforme(regs, base);
+      r.inf = await creaInforme(regs, base, r.series);
       const cw = r.cv.width, ch = r.cv.height, meta = (regs[0].nombre || "Nadador")+" · "+regs[0].fecha;
       r.tarjetas = [];
       for (const f of r.inf.fichas.slice(0, 3)) {
         r.tarjetas.push({ cv:tarjetaResultados(f, cw, ch, meta), dur:4500 });
+        (f.series || []).filter(s => s.res.repsInfo.length).slice(0, 2).forEach(s => r.tarjetas.push({ cv:tarjetaSerie(s, cw, ch, meta), dur:5500 }));
         r.tarjetas.push({ cv:tarjetaConclusiones(f, cw, ch, meta), dur:Math.min(9000, 3500 + 700*(f.con.bien.length + f.con.mejorar.length)) });
       }
       r.durTotal = r.tarjetas.reduce((s, x) => s + x.dur, 0);
@@ -1398,13 +1900,13 @@ async function paraRec() {
 }
 function finalizaRec() {
   const r = rec; if (!r) return; rec = null;
-  $("grabar").textContent = "● Grabar"; $("grabar").classList.remove("rec");
+  $("grabar").textContent = "● Grabar"; $("grabar").classList.remove("rec"); botonSerie();
   r.mr.onstop = () => {
     const tipo = (r.mr.mimeType || ("video/"+r.ext)).split(";")[0];   // sin «;codecs=…»: con eso Android no deja compartirlo
     const vacio = r.chunks.reduce((s, c) => s + c.size, 0) < 4000;
     if (vacio) toast("La grabación salió vacía (muy corta). Graba al menos unos segundos.");
     const file = vacio ? null : new File(r.chunks, r.nombre, { type:tipo });
-    muestraRevision({ video:file, regs:registros.filter(x => x.video === r.nombre), base:r.nombre.replace(/\.\w+$/, ""), inf:r.inf });
+    muestraRevision({ video:file, regs:registros.filter(x => x.video === r.nombre), base:r.nombre.replace(/\.\w+$/, ""), inf:r.inf, series:r.series, recT0:r.t0 });
   };
   r.mr.stop();
 }
@@ -1439,6 +1941,14 @@ function pinta(est) {
 const rend = { res:"720", delegado:"auto", auto:true, tuned:null };
 try { Object.assign(rend, JSON.parse(localStorage.getItem("cna_rend") || "{}")); } catch(e) {}
 const guardaRend = () => { try { localStorage.setItem("cna_rend", JSON.stringify(rend)); } catch(e) {} };
+let anaCv = null, anaCtx = null;
+function entradaAnalisis() {   // se analiza una copia reducida (lado largo 640 px): así se puede grabar en alta resolución sin perder fps
+  const lado = Math.max(W, H); if (lado <= 720) return video;
+  const k = 640/lado, aw = Math.round(W*k), ah = Math.round(H*k);
+  if (!anaCv) { anaCv = document.createElement("canvas"); anaCtx = anaCv.getContext("2d"); }
+  if (anaCv.width !== aw || anaCv.height !== ah) { anaCv.width = aw; anaCv.height = ah; }
+  anaCtx.drawImage(video, 0, 0, aw, ah); return anaCv;
+}
 let fileset = null, delegadoUsado = "", msIa = 0, nFrames = 0, ajusteAuto = 0, ultimoEst = null, hudT = 0, clavePinta = "";
 
 // ---------- bucle ----------
@@ -1448,16 +1958,21 @@ function frame(now) {
     if (lastT) { const f=1000/(now-lastT); fpsEma = fpsEma ? fpsEma*0.9+f*0.1 : f; }
     lastT = now;
     const t0 = performance.now();
-    let res; try { res = landmarker.detectForVideo(video, now); } catch(e) { res = null; }
+    let res; try { res = landmarker.detectForVideo(entradaAnalisis(), now); } catch(e) { res = null; }
     msIa = msIa ? msIa*0.9 + (performance.now()-t0)*0.1 : performance.now()-t0; nFrames++;
-    if (now - hudT > 500) { hudT = now; $("fps").textContent = fpsEma.toFixed(0)+" fps · "+msIa.toFixed(0)+" ms · "+(delegadoUsado || "?")+" · "+Math.min(W, H)+"p"; }
+    if (now - hudT > 500) { hudT = now; $("fps").textContent = fpsEma.toFixed(0)+" fps · "+msIa.toFixed(0)+" ms · "+(delegadoUsado || "?")+" · "+Math.min(W, H)+"p";
+      $("incl").textContent = inclinacion === null ? "" : inclinacion > 4 ? "⚠ móvil inclinado "+inclinacion.toFixed(0)+"°" : "móvil nivelado"; $("incl").style.color = inclinacion !== null && inclinacion > 4 ? "#ffcc33" : "#35d07f"; }
     const lm = res && res.landmarks && res.landmarks[0];
+    guiaTxt = guiaPosicion(lm);
     dibuja(lm);
     ultimoLm = lm;
     let est;
+    const P = lm ? puntos(lm) : null;
     if (!rec || rec.fase !== "grabando") est = { t:"Vista previa · todavía no cuenta", big: lm ? "Te veo" : "No te veo", cls: lm ? "ok" : "warn", sub:"Coloca el móvil y pulsa ● Grabar: se empieza a contar al grabar" };
+    else if (serie && serie.fase === "resumen") est = { t:"Serie "+serie.n+" terminada", big:"✓", cls:"ok", sub:"Mira el resumen en pantalla" };
+    else if (serie && serie.fase === "descanso") { const rs = textoDescanso(now); est = rs === null ? { t:"¡A por la serie "+serie.n+"!", big:"¡Ya!", cls:"ok", sub:"" } : { t:"Descanso entre series", big:rs+" s", cls:"warn", sub:"Siguiente: serie "+(serie.n + 1) }; }
     else if (!lm && modo !== "salida") est = { t:"Buscando", big:"No te veo", cls:"warn", sub:"Que se vea el cuerpo entero" };
-    else est = PROC[modo](lm ? puntos(lm) : null, now);
+    else { est = PROC[modo](P, now); actualizaSerie(now, P); }
     ultimoEst = est;
     pinta(est);
   }
@@ -1536,7 +2051,8 @@ async function optimiza() {
     } catch(e) { pruebas.push({ del, res, fps:0 }); return 0; }
   };
   try {
-    let f = await mide("GPU", "720");
+    let f = await mide("GPU", "1080");
+    if (f < OBJ) f = await mide("GPU", "720");
     if (f < OBJ) f = await mide("GPU", "480");
     if (f < OBJ) await mide("CPU", "480");
     const buena = pruebas.find(p => p.fps >= OBJ) || pruebas.reduce((a, b) => b.fps > a.fps ? b : a);
@@ -1551,6 +2067,11 @@ async function recreaLandmarker() { try { landmarker && landmarker.close && land
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 if (!(window.navigator.standalone || matchMedia("(display-mode:standalone)").matches)) $("instalar").style.display = "";
 $("start").addEventListener("click", async () => {
+  activaAudio();
+  try {   // el sensor de inclinación pide permiso en iPhone; hay que pedirlo directamente en el toque
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") { const p = await DeviceMotionEvent.requestPermission(); if (p === "granted") iniciaInclinacion(); }
+    else if (window.DeviceMotionEvent) iniciaInclinacion();
+  } catch(e) {}
   try {
     if (!navigator.mediaDevices) throw new Error("Este navegador no da acceso a la cámara (hace falta HTTPS).");
     await carga(); await abreCamara();
@@ -1568,14 +2089,29 @@ $("modo").addEventListener("change", e => {
   $("mk_on").parentElement.style.display = modo === "longitud" ? "" : "none";
   $("mk_nl").style.display = modo === "sprint" ? "" : "none";
   $("mk_dl").textContent = modo === "sprint" ? "cada" : "A–B";
-  recalibrar(); avisaOrientacion();
+  recalibrar(); avisaOrientacion(); ponObjetivoUI();
 });
 
+// ---------- objetivo, series y ajustes de series ----------
+function ponObjetivoUI() {
+  $("obj_n").value = cfgS.obj[modo] || ""; $("obj_u").textContent = UNIDAD_C[modo] || "reps";
+  $("objchip").style.display = modo === "postura" ? "none" : "";
+}
+$("obj_n").addEventListener("change", e => { const v = Math.max(0, Math.min(999, +e.target.value || 0)); cfgS.obj[modo] = v; guardaCfgS(); if (serie && serie.fase === "activa") serie.obj = v; });
+$("finSerie").addEventListener("click", () => cierraSerie("manual"));
+$("sr_sig").addEventListener("click", siguienteSerie);
+$("sr_fin").addEventListener("click", () => { $("serieRes").style.display = "none"; paraRec(); });
+$("ser_desc").addEventListener("change", e => { cfgS.descanso = +e.target.value; guardaCfgS(); });
+$("ser_son").addEventListener("change", e => { cfgS.sonido = e.target.value; guardaCfgS(); activaAudio(); sonidoRep(1); });
+$("ser_cal").addEventListener("change", e => { cfgS.calidad = e.target.value; guardaCfgS(); if (e.target.value !== "normal" && rend.res === "480") toast("Para grabar en alta calidad pon la cámara en 720p o 1080p (Rendimiento)."); });
+ponObjetivoUI();
+
 // ---------- historial por nadador ----------
-const EJ_NOMBRE = { salto:"Salto vertical", sentadilla:"Sentadilla", plancha:"Plancha", flexiones:"Flexiones", dominadas:"Dominadas", longitud:"Salto de longitud", salida:"Salida desde la plataforma", sprint:"Sprint con puertas", equilibrio:"Equilibrio a una pierna", streamline:"Postura hidrodinámica" };
+const EJ_NOMBRE = { salto:"Salto vertical", sentadilla:"Sentadilla", plancha:"Plancha", flexiones:"Flexiones", dominadas:"Dominadas", longitud:"Salto de longitud", salida:"Salida desde la plataforma", sprint:"Sprint con puertas", equilibrio:"Equilibrio a una pierna", streamline:"Postura hidrodinámica", hombro_lat:"Movilidad de hombro (lateral)", hombro_fr:"Movilidad de hombro (frontal)", postura:"Revisión de postura" };
 const PRINC = {   // medida principal de cada ejercicio: [valor, mejor = "max" | "min", unidad, decimales]
   salto:[r => r.hVuelo, "max", "cm", 1], sentadilla:[r => r.rodilla, "min", "° de rodilla", 0], plancha:[r => r.tiempo, "max", "s", 1], flexiones:[r => r.codo, "min", "° de codo", 0],
-  dominadas:[r => r.codo, "min", "° de codo", 0], longitud:[r => r.valor, "max", "cm", 0], salida:[r => r.dist, "max", "cm", 0], sprint:[r => r.total, "min", "s", 2], equilibrio:[r => r.tiempo, "max", "s", 1], streamline:[r => r.tiempo, "max", "s", 1] };
+  dominadas:[r => r.codo, "min", "° de codo", 0], longitud:[r => r.valor, "max", "cm", 0], salida:[r => r.dist, "max", "cm", 0], sprint:[r => r.total, "min", "s", 2], equilibrio:[r => r.tiempo, "max", "s", 1], streamline:[r => r.tiempo, "max", "s", 1],
+  hombro_lat:[r => r.pico, "max", "° de elevación", 0], hombro_fr:[r => r.pico, "max", "° de elevación", 0], postura:[r => (r.hombros + r.pelvis)/2, "min", "° de inclinación media", 1] };
 const esDelNadador = r => r.nadador ? r.nadador === nadadorId : r.nombre === nombre;
 function mejorDe(clave, lista) {
   const [f, modoM] = PRINC[clave], vs = lista.map(f).filter(v => isFinite(v));
@@ -1609,6 +2145,7 @@ function renderAjustes() {
 }
 function abreAjustes() {
   renderAjustes(); $("rd_res").value = rend.res; $("rd_del").value = rend.delegado;
+  $("ser_desc").value = String(cfgS.descanso); $("ser_son").value = cfgS.sonido; $("ser_cal").value = cfgS.calidad;
   $("rd_info").textContent = "Ahora: "+fpsEma.toFixed(0)+" fps, "+msIa.toFixed(0)+" ms por foto, procesador "+(delegadoUsado || "?")+", cámara "+W+"×"+H+(rend.auto && rend.tuned ? ". Elegido automáticamente: "+rend.tuned.del+" · "+rend.tuned.res+"p." : rend.auto ? "" : ". Configuración manual.");
   $("aju").style.display = "flex";
 }
