@@ -132,8 +132,10 @@
       <img id="revgraf" alt="" style="max-width:100%;max-height:26%;margin-top:8px;border-radius:8px;background:#fff">
       <div id="revinfo" style="margin-top:8px;font-size:14px;color:#fff"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center">
-        <button id="revsave" style="margin:0">Guardar</button>
+        <button id="revsave" style="margin:0">Compartir</button>
+        <button id="revvid" class="sec">Solo vídeo</button>
         <button id="revpdf" class="sec">Solo informe</button>
+        <button id="revdl" class="sec">Descargar</button>
         <button id="revcsv" class="sec">Datos (Excel)</button>
         <button id="revclose" class="sec">Cerrar</button>
       </div>
@@ -715,14 +717,20 @@ function csvTexto(lista) {
   const filas = lista.map(r => { const [v, u, d] = resumenReg(r); return [r.fecha,r.hora,r.nombre,r.ejercicio,r.n,v,u,d,r.estatura,num(r.fps,0),r.video,num(r.seg,1)]; });
   return "﻿" + [cab, ...filas].map(f => f.join(";")).join("\n");
 }
-async function entregaVarios(files) {   // un solo menú de compartir con todos los archivos; si no hay, se descargan seguidos
-  if (navigator.canShare && navigator.canShare({ files })) {
-    try { await navigator.share({ files }); return; } catch(e) { if (e.name === "AbortError") return; }
-  }
-  for (const f of files) {
+const sinCodec = f => f.type.includes(";") ? new File([f], f.name, { type:f.type.split(";")[0] }) : f;
+function descargaArchivos(files) {
+  files.forEach((f, i) => setTimeout(() => {
     const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
-    await new Promise(r => setTimeout(r, 500));
+  }, i*600));
+  toast("Guardado en las descargas del móvil (app Archivos / Descargas).");
+}
+async function entregaVarios(files) {   // menú de compartir del móvil (WhatsApp, Drive, correo…): así queda copia en el chat
+  files = files.map(sinCodec);
+  if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, title:"Entreno en seco CNA" }); return; } catch(e) { if (e.name === "AbortError") return; }
   }
+  if (files.length > 1) toast("Este móvil no deja compartir todo junto: usa «Solo vídeo» y «Solo informe», o «Descargar».");
+  else descargaArchivos(files);
 }
 const marca = () => { const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); };
 $("borrar").addEventListener("click", () => {
@@ -959,11 +967,14 @@ async function muestraRevision({ video, regs, base }) {
   revActual = { video, inf, regs, base };
   $("revgraf").style.display = inf ? "" : "none"; if (inf) $("revgraf").src = inf.grafico;
   $("revinfo").textContent = inf ? inf.resumen : "No se detectó ningún salto ni repetición en esta grabación.";
-  $("revsave").textContent = video && inf ? "Guardar vídeo + informe" : video ? "Guardar vídeo" : "Guardar informe";
+  $("revsave").textContent = video && inf ? "Compartir vídeo + informe (WhatsApp…)" : video ? "Compartir vídeo (WhatsApp…)" : "Compartir informe (WhatsApp…)";
   $("revpdf").style.display = video && inf ? "" : "none";
+  $("revvid").style.display = video && inf ? "" : "none";
   $("revcsv").style.display = inf ? "" : "none";
 }
 $("revsave").addEventListener("click", () => revActual && entregaVarios([revActual.video, revActual.inf && revActual.inf.file].filter(Boolean)));
+$("revvid").addEventListener("click", () => revActual && revActual.video && entregaVarios([revActual.video]));
+$("revdl").addEventListener("click", () => revActual && descargaArchivos([revActual.video, revActual.inf && revActual.inf.file].filter(Boolean)));
 $("revpdf").addEventListener("click", () => revActual && revActual.inf && entregaVarios([revActual.inf.file]));
 $("revcsv").addEventListener("click", () => revActual && entregaVarios([new File([csvTexto(revActual.regs)], revActual.base+"_datos.csv", { type:"text/csv" })]));
 $("revclose").addEventListener("click", () => { $("rev").style.display = "none"; $("revv").pause(); });
@@ -978,9 +989,10 @@ function iniciaRec() {
   const mime = tipos.find(t => MediaRecorder.isTypeSupported(t)) || "";
   const ext = mime.includes("mp4") ? "mp4" : "webm";
   const mr = new MediaRecorder(cv.captureStream(30), { mimeType: mime || undefined, videoBitsPerSecond: 2000000 });
-  rec = { cv, c:cv.getContext("2d"), k, mr, chunks:[], t0:performance.now(), ext,
+  const chunks = [];
+  rec = { cv, c:cv.getContext("2d"), k, mr, chunks, t0:performance.now(), ext,
           nombre:"entreno-seco_"+marca()+(nombre ? "_"+nombre.replace(/\W+/g,"") : "")+"_"+modo+"."+ext };
-  mr.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
+  mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   mr.start(1000);
   bucleRec();
   $("grabar").textContent = "■ Parar"; $("grabar").classList.add("rec");
@@ -994,7 +1006,10 @@ function paraRec() {
   const r = rec; rec = null;
   $("grabar").textContent = "● Grabar"; $("grabar").classList.remove("rec");
   r.mr.onstop = () => {
-    const file = new File(r.chunks, r.nombre, { type: r.mr.mimeType || ("video/"+r.ext) });
+    const tipo = (r.mr.mimeType || ("video/"+r.ext)).split(";")[0];   // sin «;codecs=…»: con eso Android no deja compartirlo
+    const vacio = r.chunks.reduce((s, c) => s + c.size, 0) < 4000;
+    if (vacio) toast("La grabación salió vacía (muy corta). Graba al menos unos segundos.");
+    const file = vacio ? null : new File(r.chunks, r.nombre, { type:tipo });
     muestraRevision({ video:file, regs:registros.filter(x => x.video === r.nombre), base:r.nombre.replace(/\.\w+$/, "") });
   };
   r.mr.stop();
