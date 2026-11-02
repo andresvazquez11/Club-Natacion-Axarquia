@@ -92,7 +92,8 @@
   #cursor svg { position:absolute; left:-4.5vh; top:-4.5vh; width:9vh; height:9vh; }
   body.espejo #sr_ej { display:inline-block !important; }
   #sr_ej { display:none; }
-  @media (max-aspect-ratio:1/1) { #esp_tiles { grid-template-columns:repeat(2,1fr); } #esp_menu { overflow:auto; justify-content:flex-start; } }
+  .esp { touch-action:pan-y; }
+  @media (max-aspect-ratio:1/1) { #esp_tiles { grid-template-columns:repeat(2,1fr); } #esp_menu { overflow:auto; justify-content:flex-start; } #esp_menu .bar2 { order:-1; } #esp_serbar { flex-direction:column !important; } }
 </style>
 </head>
 <body>
@@ -161,6 +162,7 @@
     <div class="esp" id="esp_fin" style="z-index:60;inset:auto 0 3vh 0;background:none;flex-direction:row;gap:2vw;pointer-events:none"><button class="bt go dw" id="fin_nueva" style="pointer-events:auto;font-size:4vh">↺ Volver a empezar</button><button class="bt dw" id="fin_rep" style="pointer-events:auto;font-size:4vh">Repetir este ejercicio</button></div>
     <div class="esc" id="esp_sc_up" style="display:none;position:absolute;right:1vw;top:22vh;width:9vw;height:22vh;z-index:61;background:rgba(76,194,255,.85);color:#04121f;border-radius:2vh;font-size:9vh;align-items:center;justify-content:center;font-family:sans-serif;user-select:none">▲</div>
     <div class="esc" id="esp_sc_dn" style="display:none;position:absolute;right:1vw;top:52vh;width:9vw;height:22vh;z-index:61;background:rgba(76,194,255,.85);color:#04121f;border-radius:2vh;font-size:9vh;align-items:center;justify-content:center;font-family:sans-serif;user-select:none">▼</div>
+    <div class="esp" id="esp_serbar" style="z-index:62;inset:2vh 2vw auto auto;background:none;flex-direction:row;gap:1.2vw"><button class="bt peq dw" id="ser_fin">■ Terminar serie</button><button class="bt peq dw" id="ser_todo">Terminar y ver informe</button></div>
     <div id="esp_ayudaserie">Cruza los brazos sobre el pecho 1,5 s para terminar la serie · Espacio = terminar</div>
     <div id="cursor"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="7" fill="#ffcc33" stroke="#000" stroke-width="2"/><circle id="cur_arco" cx="20" cy="20" r="15.9" fill="none" stroke="#4cc2ff" stroke-width="4" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 20 20)"/></svg></div>
     <div id="toast"></div>
@@ -2011,7 +2013,7 @@ const espMostrar = (id, on) => { const e = $(id); if (e) e.style.display = on ? 
 function espFase(f) {
   ESP.fase = f;
   espMostrar("esp_menu", f === "menu"); espMostrar("esp_prep", f === "prep"); espMostrar("esp_cuenta", f === "cuenta"); espMostrar("esp_fin", f === "fin");
-  $("esp_ayudaserie").style.display = (f === "serie") ? "block" : "none";
+  $("esp_ayudaserie").style.display = (f === "serie") ? "block" : "none"; espMostrar("esp_serbar", f === "serie");
   ESP.quieto.length = 0; ESP.prepT = 0;
   if (f === "menu" || f === "prep") espRefresca();
 }
@@ -2222,8 +2224,11 @@ function dibujaHUD_tv(c) {
 
 
 function espZoom() { const z = Math.max(1, Math.min(2.2, innerHeight/560)); $("serieRes").style.zoom = $("rev").style.zoom = ESPEJO ? z : ""; }
-if (ESPEJO) { espZoom(); addEventListener("resize", espZoom); $("esp_salir").addEventListener("click", () => { location.href = location.pathname; }); }
-$("go_espejo").addEventListener("click", () => { location.href = location.pathname + "?modo=espejo"; });
+if (ESPEJO) {
+  $("ser_fin").addEventListener("click", () => { if (!serie) return; if (serie.fase === "activa") cierraSerie("botón"); else if (serie.fase === "descanso") serie.descansoHasta = performance.now(); });
+  $("ser_todo").addEventListener("click", () => { paraRec(); });
+  $("go_espejo").textContent = "Salir del modo espejo"; espZoom(); addEventListener("resize", espZoom); $("esp_salir").addEventListener("click", () => { location.href = location.pathname; }); }
+$("go_espejo").addEventListener("click", () => { location.href = ESPEJO ? location.pathname : location.pathname + "?modo=espejo"; });
 
 // ---------- rendimiento (cámara y procesador) ----------
 const rend = { res:"720", delegado:"auto", auto:true, tuned:null };
