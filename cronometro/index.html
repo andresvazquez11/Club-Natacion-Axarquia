@@ -426,6 +426,8 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .next-chip.off{opacity:.55;border-style:dashed;border-color:var(--red);}
 .next-chip.off .nm{text-decoration:line-through;}
 .next-chip .ns{font-size:10px;font-weight:800;color:var(--red);text-transform:uppercase;}
+.inv-calles{white-space:nowrap;flex:none;}
+.edit-link.inv-calles.on{background:var(--blu-l);color:#0b1b33;border-color:var(--blu-l);}
 .edit-link{background:none;border:1px solid var(--brd);color:var(--blu-l);border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation;}
 .ed-lane{background:var(--bg);border-left:5px solid var(--lc);border-radius:12px;padding:10px;margin-bottom:10px;}
 .ed-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:700;}
@@ -1197,7 +1199,13 @@ async function iniciarSesion() {
 //   arranca con su propio t0, aunque otros sigan en el agua.
 // - LLEGÓ es individual: cada nadador en el agua tiene su botón.
 // Colores de calle bien distintos entre sí (fondo, texto sobre el color)
-const LANE_COLORS = ['#ef4444','#2a78d6','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899'];
+// Orden visual de las calles: de izquierda a derecha (normal) o de derecha a izquierda (según cómo vea la piscina el entrenador).
+// Solo cambia cómo se dibujan las columnas; la preferencia se guarda en este dispositivo.
+function callesInv(){ try { return localStorage.getItem('crono_calles_inv') === '1'; } catch { return false; } }
+function setCallesInv(v){ try { localStorage.setItem('crono_calles_inv', v ? '1' : '0'); } catch {} }
+function ordenCalles(gs){ return callesInv() ? [...gs].reverse() : gs; }
+function btnInvCalles(){ const i = callesInv(); return `<button class="edit-link inv-calles${i?' on':''}" style="padding:4px 10px;font-size:12px;margin-left:auto" data-action="inv-calles" aria-pressed="${i}" aria-label="Invertir el orden de las calles" title="${i?'Ahora: de derecha a izquierda':'Ahora: de izquierda a derecha'}">⇄ Invertir</button>`; }
+const LANE_COLORS =['#ef4444','#2a78d6','#eab308','#22c55e','#a855f7','#f97316','#06b6d4','#ec4899'];
 const LANE_TXT    = ['#fff',   '#fff',   '#111',   '#06210f','#fff',   '#111',   '#04232a','#fff'];
 function laneTxt(color) { const i = LANE_COLORS.indexOf(color); return i<0 ? '#111' : LANE_TXT[i]; }
 function laneTag(label, color) { return `<span class="lane-tag" style="background:${color};color:${laneTxt(color)}">${esc(label)}</span>`; }
@@ -3063,9 +3071,9 @@ function renderEnCurso() {
   const nAgua = SA.agua.filter(f=>f.ronda===SA.ronda).length;
   if (quedanPorSalir() && SA.seriesT && SA.seriesT[SA.ronda]) { const dc = descansoActivo(); html += dc && dc.r === SA.ronda ? descansoBloque(now, dc, true) : relojSerie(now, SA.ronda, true); }   // mientras salen las tandas: la cuenta programada o, si no, el reloj de la serie
   html += renderTiraSeries(now);
-  html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.rota?'<span class="muted" style="font-size:11px">Toca al llegar a la pared: el descanso se cuenta solo</span>':hayTramos()?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}</div>
+  html += `<div class="sec-hdr"><span class="label">Calles · ${nAgua} en el agua · ${SA.llegados.length} llegados</span>${SA.rota?'<span class="muted" style="font-size:11px">Toca al llegar a la pared: el descanso se cuenta solo</span>':hayTramos()?'<span class="muted" style="font-size:11px">Toca la tarjeta en cada 50 m</span>':''}${SA.grupos.length>1?btnInvCalles():''}</div>
     <div class="lanes-grid${cols>4?' muchas':''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
-    ${SA.grupos.map(g => {
+    ${ordenCalles(SA.grupos).map(g => {
       const deEsta = f => f.gId===g.gId;
       const previos = [...SA.agua.filter(f=>deEsta(f) && f.ronda!==SA.ronda), ...SA.prevLleg.filter(deEsta)].sort((a,b)=>a.ronda-b.ronda||a.salida-b.salida);
       const salidos = [...SA.agua.filter(f=>deEsta(f) && f.ronda===SA.ronda), ...SA.llegados.filter(deEsta)].sort((a,b)=>a.salida-b.salida);
@@ -3425,9 +3433,9 @@ function renderRelevo(now) {
     </div>`;
   const todos = !relevoEnMarcha();
   const cols = Math.min(gs.length, 6);
-  let html = `<div class="sec-hdr"><span class="label">🔁 ${esc(titulo)}</span></div>
+  let html = `<div class="sec-hdr"><span class="label">🔁 ${esc(titulo)}</span>${gs.length>1?btnInvCalles():''}</div>
     <div class="lanes-grid${cols>4?' muchas':''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
-    ${gs.map(g => { const e = R.eq[g.gId];
+    ${ordenCalles(gs).map(g => { const e = R.eq[g.gId];
       return `<div class="lane-col" style="--lc:${g.color};--lt:${laneTxt(g.color)}">
         <div class="lane-head">${esc(laneShort(g))}</div>
         <div class="rel-team">
@@ -4459,7 +4467,8 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'pdf':             await generarPDF(btn.dataset.ses||route.sesId, btn); break;
     case 'pdf-compartir':   await generarPDF(btn.dataset.ses||route.sesId, btn, true); break;
     case 'finalizar-sesion': await finalizarSesion(); break;
-    case 'pub-abrir':       _pubAbierto = !_pubAbierto; render(); if (_pubAbierto) setTimeout(() => { const c = document.getElementById('pub-card'); if (c) c.scrollIntoView({block: 'center', behavior: 'smooth'}); }, 60); break;
+    case 'inv-calles':      setCallesInv(!callesInv()); render(); break;
+    case 'pub-abrir':     _pubAbierto = !_pubAbierto; render(); if (_pubAbierto) setTimeout(() => { const c = document.getElementById('pub-card'); if (c) c.scrollIntoView({block: 'center', behavior: 'smooth'}); }, 60); break;
     case 'pub-crear':       pubCompartir(); break;
     case 'pub-copiar':      await pubCopiar(btn); break;
     case 'pantalla-copiar': await pantallaCopiar(btn); break;
