@@ -7,7 +7,7 @@ Intermediario entre la consola del cronómetro y Firestore (proyecto `cronometro
 |---|---|
 | `GET /ping` | Comprueba clave y conexión |
 | `GET /equipos` | Equipos y nadadores, con los nombres **sin tildes** |
-| `POST /sesion` | Guarda un entrenamiento y sus resultados (`sesiones` y `resultados`, con `origen: 'consola'`). Reenviar la misma sesión no duplica nada |
+| `POST /ops` | Una operación de un entrenamiento: salida (crea la sesión), llegada (un tiempo), corregir (quita uno y pone otro), fin, o deshacer salida. La consola manda una por cada llegada, **al momento**. Cada operación usa los mismos ids: reenviar no duplica |
 
 Solo existen esas tres rutas: aunque se pierda la consola, con su clave no se puede leer ni borrar nada más.
 
@@ -17,9 +17,12 @@ Solo existen esas tres rutas: aunque se pierda la consola, con su clave no se pu
    2. Rol: **Usuario de Cloud Datastore** (*Cloud Datastore User*) → **Listo**.
    3. Entra en la cuenta `consola` → pestaña **Claves** → **Agregar clave → Crear clave nueva → JSON**. Se descarga un `.json`.
 2. En una terminal: `cd ~/Desktop/CNA-trabajo/consola-sync/consola-worker && ./configurar.sh`
-   Te pide iniciar sesión en Cloudflare (si hace falta), el `.json` y un «sí» antes de publicar. Genera la clave de la consola, la guarda como secreto y escribe `secrets.h` en la carpeta del programa de la consola.
+   Te pide iniciar sesión en Cloudflare (si hace falta), el `.json`, tu correo y nombre de entrenador, y un «sí» antes de publicar. Genera la clave de la consola, la guarda como secreto y escribe `secrets.h` en la carpeta del programa de la consola.
 3. Sube el programa a la consola (`../../../CNA CLAUDE/.../consola-firmware/subir.sh`). En **AJUSTES** pon la WiFi y pulsa **SINCRONIZAR**.
 4. Borra el `.json` de tu Mac.
+
+## Cómo llega a la página de las familias
+La consola escribe en `sesiones` y `resultados` **a nombre del entrenador** (su correo) y con la marca `mod` que usa la app. La app del móvil del entrenador (si está abierta y con el enlace de las familias activo) ve esos tiempos en directo y actualiza la copia `directo_pub` que lee la página de las familias, igual que con los tiempos que toma ella misma. **Si el móvil tiene la app cerrada, la página de las familias no se actualiza.**
 
 ## Seguridad
 - La clave de la consola y la cuenta de servicio son **secretos de Cloudflare**; no están en el repositorio. La consola solo lleva su clave.

@@ -2,13 +2,16 @@
 // Hace de intermediario entre la consola y Firestore (proyecto cronometro-cna):
 //   GET  /ping      -> {ok:true}                      (comprobar clave y conexión)
 //   GET  /equipos   -> equipos y nadadores, con los nombres SIN tildes (las fuentes de la pantalla no las traen)
-//   POST /sesion    -> guarda un entrenamiento con sus resultados (idempotente: reenviar no duplica)
+//   POST /ops       -> aplica operaciones de UN entrenamiento: crear (ini), poner/quitar un tiempo (res), cerrar (fin) o
+//                      deshacer la salida (ses_borrar). Cada operación es idempotente (mismos ids): reenviar no duplica.
+//                      Se manda una por cada llegada, para que las familias lo vean en directo.
 // Seguridad: la consola manda la cabecera X-Clave. La clave y la cuenta de servicio de Firebase son secretos de
 // Cloudflare (CONSOLA_CLAVE y FIREBASE_SA); nunca están en el repositorio ni dentro del aparato (solo la clave).
 // Solo expone estas 3 rutas: aunque se pierda la consola, no se puede leer ni borrar nada más.
 
 const COLECCIONES_LECTURA = ['equipos', 'nadadores'];
-const MAX_RES = 60;                                   // resultados por sesión
+const MAX_RES = 60;                                   // nadadores por sesión
+const MAX_OPS = 20;                                   // operaciones por petición
 const ESTILOS = ['libre', 'espalda', 'braza', 'mariposa', 'estilos'];
 
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -75,10 +78,15 @@ async function listar(env, col) {
   } while (pagina);
   return out;
 }
-async function guardar(env, docs) {                   // docs: [{col, id, data}]  (set: crea o reemplaza el mismo id)
+async function guardar(env, docs) {                   // docs: [{col, id, data, mask?}]  (sin mask: crea o reemplaza el mismo id)
   const tk = await accessToken(env), raiz = `projects/${env.FIREBASE_PROJECT}/databases/(default)/documents`;
-  const r = await fetch(`${base(env)}:commit`, { method: 'POST', headers: { Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ writes: docs.map(d => ({ update: { name: `${raiz}/${d.col}/${d.id}`, fields: Object.fromEntries(Object.entries(d.data).map(([k, v]) => [k, escribir(v)])) } })) }) });
+  // «mod» = marca de servidor: la app de entrenadores pide solo lo modificado desde la última vez (where mod > ...)
+  const writes = docs.map(d => ({
+    update: { name: `${raiz}/${d.col}/${d.id}`, fields: Object.fromEntries(Object.entries(d.data).map(([k, v]) => [k, escribir(v)])) },
+    ...(d.mask ? { updateMask: { fieldPaths: d.mask } } : {}),
+    updateTransforms: [{ fieldPath: 'mod', setToServerValue: 'REQUEST_TIME' }],
+  }));
+  const r = await fetch(`${base(env)}:commit`, { method: 'POST', headers: { Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json' }, body: JSON.stringify({ writes }) });
   if (!r.ok) throw new Error('commit ' + r.status);
 }
 
@@ -93,41 +101,58 @@ async function rutaEquipos(env) {
 }
 
 const entero = (x, min, max) => Number.isInteger(x) && x >= min && x <= max;
-export function validarSesion(b) {
+export function validarOps(b) {
   if (!b || typeof b !== 'object') return 'cuerpo vacío';
   if (!/^[A-Za-z0-9]{6,32}$/.test(b.id || '')) return 'id de sesión no válido';
   if (typeof b.eqId !== 'string' || !b.eqId) return 'falta el equipo';
   if (!entero(b.fecha, 1.6e12, 4.1e12)) return 'fecha no válida';
   if (!ESTILOS.includes(b.estilo)) return 'estilo no válido';
   if (!entero(b.dist, 1, 5000)) return 'distancia no válida';
-  if (!Array.isArray(b.res) || !b.res.length || b.res.length > MAX_RES) return 'resultados no válidos';
-  for (const r of b.res) {
-    if (typeof r.nId !== 'string' || !r.nId) return 'resultado sin nadador';
-    if (!entero(r.ms, 1, 3600000)) return 'tiempo no válido';
-    if (!entero(r.salida, 1, 99)) return 'orden de salida no válido';
-    if (!entero(r.ts, 1.6e12, 4.1e12)) return 'hora no válida';
-    if (r.parciales != null && (!Array.isArray(r.parciales) || r.parciales.length > 3 || r.parciales.some(p => !entero(p, 1, 3600000)))) return 'parciales no válidos';
+  if (!Array.isArray(b.ops) || !b.ops.length || b.ops.length > MAX_OPS) return 'operaciones no válidas';
+  for (const o of b.ops) {
+    if (o.t === 'ini') { if (!Array.isArray(o.presentes) || o.presentes.length > MAX_RES || o.presentes.some(x => typeof x !== 'string' || !x)) return 'presentes no válidos'; }
+    else if (o.t === 'res') {
+      if (!/^[0-9]{1,2}-[0-9]{1,2}$/.test(o.rid || '')) return 'id de resultado no válido';
+      if (typeof o.nId !== 'string' || !o.nId) return 'resultado sin nadador';
+      if (!entero(o.ms, 1, 3600000)) return 'tiempo no válido';
+      if (!entero(o.salida, 1, 99)) return 'orden de salida no válido';
+      if (!entero(o.ts, 1.6e12, 4.1e12)) return 'hora no válida';
+      if (o.parciales != null && (!Array.isArray(o.parciales) || o.parciales.length > 3 || o.parciales.some(p => !entero(p, 1, 3600000)))) return 'parciales no válidos';
+    } else if (o.t === 'fin') { if (!entero(o.fin, 1.6e12, 4.1e12)) return 'fin no válido'; }
+    else if (o.t !== 'ses_borrar') return 'operación desconocida';
   }
   return null;
 }
-async function rutaSesion(env, req) {
+let cacheNad = { t: 0, lista: [] };                    // los nadadores casi no cambian: se leen como mucho 1 vez por minuto
+async function nadadores(env) {
+  if (Date.now() - cacheNad.t > 60000) cacheNad = { t: Date.now(), lista: await listar(env, 'nadadores') };
+  return cacheNad.lista;
+}
+async function rutaOps(env, req) {
   let b; try { b = await req.json(); } catch { return json({ error: 'JSON no válido' }, 400); }
-  const err = validarSesion(b); if (err) return json({ error: err }, 400);
-  const nads = await listar(env, 'nadadores');
-  const validos = new Set(nads.filter(n => n.eqId === b.eqId).map(n => n.id));
-  const mal = b.res.find(r => !validos.has(r.nId));
-  if (mal) return json({ error: 'nadador que no es de ese equipo' }, 400);
-  const sesId = 'consola-' + b.id;
-  const docs = [{ col: 'sesiones', id: sesId, data: { eqId: b.eqId, fecha: b.fecha, estilo: b.estilo, dist: b.dist, notas: 'Tomado con la consola', fin: b.fecha + Math.max(...b.res.map(r => r.ms)),
-    coach: 'Consola', coachEmail: null, parciales: b.res.some(r => r.parciales && r.parciales.length), inicio: 'agua', comp: false, origen: 'consola' } }];
-  b.res.forEach((r, i) => {
-    const extra = { ronda: 1, salida: r.salida, estilo: b.estilo, dist: b.dist, inicio: 'agua', ts: r.ts, origen: 'consola' };
-    if (r.parciales && r.parciales.length) extra.parciales = [...r.parciales, r.ms];
-    if (r.dudoso) extra.nota = 'Asignación dudosa (consola)';
-    docs.push({ col: 'resultados', id: `${sesId}-${i + 1}`, data: { sesId, nId: r.nId, gId: null, ms: r.ms, modo: 'grupo', ...extra } });
-  });
+  const err = validarOps(b); if (err) return json({ error: err }, 400);
+  const nads = await nadadores(env), validos = new Set(nads.filter(n => n.eqId === b.eqId).map(n => n.id));
+  for (const o of b.ops) {
+    if (o.t === 'res' && !validos.has(o.nId)) return json({ error: 'nadador que no es de ese equipo' }, 400);
+    if (o.t === 'ini' && o.presentes.some(x => !validos.has(x))) return json({ error: 'presente que no es de ese equipo' }, 400);
+  }
+  const sesId = 'consola-' + b.id, docs = [], ahora = Date.now();
+  for (const o of b.ops) {
+    if (o.t === 'ini') {
+      docs.push({ col: 'sesiones', id: sesId, data: { eqId: b.eqId, fecha: b.fecha, estilo: b.estilo, dist: b.dist, notas: 'Tomado con la consola', fin: null,
+        coach: env.COACH_NAME || 'Consola', coachEmail: env.COACH_EMAIL ? String(env.COACH_EMAIL).toLowerCase() : null, parciales: false, inicio: 'agua', comp: false,
+        presentes: [...new Set(o.presentes)], origen: 'consola' } });
+    } else if (o.t === 'res') {
+      const extra = { ronda: 1, salida: o.salida, estilo: b.estilo, dist: b.dist, inicio: 'agua', ts: o.ts, origen: 'consola' };
+      if (o.parciales && o.parciales.length) extra.parciales = [...o.parciales, o.ms];
+      if (o.dudoso) extra.nota = 'Asignación dudosa (consola)';
+      docs.push({ col: 'resultados', id: `${sesId}-${o.rid}`, data: { sesId, nId: o.nId, gId: null, ms: o.ms, modo: 'grupo', ...extra,
+        borrado: !!o.borrado, ...(o.borrado ? { borradoTs: ahora, borradoPor: 'consola' } : {}) } });
+    } else if (o.t === 'fin') docs.push({ col: 'sesiones', id: sesId, data: { fin: o.fin }, mask: ['fin'] });
+    else if (o.t === 'ses_borrar') docs.push({ col: 'sesiones', id: sesId, data: { borrado: true }, mask: ['borrado'] });
+  }
   await guardar(env, docs);
-  return json({ ok: true, sesId, resultados: b.res.length });
+  return json({ ok: true, sesId, operaciones: b.ops.length });
 }
 
 export default {
@@ -137,7 +162,7 @@ export default {
     try {
       if (url.pathname === '/ping') return json({ ok: true });
       if (url.pathname === '/equipos' && req.method === 'GET') return await rutaEquipos(env);
-      if (url.pathname === '/sesion' && req.method === 'POST') return await rutaSesion(env, req);
+      if (url.pathname === '/ops' && req.method === 'POST') return await rutaOps(env, req);
       return json({ error: 'no existe' }, 404);
     } catch (e) { return json({ error: 'fallo del servidor' }, 502); }
   },

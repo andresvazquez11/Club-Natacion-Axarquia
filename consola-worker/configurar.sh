@@ -15,10 +15,15 @@ SA="${SA//\'/}"; SA="${SA% }"
 [ -f "$SA" ] || { echo "No encuentro ese archivo."; exit 1; }
 python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['type']=='service_account' and d['project_id']=='cronometro-cna', 'No es la clave del proyecto cronometro-cna'; print('Cuenta:', d['client_email'])" "$SA"
 
+echo; echo "== Datos del entrenador (las sesiones de la consola salen a su nombre, para que la app y la página de las familias las recojan)"
+read -r -p "Correo de Google con el que entras al cronómetro: " CORREO
+read -r -p "Nombre del entrenador tal como sale en el cronómetro: " NOMBRE
+[ -n "$CORREO" ] && [ -n "$NOMBRE" ] || { echo "Faltan datos."; exit 1; }
+
 echo; echo "== 3/5  Publicar el servicio (queda sin clave: rechaza a todos hasta el paso 4)"
 read -r -p "Voy a PUBLICAR 'cna-consola' en tu Cloudflare. ¿Seguir? (s/N) " R
 [ "$R" = "s" ] || { echo "Cancelado."; exit 0; }
-OUT=$(npx wrangler deploy 2>&1 | tee /dev/tty)
+OUT=$(npx wrangler deploy --var "COACH_EMAIL:$CORREO" --var "COACH_NAME:$NOMBRE" 2>&1 | tee /dev/tty)
 URL=$(printf %s "$OUT" | grep -o 'https://[A-Za-z0-9.-]*workers\.dev' | head -1)
 [ -n "$URL" ] || { echo "No pude leer la dirección. Cópiala a mano en secrets.h."; exit 1; }
 
