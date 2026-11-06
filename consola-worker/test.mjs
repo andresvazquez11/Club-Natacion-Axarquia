@@ -149,6 +149,12 @@ for (const [malo, estado] of [[null, 401], ['basura', 401], [tokenG({ exp: 1 }),
 const okApp = await app(tokenG());
 assert.equal(okApp.status, 200); assert.equal(okApp.headers.get('Access-Control-Allow-Origin'), 'https://web');   // solo la web del club (la de PANTALLA_URL)
 assert.deepEqual((await okApp.json()).enlaces.map(e => e.coach), ['*', 'andres@club.es', 'ruben@club.es']);
+env.CORS_EXTRA = 'http://localhost:8765';
+const desdeLocal = await worker.fetch(new Request('https://x/app', { method: 'POST', headers: { Authorization: 'Bearer ' + tokenG(), Origin: 'http://localhost:8765' }, body: JSON.stringify({ accion: 'estado' }) }), env, ctx);
+assert.equal(desdeLocal.headers.get('Access-Control-Allow-Origin'), 'http://localhost:8765');
+const desdeOtra = await worker.fetch(new Request('https://x/app', { method: 'POST', headers: { Authorization: 'Bearer ' + tokenG(), Origin: 'https://malo.example' }, body: JSON.stringify({ accion: 'estado' }) }), env, ctx);
+assert.equal(desdeOtra.headers.get('Access-Control-Allow-Origin'), 'https://web');          // un origen cualquiera no se acepta
+delete env.CORS_EXTRA;
 const pre = await app(null, null, 'OPTIONS'); assert.equal(pre.status, 200); assert.match(pre.headers.get('Access-Control-Allow-Headers'), /Authorization/);
 const act = await (await app(tokenG(), { accion: 'activar', coach: 'ruben@club.es' })).json(); assert.equal(act.activo, true);
 assert.equal((await (await app(tokenG(), { accion: 'desactivar', coach: 'ruben@club.es' })).json()).activo, false);

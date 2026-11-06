@@ -317,7 +317,9 @@ export async function verificarIdToken(env, tk) {
 function origenWeb(env) { try { return new URL(env.PANTALLA_URL).origin; } catch { return 'https://andresvazquez11.github.io'; } }
 const conCors = (res, cors) => { const h = new Headers(res.headers); for (const [k, v] of Object.entries(cors)) h.set(k, v); return new Response(res.body, { status: res.status, headers: h }); };
 async function rutaApp(req, env) {
-  const origen = origenWeb(env), cors = { 'Access-Control-Allow-Origin': origen, 'Vary': 'Origin' };   // solo la web del club
+  // Solo la web del club (y, SOLO mientras se prueba, el origen de CORS_EXTRA: p. ej. http://localhost:8765)
+  const permitidos = [origenWeb(env), ...(env.CORS_EXTRA ? [env.CORS_EXTRA] : [])], pedido = req.headers.get('Origin') || '';
+  const cors = { 'Access-Control-Allow-Origin': permitidos.includes(pedido) ? pedido : permitidos[0], 'Vary': 'Origin' };
   if (req.method === 'OPTIONS') return new Response(null, { headers: { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '86400' } });
   if (req.method !== 'POST') return conCors(json({ error: 'no existe' }, 404), cors);
   const email = await verificarIdToken(env, (req.headers.get('Authorization') || '').replace(/^Bearer /, '')).catch(() => null);
