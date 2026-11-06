@@ -158,7 +158,7 @@ export function validarOps(b) {
       if (!entero(o.ms, 1, 3600000)) return 'tiempo no válido';
       if (!entero(o.salida, 1, 99)) return 'orden de salida no válido';
       if (!entero(o.ts, 1.6e12, 4.1e12)) return 'hora no válida';
-      if (o.parciales != null && (!Array.isArray(o.parciales) || o.parciales.length > 3 || o.parciales.some(p => !entero(p, 1, 3600000)))) return 'parciales no válidos';
+      if (o.parciales != null && (!Array.isArray(o.parciales) || o.parciales.length > 15 || o.parciales.some(p => !entero(p, 1, 3600000)))) return 'parciales no válidos';
     } else if (o.t === 'fin') { if (!entero(o.fin, 1.6e12, 4.1e12)) return 'fin no válido'; }
     else if (o.t !== 'ses_borrar') return 'operación desconocida';
   }
