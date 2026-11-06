@@ -5,6 +5,11 @@ compatibility_date = "2024-09-23"
 
 [vars]
 FIREBASE_PROJECT = "cronometro-cna"
+PANTALLA_URL = "https://andresvazquez11.github.io/Club-Natacion-Axarquia/cronometro/pantalla.html"
+
+# Cada minuto: refresca los enlaces de familias activos y borra los caducados (si no hay ninguno, casi no hace nada)
+[triggers]
+crons = ["* * * * *"]
 
 # Secretos (NO van aquí; se crean con `npx wrangler secret put NOMBRE`):
 #   CONSOLA_CLAVE  clave que lleva la consola (inventada, larga y aleatoria)

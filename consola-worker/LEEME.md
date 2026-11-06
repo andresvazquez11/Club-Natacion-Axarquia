@@ -7,6 +7,7 @@ Intermediario entre la consola del cronómetro y Firestore (proyecto `cronometro
 |---|---|
 | `GET /ping` | Comprueba clave y conexión |
 | `GET /equipos` | Equipos y nadadores, con los nombres **sin tildes** |
+| `POST /enlace` | Enlace de familias: **crear** (de un entrenador o de todos), **estado** y **cerrar** (borra la copia pública: el enlace deja de funcionar al instante). Caduca solo a las 6 h |
 | `POST /ops` | Una operación de un entrenamiento: salida (crea la sesión), llegada (un tiempo), corregir (quita uno y pone otro), fin, o deshacer salida. La consola manda una por cada llegada, **al momento**. Cada operación usa los mismos ids: reenviar no duplica |
 
 Solo existen esas tres rutas: aunque se pierda la consola, con su clave no se puede leer ni borrar nada más.
@@ -21,7 +22,13 @@ Solo existen esas tres rutas: aunque se pierda la consola, con su clave no se pu
 3. Sube el programa a la consola (`../../../CNA CLAUDE/.../consola-firmware/subir.sh`). En **AJUSTES** pon la WiFi y pulsa **SINCRONIZAR**.
 4. Borra el `.json` de tu Mac.
 
-## Cómo llega a la página de las familias
+## Entrenador y enlace de familias, desde la consola
+- **SESION → Entrenador:** la consola elige a nombre de quién salen las sesiones (lista de entrenadores aprobados de la base). Varios entrenadores pueden compartir la misma consola.
+- **AJUSTES → ENLACE FAMILIAS:** eliges de quién son los entrenos (o todos) y ACTIVAR: sale un **QR** que las familias escanean en las gradas. DESACTIVAR borra la copia pública y el enlace deja de funcionar. Si no se desactiva, caduca a las 6 h.
+- El servidor mantiene ese enlace al día él solo (al momento con cada llegada de la consola y cada minuto con lo que tomen los móviles): **ya no depende de ningún móvil**. La copia pública no lleva correos, solo nombres, series y tiempos, igual que la de la app.
+- Publicar la versión nueva: `./publicar.sh` (te pide confirmar).
+
+## Cómo llega a la página de las familias (enlace de la app, sin cambios)
 La consola escribe en `sesiones` y `resultados` **a nombre del entrenador** (su correo) y con la marca `mod` que usa la app. La app del móvil del entrenador (si está abierta y con el enlace de las familias activo) ve esos tiempos en directo y actualiza la copia `directo_pub` que lee la página de las familias, igual que con los tiempos que toma ella misma. **Si el móvil tiene la app cerrada, la página de las familias no se actualiza.**
 
 ## Seguridad
