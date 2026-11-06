@@ -1,0 +1,11 @@
+# Servicio de la consola del cronómetro (ver worker.js y LEEME.md). Publicar: cd consola-worker && npx wrangler deploy
+name = "cna-consola"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[vars]
+FIREBASE_PROJECT = "cronometro-cna"
+
+# Secretos (NO van aquí; se crean con `npx wrangler secret put NOMBRE`):
+#   CONSOLA_CLAVE  clave que lleva la consola (inventada, larga y aleatoria)
+#   FIREBASE_SA    JSON de la cuenta de servicio de Firebase (Firestore)
