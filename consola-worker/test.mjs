@@ -24,6 +24,9 @@ poner('nadadores', 'n1', { eqId: 'e1', n: 'Ángel Muñoz García' }); poner('nad
 poner('entrenadores', 'andres@club.es', { nombre: 'Andrés', aprobado: true, admin: true }); poner('entrenadores', 'ruben@club.es', { nombre: 'Rubén', aprobado: true });
 poner('entrenadores', 'bloq@club.es', { nombre: 'Bloq', aprobado: true, bloqueado: true }); poner('entrenadores', 'pend@club.es', { nombre: 'Pend', aprobado: false });
 const claveG = gkp('rsa', { modulusLength: 2048 }), jwkG = { ...claveG.publicKey.export({ format: 'jwk' }), kid: 'k1', alg: 'RS256', use: 'sig' };
+poner('planes', 'p1', { nombre: 'Entreno Ángel', eqId: 'e1', coach: 'Andrés', coachEmail: 'Ruben@Club.es', desc: 20, descAuto: true,
+  calles: [{ nombre: 'Calle 1', nIds: ['n1', 'n2'] }, { nombre: 'Calle 2', nIds: [] }],
+  series: [{ estilo: 'libre', dist: 50, parciales: false, auto: true, ciclo: 5 }, { estilo: 'braza', dist: 200, auto: false, comp: false, rota: { tramos: [50, 100, 50], desc: [10, 20] } }], ts: 5 });
 globalThis.fetch = async (url, opt = {}) => {
   url = String(url);
   if (url.startsWith('https://www.googleapis.com/service_accounts/v1/jwk/')) return new Response(JSON.stringify({ keys: [jwkG] }));
@@ -62,7 +65,7 @@ const llama = (ruta, { metodo = 'GET', clave = env.CONSOLA_CLAVE, cuerpo } = {})
 const post = (ruta, cuerpo) => llama(ruta, { metodo: 'POST', cuerpo });
 const cab = { id: 'abc123XYZ', eqId: 'e1', fecha: hoy, estilo: 'libre', dist: 50 };
 const ops = (o, extra = {}) => ({ ...cab, ...extra, ops: o });
-const res1 = { t: 'res', rid: '1-1', nId: 'n1', ms: 31420, salida: 1, ts: hoy, parciales: [15200], dudoso: true };
+const res1 = { t: 'res', rid: '1-1-1', nId: 'n1', ms: 31420, salida: 1, ts: hoy, parciales: [15200], dudoso: true };
 const vaciarEsperas = async () => { await Promise.all(esperas.splice(0)); };
 
 // ---------------------------------------------------------------- acceso y lectura
@@ -77,8 +80,15 @@ assert.deepEqual(eq.entrenadores, [{ email: 'andres@club.es', nombre: 'Andres' }
 const [h, c, f] = jwt.split('.');
 assert.ok(createVerify('RSA-SHA256').update(h + '.' + c).verify(publicKey, Buffer.from(f.replace(/-/g, '+').replace(/_/g, '/'), 'base64')));
 
+// ---------------------------------------------------------------- /planes
+const pl = await (await llama('/planes')).json();
+assert.equal(pl.planes.length, 1); const p0 = pl.planes[0];
+assert.equal(p0.nombre, 'Entreno Angel'); assert.equal(p0.equipo, 'Infantil Manana'); assert.equal(p0.coachEmail, 'ruben@club.es'); assert.equal(p0.descAuto, true);
+assert.deepEqual(p0.calles[0].nIds, ['n1', 'n2']); assert.equal(p0.series[0].auto, true); assert.equal(p0.series[0].ciclo, 5); assert.equal(p0.series[1].rota.tramos.length, 3); assert.equal(p0.series[1].rota.desc[1], 20);
+assert.equal((await llama('/planes', { clave: 'mala' })).status, 401);
+
 // ---------------------------------------------------------------- /ops
-for (const mal of [ops([{ ...res1, ms: 0 }]), ops([{ ...res1, nId: 'n9' }]), ops([{ t: 'ini', presentes: ['n9'] }]), { ...ops([res1]), estilo: 'delfin' }, { ...ops([res1]), id: 'x' },
+for (const mal of [ops([{ ...res1, ms: 0 }]), ops([{ ...res1, nId: 'n9' }]), ops([{ t: 'ini', presentes: ['n9'] }]), { ...ops([res1]), estilo: 'mal<estilo>' }, { ...ops([res1]), id: 'x' },
   ops([{ t: 'borrar_todo' }]), ops([]), ops([{ ...res1, rid: '../x' }]), ops([res1], { coach: 'pend@club.es' }), ops([res1], { coach: 'bloq@club.es' }), ops([res1], { coach: 'otro@club.es' })])
   assert.equal((await post('/ops', mal)).status, 400);
 assert.equal(commits.length, 0);
@@ -88,11 +98,11 @@ assert.equal(commits[0].writes[0].updateTransforms[0].setToServerValue, 'REQUEST
 assert.equal((await post('/ops', ops([{ t: 'ini', presentes: ['n1', 'n2'] }], { id: 'ruben00001', coach: 'Ruben@Club.es' }))).status, 200);   // el entrenador elegido en la consola
 assert.equal(db.sesiones['consola-ruben00001'].coachEmail, 'ruben@club.es'); assert.equal(db.sesiones['consola-ruben00001'].coach, 'Rubén');
 await post('/ops', ops([res1], { id: 'ruben00001', coach: 'ruben@club.es' }));
-assert.equal(db.resultados['consola-ruben00001-1-1'].ms, 31420); assert.equal(db.resultados['consola-ruben00001-1-1'].borrado, false);
-await post('/ops', ops([{ ...res1, borrado: true }, { ...res1, rid: '1-2', nId: 'n2' }], { id: 'ruben00001', coach: 'ruben@club.es' }));
-assert.equal(db.resultados['consola-ruben00001-1-1'].borrado, true);
+assert.equal(db.resultados['consola-ruben00001-1-1-1'].ms, 31420); assert.equal(db.resultados['consola-ruben00001-1-1-1'].borrado, false);
+await post('/ops', ops([{ ...res1, borrado: true }, { ...res1, rid: '1-1-2', nId: 'n2' }], { id: 'ruben00001', coach: 'ruben@club.es' }));
+assert.equal(db.resultados['consola-ruben00001-1-1-1'].borrado, true);
 await post('/ops', ops([res1], { id: 'abc123XYZ' }));            // una sesion de "Fallback" para probar el filtro por entrenador
-const rep = ops([{ ...res1, borrado: true }, { ...res1, rid: '1-2', nId: 'n2' }], { id: 'ruben00001', coach: 'ruben@club.es' });
+const rep = ops([{ ...res1, borrado: true }, { ...res1, rid: '1-1-2', nId: 'n2' }], { id: 'ruben00001', coach: 'ruben@club.es' });
 const antes = Object.keys(db.resultados).length; await post('/ops', rep); await vaciarEsperas();
 assert.equal(Object.keys(db.resultados).length, antes);                                               // reenviar la misma operación: mismos ids, sin duplicar
 
@@ -117,13 +127,13 @@ assert.deepEqual(db.directo_pub[L['andres@club.es'].token].resultados, []);   //
 // «todos»: también la sesión del entrenador de reserva
 await post('/enlace', { accion: 'activar', coach: '*' }); assert.equal(db.directo_pub[L['*'].token].resultados.length, 2);
 // una llegada nueva desde la consola actualiza los enlaces activos al momento
-await post('/ops', ops([{ t: 'res', rid: '1-3', nId: 'n1', ms: 29999, salida: 3, ts: hoy + 10 }], { id: 'ruben00001', coach: 'ruben@club.es' })); await vaciarEsperas();
+await post('/ops', ops([{ t: 'res', rid: '1-1-3', nId: 'n1', ms: 29999, salida: 3, ts: hoy + 10 }], { id: 'ruben00001', coach: 'ruben@club.es' })); await vaciarEsperas();
 assert.ok(db.directo_pub[ar.token].resultados.some(r => r.ms === 29999));
 assert.ok(!db.directo_pub[L['andres@club.es'].token].resultados.length);
 // desactivar: se VACÍA (sigue existiendo el mismo enlace)
 const dr = await (await post('/enlace', { accion: 'desactivar', coach: 'ruben@club.es' })).json();
 assert.equal(dr.activo, false); assert.deepEqual(db.directo_pub[ar.token].resultados, []); assert.equal(dr.token, ar.token);
-await vaciarEsperas(); await post('/ops', ops([{ t: 'res', rid: '1-4', nId: 'n1', ms: 28888, salida: 4, ts: hoy + 20 }], { id: 'ruben00001', coach: 'ruben@club.es' })); await vaciarEsperas();
+await vaciarEsperas(); await post('/ops', ops([{ t: 'res', rid: '1-1-4', nId: 'n1', ms: 28888, salida: 4, ts: hoy + 20 }], { id: 'ruben00001', coach: 'ruben@club.es' })); await vaciarEsperas();
 assert.deepEqual(db.directo_pub[ar.token].resultados, []);                  // desactivado: las llegadas nuevas no se publican
 // caduca solo a las 6 h: el cron lo vacía
 await post('/enlace', { accion: 'activar', coach: 'ruben@club.es' }); assert.ok(db.directo_pub[ar.token].resultados.length > 0);

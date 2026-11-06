@@ -1,6 +1,7 @@
 // Servicio de Cloudflare para la consola del cronómetro (aparato autónomo con WiFi).
 // Hace de intermediario entre la consola y Firestore (proyecto cronometro-cna):
 //   GET  /ping      -> {ok:true}                      (comprobar clave y conexión)
+//   GET  /planes    -> entrenos preparados en la app (calles, nadadores y series), para cargarlos en la consola
 //   GET  /equipos   -> equipos y nadadores, con los nombres SIN tildes (las fuentes de la pantalla no las traen)
 //   POST /enlace    -> enlaces FIJOS para las familias (uno por entrenador y uno de «todos»): estado, activar, desactivar (vacía) y rotar
 //   POST /app       -> lo mismo que /enlace, pero para la app de entrenadores (token de Google en vez de la clave de la consola)
@@ -17,7 +18,7 @@ const COLECCIONES_LECTURA = ['equipos', 'nadadores'];
 const HORAS_ENLACE = 6;                                // el enlace caduca solo, como el de la app
 const MAX_RES = 60;                                   // nadadores por sesión
 const MAX_OPS = 20;                                   // operaciones por petición
-const ESTILOS = ['libre', 'espalda', 'braza', 'mariposa', 'estilos'];
+const ESTILO_RE = /^[A-Za-z0-9 _-]{1,40}$/;                   // estilo de la app: los de siempre (libre, braza...) o uno propio
 
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 
@@ -128,6 +129,24 @@ async function borrarDoc(env, col, id) {
   if (!r.ok && r.status !== 404) throw new Error('delete ' + r.status);
 }
 
+// ------------------------------------------------------------------ entrenos preparados (colección «planes» de la app)
+async function rutaPlanes(env) {
+  const [planes, eqs] = await Promise.all([listar(env, 'planes'), listar(env, 'equipos')]);
+  const eqNombre = new Map(eqs.map(e => [e.id, e.nombre]));
+  const num = (x, a, b) => Number.isFinite(Number(x)) && Number(x) >= a && Number(x) <= b ? Math.round(Number(x)) : 0;
+  const lista = planes.filter(p => Array.isArray(p.series) && p.series.length && Array.isArray(p.calles)).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 40).map(p => ({
+    id: p.id, nombre: sinTildes(p.nombre || 'Entreno'), eqId: p.eqId || '', equipo: sinTildes(eqNombre.get(p.eqId) || ''), coach: sinTildes(p.coach || ''), coachEmail: p.coachEmail ? String(p.coachEmail).toLowerCase() : '',
+    desc: num(p.desc, 0, 3600), descAuto: p.descAuto === true,
+    calles: p.calles.slice(0, 6).map(c => ({ nombre: sinTildes(c.nombre || ''), nIds: (Array.isArray(c.nIds) ? c.nIds : []).filter(x => typeof x === 'string').slice(0, 6) })),
+    series: p.series.slice(0, 16).map(s => ({
+      estilo: String(s.estilo || 'libre').replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 40) || 'libre', dist: num(s.dist, 1, 5000) || 50,
+      parciales: s.parciales === true, auto: s.auto === true, ciclo: num(s.ciclo, 0, 3600), comp: s.comp === true, plataforma: s.inicio === 'plataforma' || s.comp === true,
+      rota: s.rota && Array.isArray(s.rota.tramos) && s.rota.tramos.length >= 2 ? { tramos: s.rota.tramos.slice(0, 8).map(x => num(x, 1, 1500)), desc: (s.rota.desc || []).slice(0, 8).map(x => num(x, 0, 600)) } : null,
+    })),
+  }));
+  return json({ planes: lista });
+}
+
 // ------------------------------------------------------------------ rutas
 async function rutaEquipos(env) {
   const [eqs, nads] = await Promise.all(COLECCIONES_LECTURA.map(c => listar(env, c)));
@@ -146,19 +165,24 @@ export function validarOps(b) {
   if (!/^[A-Za-z0-9]{6,32}$/.test(b.id || '')) return 'id de sesión no válido';
   if (typeof b.eqId !== 'string' || !b.eqId) return 'falta el equipo';
   if (!entero(b.fecha, 1.6e12, 4.1e12)) return 'fecha no válida';
-  if (!ESTILOS.includes(b.estilo)) return 'estilo no válido';
+  if (typeof b.estilo !== 'string' || !ESTILO_RE.test(b.estilo)) return 'estilo no válido';
   if (!entero(b.dist, 1, 5000)) return 'distancia no válida';
   if (b.coach != null && (typeof b.coach !== 'string' || b.coach.length > 100)) return 'entrenador no válido';
   if (!Array.isArray(b.ops) || !b.ops.length || b.ops.length > MAX_OPS) return 'operaciones no válidas';
   for (const o of b.ops) {
     if (o.t === 'ini') { if (!Array.isArray(o.presentes) || o.presentes.length > MAX_RES || o.presentes.some(x => typeof x !== 'string' || !x)) return 'presentes no válidos'; }
     else if (o.t === 'res') {
-      if (!/^[0-9]{1,2}-[0-9]{1,2}$/.test(o.rid || '')) return 'id de resultado no válido';
+      if (!/^[0-9]{1,3}-[0-9]{1,2}-[0-9]{1,2}$/.test(o.rid || '')) return 'id de resultado no válido';
       if (typeof o.nId !== 'string' || !o.nId) return 'resultado sin nadador';
       if (!entero(o.ms, 1, 3600000)) return 'tiempo no válido';
       if (!entero(o.salida, 1, 99)) return 'orden de salida no válido';
+      if (o.ronda != null && !entero(o.ronda, 1, 99)) return 'serie no válida';
       if (!entero(o.ts, 1.6e12, 4.1e12)) return 'hora no válida';
-      if (o.parciales != null && (!Array.isArray(o.parciales) || o.parciales.length > 15 || o.parciales.some(p => !entero(p, 1, 3600000)))) return 'parciales no válidos';
+      if (o.estilo != null && (typeof o.estilo !== 'string' || !ESTILO_RE.test(o.estilo))) return 'estilo no válido';
+      if (o.dist != null && !entero(o.dist, 1, 5000)) return 'distancia no válida';
+      if (o.inicio != null && !['agua', 'plataforma'].includes(o.inicio)) return 'salida no válida';
+      if (o.rota != null && (!Array.isArray(o.rota.tramos) || o.rota.tramos.length > 8 || o.rota.tramos.some(x => !entero(x, 1, 1500)) || !Array.isArray(o.rota.desc) || o.rota.desc.length > 8 || o.rota.desc.some(x => !entero(x, 0, 600)))) return 'rota no válida';
+      if (o.parciales != null && (!Array.isArray(o.parciales) || o.parciales.length > 15 || o.parciales.some(p => !entero(p, 0, 3600000)))) return 'parciales no válidos';
     } else if (o.t === 'fin') { if (!entero(o.fin, 1.6e12, 4.1e12)) return 'fin no válido'; }
     else if (o.t !== 'ses_borrar') return 'operación desconocida';
   }
@@ -190,7 +214,9 @@ async function rutaOps(env, req, ctx) {
         coach: coachNombre, coachEmail, parciales: false, inicio: 'agua', comp: false,
         presentes: [...new Set(o.presentes)], origen: 'consola' } });
     } else if (o.t === 'res') {
-      const extra = { ronda: 1, salida: o.salida, estilo: b.estilo, dist: b.dist, inicio: 'agua', ts: o.ts, origen: 'consola' };
+      const extra = { ronda: o.ronda || 1, salida: o.salida, estilo: o.estilo || b.estilo, dist: o.dist || b.dist, inicio: o.inicio || 'agua', ts: o.ts, origen: 'consola' };
+      if (o.comp) extra.comp = true;
+      if (o.rota) extra.rota = o.rota;
       if (o.parciales && o.parciales.length) extra.parciales = [...o.parciales, o.ms];
       if (o.dudoso) extra.nota = 'Asignación dudosa (consola)';
       docs.push({ col: 'resultados', id: `${sesId}-${o.rid}`, data: { sesId, nId: o.nId, gId: null, ms: o.ms, modo: 'grupo', ...extra,
@@ -338,6 +364,7 @@ export default {
     try {
       if (url.pathname === '/ping') return json({ ok: true });
       if (url.pathname === '/equipos' && req.method === 'GET') return await rutaEquipos(env);
+      if (url.pathname === '/planes' && req.method === 'GET') return await rutaPlanes(env);
       if (url.pathname === '/ops' && req.method === 'POST') return await rutaOps(env, req, ctx);
       if (url.pathname === '/enlace' && req.method === 'POST') return await rutaEnlace(env, req);
       return json({ error: 'no existe' }, 404);
