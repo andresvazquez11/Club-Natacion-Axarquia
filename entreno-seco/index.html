@@ -148,9 +148,39 @@
       <div class="bar2">
         <button class="bt peq dw" id="nad_ant">◀</button><span class="bt peq" id="nad_nom" style="cursor:default"></span><button class="bt peq dw" id="nad_sig">▶</button>
         <button class="bt peq dw" id="obj_menos">−</button><span class="bt peq" style="cursor:default">Objetivo: <span id="obj_val"></span></span><button class="bt peq dw" id="obj_mas">+</button>
+        <button class="bt go peq dw" id="esp_rutina">▶ Rutina guiada</button>
         <button class="bt peq dw" id="esp_gest">Gestos: sí</button>
         <button class="bt peq dw" id="esp_salir">Salir del espejo</button>
       </div>
+    </div>
+    <div class="esp" id="esp_rficha" style="background:rgba(5,9,18,.9);gap:2vh;justify-content:flex-start;padding-top:5vh;overflow:auto">
+      <h1 id="rf_tit" style="margin:0;font-size:5vh"></h1>
+      <div id="rf_sub" style="color:#9fb0d6;font-size:2.6vh"></div>
+      <div id="rf_lista" style="width:80vw;text-align:left;font-size:2.8vh;line-height:1.55"></div>
+      <div class="bar2"><button class="bt go dw" id="rf_ya">▶ Empezar rutina</button><button class="bt dw" id="rf_voz">🔊 Voz: sí</button><button class="bt dw" id="rf_vol">← Volver</button></div>
+    </div>
+    <div class="esp" id="esp_rintro" style="background:rgba(5,9,18,.6);gap:2.4vh;justify-content:flex-start;padding-top:7vh">
+      <div id="ri_paso" style="font-size:3vh;color:#9fb0d6"></div>
+      <h1 id="ri_tit" style="margin:0;font-size:7vh"></h1>
+      <div id="ri_pos" style="font-size:3.2vh;color:#cfd8f0;max-width:72vw"></div>
+      <div id="ri_prog" style="font-size:4vh;color:#ffcc33;font-weight:800;min-height:5vh"></div>
+      <div class="bar2"><button class="bt go dw" id="ri_ya">▶ Empezar ya</button><button class="bt dw" id="ri_pausa">⏸ Pausa</button></div>
+    </div>
+    <div class="esp" id="esp_rdesc" style="background:rgba(5,9,18,.84);gap:1.6vh">
+      <div style="font-size:5vh;color:#cfd8f0;font-weight:800">DESCANSO</div>
+      <div id="rd_n" style="font-size:32vh;font-weight:900;color:#ffcc33;line-height:1"></div>
+      <div id="rd_sig" style="font-size:4vh;color:#fff;max-width:80vw"></div>
+      <div id="rd_frase" style="font-size:3vh;color:#9fb0d6"></div>
+      <div class="bar2"><button class="bt go dw" id="rd_salta">Saltar descanso</button><button class="bt dw" id="rd_pausa">⏸ Pausa</button></div>
+    </div>
+    <div class="esp" id="esp_rpausa" style="background:rgba(5,9,18,.9);gap:3vh"><h1 style="margin:0;font-size:8vh">Pausa</h1><div class="bar2"><button class="bt go dw" id="rp_sigue">▶ Continuar</button><button class="bt dw" id="rp_fin">⏹ Terminar rutina</button></div></div>
+    <div class="esp" id="esp_rfin" style="background:rgba(5,9,18,.92);gap:2vh;justify-content:flex-start;padding-top:5vh;overflow:auto">
+      <h1 style="margin:0;font-size:6vh">¡Rutina completada!</h1><div id="rfin_sub" style="color:#9fb0d6;font-size:2.8vh"></div>
+      <div id="rfin_lista" style="width:80vw;text-align:left;font-size:2.8vh;line-height:1.6"></div>
+      <div class="bar2"><button class="bt go dw" id="rfin_inf">Ver informe</button><button class="bt dw" id="rf_menu">Volver al menú</button></div>
+    </div>
+    <div class="esp" id="esp_rutbar" style="z-index:62;inset:2vh 2vw auto auto;background:none;flex-direction:row;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;gap:1vw;pointer-events:none">
+      <button class="bt peq dw" id="rb_ser" style="pointer-events:auto">■ Terminar serie</button><button class="bt peq dw" id="rb_salta" style="pointer-events:auto">⏭ Saltar</button><button class="bt peq dw" id="rb_voz" style="pointer-events:auto">🔊 Voz: sí</button><button class="bt peq dw" id="rb_fin" style="pointer-events:auto">⏹ Terminar rutina</button>
     </div>
     <div class="esp" id="esp_prep">
       <h1 id="prep_tit"></h1>
@@ -873,7 +903,7 @@ function iniciaSerie(n) {
 function botonSerie() { const b = $("finSerie"); if (b) b.style.display = (rec && rec.fase === "grabando" && serie && serie.fase === "activa" && !serie.cerrando) ? "" : "none"; }
 function cierraSerie(motivo, sinOverlay) {
   if (!serie || serie.fase !== "activa" || serie.cerrando) return;
-  serie.cerrando = true; serie.motivo = motivo; serie.sinOverlay = !!sinOverlay;
+  serie.cerrando = true; serie.motivo = motivo; serie.sinOverlay = !!sinOverlay || (ESPEJO && R.activo);
   if (ex.hold && ex.hold.act) { ex.forzarFin = true; serie.limite = performance.now() + 1500; } else finalizaCierre();
   botonSerie();
 }
@@ -885,10 +915,10 @@ function finalizaCierre() {
 function actualizaSerie(now, P) {   // se llama en cada fotograma mientras la serie está activa
   const s = serie; if (!s || s.fase !== "activa") return;
   const v = valorContador(), esT = MODOS_TIEMPO.includes(modo);
-  if (!esT && v > s.prev) { sonidoRep(v); s.prev = v; }
-  s.valor = v;
+  if (!esT && v > s.prev) { if (!(ESPEJO && R.activo)) sonidoRep(v); s.prev = v; }
+  s.valor = (ESPEJO && R.activo) ? rutinaValor(v) : v;   // en la rutina solo cuentan las repeticiones bien hechas
   if (!s.cerrando) {
-    if (s.obj && !s.logrado && v >= s.obj) { s.logrado = true; s.tLogro = now; sonidoObjetivo(); }
+    if (s.obj && !s.logrado && s.valor >= s.obj) { s.logrado = true; s.tLogro = now; if (!(ESPEJO && R.activo)) sonidoObjetivo(); }
     if (s.logrado && now - s.tLogro > 1200) cierraSerie("objetivo");
     if (P) { const a = angulosClave(P); if (a) { s.tipo = a.tipo; s.curva.push({ t:now, L:a.L, R:a.R }); } }
   }
@@ -1937,6 +1967,11 @@ function bucleRec() {   // el vídeo se compone con cada fotograma de la cámara
   if (r.fase === "tarjetas" && performance.now() - r.tCierre >= r.durTotal) { finalizaRec(); return; }
   if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(bucleRec); else requestAnimationFrame(bucleRec);
 }
+function iniciaRecRutina() {   // la rutina dura ~30 min: se registran los datos y el informe, pero no se graba vídeo
+  seriesRec = []; $("serieRes").style.display = "none";
+  rec = { cv:null, c:null, k:1, mr:null, chunks:[], t0:performance.now(), ext:"rut", fase:"grabando", sinVideo:true,
+          nombre:"entreno-seco_"+marca()+(nombre ? "_"+nombre.replace(/\W+/g,"") : "")+"_rutina.rut" };
+}
 async function paraRec() {
   const r = rec; if (!r || r.fase !== "grabando") return;
   $("serieRes").style.display = "none";
@@ -1948,6 +1983,7 @@ async function paraRec() {
   r.series = seriesRec.slice();
   r.fase = "preparando"; $("grabar").textContent = "Cerrando vídeo…";   // deja de contar y prepara el resumen
   const regs = registros.filter(x => x.video === r.nombre), base = r.nombre.replace(/\.\w+$/, "");
+  if (r.sinVideo) { try { if (regs.length) r.inf = await creaInforme(regs, base, r.series); } catch(e) {} finalizaRec(); return; }
   try {
     if (regs.length) {
       r.inf = await creaInforme(regs, base, r.series);
@@ -1966,6 +2002,8 @@ async function paraRec() {
 function finalizaRec() {
   const r = rec; if (!r) return; rec = null;
   $("grabar").textContent = "● Grabar"; $("grabar").classList.remove("rec"); botonSerie();
+  if (r.sinVideo) { const rg = registros.filter(x => x.video === r.nombre); if (!rg.length) { toast("Aún no hay datos para el informe."); if (ESPEJO) espFase("menu"); return; }
+    muestraRevision({ video:null, regs:rg, base:r.nombre.replace(/\.\w+$/, ""), inf:r.inf, series:r.series, recT0:r.t0 }); return; }
   r.mr.onstop = () => {
     const tipo = (r.mr.mimeType || ("video/"+r.ext)).split(";")[0];   // sin «;codecs=…»: con eso Android no deja compartirlo
     const vacio = r.chunks.reduce((s, c) => s + c.size, 0) < 4000;
@@ -2016,7 +2054,10 @@ const ESP_POS = { salto:"De frente, de pies a cabeza, y deja espacio arriba.", s
 const espMostrar = (id, on) => { const e = $(id); if (e) e.style.display = on ? "flex" : "none"; };
 function espFase(f) {
   ESP.fase = f;
-  espMostrar("esp_menu", f === "menu"); espMostrar("esp_prep", f === "prep"); espMostrar("esp_cuenta", f === "cuenta"); espMostrar("esp_fin", f === "fin");
+  espMostrar("esp_menu", f === "menu"); espMostrar("esp_prep", f === "prep"); espMostrar("esp_cuenta", f === "cuenta" || f === "rut_cuenta"); espMostrar("esp_fin", f === "fin");
+  espMostrar("esp_rficha", f === "rut_ficha"); espMostrar("esp_rintro", f === "rut_intro"); espMostrar("esp_rdesc", f === "rut_desc"); espMostrar("esp_rfin", f === "rut_fin"); espMostrar("esp_rpausa", f === "rut_pausa");
+  espMostrar("esp_rutbar", ["rut_intro", "rut_desc", "rut_cuenta", "rut_serie"].includes(f)); $("rb_ser").style.display = f === "rut_serie" ? "" : "none";
+  if (f === "menu") { R.activo = false; try { speechSynthesis.cancel(); } catch(e) {} }
   $("esp_ayudaserie").style.display = (f === "serie") ? "block" : "none"; espMostrar("esp_serbar", f === "serie");
   ESP.quieto.length = 0; ESP.prepT = 0;
   if (f === "menu" || f === "prep") espRefresca();
@@ -2074,6 +2115,7 @@ function espPunteroPermitido() {
   if (!ESP.gestos) return false;
   if ($("rev").style.display !== "none" && $("rev").style.display !== "") return true;
   if (ESP.fase === "menu" || ESP.fase === "prep") return true;
+  if (ESP.fase.startsWith("rut_") && ESP.fase !== "rut_serie" && ESP.fase !== "rut_cuenta") return true;
   if (rec && serie && (serie.fase === "resumen" || serie.fase === "descanso")) return true;
   return false;
 }
@@ -2123,8 +2165,9 @@ function espAutoInicio(lm, now) {
 // --- fin automático: objetivo (ya lo hace la app), parada de ~9 s o fin de la postura mantenida ---
 function espFinAuto(now) {
   const s = serie; if (!rec || !s || s.fase !== "activa" || s.cerrando) return;
-  if (s.valor !== s.espPrev) { s.espPrev = s.valor; s.espT = now; }
-  if (["sentadilla", "flexiones", "dominadas", "hombro_lat", "hombro_fr", "salto"].includes(modo) && s.valor > 0 && now - s.espT > 9000) cierraSerie("sin movimiento");
+  const sig = s.valor + (R.activo ? R.bad*1000 : 0);   // en la rutina, una repetición mal hecha también es movimiento
+  if (sig !== s.espPrev) { s.espPrev = sig; s.espT = now; }
+  if (["sentadilla", "flexiones", "dominadas", "hombro_lat", "hombro_fr", "salto"].includes(modo) && s.valor + (R.activo ? R.bad : 0) > 0 && now - s.espT > (R.activo ? 15000 : 9000)) cierraSerie("sin movimiento");
   if (MODOS_TIEMPO.includes(modo) && ex.n > 0 && !ex.hold.act) { if (!s.espHf) s.espHf = now; else if (now - s.espHf > 2000) cierraSerie("fin de la postura"); } else s.espHf = 0;
   if (modo === "postura" && ex.n > 0) { if (!s.espHf) s.espHf = now; else if (now - s.espHf > 5000) cierraSerie("medida hecha"); }
 }
@@ -2136,14 +2179,230 @@ function espEstadoReal() {   // sincroniza la pantalla con lo que hace la serie
 }
 function espejoFrame(lm, now) {
   try {
-    espPuntero(lm); espDwell(now); espCruz(lm, now); espAutoInicio(lm, now); espFinAuto(now); espEstadoReal();
+    espPuntero(lm); espDwell(now); espCruz(lm, now); espAutoInicio(lm, now); espFinAuto(now); espEstadoReal(); if (R.activo) rutTick(lm, now);
     if (ESP.fase === "resumen" && serie && serie.fase === "activa") espFase("serie");
-  } catch(e) { /* el espejo nunca debe parar el análisis */ }
+  } catch(e) { /* el espejo nunca debe parar el análisis */ console.error(e); }
+}
+
+// ========== RUTINA GUIADA (entrenador personal): ejercicios seguidos, técnica correcta para pasar, descansos y voz ==========
+// Cada paso: m = ejercicio, obj = repeticiones (o segundos con buena postura), series, desc = descanso entre series (s), descFin = descanso antes del siguiente ejercicio (s).
+const RUTINAS = [{
+  id:"base30", nombre:"Rutina de prueba · nadador (unos 30 min)",
+  pasos:[
+    { m:"hombro_lat", obj:10, series:2, desc:20, nom:"Movilidad de hombro lateral", dice:"Vamos a calentar los hombros. Ponte de frente a la cámara, sube los brazos estirados por los lados hasta arriba y bájalos despacio. Diez repeticiones." },
+    { m:"hombro_fr", obj:10, series:2, desc:20, nom:"Movilidad de hombro frontal", dice:"Ahora ponte de lado a la cámara. Sube un brazo estirado hacia delante y arriba, y bájalo despacio. Diez repeticiones." },
+    { m:"sentadilla", obj:12, series:3, desc:30, nom:"Sentadillas", dice:"Sentadillas. De frente o de lado, baja hasta que las rodillas lleguen a noventa grados, con el pecho alto. Doce repeticiones." },
+    { m:"plancha", obj:30, series:3, desc:30, nom:"Plancha", dice:"Plancha. Ponte de lado a la cámara, apoyado en antebrazos y puntas de los pies, con el cuerpo recto como una tabla. Aguanta treinta segundos con buena postura." },
+    { m:"flexiones", obj:8, series:3, desc:40, nom:"Flexiones", dice:"Flexiones, de lado a la cámara. Baja el pecho hasta que los codos lleguen a noventa grados, con el cuerpo recto. Ocho repeticiones." },
+    { m:"salto", obj:6, series:3, desc:40, nom:"Saltos verticales", dice:"Saltos verticales. Ponte de frente, quieto, y salta lo más alto que puedas. Seis saltos." },
+    { m:"equilibrio", obj:20, series:2, desc:20, nom:"Equilibrio a una pierna", dice:"Equilibrio. Ponte de frente y levanta una pierna. Aguanta veinte segundos sin moverte.", serieTxt:["Primero, levanta la pierna derecha.", "Ahora, la pierna izquierda."] },
+    { m:"streamline", obj:20, series:3, desc:20, nom:"Postura hidrodinámica", dice:"Postura de nadador. Ponte de lado, con los brazos estirados sobre la cabeza, pegados a las orejas. Aguanta veinte segundos." },
+    { m:"hombro_fr", obj:8, series:1, desc:0, nom:"Vuelta a la calma · hombros", dice:"Para terminar, estiramos suave. De lado a la cámara, ocho repeticiones lentas con el brazo." }
+  ]
+}];
+const RUT_UMBRAL = { sentMin:110, sentTronco:55, flexCodo:110, flexLinea:160, hombroPico:100, domCodo:100 };   // qué cuenta como «bien hecha» (ajustable con el entrenador)
+const RUT_ANIMO = ["¡Muy bien, sigue así!", "¡Vamos, tú puedes!", "¡Así se hace!", "¡Fuerte, fuerte!", "¡Buen ritmo!", "¡Eso es, no pares!"];
+const RUT_DESC_FRASES = ["Respira hondo y suelta el aire despacio.", "Sacude los brazos y relájate.", "Lo estás haciendo genial.", "Bebe un poco de agua si lo necesitas."];
+const R = { activo:false, r:null, i:0, s:0, voz:true, good:0, bad:0, consec:0, intentos:0, prevV:0, log:[], t0:0, tFase:0, ult:{ animo:0, form:0 }, ann:{}, rt:null, tC:0, cN:0, terminando:false, prevFase:"", pausaRem:0 };
+const rutPaso = () => R.r.pasos[R.i];
+const rutNombre = () => (nombre || "").split(" ")[0];
+
+// --- voz: prio 0 = ánimo (solo si no está hablando), 1 = normal, 2 = corrección (corta lo anterior) ---
+let rutVoz = null;
+function rutEligeVoz() {
+  try {
+    const v = speechSynthesis.getVoices().filter(x => /^es/i.test(x.lang));
+    rutVoz = v.find(x => /es[-_]ES/i.test(x.lang) && /(m[oó]nica|paulina|jorge|google|luc[ií]a|diego|natural|premium|enhanced)/i.test(x.name)) || v.find(x => /es[-_]ES/i.test(x.lang)) || v[0] || null;
+  } catch(e) {}
+}
+if (window.speechSynthesis) { rutEligeVoz(); speechSynthesis.onvoiceschanged = rutEligeVoz; }
+function dice(t, prio = 1) {
+  if (!R.voz || !window.speechSynthesis || cfgS.sonido === "silencio") return;
+  try {
+    if (prio === 0 && speechSynthesis.speaking) return;
+    if (prio >= 1) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(String(t).replace(/<[^>]+>/g, " ")); u.lang = "es-ES"; if (rutVoz) u.voice = rutVoz; u.rate = 1.02; u.pitch = 1.05; speechSynthesis.speak(u);
+  } catch(e) {}
+}
+const azar = a => a[Math.floor(Math.random()*a.length)];
+const rutEstima = r => r.pasos.reduce((s, p, i) => s + 20 + p.series*(MODOS_TIEMPO.includes(p.m) ? p.obj + 6 : p.obj*4 + 6) + (p.series - 1)*p.desc + (i < r.pasos.length - 1 ? (p.descFin ?? 30) : 0), 0);
+const rutUnidad = p => MODOS_TIEMPO.includes(p.m) ? " s" : " reps";
+
+// --- qué es una repetición bien hecha ---
+function rutCalidad() {
+  const U = RUT_UMBRAL;
+  if (modo === "sentadilla") { const u = sent.ultima; if (!u) return { ok:true }; if (u.min > U.sentMin) return { ok:false, msg:"Baja más, hasta noventa grados" }; if (u.tronco > U.sentTronco) return { ok:false, msg:"Pecho alto, no te inclines tanto" }; return { ok:true }; }
+  if (modo === "flexiones") { const u = ex.ult; if (!u) return { ok:true }; if (u.linea < U.flexLinea) return { ok:false, msg:"Cuerpo recto, aprieta el abdomen" }; if (u.codo > U.flexCodo) return { ok:false, msg:"Baja más el pecho" }; return { ok:true }; }
+  if (modo === "hombro_lat" || modo === "hombro_fr") { const u = ex.ult; if (u && u.pico < U.hombroPico) return { ok:false, msg:"Sube más los brazos, bien estirados" }; return { ok:true }; }
+  if (modo === "dominadas") { const u = ex.ult; if (u && u.codo > U.domCodo) return { ok:false, msg:"Sube hasta pasar la barbilla de la barra" }; return { ok:true }; }
+  return { ok:true };
+}
+// se llama desde actualizaSerie con el contador bruto: devuelve lo que cuenta de verdad (solo las repeticiones bien hechas)
+function rutinaValor(v) {
+  if (MODOS_TIEMPO.includes(modo)) return v;
+  if (v > R.prevV) {
+    for (let k = R.prevV; k < v; k++) {
+      R.intentos++; const q = rutCalidad();
+      if (q.ok) { R.good++; R.consec = 0; rutBien(); } else { R.bad++; R.consec++; dice(q.msg, 2); }
+    }
+    R.prevV = v; R.ult.animo = performance.now();
+  }
+  return R.good;
+}
+function rutBien() {
+  const o = rutPaso().obj, g = R.good;
+  if (g >= o) dice("¡Serie completada!", 1);
+  else if (g === o - 1 && o > 2) dice("¡La última!", 1);
+  else if (g === Math.floor(o/2) && o > 3) dice(g+". ¡Mitad hecha!", 1);
+  else dice(g % 4 === 0 ? g+". "+azar(RUT_ANIMO) : String(g), 1);
+}
+
+// --- pantallas y flujo ---
+function rutFicha() {
+  const r = RUTINAS[0], min = Math.round(rutEstima(r)/60);
+  R.r = r; $("rf_tit").textContent = r.nombre; $("rf_sub").textContent = "Unos "+min+" min · "+r.pasos.length+" ejercicios · solo cuentan las repeticiones bien hechas";
+  $("rf_lista").innerHTML = r.pasos.map((p, i) => "<div><b>"+(i + 1)+".</b> "+p.nom+" — "+p.series+" × "+p.obj+rutUnidad(p)+(p.desc ? " · descanso "+p.desc+" s" : "")+"</div>").join("");
+  $("rf_voz").textContent = "🔊 Voz: "+(R.voz ? "sí" : "no"); espFase("rut_ficha");
+}
+function rutEmpieza() {
+  if (!W) return;
+  R.activo = true; R.i = 0; R.s = 0; R.log = []; R.t0 = performance.now(); R.terminando = false;
+  iniciaRecRutina();
+  dice("Hola "+rutNombre()+". Empezamos la rutina. Escucha con atención y haz cada ejercicio con buena técnica.", 1);
+  rutIntro(true);
+}
+function rutIntro(primera) {
+  const p = rutPaso(); R.tFase = performance.now();
+  espFase("rut_intro"); espPonModo(p.m);
+  $("ri_paso").textContent = "Ejercicio "+(R.i + 1)+" de "+R.r.pasos.length; $("ri_tit").textContent = p.nom; $("ri_pos").textContent = p.dice; $("ri_prog").textContent = "";
+  setTimeout(() => { if (ESP.fase === "rut_intro") dice(p.dice, 1); }, primera ? 5500 : 200);
+}
+function rutCuenta() {
+  if (ESP.fase !== "rut_intro" && ESP.fase !== "rut_desc") return;
+  espFase("rut_cuenta"); R.tC = performance.now(); R.cN = 4; speechSynthesis && speechSynthesis.cancel();
+}
+function rutArranca() {
+  const p = rutPaso();
+  iniciaSerie(seriesRec.length + 1); serie.obj = p.obj;
+  R.good = 0; R.bad = 0; R.consec = 0; R.intentos = 0; R.prevV = 0; R.maxV = 0; R.ann = {}; R.ult.animo = performance.now(); R.ult.form = 0;
+  espFase("rut_serie");
+  dice((p.serieTxt && p.serieTxt[R.s] ? p.serieTxt[R.s]+" " : "")+(p.series > 1 ? "Serie "+(R.s + 1)+" de "+p.series+". " : "")+"¡Ya!", 1);
+}
+function rutSerieFin() {
+  const p = rutPaso(), s = serie, esT = MODOS_TIEMPO.includes(p.m);
+  const logrado = !!s.logrado || (esT ? s.valor >= p.obj : R.good >= p.obj);
+  R.log.push({ i:R.i, nom:p.nom, s:R.s + 1, de:p.series, obj:p.obj, hecho:esT ? Math.min(p.obj, logrado ? p.obj : R.maxV) : Math.min(p.obj, R.good), mal:R.bad, ok:logrado, esT });
+  if (R.terminando) { rutFin(); return; }
+  if (R.s + 1 < p.series) { R.s++; rutDescanso(p.desc, false); }
+  else { R.i++; R.s = 0; if (R.i >= R.r.pasos.length) rutFin(); else rutDescanso(p.descFin ?? 30, true); }
+}
+function rutDescanso(sec, cambio) {
+  if (sec <= 0) { if (cambio) rutIntro(false); else { espFase("rut_desc"); rutCuenta(); } return; }
+  const p = rutPaso();
+  R.rt = { t1:performance.now() + sec*1000, cambio, last:99 };
+  espFase("rut_desc");
+  $("rd_sig").textContent = cambio ? "Siguiente: "+p.nom : "Siguiente: serie "+(R.s + 1)+" de "+p.series+" · "+p.nom;
+  $("rd_frase").textContent = azar(RUT_DESC_FRASES); $("rd_n").textContent = sec;
+  dice(cambio ? "Muy bien. Descansa. Después, "+p.nom+"." : "Descansa y respira. "+$("rd_frase").textContent, 1);
+}
+function rutFin() {
+  const min = (performance.now() - R.t0)/60000;
+  espFase("rut_fin");
+  const por = {}; R.log.forEach(l => { (por[l.i] = por[l.i] || { nom:l.nom, esT:l.esT, v:[] }).v.push(l); });
+  $("rfin_sub").textContent = "Tiempo total: "+min.toFixed(1).replace(".", ",")+" min";
+  $("rfin_lista").innerHTML = Object.values(por).map(g => "<div><b>"+g.nom+"</b> — "+g.v.map(l => '<span style="color:'+(l.ok ? "#35d07f" : "#ffcc33")+'">'+(l.esT ? l.hecho.toFixed(0)+" s" : l.hecho+"/"+l.obj)+"</span>").join(" · ")+"</div>").join("") || "No se completó ningún ejercicio.";
+  dice("Rutina completada. ¡Lo has hecho muy bien, "+rutNombre()+"! Descansa y bebe agua.", 1);
+}
+function rutCierra() {   // vuelve al menú sin generar informe
+  if (rec && rec.sinVideo) rec = null;
+  R.activo = false; try { speechSynthesis.cancel(); } catch(e) {} espFase("menu");
+}
+function rutTermina() {
+  if (!R.activo) return;
+  if (serie && serie.fase === "activa") { R.terminando = true; cierraSerie("rutina", true); }
+  else rutFin();
+}
+function rutPausa() {
+  if (ESP.fase !== "rut_intro" && ESP.fase !== "rut_desc") return;
+  R.prevFase = ESP.fase; if (R.prevFase === "rut_desc") R.pausaRem = R.rt.t1 - performance.now();
+  espFase("rut_pausa"); try { speechSynthesis.cancel(); } catch(e) {}
+}
+function rutReanuda() {
+  if (ESP.fase !== "rut_pausa") return;
+  espFase(R.prevFase); R.tFase = performance.now();
+  if (R.prevFase === "rut_desc") R.rt.t1 = performance.now() + R.pausaRem;
+}
+function rutSalta() {   // botón «saltar»: según dónde estés
+  if (ESP.fase === "rut_intro") { R.i++; R.s = 0; if (R.i >= R.r.pasos.length) rutFin(); else rutIntro(false); }
+  else if (ESP.fase === "rut_desc") { R.rt.t1 = performance.now(); }
+  else if (ESP.fase === "rut_serie" && serie && serie.fase === "activa") cierraSerie("saltar", true);
+}
+function rutAccion() {   // tecla principal
+  switch (ESP.fase) {
+    case "rut_ficha": rutEmpieza(); break;
+    case "rut_intro": rutCuenta(); break;
+    case "rut_desc": R.rt.t1 = performance.now(); break;
+    case "rut_serie": if (serie && serie.fase === "activa") cierraSerie("tecla", true); break;
+    case "rut_pausa": rutReanuda(); break;
+    case "rut_fin": $("rf_menu").click(); break;
+  }
+}
+function rutEsc() {
+  switch (ESP.fase) {
+    case "rut_ficha": case "rut_fin": rutCierra(); break;
+    case "rut_intro": case "rut_desc": rutPausa(); break;
+    case "rut_pausa": rutReanuda(); break;
+    case "rut_serie": if (serie && serie.fase === "activa") cierraSerie("tecla", true); break;
+  }
+}
+function rutQuieto(lm, now) {
+  const P = lm ? puntos(lm) : null;
+  if (!P || guiaTxt) { ESP.quieto.length = 0; return { ok:false, txt:guiaTxt || "Colócate en la imagen" }; }
+  ESP.quieto.push({ t:now, x:P[NOSE].x, y:P.cadera }); while (ESP.quieto.length && now - ESP.quieto[0].t > 2300) ESP.quieto.shift();
+  const rg = a => Math.max(...a) - Math.min(...a), q = ESP.quieto, quieto = q.length > 6 && rg(q.map(o => o.x)) < H*0.035 && rg(q.map(o => o.y)) < H*0.035;
+  return { ok:quieto && now - q[0].t >= 1800, txt:quieto ? "Quieto… "+Math.min(1.8, (now - q[0].t)/1000).toFixed(1)+" s" : "Colócate y quédate quieto 2 s" };
+}
+// cada fotograma
+function rutTick(lm, now) {
+  const t = performance.now(), f = ESP.fase;
+  if (f === "rut_intro") {
+    const q = rutQuieto(lm, now); $("ri_prog").textContent = t - R.tFase < 6000 ? "Escucha…" : q.txt;
+    if (q.ok && t - R.tFase > 6000) rutCuenta();
+  } else if (f === "rut_cuenta") {
+    const n = 3 - Math.floor((t - R.tC)/1000);
+    if (n !== R.cN) { R.cN = n; if (n > 0) { $("esp_cuenta_t").textContent = n; sonidoCuenta(n); } else { sonidoCuenta(0); rutArranca(); } }
+  } else if (f === "rut_desc") {
+    const rem = Math.ceil((R.rt.t1 - t)/1000);
+    if (rem !== R.rt.last) {
+      R.rt.last = rem; $("rd_n").textContent = Math.max(0, rem);
+      if (rem === 10) dice("Diez segundos. Prepárate.", 1);
+      if (rem <= 3 && rem > 0) sonidoCuenta(rem);
+    }
+    if (rem <= 0) { if (R.rt.cambio) rutIntro(false); else rutCuenta(); }
+  } else if (f === "rut_serie") {
+    const s = serie, p = rutPaso();
+    if (!s) return;
+    if (s.fase !== "activa") { if (s.fase === "resumen") rutSerieFin(); return; }
+    const esT = MODOS_TIEMPO.includes(p.m);
+    R.maxV = Math.max(R.maxV || 0, s.valor);
+    if (esT) {   // posturas mantenidas: avisos de tiempo y de corrección
+      const v = s.valor, o = p.obj, mitad = Math.round(o/2);
+      if (v >= mitad && !R.ann.m) { R.ann.m = 1; dice("¡Mitad, aguanta!", 1); }
+      if (o > 10 && v >= o - 5 && !R.ann.f) { R.ann.f = 1; dice("Cinco segundos más", 1); }
+      const e = ultimoEst;
+      if (ex.hold.act && e && e.cls === "warn" && e.sub && t - R.ult.form > 6000) { R.ult.form = t; dice(e.sub, 2); }
+      else if (ex.hold.act && e && e.cls === "ok" && t - R.ult.animo > 9000) { R.ult.animo = t; dice(azar(RUT_ANIMO), 0); }
+    } else {
+      if (R.good > 0 && t - R.ult.animo > 14000) { R.ult.animo = t; dice(azar(RUT_ANIMO), 0); }
+      if (!R.ann.t && (R.consec >= 4 || R.intentos >= p.obj*2 + 2)) { R.ann.t = 1; dice("Lo dejamos aquí, vamos a lo siguiente. Lo has intentado muy bien.", 1); cierraSerie("técnica", true); }
+    }
+  }
 }
 
 // --- teclado ---
 function espAccion() {   // la tecla principal (espacio / intro): hace lo siguiente que toca
   if ($("rev").style.display !== "none" && $("rev").style.display !== "") { $("revclose").click(); return; }
+  if (ESP.fase.startsWith("rut_")) { rutAccion(); return; }
   if (ESP.fase === "menu") { espFase("prep"); return; }
   if (ESP.fase === "prep") { espCuenta(); return; }
   if (ESP.fase === "cuenta") return;
@@ -2162,6 +2421,8 @@ addEventListener("keydown", e => {
   if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
   if (k === " " || k === "enter") { e.preventDefault(); espAccion(); }
+  else if (k === "escape" && ESP.fase.startsWith("rut_")) rutEsc();
+  else if (k === "v") { R.voz = !R.voz; toast("Voz: "+(R.voz ? "activada" : "desactivada")); if (!R.voz) try { speechSynthesis.cancel(); } catch(e) {} }
   else if (k === "escape") { espCancelaCuenta(); if (rec && serie && serie.fase === "activa") cierraSerie("tecla"); else espFase("menu"); }
   else if (k === "f") { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); }
   else if (k === "g") { ESP.gestos = !ESP.gestos; toast("Gestos: "+(ESP.gestos ? "activados" : "desactivados")); espRefresca(); }
@@ -2208,11 +2469,12 @@ function dibujaHUD_tv(c) {
     } else {
       const esT = MODOS_TIEMPO.includes(modo), vtxt = esT ? serie.valor.toFixed(1) : String(serie.valor);
       c.fillStyle = "rgba(11,18,32,.62)"; c.shadowBlur = 0;
-      const et = ("SERIE "+serie.n+" · "+(EJ_NOMBRE[modo] || modo)).toUpperCase(), tw = (c.font = "800 "+(u*4)+"px "+F, c.measureText(et).width) + u*8;
+      const et = (R.activo ? "PASO "+(R.i + 1)+"/"+R.r.pasos.length+" · "+(EJ_NOMBRE[modo] || modo)+" · SERIE "+(R.s + 1)+"/"+rutPaso().series : "SERIE "+serie.n+" · "+(EJ_NOMBRE[modo] || modo)).toUpperCase(), tw = (c.font = "800 "+(u*4)+"px "+F, c.measureText(et).width) + u*8;
       rectRedondo(c, cx - tw/2, H*0.035, tw, u*8, u*2.4); c.fill();
       c.shadowBlur = u*1.2; c.fillStyle = "#fff"; textoLegible(c, et, cx, H*0.035 + u*5.6);
       c.fillStyle = "rgba(11,18,32,.62)"; c.shadowBlur = 0; rectRedondo(c, u*3, H*0.035, u*18, u*8, u*2.4); c.fill();
-      c.shadowBlur = u*1.2; c.fillStyle = "#cfd8f0"; c.font = "800 "+(u*4.4)+"px "+F; textoLegible(c, mmss((performance.now() - serie.t0)/1000), u*12, H*0.035 + u*5.8);
+      c.shadowBlur = u*1.2; c.fillStyle = "#cfd8f0"; c.font = "800 "+(u*4.4)+"px "+F; textoLegible(c, mmss((performance.now() - (R.activo ? R.t0 : serie.t0))/1000), u*12, H*0.035 + u*5.8);
+      if (R.activo && R.bad && !esT) { c.fillStyle = "#ffcc33"; c.font = "700 "+(u*3.4)+"px "+F; textoLegible(c, "Sin contar (técnica): "+R.bad, cx, H*0.965); }
       c.fillStyle = serie.logrado ? "#35d07f" : "#fff"; c.font = "800 "+(u*(esT ? 26 : 38))+"px "+F;
       if (serie.obj) {
         const wb = c.measureText(vtxt).width; c.font = "700 "+(u*9)+"px "+F; const so = " / "+serie.obj+(esT ? " s" : ""), ws = c.measureText(so).width;
@@ -2229,6 +2491,15 @@ function dibujaHUD_tv(c) {
 
 function espZoom() { const z = Math.max(1, Math.min(2.2, innerHeight/560)); $("serieRes").style.zoom = $("rev").style.zoom = ESPEJO ? z : ""; }
 if (ESPEJO) {
+  $("esp_rutina").addEventListener("click", rutFicha);
+  $("rf_ya").addEventListener("click", rutEmpieza); $("rf_vol").addEventListener("click", rutCierra);
+  $("rf_voz").addEventListener("click", () => { R.voz = !R.voz; $("rf_voz").textContent = "🔊 Voz: "+(R.voz ? "sí" : "no"); });
+  $("ri_ya").addEventListener("click", rutCuenta); $("ri_pausa").addEventListener("click", rutPausa); $("rd_pausa").addEventListener("click", rutPausa);
+  $("rd_salta").addEventListener("click", rutSalta); $("rp_sigue").addEventListener("click", rutReanuda); $("rp_fin").addEventListener("click", () => { rutReanuda(); rutTermina(); });
+  $("rb_ser").addEventListener("click", () => { if (serie && serie.fase === "activa") cierraSerie("botón", true); });
+  $("rb_salta").addEventListener("click", rutSalta); $("rb_fin").addEventListener("click", rutTermina);
+  $("rb_voz").addEventListener("click", () => { R.voz = !R.voz; $("rb_voz").textContent = "🔊 Voz: "+(R.voz ? "sí" : "no"); if (!R.voz) try { speechSynthesis.cancel(); } catch(e) {} });
+  $("rfin_inf").addEventListener("click", () => { espFase("fin"); paraRec(); }); $("rf_menu").addEventListener("click", rutCierra);
   $("ser_fin").addEventListener("click", () => { if (!serie) return; if (serie.fase === "activa") cierraSerie("botón"); else if (serie.fase === "descanso") serie.descansoHasta = performance.now(); });
   $("ser_todo").addEventListener("click", () => { paraRec(); });
   $("go_espejo").textContent = "Salir del modo espejo"; espZoom(); addEventListener("resize", espZoom); $("esp_salir").addEventListener("click", () => { location.href = location.pathname; }); }
@@ -2513,7 +2784,7 @@ let toastT = null;
 function toast(t) { const el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => { el.style.display = "none"; }, 4500); }
 const ORIENT = { plancha:"h", flexiones:"h", longitud:"h", salida:"h", sprint:"h" };
 function avisaOrientacion() {
-  if (!W) return;
+  if (!W || ESPEJO) return;   // en el espejo la cámara y la tele van en horizontal: no hace falta el aviso del móvil
   const quiere = ORIENT[modo] || "v", esta = W > H ? "h" : "v";
   if (quiere !== esta) toast(quiere === "h" ? "Este ejercicio va mejor con el móvil en HORIZONTAL (gíralo; si no gira, activa la rotación automática: Centro de control en iPhone, ajustes rápidos en Android)." : "Este ejercicio va mejor con el móvil en VERTICAL.");
 }
