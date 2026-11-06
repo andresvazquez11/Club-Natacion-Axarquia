@@ -93,6 +93,7 @@
   body.espejo #sr_ej { display:inline-block !important; }
   #sr_ej { display:none; }
   .esp { touch-action:pan-y; }
+  .load button#go_rutina { background:#35d07f; color:#04121f; }
   .load button#go_espejo { background:transparent; color:var(--acc); border:2px solid var(--acc); }
   #cab_espejo { border:2px solid var(--acc); color:var(--acc); }
   .bt#esp_salir { border-color:#ff5d6c; color:#ffb3bb; }
@@ -206,6 +207,7 @@
         <div style="font-size:20px;color:#fff;font-weight:700">Entreno en seco · prototipo</div>
         <p>Apoya el móvil fijo, a 2–3 m, con el cuerpo entero a la vista (de pies a cabeza) y buena luz.</p>
         <button id="start">Activar cámara</button>
+        <button class="sec" id="go_rutina" style="margin-left:8px">▶ Rutina guiada (entrenador)</button>
         <button class="sec" id="go_espejo" style="margin-left:8px">Modo espejo (tele)</button>
         <p id="loadmsg" style="font-size:14px"></p>
         <p id="instalar" style="font-size:13px;color:#8fa0c4;display:none">Para verla <b>a pantalla completa</b>: en iPhone toca Compartir y «Añadir a pantalla de inicio»; en Android, menú ⋮ y «Instalar aplicación». Luego ábrela desde el icono «Seco CNA».</p>
@@ -2504,6 +2506,7 @@ if (ESPEJO) {
   $("ser_todo").addEventListener("click", () => { paraRec(); });
   $("go_espejo").textContent = "Salir del modo espejo"; espZoom(); addEventListener("resize", espZoom); $("esp_salir").addEventListener("click", () => { location.href = location.pathname; }); }
 $("cab_espejo").addEventListener("click", () => { if (rec) { toast("Para primero la grabación y luego cambia al modo espejo."); return; } location.href = location.pathname + "?modo=espejo"; });
+$("go_rutina").addEventListener("click", () => { location.href = location.pathname + "?modo=espejo&rutina=1"; });
 $("go_espejo").addEventListener("click", () => { location.href = ESPEJO ? location.pathname : location.pathname + "?modo=espejo"; });
 
 // ---------- rendimiento (cámara y procesador) ----------
@@ -2646,7 +2649,7 @@ $("start").addEventListener("click", async () => {
     if (!navigator.mediaDevices) throw new Error("Este navegador no da acceso a la cámara (hace falta HTTPS).");
     await carga(); await abreCamara();
     try { await navigator.wakeLock?.request("screen"); } catch(e) {}
-    $("load").style.display = "none"; if (ESPEJO) espEntra();
+    $("load").style.display = "none"; if (ESPEJO) { espEntra(); if (/[?&]rutina=1/.test(location.search)) rutFicha(); }   // «Rutina guiada» desde el inicio: entra directo a la lista de la rutina
     video.requestVideoFrameCallback ? video.requestVideoFrameCallback(frame) : requestAnimationFrame(frame);
     if (rend.auto && !rend.tuned) setTimeout(() => optimiza(), 1500);
   } catch(e) { $("loadmsg").textContent = "Error: " + (e.message||e); }
