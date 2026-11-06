@@ -2,7 +2,7 @@
 // Hace de intermediario entre la consola y Firestore (proyecto cronometro-cna):
 //   GET  /ping      -> {ok:true}                      (comprobar clave y conexión)
 //   GET  /equipos   -> equipos y nadadores, con los nombres SIN tildes (las fuentes de la pantalla no las traen)
-//   POST /enlace    -> enlace para las familias: crear (elige de qué entrenador, o todos), estado y cerrar (borra los datos)
+//   POST /enlace    -> enlaces FIJOS para las familias (uno por entrenador y uno de «todos»): estado, activar, desactivar (vacía) y rotar
 //   POST /ops       -> aplica operaciones de UN entrenamiento: crear (ini), poner/quitar un tiempo (res), cerrar (fin) o
 //                      deshacer la salida (ses_borrar). Cada operación es idempotente (mismos ids): reenviar no duplica.
 //                      Se manda una por cada llegada, para que las familias lo vean en directo.
@@ -227,35 +227,59 @@ async function refrescarEnlace(env, e) {
   const doc = docPublico(ancla, { nadadores: nads, resultados: res, sesiones: grupo, equipos });
   await guardar(env, [{ col: 'directo_pub', id: e.id, data: doc, sinMod: true }]);
 }
-const enlacesVigentes = async env => (await listar(env, 'consola_enlaces')).filter(e => Number(e.hasta) > Date.now());
-async function refrescarTodos(env) { for (const e of await enlacesVigentes(env)) await refrescarEnlace(env, e); }
-async function cron(env) {                             // cada minuto: caducar los viejos y refrescar los activos (también recoge lo que toman los móviles)
-  for (const e of await listar(env, 'consola_enlaces')) {
-    if (Number(e.hasta) <= Date.now()) { await borrarDoc(env, 'directo_pub', e.id); await borrarDoc(env, 'consola_enlaces', e.id); }
+// Enlaces FIJOS: cada entrenador (y «todos») tiene SIEMPRE el mismo enlace, que se comparte una sola vez con las familias (WhatsApp).
+// ACTIVAR empieza a publicar en él los entrenos de ese día; DESACTIVAR (o a las 6 h) lo vacía: la página sigue abierta, sin datos.
+// El enlace no «se cierra» nunca (si se cerrara, la página de las familias no se recupera al volver a activarlo). «Rotar» crea otro.
+const LEJOS = () => Date.now() + 365 * 24 * 3600e3;
+const nuevoToken = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), x => 'abcdefghijklmnopqrstuvwxyz0123456789'[x % 36]).join('');
+async function escribirVacio(env, token) {
+  const doc = docPublico({ fecha: Date.now(), pub: { hasta: LEJOS() }, coachEmail: null, todos: true }, { sesiones: [], resultados: [], nadadores: [], equipos: {} });
+  await guardar(env, [{ col: 'directo_pub', id: token, data: doc, sinMod: true }]);
+}
+async function crearFijo(env, coach) {
+  const e = { id: nuevoToken(), coach, fijo: true, activo: false, dia: 0, hasta: 0 };
+  await guardar(env, [{ col: 'consola_enlaces', id: e.id, data: { coach, fijo: true, activo: false, dia: 0, hasta: 0 }, sinMod: true }]);
+  await escribirVacio(env, e.id);
+  return e;
+}
+async function enlacesFijos(env, coaches) {            // uno por entrenador aprobado y uno para «todos»; los que falten se crean
+  const l = (await listar(env, 'consola_enlaces')).filter(e => e.fijo === true), por = new Map(l.map(e => [e.coach, e]));
+  for (const c of ['*', ...coaches.map(c => c.email)]) if (!por.has(c)) por.set(c, await crearFijo(env, c));
+  return por;
+}
+async function guardarEstado(env, e) { await guardar(env, [{ col: 'consola_enlaces', id: e.id, data: { coach: e.coach, fijo: true, activo: e.activo, dia: e.dia, hasta: e.hasta }, sinMod: true }]); }
+async function activos(env) { return (await listar(env, 'consola_enlaces')).filter(e => e.fijo === true && e.activo === true && Number(e.hasta) > Date.now()); }
+async function refrescarTodos(env) { for (const e of await activos(env)) await refrescarEnlace(env, e); }
+async function cron(env) {                             // cada minuto: vaciar los que pasaron de 6 h y refrescar los activos (recoge también lo que toman los móviles)
+  for (const e of (await listar(env, 'consola_enlaces')).filter(x => x.fijo === true && x.activo === true)) {
+    if (Number(e.hasta) <= Date.now()) { e.activo = false; await guardarEstado(env, e); await escribirVacio(env, e.id); }
     else await refrescarEnlace(env, e);
   }
 }
 const enlaceUrl = (env, t) => (env.PANTALLA_URL || 'https://andresvazquez11.github.io/Club-Natacion-Axarquia/cronometro/pantalla.html') + '?c=' + t;
 async function rutaEnlace(env, req) {
   let b; try { b = await req.json(); } catch { return json({ error: 'JSON no válido' }, 400); }
-  const coaches = await entrenadores(env), nombreDe = c => c === '*' ? 'Todos' : ((coaches.find(x => x.email === c) || {}).nombre || c);
-  if (b.accion === 'estado') {
-    return json({ enlaces: (await enlacesVigentes(env)).map(e => ({ token: e.id, url: enlaceUrl(env, e.id), hasta: e.hasta, coach: sinTildes(nombreDe(e.coach)) })) });
+  const coaches = await entrenadores(env), nombreDe = c => c === '*' ? 'Todos los entrenadores' : sinTildes((coaches.find(x => x.email === c) || {}).nombre || c);
+  const info = e => ({ coach: e.coach, nombre: nombreDe(e.coach), token: e.id, url: enlaceUrl(env, e.id), activo: e.activo === true && Number(e.hasta) > Date.now(), hasta: Number(e.hasta) || 0 });
+  const todos = await enlacesFijos(env, coaches);
+  if (b.accion === 'estado') return json({ enlaces: [...todos.values()].filter(e => e.coach === '*' || coaches.some(c => c.email === e.coach)).map(info) });
+  const coach = b.coach === '*' ? '*' : String(b.coach || '').toLowerCase();
+  const e = todos.get(coach);
+  if (!e || (coach !== '*' && !coaches.some(c => c.email === coach))) return json({ error: 'entrenador no válido' }, 400);
+  if (b.accion === 'activar') {
+    Object.assign(e, { activo: true, dia: Date.now(), hasta: Date.now() + HORAS_ENLACE * 3600e3 });
+    await guardarEstado(env, e); await refrescarEnlace(env, e);
+    return json({ ok: true, ...info(e) });
   }
-  if (b.accion === 'cerrar') {                         // vacía la copia pública: el enlace deja de funcionar al instante
-    const todos = await listar(env, 'consola_enlaces'); let n = 0;
-    for (const e of todos) if (b.token === 'todos' || b.token === e.id) { await borrarDoc(env, 'directo_pub', e.id); await borrarDoc(env, 'consola_enlaces', e.id); n++; }
-    return json({ ok: true, cerrados: n });
+  if (b.accion === 'desactivar') {                     // vacía los datos: el enlace queda abierto pero sin nada
+    Object.assign(e, { activo: false, hasta: 0 });
+    await guardarEstado(env, e); await escribirVacio(env, e.id);
+    return json({ ok: true, ...info(e) });
   }
-  if (b.accion === 'crear') {
-    const coach = b.coach === '*' ? '*' : String(b.coach || '').toLowerCase();
-    if (coach !== '*' && !coaches.some(c => c.email === coach)) return json({ error: 'entrenador no válido' }, 400);
-    if ((await enlacesVigentes(env)).length >= 5) return json({ error: 'ya hay 5 enlaces activos: cierra alguno' }, 400);
-    const v = crypto.getRandomValues(new Uint8Array(24)), token = Array.from(v, x => 'abcdefghijklmnopqrstuvwxyz0123456789'[x % 36]).join('');
-    const e = { id: token, coach, dia: Date.now(), hasta: Date.now() + HORAS_ENLACE * 3600e3 };
-    await guardar(env, [{ col: 'consola_enlaces', id: token, data: { coach: e.coach, dia: e.dia, hasta: e.hasta }, sinMod: true }]);
-    await refrescarEnlace(env, e);
-    return json({ ok: true, token, url: enlaceUrl(env, token), hasta: e.hasta, coach: sinTildes(nombreDe(coach)) });
+  if (b.accion === 'rotar') {                          // enlace nuevo (el viejo deja de funcionar): por si se difundió de más
+    await borrarDoc(env, 'directo_pub', e.id); await borrarDoc(env, 'consola_enlaces', e.id);
+    const n = await crearFijo(env, coach);
+    return json({ ok: true, ...info(n) });
   }
   return json({ error: 'acción no válida' }, 400);
 }

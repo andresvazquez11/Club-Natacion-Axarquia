@@ -93,31 +93,43 @@ const rep = ops([{ ...res1, borrado: true }, { ...res1, rid: '1-2', nId: 'n2' }]
 const antes = Object.keys(db.resultados).length; await post('/ops', rep); await vaciarEsperas();
 assert.equal(Object.keys(db.resultados).length, antes);                                               // reenviar la misma operación: mismos ids, sin duplicar
 
-// ---------------------------------------------------------------- enlace de familias
-assert.equal((await post('/enlace', { accion: 'crear', coach: 'pend@club.es' })).status, 400);
-assert.equal((await post('/enlace', { accion: 'raro' })).status, 400);
-const lr = await (await post('/enlace', { accion: 'crear', coach: 'ruben@club.es' })).json();
-assert.match(lr.token, /^[a-z0-9]{24}$/); assert.equal(lr.url, 'https://web/pantalla.html?c=' + lr.token); assert.equal(lr.coach, 'Ruben');
-let pub = db.directo_pub[lr.token];
-assert.equal(pub.activo, true); assert.ok(pub.hasta > Date.now() + 5 * 3600e3);
-assert.deepEqual(pub.resultados.map(r => r.nId), ['n2']);                  // solo lo de Rubén; el tiempo de n1 se quitó (borrado suave)
-assert.equal(pub.nombres.n2, 'Zoe Pérez');   // la web de las familias sí muestra tildes
-assert.ok(!JSON.stringify(pub).includes('@'), 'la copia pública no debe llevar correos');
-assert.equal(db.consola_enlaces[lr.token].coach, 'ruben@club.es');
-const lt = await (await post('/enlace', { accion: 'crear', coach: '*' })).json();
-assert.equal(db.directo_pub[lt.token].resultados.length, 2);               // «todos»: también la sesión del entrenador de reserva
-// una llegada nueva desde la consola actualiza los enlaces al momento
+// ---------------------------------------------------------------- enlaces fijos de familias
+assert.equal((await post('/enlace', { accion: 'activar', coach: 'pend@club.es' })).status, 400);
+assert.equal((await post('/enlace', { accion: 'raro', coach: '*' })).status, 400);
+const est0 = await (await post('/enlace', { accion: 'estado' })).json();
+assert.deepEqual(est0.enlaces.map(e => e.coach), ['*', 'andres@club.es', 'ruben@club.es']);          // uno de «todos» y uno por entrenador aprobado
+assert.ok(est0.enlaces.every(e => /^[a-z0-9]{24}$/.test(e.token) && e.url === 'https://web/pantalla.html?c=' + e.token && e.activo === false));
+const L = Object.fromEntries(est0.enlaces.map(e => [e.coach, e]));
+assert.equal(L['ruben@club.es'].nombre, 'Ruben');
+assert.deepEqual((await (await post('/enlace', { accion: 'estado' })).json()).enlaces.map(e => e.token), est0.enlaces.map(e => e.token));   // fijos: siempre los mismos
+let pub = db.directo_pub[L['ruben@club.es'].token];
+assert.equal(pub.activo, true); assert.deepEqual(pub.resultados, []); assert.ok(pub.hasta > Date.now() + 300 * 24 * 3600e3);   // existe, vacío y nunca «termina» solo
+// activar el de Rubén: solo sus entrenos
+const ar = await (await post('/enlace', { accion: 'activar', coach: 'ruben@club.es' })).json();
+assert.equal(ar.activo, true); assert.ok(ar.hasta > Date.now() + 5 * 3600e3); assert.equal(ar.token, L['ruben@club.es'].token);
+pub = db.directo_pub[ar.token];
+assert.deepEqual(pub.resultados.map(r => r.nId), ['n2']);                  // el tiempo de n1 se quitó (borrado suave)
+assert.equal(pub.nombres.n2, 'Zoe Pérez'); assert.ok(!JSON.stringify(pub).includes('@'), 'la copia pública no debe llevar correos');
+assert.deepEqual(db.directo_pub[L['andres@club.es'].token].resultados, []);   // el de Andrés sigue vacío
+// «todos»: también la sesión del entrenador de reserva
+await post('/enlace', { accion: 'activar', coach: '*' }); assert.equal(db.directo_pub[L['*'].token].resultados.length, 2);
+// una llegada nueva desde la consola actualiza los enlaces activos al momento
 await post('/ops', ops([{ t: 'res', rid: '1-3', nId: 'n1', ms: 29999, salida: 3, ts: hoy + 10 }], { id: 'ruben00001', coach: 'ruben@club.es' })); await vaciarEsperas();
-assert.ok(db.directo_pub[lr.token].resultados.some(r => r.ms === 29999));
-// estado, cerrar y caducar
-const est = await (await post('/enlace', { accion: 'estado' })).json(); assert.equal(est.enlaces.length, 2);
-await post('/enlace', { accion: 'cerrar', token: lr.token });
-assert.equal(db.directo_pub[lr.token], undefined); assert.equal(db.consola_enlaces[lr.token], undefined); assert.ok(db.directo_pub[lt.token]);   // vaciado: el enlace deja de funcionar
-db.consola_enlaces[lt.token].hasta = Date.now() - 1; await worker.scheduled({}, env, ctx); await vaciarEsperas();
-assert.equal(db.directo_pub[lt.token], undefined);                          // caducado por el cron
-for (let i = 0; i < 5; i++) await post('/enlace', { accion: 'crear', coach: '*' });
-assert.equal((await post('/enlace', { accion: 'crear', coach: '*' })).status, 400);   // tope de 5
-await post('/enlace', { accion: 'cerrar', token: 'todos' }); assert.equal(Object.keys(db.consola_enlaces).length, 0);
+assert.ok(db.directo_pub[ar.token].resultados.some(r => r.ms === 29999));
+assert.ok(!db.directo_pub[L['andres@club.es'].token].resultados.length);
+// desactivar: se VACÍA (sigue existiendo el mismo enlace)
+const dr = await (await post('/enlace', { accion: 'desactivar', coach: 'ruben@club.es' })).json();
+assert.equal(dr.activo, false); assert.deepEqual(db.directo_pub[ar.token].resultados, []); assert.equal(dr.token, ar.token);
+await vaciarEsperas(); await post('/ops', ops([{ t: 'res', rid: '1-4', nId: 'n1', ms: 28888, salida: 4, ts: hoy + 20 }], { id: 'ruben00001', coach: 'ruben@club.es' })); await vaciarEsperas();
+assert.deepEqual(db.directo_pub[ar.token].resultados, []);                  // desactivado: las llegadas nuevas no se publican
+// caduca solo a las 6 h: el cron lo vacía
+await post('/enlace', { accion: 'activar', coach: 'ruben@club.es' }); assert.ok(db.directo_pub[ar.token].resultados.length > 0);
+db.consola_enlaces[ar.token].hasta = Date.now() - 1; await worker.scheduled({}, env, ctx); await vaciarEsperas();
+assert.deepEqual(db.directo_pub[ar.token].resultados, []); assert.equal(db.consola_enlaces[ar.token].activo, false);
+// rotar: enlace nuevo, el viejo desaparece
+const ro = await (await post('/enlace', { accion: 'rotar', coach: 'ruben@club.es' })).json();
+assert.notEqual(ro.token, ar.token); assert.equal(db.directo_pub[ar.token], undefined); assert.ok(db.directo_pub[ro.token]);
+assert.equal((await (await post('/enlace', { accion: 'estado' })).json()).enlaces.find(e => e.coach === 'ruben@club.es').token, ro.token);
 
 // ---------------------------------------------------------------- la copia del servidor da lo mismo que la app
 const ctxApp = cargar(['logica.js']);

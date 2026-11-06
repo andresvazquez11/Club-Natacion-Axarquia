@@ -7,7 +7,7 @@ Intermediario entre la consola del cronómetro y Firestore (proyecto `cronometro
 |---|---|
 | `GET /ping` | Comprueba clave y conexión |
 | `GET /equipos` | Equipos y nadadores, con los nombres **sin tildes** |
-| `POST /enlace` | Enlace de familias: **crear** (de un entrenador o de todos), **estado** y **cerrar** (borra la copia pública: el enlace deja de funcionar al instante). Caduca solo a las 6 h |
+| `POST /enlace` | Enlaces **fijos** de familias (uno por entrenador y uno de «todos»): **estado**, **activar**, **desactivar** (vacía los datos; la página sigue abierta sin nada) y **rotar** (enlace nuevo). Lo activo se vacía solo a las 6 h |
 | `POST /ops` | Una operación de un entrenamiento: salida (crea la sesión), llegada (un tiempo), corregir (quita uno y pone otro), fin, o deshacer salida. La consola manda una por cada llegada, **al momento**. Cada operación usa los mismos ids: reenviar no duplica |
 
 Solo existen esas tres rutas: aunque se pierda la consola, con su clave no se puede leer ni borrar nada más.
@@ -24,7 +24,7 @@ Solo existen esas tres rutas: aunque se pierda la consola, con su clave no se pu
 
 ## Entrenador y enlace de familias, desde la consola
 - **SESION → Entrenador:** la consola elige a nombre de quién salen las sesiones (lista de entrenadores aprobados de la base). Varios entrenadores pueden compartir la misma consola.
-- **AJUSTES → ENLACE FAMILIAS:** eliges de quién son los entrenos (o todos) y ACTIVAR: sale un **QR** que las familias escanean en las gradas. DESACTIVAR borra la copia pública y el enlace deja de funcionar. Si no se desactiva, caduca a las 6 h.
+- **AJUSTES → ENLACE FAMILIAS:** cada entrenador (y «Todos») tiene un **enlace fijo**: se manda una sola vez a las familias por WhatsApp. En la consola eliges el entrenador y ACTIVAR (empieza a publicar sus entrenos del día); DESACTIVAR vacía los datos; si te olvidas, se vacía a las 6 h. ENLACE NUEVO cambia el enlace (el viejo deja de funcionar). La pantalla muestra el enlace en QR y en texto.
 - El servidor mantiene ese enlace al día él solo (al momento con cada llegada de la consola y cada minuto con lo que tomen los móviles): **ya no depende de ningún móvil**. La copia pública no lleva correos, solo nombres, series y tiempos, igual que la de la app.
 - Publicar la versión nueva: `./publicar.sh` (te pide confirmar).
 
