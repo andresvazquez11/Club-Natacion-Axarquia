@@ -471,3 +471,10 @@ function syncMezclar(docs, cambios, borrados) {
 }
 // Marca de borrado: al borrar un documento se deja «borrados/<colección>__<id>» para que los demás dispositivos lo quiten de su copia
 const syncIdBorrado = (col, id) => `${col}__${id}`;
+
+// Enlaces fijos de familias: primero el del propio entrenador, luego «Todos», luego el resto por nombre
+function fijosOrdenar(enlaces, email) {
+  const mio = String(email || '').toLowerCase();
+  const rango = e => e.coach === mio ? 0 : e.coach === '*' ? 1 : 2;
+  return (Array.isArray(enlaces) ? enlaces : []).slice().sort((a, b) => rango(a) - rango(b) || String(a.nombre).localeCompare(String(b.nombre)));
+}

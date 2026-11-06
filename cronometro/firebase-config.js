@@ -10,3 +10,5 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "898717162405",
   appId: "1:898717162405:web:7f149c65ea3da2a955664c"
 };
+// Servidor de la consola y de los enlaces fijos de las familias (no es secreto: exige el inicio de sesión de un entrenador aprobado)
+window.CONSOLA_API = "https://cna-consola.andrescovidelpi.workers.dev";

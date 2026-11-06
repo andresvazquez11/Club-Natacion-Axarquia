@@ -484,3 +484,9 @@ test('docPublico: el enlace de la jornada creado antes de empezar (sin ningún e
   ctx.__todas = [ses, { id: 'x', fecha: 6000, coachEmail: 'otro@x.es', coach: 'Otro' }];
   assert.deepEqual(evalIn(ctx, 'sesionesDelEnlace({fecha: 5000, coachEmail: "r@x.es", coach: "Rubén"}, __todas)').map(s => s.id), ['s1']);
 });
+
+test('fijosOrdenar: primero el propio, luego «Todos», luego los demás por nombre', () => {
+  const l = [{coach: 'ruben@x.es', nombre: 'Ruben'}, {coach: 'a@x.es', nombre: 'Ana'}, {coach: '*', nombre: 'Todos'}, {coach: 'yo@x.es', nombre: 'Zeta'}];
+  assert.deepEqual(ev('fijosOrdenar', l, 'Yo@X.es').map(e => e.coach), ['yo@x.es', '*', 'a@x.es', 'ruben@x.es']);
+  assert.deepEqual(ev('fijosOrdenar', null, 'a'), []);
+});

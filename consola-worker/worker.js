@@ -3,6 +3,7 @@
 //   GET  /ping      -> {ok:true}                      (comprobar clave y conexión)
 //   GET  /equipos   -> equipos y nadadores, con los nombres SIN tildes (las fuentes de la pantalla no las traen)
 //   POST /enlace    -> enlaces FIJOS para las familias (uno por entrenador y uno de «todos»): estado, activar, desactivar (vacía) y rotar
+//   POST /app       -> lo mismo que /enlace, pero para la app de entrenadores (token de Google en vez de la clave de la consola)
 //   POST /ops       -> aplica operaciones de UN entrenamiento: crear (ini), poner/quitar un tiempo (res), cerrar (fin) o
 //                      deshacer la salida (ses_borrar). Cada operación es idempotente (mismos ids): reenviar no duplica.
 //                      Se manda una por cada llegada, para que las familias lo vean en directo.
@@ -259,6 +260,10 @@ async function cron(env) {                             // cada minuto: vaciar lo
 const enlaceUrl = (env, t) => (env.PANTALLA_URL || 'https://andresvazquez11.github.io/Club-Natacion-Axarquia/cronometro/pantalla.html') + '?c=' + t;
 async function rutaEnlace(env, req) {
   let b; try { b = await req.json(); } catch { return json({ error: 'JSON no válido' }, 400); }
+  return accionEnlace(env, b);
+}
+async function accionEnlace(env, b) {
+  if (!b || typeof b !== 'object') return json({ error: 'cuerpo vacío' }, 400);
   const coaches = await entrenadores(env), nombreDe = c => c === '*' ? 'Todos los entrenadores' : sinTildes((coaches.find(x => x.email === c) || {}).nombre || c);
   const info = e => ({ coach: e.coach, nombre: nombreDe(e.coach), token: e.id, url: enlaceUrl(env, e.id), activo: e.activo === true && Number(e.hasta) > Date.now(), hasta: Number(e.hasta) || 0 });
   const todos = await enlacesFijos(env, coaches);
@@ -284,10 +289,49 @@ async function rutaEnlace(env, req) {
   return json({ error: 'acción no válida' }, 400);
 }
 
+// ------------------------------------------------------------------ la app de entrenadores (inicio de sesión de Google)
+// La app manda el token de Firebase del entrenador (Authorization: Bearer ...). Se comprueba la firma con las claves públicas de Google,
+// que sea de ESTE proyecto, que no haya caducado y que el correo esté verificado y sea de un entrenador aprobado y no bloqueado.
+let jwks = { t: 0, keys: null };
+async function clavesGoogle() {
+  if (!jwks.keys || Date.now() - jwks.t > 3600e3) {
+    const r = await fetch('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com');
+    if (!r.ok) throw new Error('jwks ' + r.status);
+    jwks = { t: Date.now(), keys: (await r.json()).keys || [] };
+  }
+  return jwks.keys;
+}
+const deb64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+export async function verificarIdToken(env, tk) {
+  const [h, p, f] = String(tk || '').split('.'); if (!f) return null;
+  let cab, car; try { cab = JSON.parse(new TextDecoder().decode(deb64(h))); car = JSON.parse(new TextDecoder().decode(deb64(p))); } catch { return null; }
+  if (cab.alg !== 'RS256') return null;
+  const k = (await clavesGoogle()).find(x => x.kid === cab.kid); if (!k) return null;
+  const key = await crypto.subtle.importKey('jwk', k, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, deb64(f), new TextEncoder().encode(h + '.' + p))) return null;
+  const ahora = Math.floor(Date.now() / 1000);
+  if (car.aud !== env.FIREBASE_PROJECT || car.iss !== 'https://securetoken.google.com/' + env.FIREBASE_PROJECT || !car.sub || !(car.exp > ahora) || car.iat > ahora + 300) return null;
+  if (!car.email || car.email_verified !== true) return null;
+  return String(car.email).toLowerCase();
+}
+function origenWeb(env) { try { return new URL(env.PANTALLA_URL).origin; } catch { return 'https://andresvazquez11.github.io'; } }
+const conCors = (res, cors) => { const h = new Headers(res.headers); for (const [k, v] of Object.entries(cors)) h.set(k, v); return new Response(res.body, { status: res.status, headers: h }); };
+async function rutaApp(req, env) {
+  const origen = origenWeb(env), cors = { 'Access-Control-Allow-Origin': origen, 'Vary': 'Origin' };   // solo la web del club
+  if (req.method === 'OPTIONS') return new Response(null, { headers: { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '86400' } });
+  if (req.method !== 'POST') return conCors(json({ error: 'no existe' }, 404), cors);
+  const email = await verificarIdToken(env, (req.headers.get('Authorization') || '').replace(/^Bearer /, '')).catch(() => null);
+  if (!email) return conCors(json({ error: 'no autorizado' }, 401), cors);
+  if (!(await entrenadores(env)).some(c => c.email === email)) return conCors(json({ error: 'tu cuenta no es de un entrenador aprobado' }, 403), cors);
+  let b; try { b = await req.json(); } catch { return conCors(json({ error: 'JSON no válido' }, 400), cors); }
+  return conCors(await accionEnlace(env, b), cors);
+}
+
 export default {
   async scheduled(_ev, env, ctx) { ctx.waitUntil(cron(env).catch(() => {})); },
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    if (url.pathname === '/app') { try { return await rutaApp(req, env); } catch { return json({ error: 'fallo del servidor' }, 502); } }
     if (!mismaClave(req.headers.get('X-Clave') || '', env.CONSOLA_CLAVE || '')) return json({ error: 'no autorizado' }, 401);
     try {
       if (url.pathname === '/ping') return json({ ok: true });

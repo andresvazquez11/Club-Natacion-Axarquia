@@ -1,5 +1,6 @@
 // TZ=Europe/Madrid node test.mjs  -> prueba el servicio con un Firestore simulado EN MEMORIA (no toca internet ni la base real)
 import worker, { validarOps, sinTildes } from './worker.js';
+import { generateKeyPairSync as gkp, sign as firmar } from 'node:crypto';
 import { docPublico as docPublicoCopia } from './publica.js';
 import { generateKeyPairSync, createVerify } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -22,8 +23,10 @@ poner('equipos', 'e1', { nombre: 'Infantil Mañana' }); poner('equipos', 'otro',
 poner('nadadores', 'n1', { eqId: 'e1', n: 'Ángel Muñoz García' }); poner('nadadores', 'n2', { eqId: 'e1', n: 'Zoe Pérez' }); poner('nadadores', 'n9', { eqId: 'otro', n: 'Ajeno' });
 poner('entrenadores', 'andres@club.es', { nombre: 'Andrés', aprobado: true, admin: true }); poner('entrenadores', 'ruben@club.es', { nombre: 'Rubén', aprobado: true });
 poner('entrenadores', 'bloq@club.es', { nombre: 'Bloq', aprobado: true, bloqueado: true }); poner('entrenadores', 'pend@club.es', { nombre: 'Pend', aprobado: false });
+const claveG = gkp('rsa', { modulusLength: 2048 }), jwkG = { ...claveG.publicKey.export({ format: 'jwk' }), kid: 'k1', alg: 'RS256', use: 'sig' };
 globalThis.fetch = async (url, opt = {}) => {
   url = String(url);
+  if (url.startsWith('https://www.googleapis.com/service_accounts/v1/jwk/')) return new Response(JSON.stringify({ keys: [jwkG] }));
   if (url.startsWith('https://oauth2.googleapis.com/token')) { jwt = new URLSearchParams(opt.body).get('assertion'); return new Response(JSON.stringify({ access_token: 'tk', expires_in: 3600 })); }
   assert.equal(opt.headers.Authorization, 'Bearer tk');
   const ruta = url.split('/documents')[1];
@@ -131,6 +134,27 @@ const ro = await (await post('/enlace', { accion: 'rotar', coach: 'ruben@club.es
 assert.notEqual(ro.token, ar.token); assert.equal(db.directo_pub[ar.token], undefined); assert.ok(db.directo_pub[ro.token]);
 assert.equal((await (await post('/enlace', { accion: 'estado' })).json()).enlaces.find(e => e.coach === 'ruben@club.es').token, ro.token);
 
+// ---------------------------------------------------------------- la app de entrenadores (token de Google)
+const b64 = o => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
+const tokenG = (extra = {}, priv = claveG.privateKey) => {
+  const ahora = Math.floor(Date.now() / 1000), h = b64({ alg: 'RS256', kid: 'k1', typ: 'JWT' });
+  const p = b64({ aud: 'proj', iss: 'https://securetoken.google.com/proj', sub: 'u1', iat: ahora - 5, exp: ahora + 3000, email: 'ruben@club.es', email_verified: true, ...extra });
+  return h + '.' + p + '.' + firmar('RSA-SHA256', Buffer.from(h + '.' + p), priv).toString('base64url');
+};
+const app = (tk, cuerpo = { accion: 'estado' }, metodo = 'POST') => worker.fetch(new Request('https://x/app', { method: metodo, headers: { ...(tk ? { Authorization: 'Bearer ' + tk } : {}), Origin: 'https://andresvazquez11.github.io' }, body: metodo === 'POST' ? JSON.stringify(cuerpo) : undefined }), env, ctx);
+const otraClave = gkp('rsa', { modulusLength: 2048 }).privateKey;
+for (const [malo, estado] of [[null, 401], ['basura', 401], [tokenG({ exp: 1 }), 401], [tokenG({ aud: 'otro' }), 401], [tokenG({ iss: 'https://securetoken.google.com/otro' }), 401], [tokenG({ email_verified: false }), 401],
+  [tokenG({}, otraClave), 401], [tokenG({ email: 'pend@club.es' }), 403], [tokenG({ email: 'bloq@club.es' }), 403], [tokenG({ email: 'intruso@gmail.com' }), 403]])
+  assert.equal((await app(malo)).status, estado);
+const okApp = await app(tokenG());
+assert.equal(okApp.status, 200); assert.equal(okApp.headers.get('Access-Control-Allow-Origin'), 'https://web');   // solo la web del club (la de PANTALLA_URL)
+assert.deepEqual((await okApp.json()).enlaces.map(e => e.coach), ['*', 'andres@club.es', 'ruben@club.es']);
+const pre = await app(null, null, 'OPTIONS'); assert.equal(pre.status, 200); assert.match(pre.headers.get('Access-Control-Allow-Headers'), /Authorization/);
+const act = await (await app(tokenG(), { accion: 'activar', coach: 'ruben@club.es' })).json(); assert.equal(act.activo, true);
+assert.equal((await (await app(tokenG(), { accion: 'desactivar', coach: 'ruben@club.es' })).json()).activo, false);
+assert.equal((await post('/enlace', { accion: 'estado' })).status, 200);                    // la consola con su clave sigue igual
+assert.equal((await llama('/app', { metodo: 'POST', cuerpo: { accion: 'estado' } })).status, 401);   // la clave de la consola NO vale en /app
+
 // ---------------------------------------------------------------- la copia del servidor da lo mismo que la app
 const ctxApp = cargar(['logica.js']);
 const sesA = [{ id: 's1', fecha: hoy, estilo: 'libre', dist: 50, presentes: ['n1', 'n2'], coachEmail: 'a@b.c' }, { id: 's2', fecha: hoy + 60000, estilo: 'espalda', dist: 100, presentes: ['n1'], coachEmail: 'a@b.c' }];
@@ -138,7 +162,7 @@ const resA = [{ id: 'r1', sesId: 's1', nId: 'n1', ms: 31000, ronda: 1 }, { id: '
 const datos = { nadadores: [{ id: 'n1', n: 'Ana' }, { id: 'n2', n: 'Beto' }], resultados: resA, sesiones: sesA, equipos: { s1: 'Infantil', s2: 'Infantil' } };
 const ancla = { fecha: hoy, pub: { hasta: hoy + 9e6 }, coachEmail: 'a@b.c' };
 ctxApp.__d = JSON.stringify([ancla, datos]);
-const app = JSON.parse(evalIn(ctxApp, 'JSON.stringify(docPublico(JSON.parse(__d)[0], JSON.parse(__d)[1]))'));
-assert.deepEqual(JSON.parse(JSON.stringify(docPublicoCopia(ancla, datos))), app);
+const docApp = JSON.parse(evalIn(ctxApp, 'JSON.stringify(docPublico(JSON.parse(__d)[0], JSON.parse(__d)[1]))'));
+assert.deepEqual(JSON.parse(JSON.stringify(docPublicoCopia(ancla, datos))), docApp);
 assert.equal(validarOps(null), 'cuerpo vacío');
 console.log('todo ok');

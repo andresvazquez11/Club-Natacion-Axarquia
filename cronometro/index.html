@@ -1897,6 +1897,67 @@ async function pantallaCopiar(btn) {
   try { await navigator.clipboard.writeText(url); if (btn) { const t = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = t; }, 1500); } }
   catch { prompt('Copia el enlace:', url); }
 }
+// ── Enlaces FIJOS para las familias (servidor cna-consola) ─────────────
+// Cada entrenador (y «Todos los entrenadores») tiene un enlace que no cambia nunca: se manda UNA vez a las familias por WhatsApp.
+// «Activar» publica en él los entrenamientos del día (de la app y de la consola); «Desactivar» vacía los datos (el enlace sigue siendo el
+// mismo y la página sigue abierta, sin nada); si se olvida, se vacía solo a las 6 h. Lo mantiene al día el servidor, no este móvil.
+let _fijos = null, _fijosErr = null, _fijosBusy = false, _fijosOtros = false;
+async function fijosLlamar(accion, coach) {
+  const u = _auth && _auth.currentUser; if (!u) throw new Error('Vuelve a entrar con tu cuenta de Google');
+  if (!window.CONSOLA_API) throw new Error('Falta configurar el servidor (firebase-config.js)');
+  const r = await fetch(window.CONSOLA_API + '/app', {method: 'POST', headers: {'Authorization': 'Bearer ' + await u.getIdToken(), 'Content-Type': 'application/json'}, body: JSON.stringify({accion, coach})});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+  return d;
+}
+async function fijosCargar() {
+  if (_fijosBusy) return; _fijosBusy = true;
+  try { _fijos = (await fijosLlamar('estado')).enlaces; _fijosErr = null; } catch (e) { _fijosErr = e.message || 'error'; if (!_fijos) _fijos = []; }
+  _fijosBusy = false; if (canRerender()) render();
+}
+async function fijosAccion(accion, coach) {
+  if (_fijosBusy) return; _fijosBusy = true; _fijosErr = null; render();
+  try { const e = await fijosLlamar(accion, coach); _fijos = (_fijos || []).map(x => x.coach === e.coach ? e : x); } catch (err) { _fijosErr = err.message || 'error'; }
+  _fijosBusy = false; render();
+}
+const fijoDe = btn => (_fijos || []).find(x => x.coach === btn.dataset.c);
+async function fijoCopiar(btn) {
+  const e = fijoDe(btn); if (!e) return;
+  try { await navigator.clipboard.writeText(e.url); if (btn) { const t = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = t; }, 1500); } }
+  catch { prompt('Copia el enlace:', e.url); }
+}
+async function fijoEnviar(btn) {
+  const e = fijoDe(btn); if (!e) return;
+  if (navigator.share) {
+    try { await navigator.share({title: 'Directo · Club Natación Axarquía', text: 'Tiempos en directo de los entrenamientos (cuando estén activos). Enlace solo para las familias del club:', url: e.url}); return; }
+    catch (err) { if (err && err.name === 'AbortError') return; }
+  }
+  await fijoCopiar(btn);
+}
+function fijoFilaHTML(e) {
+  const act = e.activo && e.hasta > Date.now(), c = esc(e.coach);
+  const hasta = new Date(e.hasta).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+  return `<div class="card" style="margin:8px 0;text-align:left;${act ? 'border-color:var(--grn)' : ''}">
+    <b>${esc(e.nombre)}</b> <span class="muted" style="font-size:12px">· ${act ? `🟢 activo hasta las ${hasta}` : '⚪ desactivado'}</span>
+    <div class="row" style="gap:8px;margin-top:8px"><button class="btn btn-green btn-sm" style="flex:1" data-action="fijo-enviar" data-c="${c}">Compartir…</button>
+      <button class="btn btn-surf btn-sm" data-action="fijo-copiar" data-c="${c}">Copiar</button></div>
+    <div class="row" style="gap:8px;margin-top:8px;align-items:center">
+      <button class="btn ${act ? 'btn-surf' : 'btn-green'} btn-sm" data-action="${act ? 'fijo-off' : 'fijo-on'}" data-c="${c}"${_fijosBusy ? ' disabled' : ''}>${act ? 'Desactivar' : 'Activar'}</button>
+      <button class="edit-link" data-action="fijo-nuevo" data-c="${c}" style="margin-left:auto">Enlace nuevo</button></div></div>`;
+}
+// Tarjeta del inicio: el enlace del propio entrenador, el de «Todos» y (plegados) los de los demás
+function fijosHTML() {
+  if (_fijos === null && !_fijosBusy) fijosCargar();
+  const lista = fijosOrdenar(_fijos || [], miEmail()), vistos = lista.filter(e => e.coach === String(miEmail()).toLowerCase() || e.coach === '*'), otros = lista.filter(e => !vistos.includes(e));
+  return `<div class="card" style="margin:22px 0 10px;text-align:center">
+      <div><b>📡 Para las familias</b></div>
+      <div class="muted" style="font-size:12.5px;margin:4px 0 8px">Tu enlace es <b>siempre el mismo</b>: mándalo una vez a las familias por WhatsApp. Pulsa <b>Activar</b> al empezar y <b>Desactivar</b> al terminar (si te olvidas, se vacía solo a las 6 h). Salen también los tiempos tomados con la consola.</div>
+      ${_fijosErr ? `<div style="color:var(--amb);font-size:12.5px;margin:6px 0">⚠ ${esc(_fijosErr)} <button class="edit-link" data-action="fijo-recargar">Reintentar</button></div>` : ''}
+      ${_fijos === null || (_fijosBusy && !lista.length) ? '<div class="muted" style="font-size:13px">Cargando…</div>' : ''}
+      ${vistos.map(fijoFilaHTML).join('')}
+      ${otros.length ? `<button class="edit-link" data-action="fijo-otros" style="margin-top:6px">${_fijosOtros ? 'Ocultar' : 'Ver'} los enlaces de otros entrenadores</button>${_fijosOtros ? otros.map(fijoFilaHTML).join('') : ''}` : ''}
+    </div>`;
+}
 async function finalizarSesion() {
   if (!SA) return;
   // Si aún hay nadadores en el agua o por salir, pedir un segundo toque
@@ -2412,7 +2473,7 @@ function renderHome() {
     ${tarjeta}
     <a class="manual-card" href="${MANUAL_URL}" target="_blank" rel="noopener"><span class="mi">📘</span>
       <span style="flex:1"><b>Manual de uso</b><small>Todo lo que puede hacer el cronómetro y qué se ve en la web del club</small></span><span class="muted">›</span></a>
-    ${pubPieHTML()}
+    ${fijosHTML()}
     ${pantallaPieHTML()}`;
 }
 function renderPreparados() {
@@ -4472,6 +4533,13 @@ document.getElementById('app').addEventListener('click', async function(e) {
     case 'pub-crear':       pubCompartir(); break;
     case 'pub-copiar':      await pubCopiar(btn); break;
     case 'pantalla-copiar': await pantallaCopiar(btn); break;
+    case 'fijo-recargar':   _fijos = null; _fijosErr = null; render(); break;
+    case 'fijo-on':         await fijosAccion('activar', btn.dataset.c); break;
+    case 'fijo-off':        if (confirm('¿Desactivar? Se vacían los datos y las familias dejan de ver los tiempos. El enlace seguirá siendo el mismo.')) await fijosAccion('desactivar', btn.dataset.c); break;
+    case 'fijo-nuevo':      if (confirm('¿Crear un enlace nuevo? El anterior dejará de funcionar y tendrás que mandar el nuevo a las familias.')) await fijosAccion('rotar', btn.dataset.c); break;
+    case 'fijo-copiar':     await fijoCopiar(btn); break;
+    case 'fijo-enviar':     await fijoEnviar(btn); break;
+    case 'fijo-otros':      _fijosOtros = !_fijosOtros; render(); break;
     case 'pub-enviar':      await pubEnviar(btn); break;
     case 'pub-cerrar':      if (confirm('¿Dejar de compartir? El enlace dejará de funcionar para todas las familias al instante. Si quieres volver a compartir, se crea un enlace nuevo.')) await pubCerrar(); break;
     case 'exportar':     await exportar(btn.dataset.ses||route.sesId); break;
