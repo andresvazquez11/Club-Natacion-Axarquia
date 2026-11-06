@@ -318,7 +318,7 @@ function origenWeb(env) { try { return new URL(env.PANTALLA_URL).origin; } catch
 const conCors = (res, cors) => { const h = new Headers(res.headers); for (const [k, v] of Object.entries(cors)) h.set(k, v); return new Response(res.body, { status: res.status, headers: h }); };
 async function rutaApp(req, env) {
   // Solo la web del club (y, SOLO mientras se prueba, el origen de CORS_EXTRA: p. ej. http://localhost:8765)
-  const permitidos = [origenWeb(env), ...(env.CORS_EXTRA ? [env.CORS_EXTRA] : [])], pedido = req.headers.get('Origin') || '';
+  const permitidos = [origenWeb(env), ...String(env.CORS_EXTRA || '').split(',').map(x => x.trim()).filter(Boolean)], pedido = req.headers.get('Origin') || '';
   const cors = { 'Access-Control-Allow-Origin': permitidos.includes(pedido) ? pedido : permitidos[0], 'Vary': 'Origin' };
   if (req.method === 'OPTIONS') return new Response(null, { headers: { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '86400' } });
   if (req.method !== 'POST') return conCors(json({ error: 'no existe' }, 404), cors);

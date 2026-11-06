@@ -6,10 +6,10 @@ FW="$HOME/Desktop/CNA CLAUDE/cronometraje-automatico/consola-firmware/consola_cr
 echo "== Pruebas (con un Firestore simulado)"; TZ=Europe/Madrid node test.mjs
 read -r -p "Voy a PUBLICAR la nueva versión de 'cna-consola' (entrenador elegido en la consola + enlace de familias con cron cada minuto). ¿Seguir? (s/N) " R
 [ "$R" = "s" ] || { echo "Cancelado."; exit 0; }
-# «./publicar.sh prueba-local»  -> además deja que la app abierta en http://localhost:8765 llame al servicio (SOLO para probar)
+# «./publicar.sh prueba-local»  -> además deja que la app abierta en http://localhost:8123,http://localhost:8780 llame al servicio (SOLO para probar)
 # «./publicar.sh quitar-prueba» -> vuelve a dejarlo solo para la web del club
 EXTRA=()
-[ "$1" = "prueba-local" ] && EXTRA=(--var "CORS_EXTRA:http://localhost:8765")
+[ "$1" = "prueba-local" ] && EXTRA=(--var "CORS_EXTRA:http://localhost:8123,http://localhost:8780")
 [ "$1" = "quitar-prueba" ] && EXTRA=(--var "CORS_EXTRA:")
 npx wrangler deploy --keep-vars "${EXTRA[@]}"
 URL=$(sed -n 's/.*CONSOLA_URL *"\(.*\)".*/\1/p' "$FW"); CLAVE=$(sed -n 's/.*CONSOLA_CLAVE *"\(.*\)".*/\1/p' "$FW")
