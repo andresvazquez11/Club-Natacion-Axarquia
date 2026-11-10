@@ -439,6 +439,24 @@ test('sesionesDelEnlace: los entrenamientos del mismo entrenador ese día, en or
   assert.deepEqual(evalIn(ctx, 'sesionesDelEnlace(__t[6], __t)').map(s => s.id), ['a', 'b', 'c', 'viejo']);   // el sin correo se une a los de su mismo nombre
 });
 
+test('docPublico: lleva los parciales válidos de cada nadador (acumulados con el final) y descarta los raros', () => {
+  const ses = { id: 's1', eqId: 'e1', fecha: 1000, estilo: 'libre', dist: 150, presentes: ['n1', 'n2', 'n3', 'n4'] };
+  const datos = {
+    nadadores: [{ id: 'n1', n: 'A' }, { id: 'n2', n: 'B' }, { id: 'n3', n: 'C' }, { id: 'n4', n: 'D' }],
+    resultados: [
+      { id: 'r1', sesId: 's1', nId: 'n1', ms: 90000, ronda: 1, parciales: [29000, 60000, 90000] },
+      { id: 'r2', sesId: 's1', nId: 'n2', ms: 95000, ronda: 1, parciales: [null, 62000, 95000] },        // un parcial sin tomar se conserva como null
+      { id: 'r3', sesId: 's1', nId: 'n3', ms: 91000, ronda: 1, parciales: [91000] },                     // un solo valor: no hay parciales
+      { id: 'r4', sesId: 's1', nId: 'n4', ms: 92000, ronda: 1, parciales: ['x', -5, 'y'] },              // basura: se ignora
+    ],
+  };
+  const d = ev('docPublico', ses, datos);
+  assert.deepEqual(d.resultados[0].par, [29000, 60000, 90000]);
+  assert.deepEqual(d.resultados[1].par, [null, 62000, 95000]);
+  assert.equal('par' in d.resultados[2], false);
+  assert.equal('par' in d.resultados[3], false);
+});
+
 test('docPublico: una jornada de competición (cada prueba es un entrenamiento) sale como series seguidas con su prueba', () => {
   const D = new Date(2026, 9, 31, 11, 0).getTime();
   const mk = (id, h, extra) => ({ id, fecha: D + h * 60e3, coachEmail: 'r@x.es', coach: 'Rubén', estilo: 'libre', dist: 100, presentes: ['n1', 'n2', 'n3'], ...extra });

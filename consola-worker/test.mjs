@@ -174,7 +174,7 @@ assert.equal((await llama('/app', { metodo: 'POST', cuerpo: { accion: 'estado' }
 // ---------------------------------------------------------------- la copia del servidor da lo mismo que la app
 const ctxApp = cargar(['logica.js']);
 const sesA = [{ id: 's1', fecha: hoy, estilo: 'libre', dist: 50, presentes: ['n1', 'n2'], coachEmail: 'a@b.c' }, { id: 's2', fecha: hoy + 60000, estilo: 'espalda', dist: 100, presentes: ['n1'], coachEmail: 'a@b.c' }];
-const resA = [{ id: 'r1', sesId: 's1', nId: 'n1', ms: 31000, ronda: 1 }, { id: 'r2', sesId: 's1', nId: 'n2', ms: 33000, ronda: 1 }, { id: 'r3', sesId: 's2', nId: 'n1', ms: 70000, ronda: 1, estilo: 'espalda', dist: 100 }, { id: 'r4', sesId: 's2', nId: 'n2', ms: 1, borrado: true }];
+const resA = [{ id: 'r1', sesId: 's1', nId: 'n1', ms: 31000, ronda: 1, parciales: [15000, 31000] }, { id: 'r2', sesId: 's1', nId: 'n2', ms: 33000, ronda: 1 }, { id: 'r3', sesId: 's2', nId: 'n1', ms: 70000, ronda: 1, estilo: 'espalda', dist: 100 }, { id: 'r4', sesId: 's2', nId: 'n2', ms: 1, borrado: true }];
 const datos = { nadadores: [{ id: 'n1', n: 'Ana' }, { id: 'n2', n: 'Beto' }], resultados: resA, sesiones: sesA, equipos: { s1: 'Infantil', s2: 'Infantil' } };
 const ancla = { fecha: hoy, pub: { hasta: hoy + 9e6 }, coachEmail: 'a@b.c' };
 ctxApp.__d = JSON.stringify([ancla, datos]);

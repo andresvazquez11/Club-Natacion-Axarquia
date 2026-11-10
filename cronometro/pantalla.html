@@ -35,6 +35,9 @@ button{cursor:pointer}
 .fila{display:grid;grid-template-columns:1.6em 1fr auto auto;align-items:center;gap:.6em;height:var(--rh,80px);font-size:calc(var(--rh,80px)*.52);border-bottom:1px solid #1c1c1c;padding:0 8px;transition:background .6s;cursor:pointer;break-inside:avoid}
 .fila .pos{color:#6b7280;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 .fila .nom{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila .par{display:none;font-weight:500;font-size:.5em;color:#9ca3af;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.filas.dospar .fila .nom{display:flex;flex-direction:column;justify-content:center;line-height:1.1}
+.filas.dospar .fila .par{display:block;font-size:.42em;margin-top:.15em}
 .fila .dif{color:#9ca3af;font-size:.6em;font-variant-numeric:tabular-nums;min-width:4.5em;text-align:right}
 .fila .t{font-weight:800;font-variant-numeric:tabular-nums;min-width:4.2em;text-align:right}
 .fila.p1 .pos,.fila.p1 .t{color:#facc15}
@@ -56,6 +59,7 @@ button{cursor:pointer}
 .tarjeta .fila{--rh:56px;height:auto;min-height:var(--rh);padding:6px 4px}
 .tarjeta .fila .nom{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;overflow-wrap:anywhere}
 .tarjeta .fila .dif{min-width:3.6em}
+.tarjeta .fila .par{display:block;font-size:.5em}
 .centro{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
 .centro h1{font-size:clamp(28px,5vw,56px)}
 .centro p{color:#9ca3af;font-size:clamp(16px,2vw,24px);max-width:36em}
@@ -106,6 +110,12 @@ function fmt(ms) {
   return m > 0 ? `${m}:${String(s).padStart(2, '0')}.${cc}` : `${s}.${cc}`;
 }
 const fmtDif = ms => '+' + fmt(ms);
+// Parciales de un nadador: de los acumulados cada 50 m (con el final al último) a lo que tardó en cada tramo
+function textoParciales(par) {
+  if (!Array.isArray(par) || par.length < 2) return '';
+  const tr = par.map((v, i, a) => v == null ? null : i === 0 ? v : (a[i - 1] == null ? null : v - a[i - 1]));
+  return tr.some(v => v != null && v > 0) ? tr.map(v => v == null || v <= 0 ? '—' : fmt(v)).join(' · ') : '';
+}
 
 const S = {sesiones: [], resultados: [], nadadores: [], equipos: [], estilos: []};
 let _db, _auth, _unsubs = [], _unsubRes = null;
@@ -246,7 +256,7 @@ function pintar() {
   const fila = (r, i, mejor) => {
     const nuevo = vista === 'directo' && !primera && !vistos.has(r.id);   // solo la serie en directo resalta las llegadas nuevas
     return `<div class="fila${i === 0 ? ' p1' : ''}${nuevo ? ' nuevo' : ''}${marcado === r.nId ? ' sel' : ''}" data-n="${esc(r.nId)}">
-      <span class="pos">${i + 1}</span><span class="nom">${esc(nomNad(r.nId))}</span>
+      <span class="pos">${i + 1}</span><span class="nom">${esc(nomNad(r.nId))}${textoParciales(r.par) ? `<small class="par">${textoParciales(r.par)}</small>` : ''}</span>
       <span class="dif">${i === 0 ? '' : fmtDif(r.ms - mejor)}</span><span class="t">${fmt(r.ms)}</span></div>`;
   };
   // Si en una serie hay pruebas distintas (cada calle o cada nadador la suya) se ordena por separado
@@ -273,7 +283,7 @@ function pintar() {
     if (faltan.length) filas += `<div class="sep">Nadando…</div>` + faltan.map(id => `<div class="fila espera${marcado === id ? ' sel' : ''}" data-n="${esc(id)}"><span class="pos"></span><span class="nom">${esc(nomNad(id))}</span><span></span><span class="t">en el agua</span></div>`).join('');
     cuerpo = res.length || faltan.length
       ? `<div class="cab"><b>${cabSerie(ultima, res)}</b><span class="vivo">● en directo</span></div>
-         <div class="filas" style="--rh:${rh}px;${cols === 2 ? `column-count:2;height:${porCol * rh + 2}px` : ''}">${filas}</div>`
+         <div class="filas${rh >= 52 && res.some(r => textoParciales(r.par)) ? ' dospar' : ''}" style="--rh:${rh}px;${cols === 2 ? `column-count:2;height:${porCol * rh + 2}px` : ''}">${filas}</div>`
       : '<div class="centro"><p>Esperando la primera llegada…</p></div>';
   } else {
     // Series anteriores: la más reciente primero, en tarjetas para buscarse (esta pantalla sí se desplaza)
@@ -345,7 +355,8 @@ function cargarPublico(d) {
   S.nadadores = Object.entries(d.nombres || {}).map(([id, n]) => ({id, n: String(n)}));
   S.sesiones = [{id: 'pub', eqId: 'pub', fecha: Number(d.fecha) || Date.now(), estilo: d.estilo || null, dist: d.dist || null, presentes: Array.isArray(d.presentes) ? d.presentes : []}];
   S.resultados = (Array.isArray(d.resultados) ? d.resultados : []).filter(r => r && Number(r.ms) > 0)
-    .map(r => ({id: String(r.id), sesId: 'pub', nId: String(r.nId), ms: Number(r.ms), ronda: Number(r.ronda) || 1, estilo: r.estilo || null, dist: Number(r.dist) || null}));
+    .map(r => ({id: String(r.id), sesId: 'pub', nId: String(r.nId), ms: Number(r.ms), ronda: Number(r.ronda) || 1, estilo: r.estilo || null, dist: Number(r.dist) || null,
+      par: Array.isArray(r.par) ? r.par.map(v => v == null ? null : Number(v)) : null}));
   sesId = 'pub';
   // El enlace caduca solo: al llegar la hora se cierra aunque no cambie nada
   clearTimeout(_tFin);
