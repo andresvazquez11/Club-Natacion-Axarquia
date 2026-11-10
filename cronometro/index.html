@@ -291,6 +291,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .b-num{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:var(--lc);color:var(--lt);font-size:12px;font-weight:800;}
 .b-card.sel{outline:3px solid #fff;outline-offset:1px;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.45);}
 .b-card.dragging{opacity:.3;}
+body.arrastrando,body.arrastrando *{user-select:none !important;-webkit-user-select:none !important;cursor:grabbing !important;}
 .b-ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.6);transform-origin:center;opacity:.95;}
 .drop-over{box-shadow:0 0 0 3px #fff inset;}
 .b-card.drop-over{box-shadow:-5px 0 0 0 #fff;}
@@ -2708,6 +2709,7 @@ let DRAG = null, _ignoreClickUntil = 0;
 function dragStart() {
   if (!DRAG) return;
   DRAG.started = true;
+  document.body.classList.add('arrastrando'); try { getSelection().removeAllRanges(); } catch {}
   const r = DRAG.card.getBoundingClientRect();
   const g = DRAG.card.cloneNode(true);
   g.classList.add('b-ghost');
@@ -2742,6 +2744,7 @@ function dragMoveTo(x, y) {
 }
 function dragEnd(drop) {
   if (!DRAG) return;
+  document.body.classList.remove('arrastrando');
   clearTimeout(DRAG.timer); clearInterval(DRAG.scroll);
   if (DRAG.started) {
     _ignoreClickUntil = Date.now()+400;
@@ -2779,6 +2782,9 @@ document.addEventListener('pointercancel', () => dragEnd(false));
 // Mientras se arrastra, el dedo no desplaza la página
 document.addEventListener('touchmove', e => { if (DRAG && DRAG.started) e.preventDefault(); }, {passive:false});
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.b-card')) e.preventDefault(); });
+// En el ordenador, pulsar sobre una tarjeta no debe empezar a seleccionar texto al arrastrar (Safari y Firefox lo extienden por la página)
+document.addEventListener('mousedown', e => { if (e.button === 0 && e.target.closest && e.target.closest('.b-card')) e.preventDefault(); });
+document.addEventListener('selectstart', e => { if (DRAG) e.preventDefault(); });
 
 // ── Salidas por ciclo ────────────────────────────────────────
 function planNombre() { const el = document.getElementById('plan-nombre'); if (el && PS && PS.plan) PS.plan.nombre = el.value; }
