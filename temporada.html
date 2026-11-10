@@ -1311,6 +1311,18 @@ function bindBuscador(id) {
       : '<p class="small muted" style="padding:10px 12px">Ningún nadador del club con ese nombre.</p>';
     res.hidden = false;
   };
+  // El desplegable se cierra solo: al elegir a un nadador (y se vacía el campo), con Esc, al pulsar fuera y al cambiar de página
+  res.onclick = e => { if (e.target.closest('a')) { res.hidden = true; inp.value = ''; inp.blur(); } };
+  inp.onkeydown = e => { if (e.key === 'Escape') { res.hidden = true; inp.blur(); } };
+  inp.onfocus = () => { if (sinAc(inp.value.trim()).length >= 2 && res.innerHTML) res.hidden = false; };
+  cierreBuscadores();
+}
+let _busCierre = false;
+function cierreBuscadores() {   // una sola vez, aunque se monten varios buscadores
+  if (_busCierre) return; _busCierre = true;
+  const cerrar = () => document.querySelectorAll('.bus-res').forEach(r => { r.hidden = true; });
+  document.addEventListener('click', e => { if (!e.target.closest('.buscador')) cerrar(); });
+  window.addEventListener('hashchange', cerrar);
 }
 
 /* Relevos de un nadador: titular (T), en un equipo aún incompleto (I) o lo que le falta para entrar (F) */
