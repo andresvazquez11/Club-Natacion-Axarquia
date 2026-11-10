@@ -292,7 +292,7 @@ body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSys
 .b-card.sel{outline:3px solid #fff;outline-offset:1px;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.45);}
 .b-card.dragging{opacity:.3;}
 body.arrastrando,body.arrastrando *{user-select:none !important;-webkit-user-select:none !important;cursor:grabbing !important;}
-.b-ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.6);transform-origin:center;opacity:.95;}
+.b-ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.6);transform-origin:center;opacity:.95;transition:none !important;}   /* sin animación: si no, hereda la de .b-card y se queda rezagada del cursor al mover rápido */
 .drop-over{box-shadow:0 0 0 3px #fff inset;}
 .b-card.drop-over{box-shadow:-5px 0 0 0 #fff;}
 .b-empty{font-size:13px;color:var(--mut);padding:10px 4px;}
