@@ -124,7 +124,8 @@ test('relevos: el relevista lo ve como prueba suya, con su posta y los cuatro re
 
 test('dirCatsDe y dirEsDeSuCat: un alevín solo ve las competiciones de alevines (o sin categoría en el nombre)', () => {
   const cats = t => JSON.parse(evalIn(ctx, `JSON.stringify(dirCatsDe(${JSON.stringify(t)}) && [...dirCatsDe(${JSON.stringify(t)})].sort())`));
-  assert.deepEqual(cats('1ª Jornada Liga Prebenjamín – Benjamín – Alevín - Málaga'), ['ALE', 'BEN']);
+  assert.deepEqual(cats('1ª Jornada Liga Prebenjamín – Benjamín – Alevín - Málaga'), ['ALE', 'BEN', 'PRE']);
+  assert.deepEqual(cats('VII Desafío Prebenjamín - Zona Oriental'), ['PRE']);   // «Prebenjamín» ya no cuenta como Benjamín
   assert.deepEqual(cats('XIV Copa Andalucía Absoluta de clubes'), ['ABS', 'INF', 'JUN']);
   assert.deepEqual(cats('XLII Campeonato Andalucía Infantil - Júnior invierno'), ['INF', 'JUN']);
   assert.deepEqual(cats('XIII Campeonato Andalucía Larga Distancia'), []);

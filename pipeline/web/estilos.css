@@ -1040,3 +1040,16 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .cargando{text-align:center;margin:40vh 0 0;color:var(--ink2);font-weight:700}
 .glos-b{margin-left:auto;min-height:32px;padding:0 12px;border-radius:99px;font-size:.72rem;font-weight:800;color:var(--ink2);border:1px solid rgba(127,127,127,.35)}
 .glos-fila{padding:10px 0;border-top:1px solid rgba(127,127,127,.2)}.glos-fila:first-child{border-top:0}.glos-fila b{display:block}.glos-fila p{margin:3px 0 0;font-size:.88rem;line-height:1.4;color:var(--ink2)}
+
+/* Competiciones: fecha visible y categorías */
+.dir-c-top{display:flex;gap:12px;align-items:flex-start}
+.dir-c-tit{flex:1;min-width:0}
+.dir-fecha{flex:0 0 62px;text-align:center;border-radius:12px;padding:6px 4px;background:var(--sun, #ffd400);color:#05223b;line-height:1.05}
+.dir-fecha b{display:block;font-size:1.25rem;font-weight:900;font-variant-numeric:tabular-nums}
+.dir-fecha span{display:block;font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.dir-fecha small{display:block;font-size:.62rem;font-weight:700;opacity:.75;margin-top:1px}
+.dir-cats{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.dir-cat{padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:800;border:1px solid rgba(127,127,127,.4);color:var(--ink2)}
+.dir-cat.mia{background:var(--good);border-color:var(--good);color:#05223b}
+.dir-cuando{padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:800;background:rgba(255,212,0,.18);color:var(--sun, #ffd400)}
+.dir-c .dir-c-top + .tiny{margin-top:8px}

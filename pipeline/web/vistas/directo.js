@@ -308,7 +308,8 @@ function dirCatsDe(titulo) {
   // Máster y Larga Distancia no van en la ficha de los nadadores (siguen en Directo, para quien quiera verlo todo)
   if (/master|larga distancia/.test(t)) return new Set();
   const c = new Set();
-  if (/benjamin/.test(t)) c.add('BEN');
+  if (/prebenjamin/.test(t)) c.add('PRE');
+  if (/(?<!pre)benjamin/.test(t)) c.add('BEN');
   if (/alevin/.test(t)) c.add('ALE');
   if (/infantil/.test(t)) c.add('INF');
   if (/junior/.test(t)) c.add('JUN');
@@ -470,12 +471,43 @@ function dirSeguirHTML(c, rfen) {
     <p class="tiny muted" style="margin-top:8px">La hora es la de inicio de cada prueba según el programa. Su serie se nada después de las anteriores: con «serie 3 de 8», nada en la tercera.</p>`;
 }
 
+/* Categorías de una competición para mostrar: «Prebenjamín · Benjamín · Alevín» (o «Todas las categorías» si el nombre no las dice) */
+const DIR_CATS = [['PRE', 'Prebenjamín'], ['BEN', 'Benjamín'], ['ALE', 'Alevín'], ['INF', 'Infantil'], ['JUN', 'Junior'], ['ABS', 'Absoluto']];
+function dirCatEtiquetas(titulo) {
+  const t = String(titulo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/master/.test(t)) return ['Máster'];
+  if (/larga distancia/.test(t)) return ['Larga distancia'];
+  const L = [];
+  if (/prebenjamin/.test(t)) L.push('Prebenjamín');
+  if (/(?<!pre)benjamin/.test(t)) L.push('Benjamín');
+  if (/alevin/.test(t)) L.push('Alevín');
+  if (/infantil/.test(t)) L.push('Infantil');
+  if (/junior/.test(t)) L.push('Junior');
+  if (/absolut/.test(t)) L.push('Absoluto');
+  return L.length ? L : ['Todas las categorías'];
+}
+/* ¿Es una competición de esta categoría? (clave vacía = todas; si el nombre no dice categoría, vale para todas) */
+function dirCompDeCat(c, key) {
+  if (!key) return true;
+  const cats = dirCatsDe(c.titulo);
+  return !cats || cats.has(key);
+}
+/* Fecha bien visible: día y mes grandes (o «10–13» si dura varios días) y el año pequeño */
+function dirFechaTile(c) {
+  const a = String(c.desde || ''), z = String(c.hasta || c.desde || '');
+  if (!a) return '';
+  const da = +a.slice(8, 10), dz = +z.slice(8, 10), ma = MES[+a.slice(5, 7) - 1], mz = MES[+z.slice(5, 7) - 1];
+  return `<div class="dir-fecha" aria-label="${esc(dirFechas(c))}"><b>${a === z ? da : `${da}–${dz}`}</b><span>${ma === mz ? ma : `${ma}–${mz}`}</span><small>${a.slice(0, 4)}</small></div>`;
+}
 function dirTarjeta(c) {
   const nos = dirNuestras(c), hechas = nos.filter(f => f.t || f.estado).length;
   const docs = (c.docs || []).filter(d => dirUrlOk(d.url)).map(d => `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.t)}</a>`);
   if (dirUrlOk(c.web)) docs.unshift(`<a href="${esc(c.web)}" target="_blank" rel="noopener">Web de la competición</a>`);
+  const mias = new Set([BEN, ...familiaIds().map(id => SW[id])].filter(Boolean).map(x => x.cat)), cuando = c.estado === 'proxima' ? ccFalta(c) : '';
   return `<div class="card dir-c dir-${c.estado}">
-    <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
+    <div class="dir-c-top">${dirFechaTile(c)}<div class="dir-c-tit">
+      <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
+      <div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => { const k = (DIR_CATS.find(x => x[1] === l) || [])[0], propia = k && (mias.has(k) || (k === 'ABS' && ['INF', 'JUN', 'ABS'].some(x => mias.has(x)))); return `<span class="dir-cat${propia ? ' mia' : ''}">${esc(l)}</span>`; }).join('')}${cuando ? `<span class="dir-cuando">${esc(cuando)}</span>` : ''}</div></div></div>
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
     <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${c.lenex && c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
     ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
@@ -592,13 +624,22 @@ function vistaDirecto(app, p) {
       // pestañas: En directo (si hay) · Resultados · Próximas. Por defecto: en directo; si no, resultados de la última semana; si no, próximas
       const reciente = rec.length && Math.round((Date.parse(dirHoy()) - Date.parse(rec[0].hasta || rec[0].desde)) / 864e5) <= 7;
       const tabs = [...(vivo.length ? [['directo', 'En directo']] : []), ['resultados', 'Resultados'], ['proximas', 'Próximas']];
+      const cuentaDe = v => ({directo: vivo, resultados: rec, proximas: prx})[v];
       const t = tabs.some(x => x[0] === p.t) ? p.t : vivo.length ? 'directo' : reciente || !prx.length ? 'resultados' : 'proximas';
       const mias = (BEN ? [BEN] : []).concat(familiaIds().map(id => SW[id]).filter(x => x && (!BEN || x.id !== BEN.id))).map(x => dirBannerHoy(d.competiciones.map(c => ({c, filas: c.lenex ? dirNuestras(c).filter(f => dirEsDe(f, String(x.id))) : []})), x)).join('');
-      const lista = {directo: vivo, resultados: rec, proximas: prx}[t];
+      // categoría: por defecto la de tu nadador (si la hay); «todas» la quita
+      const catDef = BEN && BEN.cat ? BEN.cat : '', catSel = p.cat === 'todas' ? '' : DIR_CATS.some(x => x[0] === p.cat) ? p.cat : catDef;
+      const cuenta = L => L.filter(c => dirCompDeCat(c, catSel)).length;
+      const lista = {directo: vivo, resultados: rec, proximas: prx}[t].filter(c => dirCompDeCat(c, catSel));
+      const misCats = new Set([BEN, ...familiaIds().map(id => SW[id])].filter(Boolean).map(x => x.cat));
+      const chipsCat = chipsHTML('dcat2', [['todas', 'Todas'], ...DIR_CATS.map(([k, l]) => [k, (misCats.has(k) ? '★ ' : '') + l])], catSel || 'todas');
+      const notaCat = misCats.size ? '<p class="tiny muted" style="margin:2px 2px 8px">★ = la categoría de tu nadador. Las competiciones sin categoría en el nombre salen en todas.</p>' : '';
       const cuerpo = lista.length ? lista.slice(0, t === 'proximas' ? 4 : 6).map(dirTarjeta).join('') + (lista.length > (t === 'proximas' ? 4 : 6) ? `<details class="dir-mas"><summary>Ver las ${lista.length - (t === 'proximas' ? 4 : 6)} ${t === 'proximas' ? 'siguientes' : 'anteriores'}</summary>${lista.slice(t === 'proximas' ? 4 : 6).map(dirTarjeta).join('')}</details>` : '')
-        : `<div class="vacio">${t === 'proximas' ? 'No hay competiciones en las próximas semanas.' : t === 'resultados' ? 'Todavía no hay resultados.' : 'Ahora no hay ninguna competición en directo.'}</div>`;
-      host.innerHTML = vistaSegHTML() + mias + chipsHTML('dt', tabs.map(([v, l]) => [v, l]), t) + `<div style="margin-top:6px">${cuerpo}</div>` + pie;
-      onChips(host, 'dt', v => { location.hash = `#directo?t=${v}`; });
+        : `<div class="vacio">${catSel ? `No hay competiciones de ${esc((DIR_CATS.find(x => x[0] === catSel) || [])[1] || 'esta categoría')} en esta pestaña. Prueba con «Todas».` : t === 'proximas' ? 'No hay competiciones en las próximas semanas.' : t === 'resultados' ? 'Todavía no hay resultados.' : 'Ahora no hay ninguna competición en directo.'}</div>`;
+      const qCat = c => `&cat=${c || 'todas'}`;
+      host.innerHTML = vistaSegHTML() + mias + `<div class="flt"><span class="flt-l">Categoría</span>${chipsCat}</div>${notaCat}` + chipsHTML('dt', tabs.map(([v, l]) => [v, l, cuenta(cuentaDe(v))]), t) + `<div style="margin-top:6px">${cuerpo}</div>` + pie;
+      onChips(host, 'dt', v => { location.hash = `#directo?t=${v}${qCat(catSel)}`; });
+      onChips(host, 'dcat2', v => { location.hash = `#directo?t=${t}${qCat(v === 'todas' ? '' : v)}`; });
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
     dirCuentaArrancar();
