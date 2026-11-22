@@ -593,7 +593,7 @@ function resumenFamiliasHTML(s, cat) {
 /* Pestañas de la ficha, siempre arriba: Resumen + los accesos de este nadador (antes eran botones pequeños a mitad de página) */
 const FAM_TABS = [['resumen', 'Resumen'], ['resultados', 'Resultados'], ['marcas', 'Marcas'], ['progreso', 'Progreso']];
 const vistaSegHTML = () => `<div class="vista-row"><span>Vista</span><div class="seg" role="group" aria-label="Tipo de vista">${[['familias', 'Familias'], ['completa', 'Completa']]
-  .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div></div>`;
+  .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div><button type="button" class="glos-b" data-glosario>Glosario</button></div>`;
 function fichaTabsHTML(s, sub) {
   const L = vistaFamilias() && FAM_TABS.some(t => t[0] === sub) ? FAM_TABS : [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
   return vistaSegHTML() + `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>

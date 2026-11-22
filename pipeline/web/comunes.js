@@ -84,9 +84,26 @@ const GLOSARIO = {
   split: ['Split negativo', 'Nadar la segunda mitad más rápido que la primera. Es la señal de una carrera bien repartida.'],
   parcial: ['Parciales', 'El tiempo en cada tramo de la carrera (por ejemplo, cada 50 m). El primer tramo es más rápido porque lleva la salida.'],
   rota: ['Rota', 'Una serie partida en tramos con descansos. El tiempo que se guarda es el neto, sin contar los descansos.'],
+  cto: ['Cto. (Campeonato)', 'Campeonato de Andalucía o de España. «Cto. España» = Campeonato de España.'],
+  top: ['Top-10 / top-8', 'Estar entre los 10 (o los 8) mejores de su año de nacimiento en un ranking o en un campeonato.'],
+  presencias: ['Presencias', 'Cuántas veces un club mete a un nadador entre los 8 primeros de su año en cada prueba. Sirve para comparar clubes.'],
+  inscripcion: ['Inscripción', 'El tiempo con el que el nadador se apunta a la competición. La federación usa su mejor marca de cualquier piscina, por eso a veces es de 50 m aunque la competición sea en 25 m.'],
+  serie: ['Serie', 'Cada tanda de una prueba. En una prueba con muchos nadadores se nada por series; el puesto final se decide por tiempo entre todas.'],
+  piscina: ['Piscina de 25 m y de 50 m', 'En 25 m hay más giros y salen tiempos más rápidos que en 50 m. Por eso no se comparan entre sí; la «equivalencia» es solo orientativa.'],
+  pb: ['Mejor marca personal (★)', 'Su mejor tiempo hasta ahora en esa prueba y esa piscina. La estrella marca cuando lo mejora.'],
   puesto: ['Puesto', 'Siempre entre los nadadores de su mismo sexo y año de nacimiento, que es como se compite en estas edades.'],
 };
 const glos = (k, txt) => GLOSARIO[k] ? `<span role="button" tabindex="0" class="glos" data-glos="${k}" aria-label="Qué es: ${esc(txt || GLOSARIO[k][0])}">?</span>` : '';
+/* Ventana con todos los términos (botón «Glosario» junto al interruptor de vista) */
+function abrirGlosario() {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">Qué significan los términos</h1>
+      <div class="glosario">${Object.values(GLOSARIO).map(([t, d]) => `<div class="glos-fila"><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join('')}</div>`;
+    abrirModal();
+  });
+}
 const SEXO = {M: 'Masc.', F: 'Fem.'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
 /* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */

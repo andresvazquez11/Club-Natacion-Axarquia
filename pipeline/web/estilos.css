@@ -1035,3 +1035,8 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .nav-vivo{position:absolute;top:6px;right:calc(50% - 20px)}
 #nav-dir{position:relative}
 .accesos.dos .acc:last-child:nth-child(odd){grid-column:span 2}
+
+/* Fase 4: glosario, carga y lenguaje */
+.cargando{text-align:center;margin:40vh 0 0;color:var(--ink2);font-weight:700}
+.glos-b{margin-left:auto;min-height:32px;padding:0 12px;border-radius:99px;font-size:.72rem;font-weight:800;color:var(--ink2);border:1px solid rgba(127,127,127,.35)}
+.glos-fila{padding:10px 0;border-top:1px solid rgba(127,127,127,.2)}.glos-fila:first-child{border-top:0}.glos-fila b{display:block}.glos-fila p{margin:3px 0 0;font-size:.88rem;line-height:1.4;color:var(--ink2)}

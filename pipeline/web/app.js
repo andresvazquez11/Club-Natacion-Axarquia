@@ -99,6 +99,27 @@ function marcarContador() {
   document.body.appendChild(a); setTimeout(() => a.remove(), 4000);
 }
 
+/* ── Lenguaje de la vista Familias ──
+   Las pantallas están escritas con los términos de la federación (Cto., pts, top-10…). En la vista Familias se cambian por palabras
+   normales al pintar (y cada vez que una pantalla añade contenido después, p. ej. el directo). La vista Completa no se toca. */
+const LENGUAJE_FAMILIAS = [
+  [/\bCto\. de (España|Andalucía)/g, 'Campeonato de $1'], [/\bCto\. (España|Andalucía)/g, 'Campeonato de $1'], [/\bCtos?\.(?=\s|$)/g, 'Campeonato'],
+  [/\bpts\b/g, 'puntos'], [/\ben el top-(\d+)/gi, 'entre los $1 primeros'], [/\bel top-(\d+)/gi, 'los $1 primeros'], [/\btop-(\d+)\b/gi, '$1 primeros'],
+  [/Frente a su inscripción/g, 'Respecto a su inscripción'], [/\bTodas juntas\b/g, 'Todas (equivalente en 25 m)'], [/\bparciales\b/g, 'tiempos por tramo'], [/\bParciales\b/g, 'Tiempos por tramo'],
+];
+const lenguajeTexto = t => LENGUAJE_FAMILIAS.reduce((x, [a, b]) => x.replace(a, b), t);
+function lenguajeAplicar(raiz) {
+  if (!vistaFamilias() || !raiz) return;
+  const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT, {acceptNode: n => /[A-Za-zÁÉÍÓÚáéíóú]/.test(n.nodeValue) && !(n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+  const L = []; for (let n = w.nextNode(); n; n = w.nextNode()) L.push(n);
+  L.forEach(n => { const v = lenguajeTexto(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; });
+}
+function lenguajeFamilias() {
+  const app = document.getElementById('app'); if (!app || typeof MutationObserver === 'undefined') return;
+  let pendiente = false;
+  new MutationObserver(() => { if (pendiente) return; pendiente = true; Promise.resolve().then(() => { pendiente = false; lenguajeAplicar(app); }); }).observe(app, {childList: true, subtree: true});
+}
+
 let pilaNav = [];
 let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
@@ -167,7 +188,12 @@ function arrancar() {
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });
-  document.addEventListener('click', e => { const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista); });   // interruptor Familias | Completa
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista);                 // interruptor Familias | Completa
+    if (e.target.closest('[data-glosario]')) abrirGlosario();
+    if (e.target.closest('[data-entrenador]')) { VISTA = 'completa'; try { localStorage.setItem(VISTA_LS, VISTA); } catch (x) {} }   // el enlace lleva a #entrenamientos, que está en la vista Completa
+  });
+  lenguajeFamilias();
   window.addEventListener('hashchange', route);
   route();
 }

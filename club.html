@@ -1044,6 +1044,11 @@ html.clara .car-abrir .ico{color:var(--warn)}
 #nav-dir{position:relative}
 .accesos.dos .acc:last-child:nth-child(odd){grid-column:span 2}
 
+/* Fase 4: glosario, carga y lenguaje */
+.cargando{text-align:center;margin:40vh 0 0;color:var(--ink2);font-weight:700}
+.glos-b{margin-left:auto;min-height:32px;padding:0 12px;border-radius:99px;font-size:.72rem;font-weight:800;color:var(--ink2);border:1px solid rgba(127,127,127,.35)}
+.glos-fila{padding:10px 0;border-top:1px solid rgba(127,127,127,.2)}.glos-fila:first-child{border-top:0}.glos-fila b{display:block}.glos-fila p{margin:3px 0 0;font-size:.88rem;line-height:1.4;color:var(--ink2)}
+
 </style>
 </head>
 <body>
@@ -1064,7 +1069,7 @@ html.clara .car-abrir .ico{color:var(--warn)}
     <a href="#entrenamientos" data-sec="entrenamientos" id="nav-ent"><svg class="ico"><use href="#i-pizarra"/></svg><span class="largo">Modo entrenador</span><span class="corto">Entrenador</span></a>
     <div class="nav-foot" id="nav-foot"></div>
   </nav>
-  <main class="main" id="app" tabindex="-1"></main>
+  <main class="main" id="app" tabindex="-1"><p class="cargando" role="status">Cargando las estadísticas del club…</p></main>
 </div>
 <div id="modal" role="dialog" aria-modal="true"><div class="box"></div></div>
 <script>
@@ -1156,9 +1161,26 @@ const GLOSARIO = {
   split: ['Split negativo', 'Nadar la segunda mitad más rápido que la primera. Es la señal de una carrera bien repartida.'],
   parcial: ['Parciales', 'El tiempo en cada tramo de la carrera (por ejemplo, cada 50 m). El primer tramo es más rápido porque lleva la salida.'],
   rota: ['Rota', 'Una serie partida en tramos con descansos. El tiempo que se guarda es el neto, sin contar los descansos.'],
+  cto: ['Cto. (Campeonato)', 'Campeonato de Andalucía o de España. «Cto. España» = Campeonato de España.'],
+  top: ['Top-10 / top-8', 'Estar entre los 10 (o los 8) mejores de su año de nacimiento en un ranking o en un campeonato.'],
+  presencias: ['Presencias', 'Cuántas veces un club mete a un nadador entre los 8 primeros de su año en cada prueba. Sirve para comparar clubes.'],
+  inscripcion: ['Inscripción', 'El tiempo con el que el nadador se apunta a la competición. La federación usa su mejor marca de cualquier piscina, por eso a veces es de 50 m aunque la competición sea en 25 m.'],
+  serie: ['Serie', 'Cada tanda de una prueba. En una prueba con muchos nadadores se nada por series; el puesto final se decide por tiempo entre todas.'],
+  piscina: ['Piscina de 25 m y de 50 m', 'En 25 m hay más giros y salen tiempos más rápidos que en 50 m. Por eso no se comparan entre sí; la «equivalencia» es solo orientativa.'],
+  pb: ['Mejor marca personal (★)', 'Su mejor tiempo hasta ahora en esa prueba y esa piscina. La estrella marca cuando lo mejora.'],
   puesto: ['Puesto', 'Siempre entre los nadadores de su mismo sexo y año de nacimiento, que es como se compite en estas edades.'],
 };
 const glos = (k, txt) => GLOSARIO[k] ? `<span role="button" tabindex="0" class="glos" data-glos="${k}" aria-label="Qué es: ${esc(txt || GLOSARIO[k][0])}">?</span>` : '';
+/* Ventana con todos los términos (botón «Glosario» junto al interruptor de vista) */
+function abrirGlosario() {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">Qué significan los términos</h1>
+      <div class="glosario">${Object.values(GLOSARIO).map(([t, d]) => `<div class="glos-fila"><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join('')}</div>`;
+    abrirModal();
+  });
+}
 const SEXO = {M: 'Masc.', F: 'Fem.'};
 const SEXO_TXT = {M: 'Masculino', F: 'Femenino'};
 /* Banderas dibujadas (no emoji: el emoji 🇪🇸 sale como «ES» en Windows y Andalucía no tiene emoji) */
@@ -2348,7 +2370,7 @@ function clubInicio(app) {
       <div data-lu-p="marcas" hidden>${nuevas.length ? `<table class="rt">${nuevas.slice(0, 8).map(([s, e]) => `<tr class="click" data-evo="${s.id}|${e.e}"><td><b>${corto(s.n)}</b><div class="tiny muted">${franja(e.e)}${e.e}</div></td><td class="num"><b>${fmt(e.cs)}</b></td><td class="num">${dtag(e.date)}</td></tr>`).join('')}</table>`
           : '<p class="vacio">Ningún nadador del club ha mejorado todavía su marca en la 26-27. Aparecerán aquí en cuanto empiece la temporada.</p>'}</div>
     </div>
-    ${vistaFamilias() ? `<div class="card fam-mas" style="margin-top:12px"><div class="h">${ico('barras')}¿Quieres más datos del club?</div><p class="small" style="margin:0 0 8px">El club en números, los top-10 en campeonatos, el club frente a los demás clubes y el modo entrenador están en la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>` : `
+    ${vistaFamilias() ? `<div class="card fam-mas" style="margin-top:12px"><div class="h">${ico('barras')}¿Quieres más datos del club?</div><p class="small" style="margin:0 0 8px">El club en números, los top-10 en campeonatos, el club frente a los demás clubes y el modo entrenador están en la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div><p class="tiny muted" style="text-align:center;margin-top:10px">¿Eres entrenador o entrenadora? <a href="#entrenamientos" data-entrenador>Abrir el modo entrenador</a></p>` : `
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}Nadadores por categoría <span class="h-n">· pulsa para entrar</span></div>${barsHTML(catBars)}</div>
 
     <div class="card" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
@@ -3236,7 +3258,7 @@ function resumenFamiliasHTML(s, cat) {
 /* Pestañas de la ficha, siempre arriba: Resumen + los accesos de este nadador (antes eran botones pequeños a mitad de página) */
 const FAM_TABS = [['resumen', 'Resumen'], ['resultados', 'Resultados'], ['marcas', 'Marcas'], ['progreso', 'Progreso']];
 const vistaSegHTML = () => `<div class="vista-row"><span>Vista</span><div class="seg" role="group" aria-label="Tipo de vista">${[['familias', 'Familias'], ['completa', 'Completa']]
-  .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div></div>`;
+  .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div><button type="button" class="glos-b" data-glosario>Glosario</button></div>`;
 function fichaTabsHTML(s, sub) {
   const L = vistaFamilias() && FAM_TABS.some(t => t[0] === sub) ? FAM_TABS : [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
   return vistaSegHTML() + `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
@@ -6806,6 +6828,27 @@ function marcarContador() {
   document.body.appendChild(a); setTimeout(() => a.remove(), 4000);
 }
 
+/* ── Lenguaje de la vista Familias ──
+   Las pantallas están escritas con los términos de la federación (Cto., pts, top-10…). En la vista Familias se cambian por palabras
+   normales al pintar (y cada vez que una pantalla añade contenido después, p. ej. el directo). La vista Completa no se toca. */
+const LENGUAJE_FAMILIAS = [
+  [/\bCto\. de (España|Andalucía)/g, 'Campeonato de $1'], [/\bCto\. (España|Andalucía)/g, 'Campeonato de $1'], [/\bCtos?\.(?=\s|$)/g, 'Campeonato'],
+  [/\bpts\b/g, 'puntos'], [/\ben el top-(\d+)/gi, 'entre los $1 primeros'], [/\bel top-(\d+)/gi, 'los $1 primeros'], [/\btop-(\d+)\b/gi, '$1 primeros'],
+  [/Frente a su inscripción/g, 'Respecto a su inscripción'], [/\bTodas juntas\b/g, 'Todas (equivalente en 25 m)'], [/\bparciales\b/g, 'tiempos por tramo'], [/\bParciales\b/g, 'Tiempos por tramo'],
+];
+const lenguajeTexto = t => LENGUAJE_FAMILIAS.reduce((x, [a, b]) => x.replace(a, b), t);
+function lenguajeAplicar(raiz) {
+  if (!vistaFamilias() || !raiz) return;
+  const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT, {acceptNode: n => /[A-Za-zÁÉÍÓÚáéíóú]/.test(n.nodeValue) && !(n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+  const L = []; for (let n = w.nextNode(); n; n = w.nextNode()) L.push(n);
+  L.forEach(n => { const v = lenguajeTexto(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; });
+}
+function lenguajeFamilias() {
+  const app = document.getElementById('app'); if (!app || typeof MutationObserver === 'undefined') return;
+  let pendiente = false;
+  new MutationObserver(() => { if (pendiente) return; pendiente = true; Promise.resolve().then(() => { pendiente = false; lenguajeAplicar(app); }); }).observe(app, {childList: true, subtree: true});
+}
+
 let pilaNav = [];
 let lastSec = null;
 let lastHash = null;        // dirección completa de la última pantalla mostrada
@@ -6874,7 +6917,12 @@ function arrancar() {
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });
-  document.addEventListener('click', e => { const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista); });   // interruptor Familias | Completa
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista);                 // interruptor Familias | Completa
+    if (e.target.closest('[data-glosario]')) abrirGlosario();
+    if (e.target.closest('[data-entrenador]')) { VISTA = 'completa'; try { localStorage.setItem(VISTA_LS, VISTA); } catch (x) {} }   // el enlace lleva a #entrenamientos, que está en la vista Completa
+  });
+  lenguajeFamilias();
   window.addEventListener('hashchange', route);
   route();
 }
