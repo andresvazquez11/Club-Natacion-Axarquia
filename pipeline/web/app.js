@@ -147,7 +147,8 @@ function route() {
   const cmpId = sec === 'comparar' ? (params.ids || '').split(',')[0] : null;
   const navSec = sec === 'elegir' ? 'nadador'
     : sec === 'nadador' ? (BEN && r.id === String(BEN.id) ? 'nadador' : (volverA || '').startsWith('#rankings') ? 'rankings' : 'club')
-    : sec === 'comparar' ? (BEN && cmpId === String(BEN.id) ? 'nadador' : 'club') : sec;
+    : sec === 'comparar' ? (BEN && cmpId === String(BEN.id) ? 'nadador' : 'club') : sec === 'campeonatos' ? 'club' : sec;
+  const ne = document.getElementById('nav-ent'); if (ne) ne.hidden = vistaFamilias();   // «Entrenador» solo en la vista Completa
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.sec === navSec));
   // al cambiar de sección o de nadador se sube arriba; al cambiar un filtro se mantiene la posición
   // al volver a una pantalla ya vista se recupera su altura; si es nueva, se empieza arriba
@@ -162,7 +163,7 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Buscar nadador');
   bindBuscador('q-cab');
   entNavModo();
-  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); b.lastElementChild.textContent = v ? 'En directo' : 'Competiciones'; } });   // botón «Directo» en rojo si hay competición
+  dirCargar(false).then(d => { const b = document.getElementById('nav-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); const p = b.querySelector('.nav-vivo'); if (p) p.hidden = !v; } });   // punto «en directo» en la pestaña Competiciones   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });

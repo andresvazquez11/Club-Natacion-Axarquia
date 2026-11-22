@@ -1029,3 +1029,9 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .fam-comp>summary{cursor:pointer;list-style:none}.fam-comp>summary b{display:block}
 .fam-comp[open]>summary{margin-bottom:6px}
 .fam-mas .btn{display:block;text-align:center}
+
+/* Fase 3: navegación y portada del Club */
+.nav a[hidden]{display:none}
+.nav-vivo{position:absolute;top:6px;right:calc(50% - 20px)}
+#nav-dir{position:relative}
+.accesos.dos .acc:last-child:nth-child(odd){grid-column:span 2}

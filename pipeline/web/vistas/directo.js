@@ -588,11 +588,17 @@ function vistaDirecto(app, p) {
       onChips(host, 'dsx', v => ir({sx: v}));
       host.querySelectorAll('details[data-pid]').forEach(x => { if (abiertasP.includes(x.dataset.pid)) x.open = true; });
     } else {
-      const g = e => d.competiciones.filter(x => x.estado === e);
-      const sec = (t, L, inv) => L.length ? `<div class="h h-sub" style="margin-top:14px">${t}</div>${(inv ? [...L].reverse() : L).map(dirTarjeta).join('')}` : '';
-      const prx = g('proxima'), secProx = !prx.length ? '' : `<div class="h h-sub" style="margin-top:14px">Próximas <span class="h-n">· ${prx.length} en el calendario</span></div>${prx.slice(0, 4).map(dirTarjeta).join('')}${prx.length > 4 ? `<details class="dir-mas"><summary>Ver las ${prx.length - 4} siguientes</summary>${prx.slice(4).map(dirTarjeta).join('')}</details>` : ''}`;
-      host.innerHTML = (sec('En curso', g('en_curso')) + secProx + sec('Recientes', g('terminada'), true)
-        || '<div class="vacio">No hay competiciones en las próximas semanas.</div>') + pie;
+      const g = e => d.competiciones.filter(x => x.estado === e), vivo = g('en_curso'), prx = g('proxima'), rec = [...g('terminada')].reverse();
+      // pestañas: En directo (si hay) · Resultados · Próximas. Por defecto: en directo; si no, resultados de la última semana; si no, próximas
+      const reciente = rec.length && Math.round((Date.parse(dirHoy()) - Date.parse(rec[0].hasta || rec[0].desde)) / 864e5) <= 7;
+      const tabs = [...(vivo.length ? [['directo', 'En directo']] : []), ['resultados', 'Resultados'], ['proximas', 'Próximas']];
+      const t = tabs.some(x => x[0] === p.t) ? p.t : vivo.length ? 'directo' : reciente || !prx.length ? 'resultados' : 'proximas';
+      const mias = (BEN ? [BEN] : []).concat(familiaIds().map(id => SW[id]).filter(x => x && (!BEN || x.id !== BEN.id))).map(x => dirBannerHoy(d.competiciones.map(c => ({c, filas: c.lenex ? dirNuestras(c).filter(f => dirEsDe(f, String(x.id))) : []})), x)).join('');
+      const lista = {directo: vivo, resultados: rec, proximas: prx}[t];
+      const cuerpo = lista.length ? lista.slice(0, t === 'proximas' ? 4 : 6).map(dirTarjeta).join('') + (lista.length > (t === 'proximas' ? 4 : 6) ? `<details class="dir-mas"><summary>Ver las ${lista.length - (t === 'proximas' ? 4 : 6)} ${t === 'proximas' ? 'siguientes' : 'anteriores'}</summary>${lista.slice(t === 'proximas' ? 4 : 6).map(dirTarjeta).join('')}</details>` : '')
+        : `<div class="vacio">${t === 'proximas' ? 'No hay competiciones en las próximas semanas.' : t === 'resultados' ? 'Todavía no hay resultados.' : 'Ahora no hay ninguna competición en directo.'}</div>`;
+      host.innerHTML = vistaSegHTML() + mias + chipsHTML('dt', tabs.map(([v, l]) => [v, l]), t) + `<div style="margin-top:6px">${cuerpo}</div>` + pie;
+      onChips(host, 'dt', v => { location.hash = `#directo?t=${v}`; });
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
     dirCuentaArrancar();
@@ -614,7 +620,7 @@ function dirBannerHoy(suyas, s) {
   const x = vivo || rec || prx; if (!x) return '';
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
-  return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab}</div>
+  return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
     <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
     <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
 }

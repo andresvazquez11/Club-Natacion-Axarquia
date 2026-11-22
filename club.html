@@ -1038,6 +1038,12 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .fam-comp[open]>summary{margin-bottom:6px}
 .fam-mas .btn{display:block;text-align:center}
 
+/* Fase 3: navegación y portada del Club */
+.nav a[hidden]{display:none}
+.nav-vivo{position:absolute;top:6px;right:calc(50% - 20px)}
+#nav-dir{position:relative}
+.accesos.dos .acc:last-child:nth-child(odd){grid-column:span 2}
+
 </style>
 </head>
 <body>
@@ -1046,7 +1052,6 @@ html.clara .car-abrir .ico{color:var(--warn)}
 <header class="cab" id="cab">
   <a class="brand" href="#inicio"><img class="brand-logo" src="logo_cna.png" alt="CNA"><span><b>C.N. Axarquía</b><small>Temporada 26-27</small></span></a>
   <div class="cab-bus" id="cab-bus"></div>
-  <a class="crono-b dir-b" id="cab-dir" href="#directo" title="Competiciones: próximas, en directo y resultados" aria-label="Competiciones: calendario, resultados y directo"><span class="dir-punto"></span><span>Competiciones</span></a>
   <a class="crono-b" id="cab-crono" href="cronometro/" hidden title="Abrir el cronómetro" aria-label="Abrir el cronómetro"><svg class="ico"><use href="#i-crono"/></svg><span>Crono</span></a>
   <button class="modo-b" type="button" onclick="cambiarModo()" aria-label="Cambiar entre modo claro y acuático"></button>
 </header>
@@ -1054,7 +1059,7 @@ html.clara .car-abrir .ico{color:var(--warn)}
   <nav class="nav" id="nav" aria-label="Secciones">
     <a href="#mi" data-sec="nadador" id="nav-ben"><svg class="ico"><use href="#i-nadador"/></svg><span>Mi nadador</span></a>
     <a href="#club" data-sec="club"><svg class="ico"><use href="#i-grupo"/></svg><span>Club</span></a>
-    <a href="#campeonatos" data-sec="campeonatos"><svg class="ico"><use href="#i-copa"/></svg><span class="largo">Campeonatos</span><span class="corto">Cptos.</span></a>
+    <a href="#directo" data-sec="directo" id="nav-dir"><svg class="ico"><use href="#i-copa"/></svg><span class="largo">Competiciones</span><span class="corto">Compet.</span><span class="dir-punto nav-vivo" hidden></span></a>
     <a href="#rankings" data-sec="rankings"><svg class="ico"><use href="#i-barras"/></svg><span>Rankings</span></a>
     <a href="#entrenamientos" data-sec="entrenamientos" id="nav-ent"><svg class="ico"><use href="#i-pizarra"/></svg><span class="largo">Modo entrenador</span><span class="corto">Entrenador</span></a>
     <div class="nav-foot" id="nav-foot"></div>
@@ -2301,7 +2306,7 @@ function clubInicio(app) {
   nuevas.sort((a, b) => a[1].date < b[1].date ? 1 : -1);
   const cat = (DATA.cats.find(x => x.key === (BEN && BEN.cat)) || DATA.cats.find(x => x.key === 'ALE') || DATA.cats[0]).key;
   const accesos = [['Nadadores', 'grupo', `#club/${cat}`], ['Relevos', 'relevo', `#club/${cat}/relevos`],
-    ['Récords', 'medalla', `#club/${cat}/records`], ['Historia', 'historia', `#club/${cat}/historia`]]
+    ['Récords', 'medalla', `#club/${cat}/records`], ['Historia', 'historia', `#club/${cat}/historia`], ['Campeonatos', 'copa', '#campeonatos']]
     .map(([l, i, h]) => `<a class="acc" href="${h}">${ico(i)}<span>${l}</span></a>`).join('');
   const catBars = DATA.cats.map(c => {
     const m = c.ids.filter(id => SW[String(id)].g === 'M').length;
@@ -2321,9 +2326,11 @@ function clubInicio(app) {
     <div class="portada" style="--foto:url(img/club.jpg)">
       <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · ${actBtn(`actualizado ${DATA.fecha}`)}</p></div></div>
     </div>
+    ${vistaSegHTML()}
     <div class="card club-buscar"><div class="h">${ico('nadador')}¿A quién buscas?</div>${buscadorHTML('q-club', 'Nombre de tu nadador…')}</div>
     <div class="accesos dos">${accesos}</div>
     <div class="card cc" id="club-comp" style="margin-top:12px"><div class="h">${ico('copa')}Competiciones</div><p class="empty">Buscando competiciones…</p></div>
+    ${vistaFamilias() ? '' : `
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
       <div class="kpis k5">
         ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
@@ -2333,6 +2340,7 @@ function clubInicio(app) {
       <div class="note">${DATA.new_marks
         ? `La RFEN ya tiene <b>${DATA.new_marks.toLocaleString('es')}</b> marcas de la temporada 26-27 (de todos los clubes). Para cada nadador se usa su mejor marca entre la 25-26 y la 26-27.`
         : 'Todavía no hay marcas de la 26-27: se usa lo mejor de la 25-26 como punto de partida.'}</div></div>
+`}
     <div class="card lu" style="margin-top:12px"><div class="h">${ico('historia')}Lo último</div>
       ${gTabs('lu', [['sem', 'Esta semana'], ['comp', 'Última competición'], ['marcas', 'Marcas']], 'sem')}
       <div data-lu-p="sem">${estaSemanaCard()}</div>
@@ -2340,6 +2348,7 @@ function clubInicio(app) {
       <div data-lu-p="marcas" hidden>${nuevas.length ? `<table class="rt">${nuevas.slice(0, 8).map(([s, e]) => `<tr class="click" data-evo="${s.id}|${e.e}"><td><b>${corto(s.n)}</b><div class="tiny muted">${franja(e.e)}${e.e}</div></td><td class="num"><b>${fmt(e.cs)}</b></td><td class="num">${dtag(e.date)}</td></tr>`).join('')}</table>`
           : '<p class="vacio">Ningún nadador del club ha mejorado todavía su marca en la 26-27. Aparecerán aquí en cuanto empiece la temporada.</p>'}</div>
     </div>
+    ${vistaFamilias() ? `<div class="card fam-mas" style="margin-top:12px"><div class="h">${ico('barras')}¿Quieres más datos del club?</div><p class="small" style="margin:0 0 8px">El club en números, los top-10 en campeonatos, el club frente a los demás clubes y el modo entrenador están en la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>` : `
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}Nadadores por categoría <span class="h-n">· pulsa para entrar</span></div>${barsHTML(catBars)}</div>
 
     <div class="card" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
@@ -2349,7 +2358,7 @@ function clubInicio(app) {
 
     <div style="margin-top:12px">${cmpCard('', '', 'El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a absoluto en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
 
-    <p class="foot">Fuente: ranking RFEN, temporadas 25-26 y 26-27 (todas las piscinas, sin tiempos parciales). Andalucía = clubes de las 8 provincias andaluzas · Málaga = clubes de la provincia · Puntos World Aquatics = 1000×(récord/marca)³.</p>`;
+    <p class="foot">Fuente: ranking RFEN, temporadas 25-26 y 26-27 (todas las piscinas, sin tiempos parciales). Andalucía = clubes de las 8 provincias andaluzas · Málaga = clubes de la provincia · Puntos World Aquatics = 1000×(récord/marca)³.</p>`}`;
 
   bindBuscador('q-club');
   cmpBind(app);
@@ -6396,11 +6405,17 @@ function vistaDirecto(app, p) {
       onChips(host, 'dsx', v => ir({sx: v}));
       host.querySelectorAll('details[data-pid]').forEach(x => { if (abiertasP.includes(x.dataset.pid)) x.open = true; });
     } else {
-      const g = e => d.competiciones.filter(x => x.estado === e);
-      const sec = (t, L, inv) => L.length ? `<div class="h h-sub" style="margin-top:14px">${t}</div>${(inv ? [...L].reverse() : L).map(dirTarjeta).join('')}` : '';
-      const prx = g('proxima'), secProx = !prx.length ? '' : `<div class="h h-sub" style="margin-top:14px">Próximas <span class="h-n">· ${prx.length} en el calendario</span></div>${prx.slice(0, 4).map(dirTarjeta).join('')}${prx.length > 4 ? `<details class="dir-mas"><summary>Ver las ${prx.length - 4} siguientes</summary>${prx.slice(4).map(dirTarjeta).join('')}</details>` : ''}`;
-      host.innerHTML = (sec('En curso', g('en_curso')) + secProx + sec('Recientes', g('terminada'), true)
-        || '<div class="vacio">No hay competiciones en las próximas semanas.</div>') + pie;
+      const g = e => d.competiciones.filter(x => x.estado === e), vivo = g('en_curso'), prx = g('proxima'), rec = [...g('terminada')].reverse();
+      // pestañas: En directo (si hay) · Resultados · Próximas. Por defecto: en directo; si no, resultados de la última semana; si no, próximas
+      const reciente = rec.length && Math.round((Date.parse(dirHoy()) - Date.parse(rec[0].hasta || rec[0].desde)) / 864e5) <= 7;
+      const tabs = [...(vivo.length ? [['directo', 'En directo']] : []), ['resultados', 'Resultados'], ['proximas', 'Próximas']];
+      const t = tabs.some(x => x[0] === p.t) ? p.t : vivo.length ? 'directo' : reciente || !prx.length ? 'resultados' : 'proximas';
+      const mias = (BEN ? [BEN] : []).concat(familiaIds().map(id => SW[id]).filter(x => x && (!BEN || x.id !== BEN.id))).map(x => dirBannerHoy(d.competiciones.map(c => ({c, filas: c.lenex ? dirNuestras(c).filter(f => dirEsDe(f, String(x.id))) : []})), x)).join('');
+      const lista = {directo: vivo, resultados: rec, proximas: prx}[t];
+      const cuerpo = lista.length ? lista.slice(0, t === 'proximas' ? 4 : 6).map(dirTarjeta).join('') + (lista.length > (t === 'proximas' ? 4 : 6) ? `<details class="dir-mas"><summary>Ver las ${lista.length - (t === 'proximas' ? 4 : 6)} ${t === 'proximas' ? 'siguientes' : 'anteriores'}</summary>${lista.slice(t === 'proximas' ? 4 : 6).map(dirTarjeta).join('')}</details>` : '')
+        : `<div class="vacio">${t === 'proximas' ? 'No hay competiciones en las próximas semanas.' : t === 'resultados' ? 'Todavía no hay resultados.' : 'Ahora no hay ninguna competición en directo.'}</div>`;
+      host.innerHTML = vistaSegHTML() + mias + chipsHTML('dt', tabs.map(([v, l]) => [v, l]), t) + `<div style="margin-top:6px">${cuerpo}</div>` + pie;
+      onChips(host, 'dt', v => { location.hash = `#directo?t=${v}`; });
     }
     host.querySelectorAll('[data-dir-seguir]').forEach(sel => sel.onchange = () => { if (sel.value) location.hash = `#directo?c=${Number(sel.dataset.dirSeguir)}&n=${Number(sel.value)}`; });
     dirCuentaArrancar();
@@ -6422,7 +6437,7 @@ function dirBannerHoy(suyas, s) {
   const x = vivo || rec || prx; if (!x) return '';
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
-  return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab}</div>
+  return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
     <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
     <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
 }
@@ -6839,7 +6854,8 @@ function route() {
   const cmpId = sec === 'comparar' ? (params.ids || '').split(',')[0] : null;
   const navSec = sec === 'elegir' ? 'nadador'
     : sec === 'nadador' ? (BEN && r.id === String(BEN.id) ? 'nadador' : (volverA || '').startsWith('#rankings') ? 'rankings' : 'club')
-    : sec === 'comparar' ? (BEN && cmpId === String(BEN.id) ? 'nadador' : 'club') : sec;
+    : sec === 'comparar' ? (BEN && cmpId === String(BEN.id) ? 'nadador' : 'club') : sec === 'campeonatos' ? 'club' : sec;
+  const ne = document.getElementById('nav-ent'); if (ne) ne.hidden = vistaFamilias();   // «Entrenador» solo en la vista Completa
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.sec === navSec));
   // al cambiar de sección o de nadador se sube arriba; al cambiar un filtro se mantiene la posición
   // al volver a una pantalla ya vista se recupera su altura; si es nueva, se empieza arriba
@@ -6854,7 +6870,7 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Buscar nadador');
   bindBuscador('q-cab');
   entNavModo();
-  dirCargar(false).then(d => { const b = document.getElementById('cab-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); b.lastElementChild.textContent = v ? 'En directo' : 'Competiciones'; } });   // botón «Directo» en rojo si hay competición
+  dirCargar(false).then(d => { const b = document.getElementById('nav-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); const p = b.querySelector('.nav-vivo'); if (p) p.hidden = !v; } });   // punto «en directo» en la pestaña Competiciones   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });
