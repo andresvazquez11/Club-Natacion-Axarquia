@@ -461,6 +461,7 @@ function dirSeguirHTML(c, rfen) {
       <div class="dir-datos"><div><small>Serie</small><b>${x.posSerie} de ${x.series}</b></div><div><small>Calle</small><b>${x.f.calle}</b></div><div><small>Inscrito</small><b>${x.f.ins ? fmt(x.f.ins) : '—'}</b></div></div>
       ${dirCuentaHTML(c, x)}
       ${est}
+      ${x.estado === 'hecha' ? phHTML(s, c, x.p, x.f) : ''}
       <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}</details>
       <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} ${x.f.rel ? 'equipos' : 'nadadores'})${x.estado === 'hecha' ? ' · clasificación' : ''}</summary>${x.estado === 'hecha' ? dirAvisoConj(x.p) + dirClasificacion(x.p, f => dirEsDe(f, rfen), null, rfen) : series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}`).join('')}</details>
     </div>`;
@@ -536,7 +537,7 @@ function dirDetalle(c, f) {
     const nombres = [...new Map(club.map(x => [x.rfen === '?' || x.rfen === 'club' ? x.n : x.rfen, x])).values()];
     const quien = nombres.length ? `<div class="dir-quien">${nombres.slice(0, 8).map(x => `<span>${esc(x.rfen === 'club' ? 'Relevo del club' : x.n.split(' ')[0] + (x.n.split(' ')[1] ? ' ' + x.n.split(' ')[1][0] + '.' : ''))}</span>`).join('')}${nombres.length > 8 ? `<span class="muted">+${nombres.length - 8}</span>` : ''}</div>` : '';
     const est = m.estado === 'hecha' ? '<span class="dir-est hecha">Terminada</span>' : vivo ? `<span class="dir-est vivo"><span class="dir-punto"></span>Serie ${m.hechas + 1} de ${m.series.length}</span>` : `<span class="dir-est">${m.series.length} ${m.series.length === 1 ? 'serie' : 'series'}</span>`;
-    return `<details class="card dir-p dir-p-${m.estado}" data-pid="${esc(String(p.id || p.num))}">
+    return `<details class="card dir-p dir-p-${m.estado}" data-pid="${esc(String(p.id || p.num))}" data-car-clave="${esc(`${p.sesion || ''}|${p.num}`)}">
       <summary><div class="dir-hora"><small>${varios && p.fecha ? dfmt(p.fecha) : 'hora'}</small><b>${esc(p.hora || '--:--')}</b></div>
         <div class="dir-p-txt">${dirNombrePrueba(p)}
           <div class="tiny muted">Prueba ${p.num}${p.sesion ? ` · ${esc(p.sesion)}` : ''} · ${p.filas.length} nadadores ${est}</div>${quien}</div>

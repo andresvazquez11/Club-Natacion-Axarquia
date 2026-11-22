@@ -8,7 +8,7 @@ import { cargar, evalIn } from './cargar.mjs';
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 // texto real de un ResultList de SPLASH (el mismo que usan las pruebas de pipeline/fan_directo.py)
 const RES16 = fs.readFileSync(path.join(AQUI, '..', '..', 'tests', 'datos', 'fan_resultlist_16.txt'), 'utf8');
-const ctx = cargar(['comunes.js', 'iconos.js', 'vistas/directo.js'],
+const ctx = cargar(['comunes.js', 'iconos.js', 'vistas/prueba-historia.js', 'vistas/directo.js'],
   { swimmers: [{ id: 5960779, n: 'Thomas Capelli', y: 2014, g: 'M', ev: [] }], cats: [], lists: {} });
 const leer = (t, g) => { ctx.__t = t; ctx.__g = g; return JSON.parse(evalIn(ctx, 'JSON.stringify(dirLeerResultadosTexto(__t, __g))')); };
 

@@ -998,3 +998,10 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .ent-fin-btn{margin:8px 0 4px;width:100%}
 .ent-fin-btn.on{filter:brightness(.92)}
 .ent-fin-host{margin-bottom:8px}
+
+/* Historial de la prueba bajo el resultado de un nadador (directo) */
+.dir-hist{margin-top:10px;padding-top:4px;border-top:1px solid var(--line, rgba(127,127,127,.25))}
+.dir-hist>summary{font-weight:800}
+.dir-hist-cab{margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:rgba(127,127,127,.12)}
+.dir-hist-cab.good{background:rgba(52,211,153,.15);color:var(--good)}
+.dir-hist-cab.bad{background:rgba(255,212,0,.12)}

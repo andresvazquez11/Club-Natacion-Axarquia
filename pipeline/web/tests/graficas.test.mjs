@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { cargar, evalIn } from './cargar.mjs';
 
 const DATA = { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } };
-const ctx = cargar(['comunes.js', 'iconos.js', 'graficos.js', 'vistas/directo.js'], structuredClone(DATA));
+const ctx = cargar(['comunes.js', 'iconos.js', 'graficos.js', 'vistas/prueba-historia.js', 'vistas/directo.js'], structuredClone(DATA));
 const ev = (expr, ...args) => { ctx.__a = args; return JSON.parse(evalIn(ctx, `JSON.stringify(${expr}(...__a))`)); };
 
 test('gParcCarrera: de acumulados a cada tramo; tramos según la distancia', () => {

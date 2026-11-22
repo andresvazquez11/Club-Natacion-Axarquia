@@ -319,7 +319,7 @@ async function carBotonesDetalle(host, comp) {
   const ok = carDisponibles(c);
   host.querySelectorAll('details[data-pid]').forEach(det => {
     if (det.querySelector('[data-car-abrir]')) return;
-    const m = /^(.*)-(\d+)$/.exec(det.dataset.pid || ''); if (!m || !ok.has(`${m[1]}|${m[2]}`)) return;
+    const m = /^(.*)\|(\d+)$/.exec(det.dataset.carClave || ''); if (!m || !ok.has(det.dataset.carClave)) return;   // «sesión|nº» (data-pid es el id de la prueba en la federación, no sirve)
     const abrir = ev => { ev.preventDefault(); ev.stopPropagation(); carAbrirPrueba(c, Number(m[2]), m[1]); };
     const b = document.createElement('button'); b.className = 'btn car-abrir'; b.setAttribute('data-car-abrir', ''); b.innerHTML = `${ico('crono')}Ver foto finish y repetición de la carrera`; b.onclick = abrir;
     const sum = det.querySelector('summary'); sum.insertAdjacentElement('afterend', b);

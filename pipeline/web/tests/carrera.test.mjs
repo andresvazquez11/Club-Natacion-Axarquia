@@ -55,7 +55,7 @@ test('carPosFinal: a más de una piscina el nadador va en sentido contrario al g
 test('ccFalta: cuánto falta para una competición', () => {
   const dia = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const c = ctxD => ctxD;
-  const ctx2 = cargar(['comunes.js', 'iconos.js', 'graficos.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
+  const ctx2 = cargar(['comunes.js', 'iconos.js', 'graficos.js', 'vistas/prueba-historia.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
   const f = (desde, estado = 'proxima') => { ctx2.__c = { desde, estado }; return evalIn(ctx2, 'ccFalta(__c)'); };
   assert.deepEqual([f(dia(0)), f(dia(1)), f(dia(31)), f(dia(120)), f(dia(0), 'en_curso')], ['Hoy', 'Mañana', 'En 31 días', 'En 4 meses', 'En directo ahora']);
   void c;
@@ -74,7 +74,7 @@ test('carDeLenex: solo pruebas terminadas, con serie y calle, en el formato guar
 });
 
 test('dirColores: morado el mejor de la prueba (y su mejor tramo), verde marca personal, amarillo sin mejora', () => {
-  const ctx3 = cargar(['comunes.js', 'iconos.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
+  const ctx3 = cargar(['comunes.js', 'iconos.js', 'vistas/prueba-historia.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
   evalIn(ctx3, `Object.assign(SW, {
     '1': { id: 1, n: 'Eva', ev: [{ e: '100 Libre', h: [['2026-09-01', 7200, '25m', 'x']] }] },
     '2': { id: 2, n: 'Ana', ev: [{ e: '100 Libre', h: [['2026-09-01', 7100, '25m', 'x']] }] } })`);
@@ -89,7 +89,7 @@ test('dirColores: morado el mejor de la prueba (y su mejor tramo), verde marca p
 });
 
 test('dirColores: el más rápido del club que además mejora su marca es morado con aro verde (pb)', () => {
-  const ctx3 = cargar(['comunes.js', 'iconos.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
+  const ctx3 = cargar(['comunes.js', 'iconos.js', 'vistas/prueba-historia.js', 'vistas/directo.js'], { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } });
   evalIn(ctx3, `Object.assign(SW, { '1': { id: 1, n: 'Eva', ev: [{ e: '100 Libre', h: [['2026-09-01', 7200, '25m', 'x']] }] } })`);
   const f = (rfen, t) => ({ rfen, n: 'X', t, estado: '' });
   ctx3.__c = { desde: '2026-10-24', lenex: { piscina: '25 m', pruebas: [{ nombre: '100 Libre', fecha: '2026-10-24', filas: [f('1', 6800), f(null, 7000), f(null, 7500)] }] } };
