@@ -426,13 +426,28 @@ const dirTablaFilas = (filas, marcar, dist = 0, rfen) => `<div class="tw"><table
     <td class="tiny">${esc(f.club)}</td><td class="num tiny">${f.ins ? fmt(f.ins) : '—'}</td><td class="num"><b>${dirTiempo(f)}</b></td><td class="num">${f.puesto ? `${f.puesto}º` : '—'}${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td></tr>${d.html}`; }).join('')}</table></div>`;
 /* Prueba terminada: clasificación por año de nacimiento (del más pequeño al mayor) y, dentro, por puesto/tiempo;
    las bajas y descalificados al final de su año */
+/* Puesto OFICIAL de la federación: «14º de 19 · 16-90 años». La federación clasifica por tramos de edad («14-90 años» = todos los de 14 años o más
+   juntos, «16-90 años», «14-15 años»), no por año de nacimiento. «de N» = los que tienen tiempo en esa misma clasificación. */
+function dirPuestoOficial(p, f) {
+  if (!f || !f.puesto) return null;
+  const de = p.filas.filter(y => y.t && !y.estado && (!f.cat || y.cat === f.cat)).length;
+  return {puesto: f.puesto, de, cat: f.cat || '', txt: `${f.puesto}º${de >= f.puesto ? ` de ${de}` : ''}${f.cat ? ` · ${f.cat}` : ''}`};
+}
 const dirOrdenClasif = (a, b) => (!a.t - !b.t) || (a.puesto || 999) - (b.puesto || 999) || (a.t || 0) - (b.t || 0);
 const dirTablaClasif = (filas, marcar, dist = 0, rfen) => `<div class="tw"><table class="rt"><tr><th class="num">Puesto</th><th>Nadador</th><th>Club</th><th class="num">Tiempo</th></tr>
   ${filas.map(f => { const cls = marcar(f) ? ' class="dir-yo"' : f.rfen ? ' class="dir-nuestro"' : '', d = dirDebajo(f, dist, cls, 3, rfen);
     return `<tr${cls}><td class="num"${dirRowspan(d)}><b>${f.puesto ? `${f.puesto}º` : '—'}</b>${f.conj ? `<div class="tiny dir-conj" title="Puesto entre todos los grupos">${f.conj}º total</div>` : ''}</td>
     <td><b>${dirNombre(f)}</b>${f.nac ? ` <span class="tiny muted">${f.nac}</span>` : ''}</td><td class="tiny">${esc(f.club)}</td><td class="num"><b>${dirTiempo(f)}</b></td></tr>${d.html}`; }).join('')}</table></div>`;
+/* Orden de los tramos oficiales: de menor a mayor edad de inicio («14-15 años», «14-90 años», «16-90 años») */
+const dirOrdenTramo = t => { const m = /(\d+)\D+(\d+)/.exec(t || ''); return m ? +m[1] * 1000 + +m[2] : 1e9; };
 function dirClasificacion(p, marcar, ano, rfen) {
-  const dist = dirDist(p.nombre), anos = [...new Set(p.filas.map(f => f.nac || 0))].sort((a, b) => b - a).filter(y => !ano || y === Number(ano));
+  const dist = dirDist(p.nombre);
+  if (p.filas.some(f => f.cat)) {   // como la clasificación oficial: por tramo de edad de la federación; el año de nacimiento es solo un filtro
+    const tramos = [...new Set(p.filas.map(f => f.cat || ''))].sort((a, b) => dirOrdenTramo(a) - dirOrdenTramo(b));
+    return tramos.map(t => { const L = p.filas.filter(f => (f.cat || '') === t && (!ano || f.nac === Number(ano))); if (!L.length) return '';
+      return `<div class="ent-sel">${t ? `Clasificación ${esc(t)}` : 'Sin clasificación'} <span class="of">${L.filter(f => f.t && !f.estado).length} con tiempo</span></div>${dirTablaClasif(L.sort(dirOrdenClasif), marcar, dist, rfen)}`; }).join('');
+  }
+  const anos = [...new Set(p.filas.map(f => f.nac || 0))].sort((a, b) => b - a).filter(y => !ano || y === Number(ano));
   return anos.map(y => `<div class="ent-sel">${y ? `Nacidos en ${y}` : 'Sin año'}</div>${dirTablaClasif(p.filas.filter(f => (f.nac || 0) === y).sort(dirOrdenClasif), marcar, dist, rfen)}`).join('');
 }
 // Aviso de la clasificación conjunta: con qué grupos se compara y si falta alguno por nadar
@@ -453,7 +468,7 @@ function dirSeguirHTML(c, rfen) {
   const tarjeta = x => {
     const series = [...new Set(x.p.filas.map(f => f.serie))].sort((a, b) => a - b);
     const posta = dirSuPosta(x.f, rfen);
-    const est = x.estado === 'hecha' ? `<div class="dir-res">${posta ? `Relevo · ${posta} · equipo ` : 'Resultado '}<b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${x.f.puesto}º</b> ${esc(x.f.cat ? 'en ' + x.f.cat : x.f.conj ? `en ${x.p.sesion}` : '')}` : ''}${x.f.conj ? ` · <b>${x.f.conj}º de ${x.f.conjN}</b> entre ${x.p.conjCon.join(' y ')}${x.p.conjPend.length ? ` <span class="muted">(provisional: pendiente de finalizar ${x.p.conjPend.join(' y ')})</span>` : ''}` : ''}${posta ? `<div class="tiny dir-parc">Relevistas: ${dirRelevistas(x.f, rfen)}</div>` : ''}${dirParciales(x.f, dirDist(x.p.nombre)) ? `<div class="tiny dir-parc">Parciales: ${dirParciales(x.f, dirDist(x.p.nombre))}</div>` : ''}</div>`
+    const est = x.estado === 'hecha' ? `<div class="dir-res">${posta ? `Relevo · ${posta} · equipo ` : 'Resultado '}<b>${dirTiempo(x.f)}</b>${x.f.puesto ? ` · <b>${(o => o ? esc(o.puesto + 'º' + (o.de >= o.puesto ? ' de ' + o.de : '')) : '')(dirPuestoOficial(x.p, x.f))}</b> ${esc(x.f.cat ? 'en ' + x.f.cat : x.f.conj ? `en ${x.p.sesion}` : '')}<span class="tiny muted"> (puesto oficial de la federación)</span>` : ''}${x.f.conj ? ` · <b>${x.f.conj}º de ${x.f.conjN}</b> entre ${x.p.conjCon.join(' y ')}${x.p.conjPend.length ? ` <span class="muted">(provisional: pendiente de finalizar ${x.p.conjPend.join(' y ')})</span>` : ''}` : ''}${posta ? `<div class="tiny dir-parc">Relevistas: ${dirRelevistas(x.f, rfen)}</div>` : ''}${dirParciales(x.f, dirDist(x.p.nombre)) ? `<div class="tiny dir-parc">Parciales: ${dirParciales(x.f, dirDist(x.p.nombre))}</div>` : ''}</div>`
       : x.estado === 'en_marcha' ? `<div class="dir-res vivo">Se está nadando: van ${x.hechas} de ${x.series} series. La suya es la ${x.posSerie}ª.</div>`
       : `<div class="dir-res pend">Por nadar</div>`;
     return `<div class="card dir-seg dir-seg-${x.estado}" data-car-clave="${esc(`${x.p.sesion || ''}|${x.p.num}`)}">
@@ -530,6 +545,8 @@ function dirCatDeNac(nac) {
   if (!nac) return null;
   const c = DATA.cats.find(x => (x.yrs || []).includes(nac));
   if (c) return c.key;
+  const abs = DATA.cats.find(x => x.key === 'ABS');
+  if (abs && nac < Math.min(...abs.yrs)) return 'ABS';   // más mayores que los años que hoy tiene el club: también Absoluto
   const ben = DATA.cats.find(x => x.key === 'BEN');
   return ben && nac > Math.max(...ben.yrs) ? 'PRE' : null;
 }
@@ -816,7 +833,7 @@ function abrirUltimaComp(c) {
       ${L.map(x => { todas.push(x); const j = todas.length - 1, parc = (x.ok && gParcCarrera(dirAcu(x.f), dirDist(p.nombre))) || (x.ok && x.s && phHistoria(x.s, c, p, x.f));
         return `<tr class="${parc ? 'click' : ''}"${parc ? ` data-cr="${j}"` : ''}><td><b>${corto(x.nom)}</b>${parc ? '<div><button class="btn ult-ver" type="button">Ver parciales, historial y foto finish ›</button></div>' : ''}</td>
           <td>${x.ok ? `${x.conSeries ? `${x.f.serie}ª · ` : ''}<b>${x.enSerie}º</b> <span class="of">de ${x.deSerie}</span>` : '—'}</td>
-          <td class="num"><b>${x.pb ? '<span class="sun">★ </span>' : ''}${dirTiempo(x.f)}</b></td><td class="num">${x.f.puesto ? x.f.puesto + 'º' : '—'}</td>
+          <td class="num"><b>${x.pb ? '<span class="sun">★ </span>' : ''}${dirTiempo(x.f)}</b></td><td class="num">${(o => o ? `${o.puesto}º${o.de >= o.puesto ? `<span class="of"> de ${o.de}</span>` : ''}${o.cat ? `<div class="tiny muted">${esc(o.cat)}</div>` : ''}` : '—')(dirPuestoOficial(p, x.f))}</td>
           <td class="num">${x.dif != null ? `<b class="${x.dif < 0 ? 'good' : 'bad'}">${gDif(x.dif)}</b>` : x.primera ? '<span class="tiny muted">primera vez</span>' : '—'}</td>
           <td class="num">${x.ok && x.f.ins ? `<span class="${x.f.t <= x.f.ins ? 'good' : 'bad'}">${gDif(x.f.t - x.f.ins)}</span><div class="tiny muted">con ${fmt(x.f.ins)}${(i => i && i.otraPiscina ? ` · marca de ${i.x[2].replace('m', ' m')}` : '')(phInscripcion(x.s, c, p, x.f))}</div>` : '—'}</td></tr>`; }).join('')}</table></div></details>`;
   }).join('');

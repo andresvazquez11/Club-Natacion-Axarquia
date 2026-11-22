@@ -537,7 +537,8 @@ const famRango = c => c.desde === c.fecha ? dfmt(c.fecha) : `${dfmt(c.desde)} �
 function famFilaResultado(f) {
   const v = f.primera ? '<span class="muted">primera vez</span>' : f.pb ? `<b class="good">★ mejor marca · −${secs(f.dif)} s</b>`
     : f.dif === 0 ? '<b class="good">igual que su mejor</b>' : `<span class="bad">+${secs(f.dif)} s de su mejor</span>`;
-  return `<div class="fam-fila"><div class="fam-l"><b>${esc(f.e)}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${f.puesto ? ` · ${f.puesto}º${f.de ? ' de ' + f.de : ''}` : ''}</small></div>
+  const anio = f.puesto ? `${f.puesto}º${f.de ? ' de ' + f.de : ''}` : '';
+  return `<div class="fam-fila" data-of="${esc(f.e)}|${esc(f.fecha)}|${f.t}"><div class="fam-l"><b>${esc(f.e)}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${anio ? ` · <span class="fam-pu" data-anio="${esc(anio)}">${esc(anio)} en su año</span>` : ''}</small></div>
     <div class="fam-r"><b>${fmt(f.t)}</b><small>${v}</small></div></div>`;
 }
 function famCompHTML(s, c, abierta) {
@@ -546,6 +547,27 @@ function famCompHTML(s, c, abierta) {
       <span class="tiny muted">${famRango(c)} · ${c.filas.length} prueba${c.filas.length === 1 ? '' : 's'}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</span></summary>
     ${c.filas.map(famFilaResultado).join('')}
     <button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></details>`;
+}
+/* Puesto OFICIAL de la federación (clasificación por tramos de edad: «14-90 años»…) en las carreras guardadas (carreras/<id>.json).
+   Sustituye al «en su año» (solo entre los nacidos en su mismo año) cuando la competición está guardada; si no, se queda «en su año». */
+async function pintarOficial(app, s) {
+  if (!app.querySelector('.fam-fila[data-of]') || typeof carIndice !== 'function') return;
+  const info = new Map();
+  try {
+    for (const x of carLista(await carIndice())) {
+      const c = await carCompeticion(x[0]); if (!c) continue;
+      c.pruebas.forEach(p => { if (!/^\d+ /.test(p.nombre)) return;
+        p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8] || !f[7]) return;
+          const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
+          info.set(`${p.nombre}|${p.fecha}|${f[5]}`, {puesto: f[7], de, cat}); }); });
+    }
+  } catch (e) { return; }
+  app.querySelectorAll('.fam-fila[data-of]').forEach(el => {
+    const o = info.get(el.dataset.of), sp = el.querySelector('.fam-pu'); if (!o) return;
+    const oficial = `<b>${o.puesto}º${o.de >= o.puesto ? ' de ' + o.de : ''}</b> en la clasificación oficial${o.cat ? ` (${esc(o.cat)})` : ''}`;
+    if (sp) sp.innerHTML = `${oficial} · ${esc(sp.dataset.anio)} en su año`;
+    else el.querySelector('.fam-l small').insertAdjacentHTML('beforeend', ` · ${oficial}`);
+  });
 }
 const resultadosHTML = s => { const C = competicionesDe(s);
   return C.length ? C.map((c, i) => famCompHTML(s, c, i === 0)).join('') + '<p class="tiny muted" style="margin-top:8px">★ = mejor marca personal en esa piscina. «Puesto» = entre los nacidos en su mismo año en esa competición.</p>'
@@ -682,6 +704,7 @@ function vistaFicha(app, s, sub, params) {
     app.querySelectorAll('[data-fam]').forEach(b => b.onclick = () => { if (b.dataset.fam !== String(s.id)) elegirEstrella(b.dataset.fam); });
     const q = app.querySelector('[data-quitar]'); if (q) q.onclick = () => { if (confirm(`¿Dejar de seguir a ${s.n} en este dispositivo?`)) quitarDeFamilia(s.id); };
     pintarDirectoNadador(app, s);   // próximas competiciones y últimos resultados (directo de la FAN)
+    if (vistaFamilias()) pintarOficial(app, s);
     pintarUltimaCarrera(app, s);
     pintarAnalisisResumen(app, s);
   } else vistaSub(app, s, sub, paramsSub(sub, params));
@@ -732,6 +755,7 @@ function vistaSub(app, s, sub, p) {
   app.querySelectorAll('[data-pr]').forEach(b => b.onclick = () => keep({ev: p.ev === b.dataset.pr ? '' : b.dataset.pr}));
   if (sub === 'entrenos') pintarEntrenosNadador(app, s, p);
   if (sub === 'marcas' && p.ev) pintarParcFicha(app, s, p.ev);
+  if (sub === 'resultados') pintarOficial(app, s);
   if (s.ev.length) {
     if (sub === 'evolucion') { pintarHistorial(s, 'historial', p, keep); pintarAnalisis(s); }
     if (sub === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);

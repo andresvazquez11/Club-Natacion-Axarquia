@@ -91,7 +91,8 @@ const GLOSARIO = {
   serie: ['Serie', 'Cada tanda de una prueba. En una prueba con muchos nadadores se nada por series; el puesto final se decide por tiempo entre todas.'],
   piscina: ['Piscina de 25 m y de 50 m', 'En 25 m hay más giros y salen tiempos más rápidos que en 50 m. Por eso no se comparan entre sí; la «equivalencia» es solo orientativa.'],
   pb: ['Mejor marca personal (★)', 'Su mejor tiempo hasta ahora en esa prueba y esa piscina. La estrella marca cuando lo mejora.'],
-  puesto: ['Puesto', 'Siempre entre los nadadores de su mismo sexo y año de nacimiento, que es como se compite en estas edades.'],
+  puesto: ['Puesto', 'En una competición, el puesto OFICIAL es el de la clasificación de la federación, que agrupa por tramos de edad (por ejemplo «14-90 años» = todos los de 14 años o más juntos). «En su año» es el puesto solo entre los nacidos en su mismo año.'],
+  categorias: ['Categorías 2026-27 (RFEN)', 'Prebenjamín 2018-2019 · Benjamín 2016-2017 · Alevín 2014-2015 · Infantil 2012-2013 · Júnior 2009-2011 · Sub20 2007-2008 · Absoluta: todas las edades. En los rankings de la RFEN se filtra por año de nacimiento.'],
 };
 const glos = (k, txt) => GLOSARIO[k] ? `<span role="button" tabindex="0" class="glos" data-glos="${k}" aria-label="Qué es: ${esc(txt || GLOSARIO[k][0])}">?</span>` : '';
 /* Ventana con todos los términos (botón «Glosario» junto al interruptor de vista) */
@@ -154,9 +155,9 @@ const strokeOf = ev => ev.split(' ').slice(1).join(' ');
 const distOf = ev => +ev.split(' ')[0];
 const catOf = key => DATA.cats.find(c => c.key === key);
 const scopeKey = (s, sk) => sk === 'y' ? `${s.g}|${s.y}` : `${s.g}|${s.cat}`;
-const scopeLbl = (s, sk) => sk === 'y' ? `nacidos en ${s.y}` : `${s.catl} ${SEXO_TXT[s.g].toLowerCase()} (${(catOf(s.cat) || {}).yt || ''})`;
+const scopeLbl = (s, sk) => sk === 'y' ? `nacidos en ${s.y}` : `${s.catl} ${SEXO_TXT[s.g].toLowerCase()} (${s.cat === 'ABS' ? 'todas las edades' : (catOf(s.cat) || {}).yt || ''})`;
 /* «Alevín 1º año» (los absolutos no tienen año dentro de la categoría) y años de una categoría («2014-2015», «2008 y ant.») */
-const catAnyo = s => s.catl ? (s.cy ? `${s.catl} ${s.cy}º año` : s.catl) : 'fuera de categoría';
+const catAnyo = s => (s.catl ? (s.cy ? `${s.catl} ${s.cy}º año` : s.catl) : 'fuera de categoría') + (s.y === 2007 || s.y === 2008 ? ' · Sub20' : '');   // Sub20 = nacidos en 2007-2008 (RFEN 2026-27); compiten como Absolutos
 const catYrs = c => c.yt || c.yrs.join('-');
 /* Dirección de la pantalla de un nadador: #mi/<sub> si es «mi nadador», #nadador/<id>/<sub> si no (el resumen va sin sub) */
 const fichaHref = (s, sub) => (s.benicio ? '#mi' : `#nadador/${s.id}`) + (sub && sub !== 'resumen' ? '/' + sub : '');

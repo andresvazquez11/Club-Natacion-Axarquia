@@ -23,7 +23,7 @@ function vistaRankings(app, p) {
   const lv = p.lv || 'an';
   const L = DATA.lists[`${g}|${sc}|${ev}`];
   const go = o => { const q = new URLSearchParams(Object.assign({g, sc, ev, lv}, o)); location.hash = '#rankings?' + q; };
-  const scLbl = a => isNaN(a) ? (catOf(a) ? `${catOf(a).label} (${catYrs(catOf(a))})` : a) : `Nacidos en ${a}`;
+  const scLbl = a => isNaN(a) ? (a === 'ABS' ? 'Absoluto (todas las edades)' : catOf(a) ? `${catOf(a).label} (${catYrs(catOf(a))})` : a) : `Nacidos en ${a}`;
 
   let tabla = '<p class="empty">Sin datos para esta combinación.</p>';
   if (L) {
@@ -36,7 +36,7 @@ function vistaRankings(app, p) {
     <div class="portada" style="--foto:url(img/rankings.jpg)">
       <div class="portada-tit"><div class="portada-txt"><small>Club Natación Axarquía</small><h1>Rankings</h1><p>Cualquier prueba, por año o categoría, sexo y nivel</p></div></div>
     </div>
-    <div class="note">Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo (el tuyo, con una barra). Pulsa una línea para ver el resto de datos y, si es del club, su ficha.</div>
+    <div class="note">Igual que en la web de la RFEN: el ranking es por año de nacimiento o por categoría (Prebenjamín 2018-19 · Benjamín 2016-17 · Alevín 2014-15 · Infantil 2012-13 · Júnior 2009-11) y <b>Absoluto = todas las edades</b>. Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo (el tuyo, con una barra). Pulsa una línea para ver el resto de datos y, si es del club, su ficha.</div>
     <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
     <div class="flt"><span class="flt-l">Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
     ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])))}

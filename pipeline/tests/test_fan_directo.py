@@ -204,7 +204,7 @@ class TestGuardarCarreras(unittest.TestCase):
         self.assertEqual(F.guardar_carreras(d, tmp, None, fn), [9])
         x = json.load(open(os.path.join(tmp, '9.json')))
         self.assertEqual(len(x['pruebas']), 1)                                   # el relevo no se guarda
-        self.assertEqual(x['pruebas'][0]['filas'][0], [4, 2, 'Eva Sol', 'C.N. Axarquia', 2014, 7000, [3400, 7000], 1, '', '1'])
+        self.assertEqual(x['pruebas'][0]['filas'][0], [4, 2, 'Eva Sol', 'C.N. Axarquia', 2014, 7000, [3400, 7000], 1, '', '1', '', ''])
         self.assertEqual(json.load(open(os.path.join(tmp, 'indice.json'))), {'9': ['Jornada', '2026-10-24', 'Torre', '25m', 1]})
         self.assertEqual(json.dumps(d, sort_keys=True), antes)                   # directo.json no cambia
         self.assertEqual(F.guardar_carreras(d, tmp, None, fn), [])               # ya guardada: no se reescribe

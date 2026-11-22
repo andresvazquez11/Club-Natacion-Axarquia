@@ -225,8 +225,11 @@ def main():
         i = info[pid]
         scopes[f"{i['g']}|{i['y']}"][ev].append((b['cs'], pid))
         ck = cat_of(i['g'], i['y'])[0]
-        if ck:
+        if ck and ck != 'ABS':
             scopes[f"{i['g']}|{ck}"][ev].append((b['cs'], pid))
+        # RFEN 2026-27: «ABSOLUTA: todas las edades». Su ranking es el de todos los nadadores, sin límite de año de nacimiento
+        # (como la web oficial de la RFEN sin filtro de año); las demás categorías son rangos de años.
+        scopes[f"{i['g']}|ABS"][ev].append((b['cs'], pid))
     for sc in scopes.values():
         for ev in sc:
             sc[ev].sort()
@@ -249,6 +252,7 @@ def main():
         ck = cat_of(i['g'], i['y'])[0]
         if ck:
             club_scopes.add(f"{i['g']}|{ck}")
+        club_scopes.add(f"{i['g']}|ABS")   # ranking Absoluto (todas las edades), disponible para todos
 
     # ── Listas de cada prueba y nivel (solo ámbitos con nadadores del club) ──
     lists = {}

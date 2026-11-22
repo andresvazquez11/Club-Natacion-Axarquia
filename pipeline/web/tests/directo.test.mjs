@@ -191,3 +191,28 @@ test('dirBuscarWebs: enlaza la web que devuelve el intermediario (y descarta enl
   await evalIn(ctx, 'dirBuscarWebs(__d)');
   assert.equal(pedidas.length, 2);
 });
+
+test('dirPuestoOficial y dirClasificacion: clasificación oficial por tramo de edad de la federación («14-90 años»), no por año de nacimiento', () => {
+  const p = { nombre: '100 Braza', filas: [
+    { n: 'A', nac: 2011, t: 7000, puesto: 1, cat: '14-90 años' }, { n: 'B', nac: 2005, t: 7100, puesto: 2, cat: '14-90 años' },
+    { n: 'C', nac: 2011, t: 7200, puesto: 1, cat: '16-90 años' }, { n: 'D', nac: 2013, t: 7300, puesto: 1, cat: '14-15 años' }, { n: 'E', nac: 2011, t: null, estado: 'DNS', cat: '14-90 años' }] };
+  ctx.__p = p;
+  const o = JSON.parse(evalIn(ctx, 'JSON.stringify(dirPuestoOficial(__p, __p.filas[1]))'));
+  assert.deepEqual([o.puesto, o.de, o.cat, o.txt], [2, 2, '14-90 años', '2º de 2 · 14-90 años']);     // «de» = los que tienen tiempo en ese tramo
+  assert.equal(evalIn(ctx, 'dirPuestoOficial(__p, __p.filas[4])'), null);                            // sin puesto: nada
+  const h = evalIn(ctx, 'dirClasificacion(__p, () => false, "", "")');
+  assert.deepEqual([...h.matchAll(/Clasificación ([^<]+?) <span/g)].map(m => m[1]), ['14-15 años', '14-90 años', '16-90 años']);   // de menor a mayor edad
+  assert.doesNotMatch(h, /Nacidos en/);                                                               // el año ya no agrupa
+  // si la federación no da tramos (PDF antiguo), se sigue agrupando por año
+  ctx.__q = { nombre: '50 Libre', filas: [{ n: 'A', nac: 2011, t: 3000, puesto: 1 }] };
+  assert.match(evalIn(ctx, 'dirClasificacion(__q, () => false, "", "")'), /Nacidos en 2011/);
+});
+
+test('dirCatDeNac: los nacidos antes de los años del club también son Absoluto; catAnyo marca Sub20 (2007-2008)', () => {
+  evalIn(ctx, "DATA.cats.push({key: 'ALE', yrs: [2014, 2015]}, {key: 'ABS', yrs: [2008, 2007, 2006, 2005]})");
+  assert.equal(evalIn(ctx, 'dirCatDeNac(2003)'), 'ABS');
+  assert.equal(evalIn(ctx, 'dirCatDeNac(2008)'), 'ABS');
+  assert.equal(evalIn(ctx, 'dirCatDeNac(2014)'), 'ALE');
+  assert.equal(evalIn(ctx, "catAnyo({catl: 'Absoluto', y: 2008})"), 'Absoluto · Sub20');
+  assert.equal(evalIn(ctx, "catAnyo({catl: 'Absoluto', y: 2003})"), 'Absoluto');
+});

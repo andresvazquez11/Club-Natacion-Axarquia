@@ -618,7 +618,7 @@ def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web):
     """Guarda, UNA vez por competición terminada, todas las carreras individuales de todos los clubes: serie, calle, tiempo,
     parciales y puesto. Un archivo por competición (carreras/<id>.json, no se vuelve a escribir) y un índice (carreras/indice.json).
     Sirve para reproducir carreras (foto finish, repetición) y comparar a cada nadador consigo mismo con el tiempo.
-    filas: [serie, calle, nombre, club, año, tiempo, [acumulados], puesto, estado, rfen]. Devuelve los ids escritos."""
+    filas: [serie, calle, nombre, club, año, tiempo, [acumulados], puesto, estado, rfen, color (vacío), categoría oficial de la FAN]. Devuelve los ids escritos."""
     escritos = []
     for c in d.get('competiciones', []):
         L = c.get('lenex') or {}
@@ -646,7 +646,7 @@ def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web):
             pruebas.append({'num': p.get('num'), 'nombre': p['nombre'], 'sexo': p.get('sexo') or '', 'cat': p.get('categoria') or '',
                             'fecha': p.get('fecha') or '', 'sesion': p.get('sesion') or '',
                             'filas': [[f.get('serie') or 0, f.get('calle') or 0, f['n'], f.get('club') or '', f.get('nac'), f.get('t'),
-                                       f.get('parc'), f.get('puesto'), f.get('estado') or '', f.get('rfen')] for f in filas]})
+                                       f.get('parc'), f.get('puesto'), f.get('estado') or '', f.get('rfen'), '', f.get('cat') or ''] for f in filas]})
         if not pruebas or not completo:
             continue   # si falta alguna lista de salida se reintenta en la siguiente ejecución
         os.makedirs(carpeta, exist_ok=True)
