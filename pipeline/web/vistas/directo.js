@@ -622,7 +622,7 @@ async function pintarDirectoNadador(app, s) {
           ? `${posta}${y.f.t || y.f.estado ? ` · equipo ${dirTiempo(y.f)}${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`
           : `serie ${y.posSerie}, calle ${y.f.calle}${y.f.t || y.f.estado ? ` · <b>${dirTiempo(y.f)}</b>${y.f.puesto ? ` (${y.f.puesto}º)` : ''}` : ''}`}`; }).join(' · ')}</div>
       ${dirSusPruebas(x.c, id).map(y => dirCuentaHTML(x.c, y)).find(Boolean) || ''}
-      <div class="dir-f-acc"><a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(id)}">Seguir a ${nombre}: pruebas, horarios y rivales</a>
+      <div class="dir-f-acc"><a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(id)}">${x.c.estado === 'terminada' ? `Ver resultados de ${nombre}: historial, parciales y foto finish` : `Seguir a ${nombre}: pruebas, horarios y rivales`}</a>
         <a href="#directo?c=${Number(x.c.id)}&solo=0">Toda la competición</a></div></div>`
     : `<div class="dir-f"><b><a href="#directo">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span>
       <div class="tiny muted">En el calendario de la federación. Las series aún no están publicadas: cuando salgan verás aquí si nada, a qué hora y en qué calle.</div></div>`;
@@ -751,7 +751,7 @@ function abrirUltimaComp(c) {
       <span class="ult-pr-r">${L.length} nad.${npb ? ` · <b class="good">${npb} mejor${npb > 1 ? 'es' : ''} marca${npb > 1 ? 's' : ''}</b>` : ''}${mejorP < 999 ? ` · mejor puesto ${mejorP}º` : ''}</span></summary>
       <div class="tw"><table class="rt"><tr><th>Nadador</th><th>${L[0].conSeries ? 'Serie' : 'Prueba'}</th><th class="num">Tiempo</th><th class="num">Puesto</th><th class="num">Frente a su mejor</th><th class="num">Inscripción</th></tr>
       ${L.map(x => { todas.push(x); const j = todas.length - 1, parc = (x.ok && gParcCarrera(dirAcu(x.f), dirDist(p.nombre))) || (x.ok && x.s && phHistoria(x.s, c, p, x.f));
-        return `<tr class="${parc ? 'click' : ''}"${parc ? ` data-cr="${j}"` : ''}><td><b>${corto(x.nom)}</b>${parc ? ' <span class="tiny muted">· parciales e historial ›</span>' : ''}</td>
+        return `<tr class="${parc ? 'click' : ''}"${parc ? ` data-cr="${j}"` : ''}><td><b>${corto(x.nom)}</b>${parc ? '<div><button class="btn ult-ver" type="button">Ver parciales, historial y foto finish ›</button></div>' : ''}</td>
           <td>${x.ok ? `${x.conSeries ? `${x.f.serie}ª · ` : ''}<b>${x.enSerie}º</b> <span class="of">de ${x.deSerie}</span>` : '—'}</td>
           <td class="num"><b>${x.pb ? '<span class="sun">★ </span>' : ''}${dirTiempo(x.f)}</b></td><td class="num">${x.f.puesto ? x.f.puesto + 'º' : '—'}</td>
           <td class="num">${x.dif != null ? `<b class="${x.dif < 0 ? 'good' : 'bad'}">${gDif(x.dif)}</b>` : x.primera ? '<span class="tiny muted">primera vez</span>' : '—'}</td>
@@ -764,7 +764,7 @@ function abrirUltimaComp(c) {
       <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
       ${gKpis(kpis)}
       <div class="h h-sub" style="margin-top:14px">${ico('tendencia')}Cada carrera frente a su mejor marca <span class="h-n">· ${conMejor.length} con marca previa en piscina de ${esc(c.lenex.piscina || '')}</span></div>${graf}
-      <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· toca un nadador para ver sus parciales</span></div>${dirLeyenda()}${secciones}
+      <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· pulsa «Ver parciales, historial y foto finish» en un nadador</span></div>${dirLeyenda()}${secciones}
       <p class="tiny muted" style="margin-top:8px">★ = mejor marca personal (antes de esta competición, misma piscina). «Serie»: en qué serie nadó y en qué puesto quedó dentro de ella. Inscripción: frente al tiempo con el que se inscribió. ${pbs.length} mejores marcas en ${H.length} carreras.</p>
       <p style="margin-top:10px"><a class="btn ghost" href="#directo?c=${Number(c.id)}" onclick="closeEvo()">Ver toda la competición →</a></p>`;
     carBotonesSeguir(box, c, '');   // foto finish y repetición en cada prueba ya nadada
@@ -776,10 +776,16 @@ function abrirUltimaComp(c) {
       const ref = r && gr && gr.sp.length === r.sp.length ? gr.sp : null;
       // la tabla se desplaza en horizontal en el móvil: la gráfica, del ancho de lo que se ve y quieta al desplazarla
       const ancho = (tr.closest('.tw') || box).clientWidth;
-      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6"><div style="position:sticky;left:0;width:${ancho}px">${r ? gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
+      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6"><div style="position:sticky;left:0;width:${ancho}px">${tr.__pf ? tr.__pf() : ''}${r ? gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
         ref, refNom: ref ? `Ganador de la serie (${String(x.ganador.n).split(' ')[0]}, ${fmt(x.ganador.t)})` : '', aria: `Parciales de ${x.nom} en ${x.p.nombre}`}) : ''}${x.s ? phHTML(x.s, c, x.p, x.f) : ''}</div></td></tr>`);
+      const pf = tr.nextElementSibling.querySelector('[data-pf]'); if (pf) pf.onclick = ev => { ev.stopPropagation(); carAbrirPrueba(CC, x.p.num, x.p.sesion, String(x.f.rfen)); };
     });
     abrirModal();
+    // prueba con carrera guardada o en directo → foto finish de ESE nadador dentro de su detalle
+    let OKS = new Set(), CC = null;
+    carCompletaComp(box, c).then(cc => { if (cc) { CC = cc; OKS = carDisponibles(cc); } });
+    box.querySelectorAll('tr[data-cr]').forEach(tr => { tr.__pf = () => { const x = todas[Number(tr.dataset.cr)], k = `${x.p.sesion || ''}|${x.p.num}`;
+      return CC && OKS.has(k) ? `<button class="btn ult-pf" type="button" data-pf="${Number(tr.dataset.cr)}">${ico('crono')}Ver la foto finish y la repetición de esta carrera</button>` : ''; }; });
   });
 }
 /* Acumulados de una fila del directo hasta el final (el último parcial puede ser ya el tiempo final) */
