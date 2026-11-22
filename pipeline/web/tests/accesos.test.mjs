@@ -77,3 +77,14 @@ test('podiosDe cuenta competiciones, victorias y podios', () => {
   assert.deepEqual(ev('podiosDe', s), { comps: 2, victorias: 1, podios: 2 });
   assert.deepEqual(ev('podiosDe', { ev: [] }), { comps: 0, victorias: 0, podios: 0 });
 });
+
+test('fraseProgreso: mayor mejora del último año, en la piscina de su última marca', () => {
+  const h = (f, t, pool = '25m') => [f, t, pool, 'C', 'L', 0, null, null, 0, null, ''];
+  const s = { ev: [
+    { e: '50 Braza', h: [h('2025-09-01', 3600), h('2026-01-10', 3400), h('2026-06-01', 3300), h('2026-02-01', 3000, '50m')] },
+    { e: '100 Libre', h: [h('2026-01-01', 6000), h('2026-10-01', 5990)] },
+    { e: '200 Libre', h: [h('2026-03-01', 14000), h('2026-10-01', 14100)] }] };
+  const f = ctx.fraseProgreso ? ctx.fraseProgreso(s) : evalIn(ctx, `fraseProgreso(${JSON.stringify(s)})`);
+  assert.equal(f.e, '50 Braza'); assert.equal(f.desde, 3600); assert.equal(f.mejor, 3300); assert.equal(f.bajada, 300); assert.equal(f.n, 2);
+  assert.equal(evalIn(ctx, `fraseProgreso({ev: [{e: 'x', h: [['2026-01-01', 100, '25m', '', '', 0, null, null, 0]]}]})`), null);
+});

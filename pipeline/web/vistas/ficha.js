@@ -191,8 +191,8 @@ function tabPruebas(s, sk, p) {
     <div class="prs" style="margin-top:10px">${s.ev.map(e => { const r = e.rk[sk] || {}, m = mejorConv(s, e), mej = e.first - e.cs, ab = open === e.e;
       return `<div class="pr ${ab ? 'open' : ''}" id="pr-${e.e.replace(/ /g, '-')}">
         <button class="pr-h" data-pr="${esc(e.e)}" aria-expanded="${ab}">
-          <span class="pr-n"><b>${e.e}</b> <span class="of">${e.pool}</span>${e.ss === '26-27' ? '<span class="ss">26-27</span>' : ''}</span>
-          <span class="pr-t"><b class="sun">${m ? '≈ ' + fmt(m[0]) : fmt(e.cs)}</b><small>${e.pts} pts</small></span>
+          <span class="pr-n"><b>${e.e}</b> <span class="of">${m ? m[2] : e.pool}</span>${e.ss === '26-27' ? '<span class="ss">26-27</span>' : ''}</span>
+          <span class="pr-t"><b class="sun">${m ? fmt(m[1]) : fmt(e.cs)}</b><small>${e.pts} pts${m && m[2] !== '25m' ? ` · equivale a ${fmt(m[0])} en 25 m` : ''}</small></span>
           <span class="pr-lv">${LV.map(([lv, l]) => r[lv] ? `<span><small class="lv-${lv}">${l.slice(0, 3)}.</small>${posB(r[lv][0])}</span>` : '').join('')}</span>
           <span class="pr-x">${ab ? '▲' : '▼'}</span></button>
         ${ab ? `<div class="pr-b">
@@ -532,6 +532,19 @@ function mejorMomentoHTML(s) {
 
 const filasFrase = L => L.map(([i, t]) => `<div class="fila">${icoDe(i)}<span>${t}</span></div>`).join('');
 
+/* Pestañas de la ficha, siempre arriba: Resumen + los accesos de este nadador (antes eran botones pequeños a mitad de página) */
+function fichaTabsHTML(s, sub) {
+  const L = [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
+  return `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
+    `<a href="${k === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, k)}" class="${k === sub ? 'on' : ''}"${k === sub ? ' aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
+}
+/* «Cómo va»: una frase con su mayor mejora del último año */
+function comoVaHTML(s) {
+  const f = fraseProgreso(s); if (!f) return '';
+  return `<div class="card como-va"><div class="h">${ico('tendencia')}Cómo va</div>
+    <p class="como-va-t">En <b>${esc(f.e)}</b> ha bajado <b class="good">${secs(f.bajada)} s</b> en el último año <span class="muted">(de ${fmt(f.desde)} a ${fmt(f.mejor)}, piscina de ${esc(piscinaTxt(f.pool))})</span>.${f.n > 1 ? ` Ha mejorado en <b>${f.n}</b> pruebas.` : ''}</p>
+    <a class="mas" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(f.e)}">Ver su evolución ›</a></div>`;
+}
 function resumenHTML(s, cat) {
   const elegido = s.benicio, F_ = s.g === 'F';
   const ante = elegido ? (F_ ? 'Mi nadadora' : 'Mi nadador') : (F_ ? 'Nadadora del club' : 'Nadador del club');
@@ -547,8 +560,6 @@ function resumenHTML(s, cat) {
   const {F, M} = analisis(s), O = objetivos(s);
   const destaca = frasesCortas(F), mejorar = frasesCortas(M);
   const objetivosL = O.map(([i, t, pc, dest]) => `<a class="fila" href="${objHref(s, dest)}">${icoDe(i)}<span class="obj-t">${t}<span class="meter"><i style="width:${Math.min(100, pc)}%"></i></span></span><span class="dcha">›</span></a>`).join('');
-  const acc = accesosDe(s).map(([sub, l, i]) => `<a class="acc" href="${sub === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, sub)}">${
-    sub === 'espana' ? FLAG_ES : sub === 'andalucia' ? FLAG_AN : ico(i)}<span>${l}</span></a>`).join('');
   const comps = ultimasComps(s).map(c => { const lv = nivelComp(s, c.d, c.c);
     return `<button class="fila" ${cmpAttr(s, c.d, c.c, c.mejor ? c.mejor[1] : '')}>${lv ? nivelHTML(lv) : ico('meta')}<span><b>${esc(c.c)}</b> · ${dfmt(c.d)}</span>
       <span class="dcha">${c.mejor ? `${c.mejor[0]}º · ${esc(c.mejor[1])}` : `${c.n} prueba${c.n > 1 ? 's' : ''}`}</span></button>`; }).join('');
@@ -557,6 +568,8 @@ function resumenHTML(s, cat) {
   const filaPod = pd.comps ? `<button class="fila" data-kd="pod">${ico('medalla')}<span><b>${pd.victorias}</b> victoria${pd.victorias === 1 ? '' : 's'} · <b>${pd.podios}</b> podio${pd.podios === 1 ? '' : 's'} en ${pd.comps} competicion${pd.comps === 1 ? '' : 'es'}</span><span class="dcha">›</span></button>` : '';
   const evsRes = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6).map(e => e.e), mm = mejorMomento(s), evIni = mm && evsRes.includes(mm.e) ? mm.e : evsRes[0];
   return `${portada}
+    ${fichaTabsHTML(s, 'resumen')}
+    <div id="res-hoy"></div>
     ${familiaHTML(s)}
     ${logrosHTML(s)}
     <div class="resumen">
@@ -566,9 +579,9 @@ function resumenHTML(s, cat) {
       <div class="bar-row">${piscSeg()}</div>
       <div id="res-evo-c">${resEvoHTML(s, evIni)}</div>
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
+    ${comoVaHTML(s)}
     <div id="res-prox"></div>
     <div id="res-ult"></div>
-    <div class="accesos">${acc}</div>
     <div class="card"><div class="lista"><button class="fila" data-kd="top3">${ico('tendencia')}<span>Suma de sus 3 mejores pruebas: <b>${s.top3} pts</b>${glos('pts')}</span><span class="dcha">›</span></button></div></div>
     ${destaca.length ? `<div class="card"><div class="h">${ico('medalla')}Dónde destaca</div><div class="lista">${filasFrase(destaca)}</div></div>` : ''}
     ${mejorar.length || O.length ? `<div class="card"><div class="h">${ico('diana')}Para seguir mejorando</div>
@@ -643,6 +656,7 @@ function vistaSub(app, s, sub, p) {
   app.innerHTML = `
     ${volverSubHTML(s, sub, p)}
     <div class="card sub-cab"><span class="ante">${esc(s.n)}</span><h1>${tit}</h1></div>
+    ${fichaTabsHTML(s, sub)}
     <section style="margin-top:12px">${body}</section>`;
 
   const keep = o => { const q = new URLSearchParams(Object.assign({}, p, o)); location.hash = href(q.toString()); };

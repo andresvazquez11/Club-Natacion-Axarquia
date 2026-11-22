@@ -603,11 +603,27 @@ function vistaDirecto(app, p) {
   pintar(false).then(() => { if (dirEnCurso(DIR)) DIR_RELOJ = setInterval(() => { if (!document.hidden) pintar(true); }, DIR_PROXY ? 30e3 : 60e3); });   // con la pestaña oculta no se lee
 }
 
+/* Banner de arriba del Resumen: la competición que importa ahora y un botón directo a la vista «Seguir a un nadador»
+   (sus pruebas, horas, calles, resultados con historial y foto finish). En curso > terminada hace ≤ 3 días > próxima en ≤ 7 días. */
+function dirBannerHoy(suyas, s) {
+  const hoy = Date.parse(dirHoy()), dias = f => Math.round((Date.parse(f) - hoy) / 864e5), n = esc(String(s.n).split(' ')[0]);
+  const con = suyas.filter(x => x.filas.length && x.c.lenex);
+  const vivo = con.find(x => x.c.estado === 'en_curso');
+  const rec = con.filter(x => x.c.estado === 'terminada' && dias(x.c.hasta || x.c.desde) >= -3).sort((a, b) => (b.c.hasta || b.c.desde).localeCompare(a.c.hasta || a.c.desde))[0];
+  const prx = con.filter(x => x.c.estado === 'proxima' && dias(x.c.desde) <= 7 && dias(x.c.desde) >= 0).sort((a, b) => a.c.desde.localeCompare(b.c.desde))[0];
+  const x = vivo || rec || prx; if (!x) return '';
+  const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
+  const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
+  return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab}</div>
+    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
+    <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
+}
+
 /* En la ficha del nadador: sus próximas competiciones y lo último que ha nadado (según el directo) */
 async function pintarDirectoNadador(app, s) {
   const d = await dirCargar(false);
   await dirAlMomento(d);
-  if (!d || !app.isConnected) return;
+  if (!d || !app.isConnected || !app.querySelector('#res-prox')) return;   // solo en el Resumen (si ya cambió de pantalla, no se pinta en otra)
   const id = String(s.id);
   // Las suyas (aparece en las series) y, del calendario sin series, solo las de su categoría
   const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => dirEsDe(f, id))}))
@@ -629,10 +645,10 @@ async function pintarDirectoNadador(app, s) {
   const conSeries = prox.filter(x => x.filas.length), calendario = prox.filter(x => !x.filas.length);
   const html = `<div class="card dir-ficha"><div class="h">${ico('copa')}Competiciones${prox.some(x => x.c.estado === 'en_curso' && x.filas.length) ? ' <span class="dir-punto"></span>en directo' : ''}</div>
     ${conSeries.length ? `<div class="ent-sel">Próximas de ${nombre}</div>${conSeries.map(linea).join('')}` : ''}
-    ${calendario.length ? `<div class="ent-sel">Próximas para ${esc((catOf(s.cat) || {}).label || 'su categoría')}</div>${calendario.map(linea).join('')}` : ''}
+    ${calendario.length ? `<details class="dir-mas"><summary>Próximas para ${esc((catOf(s.cat) || {}).label || 'su categoría')} (${calendario.length}) · series aún sin publicar</summary>${calendario.map(x => `<div class="dir-f"><b><a href="#directo">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span></div>`).join('')}<p class="tiny muted">Cuando la federación publique las series verás aquí si nada, a qué hora y en qué calle.</p></details>` : ''}
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
-  const slot = app.querySelector('#res-prox'), ancla = app.querySelector('.card');
-  if (slot) slot.innerHTML = html; else if (ancla) ancla.insertAdjacentHTML('afterend', html); else app.insertAdjacentHTML('afterbegin', html);
+  app.querySelector('#res-prox').innerHTML = html;
+  const hoy = app.querySelector('#res-hoy'); if (hoy) hoy.innerHTML = dirBannerHoy(suyas, s);
   dirCuentaArrancar();
 }
 
@@ -708,7 +724,7 @@ async function pintarCompClub(app) {
     return `<div class="cc-b"><div class="cc-et">Última competición</div><b>${esc(ult.titulo)}</b>
       <div class="tiny muted">${dirFechas(ult)}${ult.lenex.lugar ? ' · ' + esc(dirTitulo(ult.lenex.lugar)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
       <div class="cc-acc"><a class="btn" href="#directo?c=${Number(ult.id)}">Todas las pruebas y fotos finish</a><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
-  host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Calendario completo ›</a></div>${bProx}${bUlt}`;
+  host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Todas las competiciones ›</a></div>${bProx}${bUlt}`;
   const det = host.querySelector('[data-cc-det]');
   if (det) det.onclick = () => abrirUltimaComp(ult);
 }

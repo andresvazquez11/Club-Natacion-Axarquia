@@ -85,3 +85,22 @@ function podiosDe(s) {
   (s.ev || []).forEach(e => (e.h || []).forEach(x => { C.add(x[0] + '|' + x[3]); if (x[6] === 1) victorias++; if (x[6] && x[6] <= 3) podios++; }));
   return {comps: C.size, victorias, podios};
 }
+
+/* Su mayor mejora en el último año: por prueba, y en la piscina de su última marca (25 y 50 m no se mezclan),
+   baja entre la primera marca de los 12 meses anteriores a la última y su mejor marca de ese periodo.
+   → {e, pool, desde, mejor, bajada, n (pruebas en que mejoró)} o null si no hay ninguna mejora. */
+function fraseProgreso(s) {
+  let mejor = null, n = 0;
+  (s.ev || []).forEach(e => {
+    const h = (e.h || []).filter(x => !x[8] && x[1] > 0); if (h.length < 2) return;
+    const ult = h.reduce((a, b) => b[0] > a[0] ? b : a), pool = ult[2];
+    const lim = new Date(Date.parse(ult[0]) - 365 * 864e5).toISOString().slice(0, 10);
+    const w = h.filter(x => x[2] === pool && x[0] >= lim).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+    if (w.length < 2) return;
+    const best = Math.min(...w.map(x => x[1])), bajada = w[0][1] - best;
+    if (bajada <= 0) return;
+    n++;
+    if (!mejor || bajada / w[0][1] > mejor.bajada / mejor.desde) mejor = {e: e.e, pool, desde: w[0][1], mejor: best, bajada};
+  });
+  return mejor && Object.assign(mejor, {n});
+}

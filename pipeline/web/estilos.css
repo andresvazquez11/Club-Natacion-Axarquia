@@ -1007,3 +1007,14 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .dir-hist-cab.bad{background:rgba(255,212,0,.12)}
 .ult-ver{margin-top:6px;padding:6px 10px;font-size:.78rem;white-space:normal;text-align:left}
 .ult-pf{width:100%;margin:0 0 10px}
+
+/* Fase 1 familias: pestañas de la ficha, «Cómo va», banner de competición y buscador del Club */
+.ficha-tabs{margin-top:10px}
+.como-va-t{margin:2px 0 6px;font-size:.95rem;line-height:1.45}
+.dir-hoy{margin-top:12px;border:1.5px solid var(--sun, #ffd400)}
+.dir-hoy.vivo{border-color:var(--good)}
+.dir-hoy-cab{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.dir-hoy .btn{display:block;margin-top:10px;text-align:center}
+.club-buscar .buscador{margin-top:6px}
+.club-buscar .search{font-size:1.05rem;min-height:52px}
+.ficha-tabs a{white-space:nowrap}

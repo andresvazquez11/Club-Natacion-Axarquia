@@ -355,6 +355,7 @@ function clubInicio(app) {
     <div class="portada" style="--foto:url(img/club.jpg)">
       <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · ${actBtn(`actualizado ${DATA.fecha}`)}</p></div></div>
     </div>
+    <div class="card club-buscar"><div class="h">${ico('nadador')}¿A quién buscas?</div>${buscadorHTML('q-club', 'Nombre de tu nadador…')}</div>
     <div class="accesos dos">${accesos}</div>
     <div class="card cc" id="club-comp" style="margin-top:12px"><div class="h">${ico('copa')}Competiciones</div><p class="empty">Buscando competiciones…</p></div>
     <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
@@ -384,6 +385,7 @@ function clubInicio(app) {
 
     <p class="foot">Fuente: ranking RFEN, temporadas 25-26 y 26-27 (todas las piscinas, sin tiempos parciales). Andalucía = clubes de las 8 provincias andaluzas · Málaga = clubes de la provincia · Puntos World Aquatics = 1000×(récord/marca)³.</p>`;
 
+  bindBuscador('q-club');
   cmpBind(app);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => { location.hash = el.dataset.go; });
   const sem = app.querySelector('[data-sem-detalle]'); if (sem) sem.onclick = abrirSemana;
