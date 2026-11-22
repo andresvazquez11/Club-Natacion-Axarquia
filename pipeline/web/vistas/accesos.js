@@ -104,3 +104,26 @@ function fraseProgreso(s) {
   });
   return mejor && Object.assign(mejor, {n});
 }
+
+/* Sus competiciones, la más reciente primero: [{fecha (la última), desde, comp, lugar, filas:[{e, t, pool, puesto, de, ant, pb, dif, primera}]}].
+   Una competición de varios días (mismo nombre, ≤ 7 días entre pruebas) es una sola. «ant» = su mejor marca anterior en esa prueba y piscina:
+   pb = mejor marca personal; dif = tiempo − ant (negativo = mejora). Solo marcas individuales (no tiempos de relevo). */
+function competicionesDe(s) {
+  const filas = [];
+  (s.ev || []).forEach(e => (e.h || []).forEach(x => { if (!x[8] && x[1] > 0) filas.push({e: e.e, t: x[1], pool: x[2], fecha: x[0], comp: x[3] || '', lugar: x[4] || '', puesto: x[6] || null, de: x[7] || null}); }));
+  filas.sort((a, b) => a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0);
+  const G = [];
+  filas.forEach(f => {
+    const g = G.find(c => c.comp === f.comp && Math.abs(Date.parse(c.fecha) - Date.parse(f.fecha)) <= 7 * 864e5);
+    if (g) { g.filas.push(f); g.desde = f.fecha; } else G.push({fecha: f.fecha, desde: f.fecha, comp: f.comp, lugar: f.lugar, filas: [f]});
+  });
+  G.forEach(c => {
+    c.filas.forEach(f => {
+      const ev = (s.ev || []).find(e => e.e === f.e), prev = ev.h.filter(y => !y[8] && y[2] === f.pool && y[0] < f.fecha).map(y => y[1]);
+      f.ant = prev.length ? Math.min(...prev) : null;
+      f.primera = f.ant === null; f.dif = f.primera ? null : f.t - f.ant; f.pb = !f.primera && f.t < f.ant;
+    });
+    c.filas.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.e < b.e ? -1 : a.e > b.e ? 1 : a.t - b.t);
+  });
+  return G;
+}

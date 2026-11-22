@@ -532,10 +532,71 @@ function mejorMomentoHTML(s) {
 
 const filasFrase = L => L.map(([i, t]) => `<div class="fila">${icoDe(i)}<span>${t}</span></div>`).join('');
 
+/* ── Vista Familias: lo esencial, con frases y sin siglas. Cada bloque enlaza a la vista Completa para ver todo el detalle. ── */
+const famRango = c => c.desde === c.fecha ? dfmt(c.fecha) : `${dfmt(c.desde)} – ${dfmt(c.fecha)}`;
+function famFilaResultado(f) {
+  const v = f.primera ? '<span class="muted">primera vez</span>' : f.pb ? `<b class="good">★ mejor marca · −${secs(f.dif)} s</b>`
+    : f.dif === 0 ? '<b class="good">igual que su mejor</b>' : `<span class="bad">+${secs(f.dif)} s de su mejor</span>`;
+  return `<div class="fam-fila"><div class="fam-l"><b>${esc(f.e)}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${f.puesto ? ` · ${f.puesto}º${f.de ? ' de ' + f.de : ''}` : ''}</small></div>
+    <div class="fam-r"><b>${fmt(f.t)}</b><small>${v}</small></div></div>`;
+}
+function famCompHTML(s, c, abierta) {
+  const pbs = c.filas.filter(f => f.pb).length;
+  return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><b>${esc(c.comp || 'Competición')}</b>
+      <span class="tiny muted">${famRango(c)} · ${c.filas.length} prueba${c.filas.length === 1 ? '' : 's'}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</span></summary>
+    ${c.filas.map(famFilaResultado).join('')}
+    <button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></details>`;
+}
+const resultadosHTML = s => { const C = competicionesDe(s);
+  return C.length ? C.map((c, i) => famCompHTML(s, c, i === 0)).join('') + '<p class="tiny muted" style="margin-top:8px">★ = mejor marca personal en esa piscina. «Puesto» = entre los nacidos en su mismo año en esa competición.</p>'
+    : '<div class="vacio">Todavía no hay resultados de competiciones.</div>'; };
+/* Una línea por prueba: marca real, piscina y su puesto en Málaga entre los de su año */
+function famFilaMarca(s, e) {
+  const m = ((e.rk || {}).y || {}).ma;
+  return `<a class="fam-fila" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(e.e)}"><div class="fam-l"><b>${esc(e.e)}</b><small>piscina de ${esc(piscinaTxt(e.pool))}${e.date ? ' · ' + dfmt(e.date) : ''}</small></div>
+    <div class="fam-r"><b class="sun">${fmt(e.cs)}</b><small>${m ? `${m[0]}º de ${m[1]} en Málaga` : ''}</small></div></a>`;
+}
+const marcasFamiliasHTML = s => `<div class="card"><p class="small muted" style="margin:0 0 6px">Su mejor marca real en cada prueba. <b>Toca una prueba</b> para ver todas sus marcas, su evolución y sus parciales.</p>
+  ${[...s.ev].sort((a, b) => b.pts - a.pts).map(e => famFilaMarca(s, e)).join('')}</div>`;
+/* Progreso: la frase del año y, por prueba, de dónde viene y dónde está */
+function progresoHTML(s) {
+  const filas = s.ev.map(e => { const h = (e.h || []).filter(x => !x[8] && x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1), p = h[0], bajo = p ? p[1] - e.cs : 0;
+    return `<a class="fam-fila" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}"><div class="fam-l"><b>${esc(e.e)}</b><small>${bajo > 0 ? `<span class="good">−${secs(bajo)} s</span> desde ${dfmt(p[0])}` : `${h.length} marca${h.length === 1 ? '' : 's'}`} · piscina de ${esc(piscinaTxt(e.pool))}</small></div>
+      <div class="fam-r">${spark(h, 90, 26)}<b>${fmt(e.cs)}</b></div></a>`; }).join('');
+  return `${comoVaHTML(s) || '<div class="card"><p class="small muted" style="margin:0">Aún no hay suficientes marcas en el último año para calcular su mejora.</p></div>'}
+    <div class="card"><div class="h">${ico('tendencia')}Su evolución por prueba</div>${filas}
+    <p class="tiny muted" style="margin-top:6px">Toca una prueba para ver sus marcas temporada a temporada.</p></div>
+    <div class="card fam-mas"><p class="small" style="margin:0 0 8px">Para ver rankings, puntos o comparar con compañeros, usa la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>`;
+}
+function resumenFamiliasHTML(s, cat) {
+  const portada = portadaHTML(s, cat);
+  if (!s.ev.length) return portada + fichaTabsHTML(s, 'resumen') + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
+  const u = competicionesDe(s)[0], pbs = u ? u.filas.filter(f => f.pb).length : 0;
+  const ultima = u ? `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
+      <p class="small" style="margin:2px 0 8px"><b>${esc(u.comp || 'Competición')}</b> · ${famRango(u)}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</p>
+      ${u.filas.map(famFilaResultado).join('')}
+      <a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div>` : '';
+  const top = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6);
+  return `${portada}
+    ${fichaTabsHTML(s, 'resumen')}
+    ${familiaHTML(s)}
+    <div id="res-hoy"></div><div id="res-prox" hidden></div>
+    ${ultima}
+    ${comoVaHTML(s)}
+    <div class="card"><div class="h">${ico('medalla')}Sus mejores marcas</div>${top.map(e => famFilaMarca(s, e)).join('')}
+      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
+    ${insigniasCard(s)}
+    <div class="card fam-mas"><div class="h">${ico('barras')}¿Quieres más datos?</div><p class="small" style="margin:0 0 8px">Rankings de España y Andalucía, puntos, relevos, parciales y comparar con compañeros están en la vista Completa.</p>
+      <button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>
+    ${s.benicio && ESTRELLA_ELEGIBLE ? `<p class="tiny muted" style="text-align:center;margin-top:10px"><button type="button" class="ent-x-link" data-quitar>Dejar de seguir a ${esc(String(s.n).split(' ')[0])} en este dispositivo</button></p>` : ''}`;
+}
 /* Pestañas de la ficha, siempre arriba: Resumen + los accesos de este nadador (antes eran botones pequeños a mitad de página) */
+const FAM_TABS = [['resumen', 'Resumen'], ['resultados', 'Resultados'], ['marcas', 'Marcas'], ['progreso', 'Progreso']];
+const vistaSegHTML = () => `<div class="vista-row"><span>Vista</span><div class="seg" role="group" aria-label="Tipo de vista">${[['familias', 'Familias'], ['completa', 'Completa']]
+  .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div></div>`;
 function fichaTabsHTML(s, sub) {
-  const L = [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
-  return `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
+  const L = vistaFamilias() && FAM_TABS.some(t => t[0] === sub) ? FAM_TABS : [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
+  return vistaSegHTML() + `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
     `<a href="${k === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, k)}" class="${k === sub ? 'on' : ''}"${k === sub ? ' aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
 }
 /* «Cómo va»: una frase con su mayor mejora del último año */
@@ -545,7 +606,7 @@ function comoVaHTML(s) {
     <p class="como-va-t">En <b>${esc(f.e)}</b> ha bajado <b class="good">${secs(f.bajada)} s</b> en el último año <span class="muted">(de ${fmt(f.desde)} a ${fmt(f.mejor)}, piscina de ${esc(piscinaTxt(f.pool))})</span>.${f.n > 1 ? ` Ha mejorado en <b>${f.n}</b> pruebas.` : ''}</p>
     <a class="mas" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(f.e)}">Ver su evolución ›</a></div>`;
 }
-function resumenHTML(s, cat) {
+function portadaHTML(s, cat) {
   const elegido = s.benicio, F_ = s.g === 'F';
   const ante = elegido ? (F_ ? 'Mi nadadora' : 'Mi nadador') : (F_ ? 'Nadadora del club' : 'Nadador del club');
   const boton = !ESTRELLA_ELEGIBLE ? '' : elegido ? '<button class="chg" data-cambiar>Cambiar</button>'
@@ -555,6 +616,10 @@ function resumenHTML(s, cat) {
       <div class="portada-tit"><div class="av" aria-hidden="true">${esc(iniciales(s.n))}</div>
         <div class="portada-txt"><small>${ante}</small><h1>${esc(s.n)}</h1><p>${catAnyo(s)} · ${s.np} prueba${s.np === 1 ? '' : 's'}</p></div>${boton}</div>
     </div>`;
+  return portada;
+}
+function resumenHTML(s, cat) {
+  const portada = portadaHTML(s, cat);
   if (!s.ev.length) return portada + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
 
   const {F, M} = analisis(s), O = objetivos(s);
@@ -605,11 +670,11 @@ function paramsSub(sub, p) {
 
 function vistaFicha(app, s, sub, params) {
   const cat = s.cat ? catOf(s.cat) : null;
-  if (sub !== 'resumen' && !accesosDe(s).some(a => a[0] === sub)) {   // no aplica a este nadador: a su pantalla principal
+  if (sub !== 'resumen' && !['resultados', 'progreso'].includes(sub) && !accesosDe(s).some(a => a[0] === sub)) {   // no aplica a este nadador: a su pantalla principal
     history.replaceState(null, '', fichaHref(s)); sub = 'resumen'; params = {};
   }
   if (sub === 'resumen') {
-    app.innerHTML = resumenHTML(s, cat);
+    app.innerHTML = vistaFamilias() ? resumenFamiliasHTML(s, cat) : resumenHTML(s, cat);
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
@@ -641,11 +706,13 @@ function vistaSub(app, s, sub, p) {
   const sk = s.cat ? (p.sk || 'y') : 'y';
   const href = q => fichaHref(s, sub) + (q ? '?' + q : '');
   const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
-  const tit = (accesosDe(s).find(a => a[0] === sub) || [])[1] || '';
+  const tit = (accesosDe(s).find(a => a[0] === sub) || FAM_TABS.find(a => a[0] === sub) || [])[1] || '';
 
   const body = sub === 'entrenos' ? subEntrenos()
     : !s.ev.length ? '<div class="vacio">Todavía no tiene marcas esta temporada</div>'
-    : sub === 'marcas' ? tabPruebas(s, sk, p)
+    : sub === 'resultados' ? resultadosHTML(s)
+    : sub === 'progreso' ? progresoHTML(s)
+    : sub === 'marcas' ? (vistaFamilias() && !p.ev ? marcasFamiliasHTML(s) : tabPruebas(s, sk, p))
     : sub === 'ranking' ? tabRankingFicha(s, sk, rev)
     : sub === 'espana' ? tabMinimas(s)
     : sub === 'andalucia' ? bloque(FLAG_AN, '¿Entra en el Campeonato de Andalucía?', '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>')

@@ -1018,3 +1018,14 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .club-buscar .buscador{margin-top:6px}
 .club-buscar .search{font-size:1.05rem;min-height:52px}
 .ficha-tabs a{white-space:nowrap}
+
+/* Fase 2: vista Familias */
+.vista-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+.vista-row .seg button.on{background:var(--sun, #ffd400);color:#05223b}
+.fam-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(127,127,127,.2);color:inherit;text-decoration:none}
+.fam-fila:first-of-type{border-top:0}
+.fam-l b{display:block;font-size:.95rem}.fam-l small,.fam-r small{display:block;font-size:.75rem;color:var(--ink2);margin-top:2px}
+.fam-r{text-align:right;display:flex;flex-direction:column;align-items:flex-end}.fam-r b{font-size:1.1rem;font-variant-numeric:tabular-nums}
+.fam-comp>summary{cursor:pointer;list-style:none}.fam-comp>summary b{display:block}
+.fam-comp[open]>summary{margin-bottom:6px}
+.fam-mas .btn{display:block;text-align:center}

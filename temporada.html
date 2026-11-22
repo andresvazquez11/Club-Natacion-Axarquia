@@ -1027,6 +1027,17 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .club-buscar .search{font-size:1.05rem;min-height:52px}
 .ficha-tabs a{white-space:nowrap}
 
+/* Fase 2: vista Familias */
+.vista-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+.vista-row .seg button.on{background:var(--sun, #ffd400);color:#05223b}
+.fam-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(127,127,127,.2);color:inherit;text-decoration:none}
+.fam-fila:first-of-type{border-top:0}
+.fam-l b{display:block;font-size:.95rem}.fam-l small,.fam-r small{display:block;font-size:.75rem;color:var(--ink2);margin-top:2px}
+.fam-r{text-align:right;display:flex;flex-direction:column;align-items:flex-end}.fam-r b{font-size:1.1rem;font-variant-numeric:tabular-nums}
+.fam-comp>summary{cursor:pointer;list-style:none}.fam-comp>summary b{display:block}
+.fam-comp[open]>summary{margin-bottom:6px}
+.fam-mas .btn{display:block;text-align:center}
+
 </style>
 </head>
 <body>
@@ -1204,6 +1215,11 @@ const fichaHref = (s, sub) => (s.benicio ? '#mi' : `#nadador/${s.id}`) + (sub &&
    Por defecto, todas juntas (convertidas a una sola piscina); o solo las marcas de 25 m, o solo las de 50 m. La conversión mantiene los puntos World Aquatics:
    marca_destino = marca × récord_destino / récord_origen (récord del mundo de esa prueba y sexo en cada piscina).
    Es una equivalencia orientativa; los rankings y las mínimas oficiales siguen siendo por piscina. */
+/* Vista: «familias» (por defecto: lo esencial, con frases) o «completa» (todos los datos). Se recuerda en el dispositivo. */
+const VISTA_LS = 'cna_vista';
+let VISTA = (() => { try { return localStorage.getItem(VISTA_LS) === 'completa' ? 'completa' : 'familias'; } catch (e) { return 'familias'; } })();
+const vistaFamilias = () => VISTA !== 'completa';
+function fijarVista(v) { VISTA = v === 'completa' ? 'completa' : 'familias'; try { localStorage.setItem(VISTA_LS, VISTA); } catch (e) {} if (typeof route === 'function') route(); }
 const PISC_LS = 'cna_piscina2';   // «2»: antes se guardaba otra cosa (separadas / todo a 25 / todo a 50) y todos vuelven al valor por defecto
 let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'jun'; } catch (e) { return 'jun'; } })();
 const piscDestino = () => PISC === 'jun' ? '25m' : null;                       // junto: piscina a la que se convierte todo
@@ -2592,6 +2608,29 @@ function fraseProgreso(s) {
   return mejor && Object.assign(mejor, {n});
 }
 
+/* Sus competiciones, la más reciente primero: [{fecha (la última), desde, comp, lugar, filas:[{e, t, pool, puesto, de, ant, pb, dif, primera}]}].
+   Una competición de varios días (mismo nombre, ≤ 7 días entre pruebas) es una sola. «ant» = su mejor marca anterior en esa prueba y piscina:
+   pb = mejor marca personal; dif = tiempo − ant (negativo = mejora). Solo marcas individuales (no tiempos de relevo). */
+function competicionesDe(s) {
+  const filas = [];
+  (s.ev || []).forEach(e => (e.h || []).forEach(x => { if (!x[8] && x[1] > 0) filas.push({e: e.e, t: x[1], pool: x[2], fecha: x[0], comp: x[3] || '', lugar: x[4] || '', puesto: x[6] || null, de: x[7] || null}); }));
+  filas.sort((a, b) => a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0);
+  const G = [];
+  filas.forEach(f => {
+    const g = G.find(c => c.comp === f.comp && Math.abs(Date.parse(c.fecha) - Date.parse(f.fecha)) <= 7 * 864e5);
+    if (g) { g.filas.push(f); g.desde = f.fecha; } else G.push({fecha: f.fecha, desde: f.fecha, comp: f.comp, lugar: f.lugar, filas: [f]});
+  });
+  G.forEach(c => {
+    c.filas.forEach(f => {
+      const ev = (s.ev || []).find(e => e.e === f.e), prev = ev.h.filter(y => !y[8] && y[2] === f.pool && y[0] < f.fecha).map(y => y[1]);
+      f.ant = prev.length ? Math.min(...prev) : null;
+      f.primera = f.ant === null; f.dif = f.primera ? null : f.t - f.ant; f.pb = !f.primera && f.t < f.ant;
+    });
+    c.filas.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.e < b.e ? -1 : a.e > b.e ? 1 : a.t - b.t);
+  });
+  return G;
+}
+
 /* ── vistas/ficha.js ── */
 /* Pantalla del nadador («Mi nadador» y la de cualquier otro): resumen y sub-pantallas de sus accesos */
 
@@ -3127,10 +3166,71 @@ function mejorMomentoHTML(s) {
 
 const filasFrase = L => L.map(([i, t]) => `<div class="fila">${icoDe(i)}<span>${t}</span></div>`).join('');
 
+/* ── Vista Familias: lo esencial, con frases y sin siglas. Cada bloque enlaza a la vista Completa para ver todo el detalle. ── */
+const famRango = c => c.desde === c.fecha ? dfmt(c.fecha) : `${dfmt(c.desde)} – ${dfmt(c.fecha)}`;
+function famFilaResultado(f) {
+  const v = f.primera ? '<span class="muted">primera vez</span>' : f.pb ? `<b class="good">★ mejor marca · −${secs(f.dif)} s</b>`
+    : f.dif === 0 ? '<b class="good">igual que su mejor</b>' : `<span class="bad">+${secs(f.dif)} s de su mejor</span>`;
+  return `<div class="fam-fila"><div class="fam-l"><b>${esc(f.e)}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${f.puesto ? ` · ${f.puesto}º${f.de ? ' de ' + f.de : ''}` : ''}</small></div>
+    <div class="fam-r"><b>${fmt(f.t)}</b><small>${v}</small></div></div>`;
+}
+function famCompHTML(s, c, abierta) {
+  const pbs = c.filas.filter(f => f.pb).length;
+  return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><b>${esc(c.comp || 'Competición')}</b>
+      <span class="tiny muted">${famRango(c)} · ${c.filas.length} prueba${c.filas.length === 1 ? '' : 's'}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</span></summary>
+    ${c.filas.map(famFilaResultado).join('')}
+    <button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></details>`;
+}
+const resultadosHTML = s => { const C = competicionesDe(s);
+  return C.length ? C.map((c, i) => famCompHTML(s, c, i === 0)).join('') + '<p class="tiny muted" style="margin-top:8px">★ = mejor marca personal en esa piscina. «Puesto» = entre los nacidos en su mismo año en esa competición.</p>'
+    : '<div class="vacio">Todavía no hay resultados de competiciones.</div>'; };
+/* Una línea por prueba: marca real, piscina y su puesto en Málaga entre los de su año */
+function famFilaMarca(s, e) {
+  const m = ((e.rk || {}).y || {}).ma;
+  return `<a class="fam-fila" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(e.e)}"><div class="fam-l"><b>${esc(e.e)}</b><small>piscina de ${esc(piscinaTxt(e.pool))}${e.date ? ' · ' + dfmt(e.date) : ''}</small></div>
+    <div class="fam-r"><b class="sun">${fmt(e.cs)}</b><small>${m ? `${m[0]}º de ${m[1]} en Málaga` : ''}</small></div></a>`;
+}
+const marcasFamiliasHTML = s => `<div class="card"><p class="small muted" style="margin:0 0 6px">Su mejor marca real en cada prueba. <b>Toca una prueba</b> para ver todas sus marcas, su evolución y sus parciales.</p>
+  ${[...s.ev].sort((a, b) => b.pts - a.pts).map(e => famFilaMarca(s, e)).join('')}</div>`;
+/* Progreso: la frase del año y, por prueba, de dónde viene y dónde está */
+function progresoHTML(s) {
+  const filas = s.ev.map(e => { const h = (e.h || []).filter(x => !x[8] && x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1), p = h[0], bajo = p ? p[1] - e.cs : 0;
+    return `<a class="fam-fila" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}"><div class="fam-l"><b>${esc(e.e)}</b><small>${bajo > 0 ? `<span class="good">−${secs(bajo)} s</span> desde ${dfmt(p[0])}` : `${h.length} marca${h.length === 1 ? '' : 's'}`} · piscina de ${esc(piscinaTxt(e.pool))}</small></div>
+      <div class="fam-r">${spark(h, 90, 26)}<b>${fmt(e.cs)}</b></div></a>`; }).join('');
+  return `${comoVaHTML(s) || '<div class="card"><p class="small muted" style="margin:0">Aún no hay suficientes marcas en el último año para calcular su mejora.</p></div>'}
+    <div class="card"><div class="h">${ico('tendencia')}Su evolución por prueba</div>${filas}
+    <p class="tiny muted" style="margin-top:6px">Toca una prueba para ver sus marcas temporada a temporada.</p></div>
+    <div class="card fam-mas"><p class="small" style="margin:0 0 8px">Para ver rankings, puntos o comparar con compañeros, usa la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>`;
+}
+function resumenFamiliasHTML(s, cat) {
+  const portada = portadaHTML(s, cat);
+  if (!s.ev.length) return portada + fichaTabsHTML(s, 'resumen') + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
+  const u = competicionesDe(s)[0], pbs = u ? u.filas.filter(f => f.pb).length : 0;
+  const ultima = u ? `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
+      <p class="small" style="margin:2px 0 8px"><b>${esc(u.comp || 'Competición')}</b> · ${famRango(u)}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</p>
+      ${u.filas.map(famFilaResultado).join('')}
+      <a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div>` : '';
+  const top = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6);
+  return `${portada}
+    ${fichaTabsHTML(s, 'resumen')}
+    ${familiaHTML(s)}
+    <div id="res-hoy"></div><div id="res-prox" hidden></div>
+    ${ultima}
+    ${comoVaHTML(s)}
+    <div class="card"><div class="h">${ico('medalla')}Sus mejores marcas</div>${top.map(e => famFilaMarca(s, e)).join('')}
+      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
+    ${insigniasCard(s)}
+    <div class="card fam-mas"><div class="h">${ico('barras')}¿Quieres más datos?</div><p class="small" style="margin:0 0 8px">Rankings de España y Andalucía, puntos, relevos, parciales y comparar con compañeros están en la vista Completa.</p>
+      <button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>
+    ${s.benicio && ESTRELLA_ELEGIBLE ? `<p class="tiny muted" style="text-align:center;margin-top:10px"><button type="button" class="ent-x-link" data-quitar>Dejar de seguir a ${esc(String(s.n).split(' ')[0])} en este dispositivo</button></p>` : ''}`;
+}
 /* Pestañas de la ficha, siempre arriba: Resumen + los accesos de este nadador (antes eran botones pequeños a mitad de página) */
+const FAM_TABS = [['resumen', 'Resumen'], ['resultados', 'Resultados'], ['marcas', 'Marcas'], ['progreso', 'Progreso']];
+const vistaSegHTML = () => `<div class="vista-row"><span>Vista</span><div class="seg" role="group" aria-label="Tipo de vista">${[['familias', 'Familias'], ['completa', 'Completa']]
+  .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div></div>`;
 function fichaTabsHTML(s, sub) {
-  const L = [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
-  return `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
+  const L = vistaFamilias() && FAM_TABS.some(t => t[0] === sub) ? FAM_TABS : [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
+  return vistaSegHTML() + `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
     `<a href="${k === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, k)}" class="${k === sub ? 'on' : ''}"${k === sub ? ' aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
 }
 /* «Cómo va»: una frase con su mayor mejora del último año */
@@ -3140,7 +3240,7 @@ function comoVaHTML(s) {
     <p class="como-va-t">En <b>${esc(f.e)}</b> ha bajado <b class="good">${secs(f.bajada)} s</b> en el último año <span class="muted">(de ${fmt(f.desde)} a ${fmt(f.mejor)}, piscina de ${esc(piscinaTxt(f.pool))})</span>.${f.n > 1 ? ` Ha mejorado en <b>${f.n}</b> pruebas.` : ''}</p>
     <a class="mas" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(f.e)}">Ver su evolución ›</a></div>`;
 }
-function resumenHTML(s, cat) {
+function portadaHTML(s, cat) {
   const elegido = s.benicio, F_ = s.g === 'F';
   const ante = elegido ? (F_ ? 'Mi nadadora' : 'Mi nadador') : (F_ ? 'Nadadora del club' : 'Nadador del club');
   const boton = !ESTRELLA_ELEGIBLE ? '' : elegido ? '<button class="chg" data-cambiar>Cambiar</button>'
@@ -3150,6 +3250,10 @@ function resumenHTML(s, cat) {
       <div class="portada-tit"><div class="av" aria-hidden="true">${esc(iniciales(s.n))}</div>
         <div class="portada-txt"><small>${ante}</small><h1>${esc(s.n)}</h1><p>${catAnyo(s)} · ${s.np} prueba${s.np === 1 ? '' : 's'}</p></div>${boton}</div>
     </div>`;
+  return portada;
+}
+function resumenHTML(s, cat) {
+  const portada = portadaHTML(s, cat);
   if (!s.ev.length) return portada + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
 
   const {F, M} = analisis(s), O = objetivos(s);
@@ -3200,11 +3304,11 @@ function paramsSub(sub, p) {
 
 function vistaFicha(app, s, sub, params) {
   const cat = s.cat ? catOf(s.cat) : null;
-  if (sub !== 'resumen' && !accesosDe(s).some(a => a[0] === sub)) {   // no aplica a este nadador: a su pantalla principal
+  if (sub !== 'resumen' && !['resultados', 'progreso'].includes(sub) && !accesosDe(s).some(a => a[0] === sub)) {   // no aplica a este nadador: a su pantalla principal
     history.replaceState(null, '', fichaHref(s)); sub = 'resumen'; params = {};
   }
   if (sub === 'resumen') {
-    app.innerHTML = resumenHTML(s, cat);
+    app.innerHTML = vistaFamilias() ? resumenFamiliasHTML(s, cat) : resumenHTML(s, cat);
     app.querySelectorAll('[data-kd]').forEach(b => b.onclick = () => abrirKpiFicha(s, b.dataset.kd));
     const camb = app.querySelector('[data-cambiar]');
     if (camb) camb.onclick = () => elegirEstrella(null);
@@ -3236,11 +3340,13 @@ function vistaSub(app, s, sub, p) {
   const sk = s.cat ? (p.sk || 'y') : 'y';
   const href = q => fichaHref(s, sub) + (q ? '?' + q : '');
   const rev = (s.ev.find(x => x.e === p.rev) || s.ev[0] || {}).e;
-  const tit = (accesosDe(s).find(a => a[0] === sub) || [])[1] || '';
+  const tit = (accesosDe(s).find(a => a[0] === sub) || FAM_TABS.find(a => a[0] === sub) || [])[1] || '';
 
   const body = sub === 'entrenos' ? subEntrenos()
     : !s.ev.length ? '<div class="vacio">Todavía no tiene marcas esta temporada</div>'
-    : sub === 'marcas' ? tabPruebas(s, sk, p)
+    : sub === 'resultados' ? resultadosHTML(s)
+    : sub === 'progreso' ? progresoHTML(s)
+    : sub === 'marcas' ? (vistaFamilias() && !p.ev ? marcasFamiliasHTML(s) : tabPruebas(s, sk, p))
     : sub === 'ranking' ? tabRankingFicha(s, sk, rev)
     : sub === 'espana' ? tabMinimas(s)
     : sub === 'andalucia' ? bloque(FLAG_AN, '¿Entra en el Campeonato de Andalucía?', '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>')
@@ -6325,7 +6431,7 @@ function dirBannerHoy(suyas, s) {
 async function pintarDirectoNadador(app, s) {
   const d = await dirCargar(false);
   await dirAlMomento(d);
-  if (!d || !app.isConnected || !app.querySelector('#res-prox')) return;   // solo en el Resumen (si ya cambió de pantalla, no se pinta en otra)
+  if (!d || !app.isConnected || !app.querySelector('#res-prox, #res-hoy')) return;   // solo en el Resumen (si ya cambió de pantalla, no se pinta en otra)
   const id = String(s.id);
   // Las suyas (aparece en las series) y, del calendario sin series, solo las de su categoría
   const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => dirEsDe(f, id))}))
@@ -6349,7 +6455,7 @@ async function pintarDirectoNadador(app, s) {
     ${conSeries.length ? `<div class="ent-sel">Próximas de ${nombre}</div>${conSeries.map(linea).join('')}` : ''}
     ${calendario.length ? `<details class="dir-mas"><summary>Próximas para ${esc((catOf(s.cat) || {}).label || 'su categoría')} (${calendario.length}) · series aún sin publicar</summary>${calendario.map(x => `<div class="dir-f"><b><a href="#directo">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span></div>`).join('')}<p class="tiny muted">Cuando la federación publique las series verás aquí si nada, a qué hora y en qué calle.</p></details>` : ''}
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
-  app.querySelector('#res-prox').innerHTML = html;
+  const slotProx = app.querySelector('#res-prox'); if (slotProx) slotProx.innerHTML = html;
   const hoy = app.querySelector('#res-hoy'); if (hoy) hoy.innerHTML = dirBannerHoy(suyas, s);
   dirCuentaArrancar();
 }
@@ -6586,7 +6692,7 @@ if (typeof document !== 'undefined' && document.addEventListener) document.addEv
 /* ── app.js ── */
 /* Enrutador. Cuatro secciones: Mi nadador (#mi, #nadador/<id>), Club, Campeonatos y Rankings (+ Comparar y «elegir nadador»).
    resolverRuta() es pura: traduce una dirección (también las antiguas #benicio…, #inicio) a la pantalla que toca. */
-const SUB_NADADOR = ['resumen', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club', 'entrenos'];
+const SUB_NADADOR = ['resumen', 'resultados', 'progreso', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club', 'entrenos'];
 const SUB_EQUIV = {pruebas: 'marcas', historial: 'evolucion', rivales: 'ranking', minimas: 'espana'};
 function resolverRuta(hash, ben, sw) {
   const raw = String(hash || '').replace(/^#/, '');
@@ -6637,7 +6743,7 @@ function nombrePantalla(h, ben, sw) {
     const s = sw[r.id];
     if (r.sub === 'resumen') return s ? esc(String(s.n).split(' ')[0]) : 'el nadador';
     const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
-    return a ? a[1] : 'la pantalla anterior';
+    return a ? a[1] : {resultados: 'Resultados', progreso: 'Progreso'}[r.sub] || 'la pantalla anterior';
   }
   return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Competiciones', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
 }
@@ -6647,7 +6753,7 @@ function nombrePantalla(h, ben, sw) {
    (se guarda skipgc, que es lo que respeta GoatCounter; ?contar lo quita). Las estadísticas no se enlazan desde la
    página: el enlace va solo en el correo de cada actualización. */
 const NOM_SECC = {marcas: 'Marcas', evolucion: 'Temporadas', ranking: 'Rankings', espana: 'Cto. España', andalucia: 'Cto. Andalucía',
-  relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen'};
+  relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen', resultados: 'Resultados', progreso: 'Progreso'};
 function seccionVisita(h, ben, sw) {
   const r = resolverRuta(h, ben, sw);
   if (r.sec === 'nadador') {
@@ -6752,6 +6858,7 @@ function arrancar() {
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista); });   // interruptor Familias | Completa
   window.addEventListener('hashchange', route);
   route();
 }

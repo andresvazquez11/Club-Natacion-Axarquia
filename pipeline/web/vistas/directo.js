@@ -623,7 +623,7 @@ function dirBannerHoy(suyas, s) {
 async function pintarDirectoNadador(app, s) {
   const d = await dirCargar(false);
   await dirAlMomento(d);
-  if (!d || !app.isConnected || !app.querySelector('#res-prox')) return;   // solo en el Resumen (si ya cambió de pantalla, no se pinta en otra)
+  if (!d || !app.isConnected || !app.querySelector('#res-prox, #res-hoy')) return;   // solo en el Resumen (si ya cambió de pantalla, no se pinta en otra)
   const id = String(s.id);
   // Las suyas (aparece en las series) y, del calendario sin series, solo las de su categoría
   const suyas = d.competiciones.map(c => ({c, filas: dirNuestras(c).filter(f => dirEsDe(f, id))}))
@@ -647,7 +647,7 @@ async function pintarDirectoNadador(app, s) {
     ${conSeries.length ? `<div class="ent-sel">Próximas de ${nombre}</div>${conSeries.map(linea).join('')}` : ''}
     ${calendario.length ? `<details class="dir-mas"><summary>Próximas para ${esc((catOf(s.cat) || {}).label || 'su categoría')} (${calendario.length}) · series aún sin publicar</summary>${calendario.map(x => `<div class="dir-f"><b><a href="#directo">${esc(x.c.titulo)}</a></b> <span class="tiny muted">${dirFechas(x.c)}</span></div>`).join('')}<p class="tiny muted">Cuando la federación publique las series verás aquí si nada, a qué hora y en qué calle.</p></details>` : ''}
     ${rec.length ? `<div class="ent-sel">Recientes</div>${rec.map(linea).join('')}` : ''}</div>`;
-  app.querySelector('#res-prox').innerHTML = html;
+  const slotProx = app.querySelector('#res-prox'); if (slotProx) slotProx.innerHTML = html;
   const hoy = app.querySelector('#res-hoy'); if (hoy) hoy.innerHTML = dirBannerHoy(suyas, s);
   dirCuentaArrancar();
 }

@@ -1,6 +1,6 @@
 /* Enrutador. Cuatro secciones: Mi nadador (#mi, #nadador/<id>), Club, Campeonatos y Rankings (+ Comparar y «elegir nadador»).
    resolverRuta() es pura: traduce una dirección (también las antiguas #benicio…, #inicio) a la pantalla que toca. */
-const SUB_NADADOR = ['resumen', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club', 'entrenos'];
+const SUB_NADADOR = ['resumen', 'resultados', 'progreso', 'marcas', 'evolucion', 'ranking', 'espana', 'andalucia', 'relevos', 'club', 'entrenos'];
 const SUB_EQUIV = {pruebas: 'marcas', historial: 'evolucion', rivales: 'ranking', minimas: 'espana'};
 function resolverRuta(hash, ben, sw) {
   const raw = String(hash || '').replace(/^#/, '');
@@ -51,7 +51,7 @@ function nombrePantalla(h, ben, sw) {
     const s = sw[r.id];
     if (r.sub === 'resumen') return s ? esc(String(s.n).split(' ')[0]) : 'el nadador';
     const a = s && typeof accesosDe === 'function' ? accesosDe(s).find(x => x[0] === r.sub) : null;
-    return a ? a[1] : 'la pantalla anterior';
+    return a ? a[1] : {resultados: 'Resultados', progreso: 'Progreso'}[r.sub] || 'la pantalla anterior';
   }
   return {club: 'Club', campeonatos: 'Campeonatos', rankings: 'Rankings', comparar: 'Comparar', entrenamientos: 'Entrenamientos', directo: 'Competiciones', elegir: 'Elegir nadador'}[r.sec] || 'la pantalla anterior';
 }
@@ -61,7 +61,7 @@ function nombrePantalla(h, ben, sw) {
    (se guarda skipgc, que es lo que respeta GoatCounter; ?contar lo quita). Las estadísticas no se enlazan desde la
    página: el enlace va solo en el correo de cada actualización. */
 const NOM_SECC = {marcas: 'Marcas', evolucion: 'Temporadas', ranking: 'Rankings', espana: 'Cto. España', andalucia: 'Cto. Andalucía',
-  relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen'};
+  relevos: 'Sus relevos', club: 'En el club', entrenos: 'Entrenamientos', resumen: 'Resumen', resultados: 'Resultados', progreso: 'Progreso'};
 function seccionVisita(h, ben, sw) {
   const r = resolverRuta(h, ben, sw);
   if (r.sec === 'nadador') {
@@ -166,6 +166,7 @@ function arrancar() {
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista); });   // interruptor Familias | Completa
   window.addEventListener('hashchange', route);
   route();
 }

@@ -88,3 +88,17 @@ test('fraseProgreso: mayor mejora del último año, en la piscina de su última 
   assert.equal(f.e, '50 Braza'); assert.equal(f.desde, 3600); assert.equal(f.mejor, 3300); assert.equal(f.bajada, 300); assert.equal(f.n, 2);
   assert.equal(evalIn(ctx, `fraseProgreso({ev: [{e: 'x', h: [['2026-01-01', 100, '25m', '', '', 0, null, null, 0]]}]})`), null);
 });
+
+test('competicionesDe: agrupa por competición (varios días), marca pb frente a su mejor previa en la misma piscina', () => {
+  const h = (f, t, pool, comp, puesto = null) => [f, t, pool, comp, 'L', 0, puesto, puesto ? 20 : null, 0, null, ''];
+  const s = { ev: [
+    { e: '50 Libre', h: [h('2026-05-01', 3000, '25m', 'Trofeo'), h('2026-11-21', 2950, '25m', 'Liga', 3), h('2026-06-01', 2900, '50m', 'Cto')] },
+    { e: '100 Libre', h: [h('2026-11-21', 6500, '25m', 'Liga', 5), h('2026-11-22', 6400, '25m', 'Liga')] }] };
+  const C = JSON.parse(evalIn(ctx, `JSON.stringify(competicionesDe(${JSON.stringify(s)}))`));
+  assert.equal(C[0].comp, 'Liga'); assert.equal(C[0].filas.length, 3); assert.equal(C[0].desde, '2026-11-21'); assert.equal(C[0].fecha, '2026-11-22');
+  const f50 = C[0].filas.find(f => f.e === '50 Libre');
+  assert.equal(f50.ant, 3000); assert.equal(f50.pb, true); assert.equal(f50.dif, -50);     // la de 50 m no cuenta
+  assert.equal(C[0].filas.find(f => f.e === '100 Libre' && f.t === 6500).primera, true);   // primera vez: no es «mejor marca»
+  assert.equal(C[0].filas.find(f => f.e === '100 Libre' && f.t === 6400).ant, 6500);       // la del día anterior cuenta
+  assert.equal(C.map(c => c.comp).join(','), 'Liga,Cto,Trofeo');
+});

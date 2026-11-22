@@ -148,6 +148,11 @@ const fichaHref = (s, sub) => (s.benicio ? '#mi' : `#nadador/${s.id}`) + (sub &&
    Por defecto, todas juntas (convertidas a una sola piscina); o solo las marcas de 25 m, o solo las de 50 m. La conversión mantiene los puntos World Aquatics:
    marca_destino = marca × récord_destino / récord_origen (récord del mundo de esa prueba y sexo en cada piscina).
    Es una equivalencia orientativa; los rankings y las mínimas oficiales siguen siendo por piscina. */
+/* Vista: «familias» (por defecto: lo esencial, con frases) o «completa» (todos los datos). Se recuerda en el dispositivo. */
+const VISTA_LS = 'cna_vista';
+let VISTA = (() => { try { return localStorage.getItem(VISTA_LS) === 'completa' ? 'completa' : 'familias'; } catch (e) { return 'familias'; } })();
+const vistaFamilias = () => VISTA !== 'completa';
+function fijarVista(v) { VISTA = v === 'completa' ? 'completa' : 'familias'; try { localStorage.setItem(VISTA_LS, VISTA); } catch (e) {} if (typeof route === 'function') route(); }
 const PISC_LS = 'cna_piscina2';   // «2»: antes se guardaba otra cosa (separadas / todo a 25 / todo a 50) y todos vuelven al valor por defecto
 let PISC = (() => { try { return localStorage.getItem(PISC_LS) || 'jun'; } catch (e) { return 'jun'; } })();
 const piscDestino = () => PISC === 'jun' ? '25m' : null;                       // junto: piscina a la que se convierte todo
