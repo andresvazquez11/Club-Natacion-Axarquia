@@ -44,3 +44,12 @@ test('phHTML: pinta resumen frente a la mejor y la última, gráfica y tabla', (
   ctx.SW = {}; const html = evalIn(ctx, `phHTML(${JSON.stringify(s)}, ${JSON.stringify(c)}, ${JSON.stringify(p)}, {t: 14050, puesto: 2})`);
   assert.match(html, /Historial de 200 Libre/); assert.match(html, /Su mejor/); assert.match(html, /La última/); assert.match(html, /<svg/); assert.match(html, /Todos sus tiempos/);
 });
+
+test('phInscripcion: la inscripción puede ser una marca de 50 m aunque la competición sea de 25 m', () => {
+  const i = ev('phInscripcion', s, c, p, { ins: 14000 });             // 14000 es su marca de 50 m (2026-05-01)
+  assert.equal(i.otraPiscina, true); assert.equal(i.x[2], '50m');
+  assert.equal(ev('phInscripcion', s, c, p, { ins: 14100 }).otraPiscina, false);
+  assert.equal(ev('phInscripcion', s, c, p, { ins: 13000 }).x, null);  // no consta en nuestros datos
+  assert.equal(ev('phInscripcion', s, c, p, {}), null);
+  ctx.SW = {}; assert.match(evalIn(ctx, `phNotaInscripcion(${JSON.stringify(s)}, ${JSON.stringify(c)}, ${JSON.stringify(p)}, {ins: 14000})`), /piscina de 50 m.*mejor marca de cualquier piscina/);
+});

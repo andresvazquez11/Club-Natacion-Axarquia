@@ -755,7 +755,7 @@ function abrirUltimaComp(c) {
           <td>${x.ok ? `${x.conSeries ? `${x.f.serie}ª · ` : ''}<b>${x.enSerie}º</b> <span class="of">de ${x.deSerie}</span>` : '—'}</td>
           <td class="num"><b>${x.pb ? '<span class="sun">★ </span>' : ''}${dirTiempo(x.f)}</b></td><td class="num">${x.f.puesto ? x.f.puesto + 'º' : '—'}</td>
           <td class="num">${x.dif != null ? `<b class="${x.dif < 0 ? 'good' : 'bad'}">${gDif(x.dif)}</b>` : x.primera ? '<span class="tiny muted">primera vez</span>' : '—'}</td>
-          <td class="num">${x.ok && x.f.ins ? `<span class="${x.f.t <= x.f.ins ? 'good' : 'bad'}">${gDif(x.f.t - x.f.ins)}</span>` : '—'}</td></tr>`; }).join('')}</table></div></details>`;
+          <td class="num">${x.ok && x.f.ins ? `<span class="${x.f.t <= x.f.ins ? 'good' : 'bad'}">${gDif(x.f.t - x.f.ins)}</span><div class="tiny muted">con ${fmt(x.f.ins)}${(i => i && i.otraPiscina ? ` · marca de ${i.x[2].replace('m', ' m')}` : '')(phInscripcion(x.s, c, p, x.f))}</div>` : '—'}</td></tr>`; }).join('')}</table></div></details>`;
   }).join('');
   abrirVentana(() => {
     const box = document.querySelector('#modal .box');

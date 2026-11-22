@@ -52,9 +52,24 @@ function phHTML(s, c, p, f) {
   return `<details class="dir-mas dir-hist" open><summary>Historial de ${nombre} · piscina de ${pool} · ${H.n} ${H.n === 1 ? 'marca' : 'marcas'}</summary>
     <div class="dir-hist-cab ${v.cls}"><b>${v.txt}</b></div>
     ${kpis}
+    ${phNotaInscripcion(s, c, p, f) ? `<p class="small" style="margin:6px 2px">${phNotaInscripcion(s, c, p, f)}</p>` : ''}
     ${phTendencia(H, t) ? `<p class="small" style="margin:6px 2px">${phTendencia(H, t)}</p>` : ''}
     ${grafica}
     ${H.rows.length > 1 ? `<details class="dir-mas"><summary>Todos sus tiempos de ${nombre} (${H.n})</summary><div class="tw">${tablaMarcas(H.rows, eq, H.pool, s)}</div></details>` : ''}
     <p class="tiny muted" style="margin-top:4px">Solo marcas en piscina de ${pool} (25 y 50 m no se comparan).${H.otraPiscina ? ' Sus marcas en la otra piscina están en su ficha.' : ''} <a href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(p.nombre)}">Ver toda su evolución ›</a></p>
   </details>`;
 }
+
+/* ¿De dónde sale el tiempo de inscripción? La federación inscribe con la mejor marca de cualquier piscina (a veces de 50 m para una
+   competición en 25 m), así que puede no coincidir con la mejor marca en la piscina de la competición.
+   → {x: la marca (fila de s.ev), otraPiscina} o {x: null} si esa marca no consta en nuestros datos (otro club, otra temporada…) o null si no hay inscripción. */
+function phInscripcion(s, c, p, f) {
+  if (!s || !f || !f.ins || !phIndividual(p.nombre)) return null;
+  const e = (s.ev || []).find(x => x.e === p.nombre), pool = phPiscina(c), x = e && e.h.find(y => !y[8] && y[1] === f.ins);
+  return {x: x || null, otraPiscina: !!x && !!pool && x[2] !== pool, pool};
+}
+const phNotaInscripcion = (s, c, p, f) => {
+  const i = phInscripcion(s, c, p, f); if (!i) return '';
+  if (i.x) return `Inscrito con <b>${fmt(f.ins)}</b>: es su marca del ${dfmt(i.x[0])} en piscina de ${i.x[2].replace('m', ' m')}${i.otraPiscina ? ` (esta competición es en ${i.pool.replace('m', ' m')}: la federación inscribe con la mejor marca de cualquier piscina, por eso no coincide con su mejor marca en ${i.pool.replace('m', ' m')})` : ''}.`;
+  return `Inscrito con <b>${fmt(f.ins)}</b>: esa marca no consta en nuestros datos (puede ser de otra temporada, de otro club o un tiempo manual).`;
+};
