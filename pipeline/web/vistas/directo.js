@@ -750,8 +750,8 @@ function abrirUltimaComp(c) {
     return `<details class="ult-pr" data-car-clave="${esc(`${p.sesion || ''}|${p.num}`)}"><summary><b>${esc(p.nombre)}</b> <span class="muted">${dirSexo(p.sexo)}${p.categoria ? ' · ' + esc(p.categoria) : ''}</span>
       <span class="ult-pr-r">${L.length} nad.${npb ? ` · <b class="good">${npb} mejor${npb > 1 ? 'es' : ''} marca${npb > 1 ? 's' : ''}</b>` : ''}${mejorP < 999 ? ` · mejor puesto ${mejorP}º` : ''}</span></summary>
       <div class="tw"><table class="rt"><tr><th>Nadador</th><th>${L[0].conSeries ? 'Serie' : 'Prueba'}</th><th class="num">Tiempo</th><th class="num">Puesto</th><th class="num">Frente a su mejor</th><th class="num">Inscripción</th></tr>
-      ${L.map(x => { todas.push(x); const j = todas.length - 1, parc = x.ok && gParcCarrera(dirAcu(x.f), dirDist(p.nombre));
-        return `<tr class="${parc ? 'click' : ''}"${parc ? ` data-cr="${j}"` : ''}><td><b>${corto(x.nom)}</b>${parc ? ' <span class="tiny muted">· parciales ›</span>' : ''}</td>
+      ${L.map(x => { todas.push(x); const j = todas.length - 1, parc = (x.ok && gParcCarrera(dirAcu(x.f), dirDist(p.nombre))) || (x.ok && x.s && phHistoria(x.s, c, p, x.f));
+        return `<tr class="${parc ? 'click' : ''}"${parc ? ` data-cr="${j}"` : ''}><td><b>${corto(x.nom)}</b>${parc ? ' <span class="tiny muted">· parciales e historial ›</span>' : ''}</td>
           <td>${x.ok ? `${x.conSeries ? `${x.f.serie}ª · ` : ''}<b>${x.enSerie}º</b> <span class="of">de ${x.deSerie}</span>` : '—'}</td>
           <td class="num"><b>${x.pb ? '<span class="sun">★ </span>' : ''}${dirTiempo(x.f)}</b></td><td class="num">${x.f.puesto ? x.f.puesto + 'º' : '—'}</td>
           <td class="num">${x.dif != null ? `<b class="${x.dif < 0 ? 'good' : 'bad'}">${gDif(x.dif)}</b>` : x.primera ? '<span class="tiny muted">primera vez</span>' : '—'}</td>
@@ -772,12 +772,12 @@ function abrirUltimaComp(c) {
     if (dsp) dsp.onclick = () => { box.querySelector('[data-plegable]').classList.remove('g-plegada'); dsp.remove(); };
     box.querySelectorAll('tr[data-cr]').forEach(tr => tr.onclick = () => {
       const sig = tr.nextElementSibling; if (sig && sig.classList.contains('ult-det')) { sig.remove(); return; }
-      const x = todas[Number(tr.dataset.cr)], dist = dirDist(x.p.nombre), r = gParcCarrera(dirAcu(x.f), dist), gr = x.ganador && gParcCarrera(dirAcu(x.ganador), dist);
-      const ref = gr && gr.sp.length === r.sp.length ? gr.sp : null;
+      const x = todas[Number(tr.dataset.cr)], dist = dirDist(x.p.nombre), r = gParcCarrera(dirAcu(x.f), dist), gr = r && x.ganador && gParcCarrera(dirAcu(x.ganador), dist);
+      const ref = r && gr && gr.sp.length === r.sp.length ? gr.sp : null;
       // la tabla se desplaza en horizontal en el móvil: la gráfica, del ancho de lo que se ve y quieta al desplazarla
       const ancho = (tr.closest('.tw') || box).clientWidth;
-      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6"><div style="position:sticky;left:0;width:${ancho}px">${gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
-        ref, refNom: ref ? `Ganador de la serie (${String(x.ganador.n).split(' ')[0]}, ${fmt(x.ganador.t)})` : '', aria: `Parciales de ${x.nom} en ${x.p.nombre}`})}</div></td></tr>`);
+      tr.insertAdjacentHTML('afterend', `<tr class="ult-det"><td colspan="6"><div style="position:sticky;left:0;width:${ancho}px">${r ? gBarrasParc({sp: r.sp, paso: r.paso, nom: `${x.p.nombre} · ${fmt(x.f.t)}`, quien: x.nom,
+        ref, refNom: ref ? `Ganador de la serie (${String(x.ganador.n).split(' ')[0]}, ${fmt(x.ganador.t)})` : '', aria: `Parciales de ${x.nom} en ${x.p.nombre}`}) : ''}${x.s ? phHTML(x.s, c, x.p, x.f) : ''}</div></td></tr>`);
     });
     abrirModal();
   });
