@@ -614,7 +614,7 @@ def web_de_grupo(webs, grupo):
     return webs[0] if len(webs) == 1 else next((w for w in webs if etiqueta_web(w) == grupo), None)
 
 
-def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web):
+def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web, avisar=False):
     """Guarda, UNA vez por competición terminada, todas las carreras individuales de todos los clubes: serie, calle, tiempo,
     parciales y puesto. Un archivo por competición (carreras/<id>.json, no se vuelve a escribir) y un índice (carreras/indice.json).
     Sirve para reproducir carreras (foto finish, repetición) y comparar a cada nadador consigo mismo con el tiempo.
@@ -624,6 +624,8 @@ def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web):
         L = c.get('lenex') or {}
         ruta = os.path.join(carpeta, f"{c['id']}.json")
         if c.get('estado') != 'terminada' or not L.get('pruebas') or os.path.exists(ruta):
+            if avisar and c.get('estado') == 'terminada' and not os.path.exists(ruta):
+                print(f"No se guarda {c['id']} ({c.get('titulo')}): sin resultados leídos de su web ({len(c.get('webs') or [])} webs)", file=sys.stderr)
             continue
         webs = c.get('webs') or ([c['web']] if c.get('web') else [])
         pruebas, completo = [], True
@@ -648,6 +650,8 @@ def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web):
                             'filas': [[f.get('serie') or 0, f.get('calle') or 0, f['n'], f.get('club') or '', f.get('nac'), f.get('t'),
                                        f.get('parc'), f.get('puesto'), f.get('estado') or '', f.get('rfen'), '', f.get('cat') or ''] for f in filas]})
         if not pruebas or not completo:
+            if avisar:
+                print(f"No se guarda {c['id']} ({c.get('titulo')}): {'sin pruebas individuales' if not pruebas else 'falta la serie/calle de algún nadador (lista de salida no publicada o distinta)'}", file=sys.stderr)
             continue   # si falta alguna lista de salida se reintenta en la siguiente ejecución
         os.makedirs(carpeta, exist_ok=True)
         with open(ruta, 'w', encoding='utf-8') as fh:
@@ -682,7 +686,7 @@ def main():
         if a.antes:
             ANTES = a.antes
         carpeta = os.path.join(os.path.dirname(a.salida), 'carreras')
-        nuevas = guardar_carreras(construir(date.today(), nuestros_de(a.nadadores), False, None), carpeta, nuestros_de(a.nadadores))
+        nuevas = guardar_carreras(construir(date.today(), nuestros_de(a.nadadores), False, None), carpeta, nuestros_de(a.nadadores), avisar=True)
         print('Carreras recuperadas de las competiciones:', ', '.join(str(i) for i in nuevas) or 'ninguna')
         return
     previo = json.load(open(a.salida, encoding='utf-8')) if os.path.exists(a.salida) else None
