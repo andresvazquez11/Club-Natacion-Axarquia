@@ -5,13 +5,28 @@ const famSeg = cs => secs(cs);                                   // 1.15 → «1
 const famEs = n => String(n).replace('.', ',');
 const famPiscina = pl => String(pl || '').replace(/m$/, ' m');
 
-/* ── Compartir un resultado (imagen para WhatsApp) ──────────────────────────────────────────────
-   o = {titulo (nadador), sub (competición · fecha), filas: [{l (prueba), t (tiempo), n (nota)}], pie}. Se guarda en un registro y el botón lleva su id. */
+/* ── Compartir un resultado (imagen + mensaje para WhatsApp) ──────────────────────────────────────────
+   Pensado para quien lo recibe (un familiar que no estaba allí): de quién se trata, en qué competición, dónde y cuándo,
+   y de cada prueba el tiempo, en qué serie y calle nadó, cómo le fue frente a su mejor marca y cómo quedó.
+   o = {titulo (nadador), comp (competición), donde (lugar · fecha · piscina), resumen (frase), filas: [{l, t, a, b, c, ok}], pie}
+   a = serie y calle · b = cómo quedó (puesto oficial, puesto en su serie) · c = cómo le fue frente a su mejor marca.
+   Un objeto puede traer armar(): se llama al pulsar, para usar los datos que hayan llegado después de pintar la pantalla. */
 const COMPARTIR = new Map();
 function compartirReg(o) { const id = 'c' + COMPARTIR.size; COMPARTIR.set(id, o); return id; }
 const compartirBtn = (o, txt = 'Compartir en WhatsApp') => `<button type="button" class="btn ghost comp-b" data-comp="${compartirReg(o)}">${ico('enviar')}${esc(txt)}</button>`;
-const compartirTexto = o => `${o.titulo}\n${o.sub || ''}\n${(o.filas || []).map(f => `${f.l}: ${f.t}${f.n ? ' · ' + f.n : ''}`).join('\n')}\nC.N. Axarquía`;
-function compartirAjuste(x, txt, max) { while (txt.length > 1 && x.measureText(txt).width > max) txt = txt.slice(0, -2) + '…'; return txt; }
+/* El mensaje que acompaña a la imagen: se entiende solo, aunque el chat no muestre la foto */
+function compartirTexto(o) {
+  const L = [`*${o.titulo}* · C.N. Axarquía`, o.comp ? `${o.comp}${o.donde ? ' · ' + o.donde : ''}` : (o.donde || ''), o.resumen || ''].filter(Boolean);
+  (o.filas || []).forEach(f => L.push(`• ${f.l}: *${f.t}*${[f.a, f.b, f.c].filter(Boolean).map(x => ' · ' + x).join('')}`));
+  L.push('', 'Estadísticas del club: https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html');
+  return L.join('\n');
+}
+function compartirAjuste(x, txt, max) { txt = String(txt || ''); while (txt.length > 1 && x.measureText(txt).width > max) txt = txt.slice(0, -2) + '…'; return txt; }
+function compartirLineas(x, txt, max, n) {   // parte un texto en hasta n líneas
+  const P = String(txt || '').split(' '), out = []; let l = '';
+  P.forEach(w => { if (l && x.measureText(l + ' ' + w).width > max) { out.push(l); l = w; } else l = l ? l + ' ' + w : w; });
+  if (l) out.push(l); return out.slice(0, n).map((t, i, a) => i === n - 1 && out.length > n ? compartirAjuste(x, t + '…', max) : t);
+}
 /* Dibuja la tarjeta (1080 × 1350, formato de estado de WhatsApp) y la devuelve como imagen PNG */
 function compartirImagen(o) {
   return new Promise(res => {
@@ -20,21 +35,32 @@ function compartirImagen(o) {
     const F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
     const pinta = logo => {
       x.fillStyle = g; x.fillRect(0, 0, W, H);
-      x.fillStyle = 'rgba(255,255,255,.06)'; for (let i = 0; i < 9; i++) x.fillRect(0, 90 + i * 150, W, 6);   // corcheras muy suaves
-      if (logo) x.drawImage(logo, 60, 56, 110, 110);
-      x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · TEMPORADA 26-27', logo ? 200 : 60, 100);
-      x.fillStyle = '#eaf6ff'; x.font = F('600', 28); x.fillText('Estadísticas de natación', logo ? 200 : 60, 142);
-      x.fillStyle = '#fff'; x.font = F('800', 76); x.fillText(compartirAjuste(x, o.titulo || '', W - 120), 60, 290);
-      x.fillStyle = '#9fc3da'; x.font = F('500', 34); x.fillText(compartirAjuste(x, o.sub || '', W - 120), 60, 346);
-      const filas = (o.filas || []).slice(0, 6), uno = filas.length === 1, alto = uno ? 330 : Math.min(150, 860 / Math.max(1, filas.length));
+      x.fillStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 9; i++) x.fillRect(0, 90 + i * 150, W, 6);
+      if (logo) x.drawImage(logo, 56, 44, 96, 96);
+      x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · NATACIÓN', logo ? 176 : 56, 88);
+      x.fillStyle = '#cfe6f5'; x.font = F('600', 26); x.fillText('Resultado de competición', logo ? 176 : 56, 126);
+      let y = 214;
+      x.fillStyle = '#fff'; x.font = F('800', 68); x.fillText(compartirAjuste(x, o.titulo, W - 112), 56, y); y += 50;
+      x.fillStyle = '#eaf6ff'; x.font = F('700', 36);
+      compartirLineas(x, o.comp, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 44; });
+      x.fillStyle = '#9fc3da'; x.font = F('500', 30); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112), 56, y); y += 42; }
+      if (o.resumen) { x.fillStyle = '#ffd400'; x.font = F('700', 30); compartirLineas(x, o.resumen, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 40; }); }
+      y += 12;
+      const filas = (o.filas || []).slice(0, 6), libre = H - 90 - y, gap = 12, uno = filas.length === 1;
+      const lin = f => (uno ? [f.a, ...String(f.b || '').split(' · '), f.c] : [f.a, f.b, f.c]).filter(Boolean);
+      // cuántas líneas caben en cada tarjeta: primero se quita la última (frente a su mejor), luego la del medio
+      let nl = 5; const alto = k => filas.map(f => 80 + Math.min(k, lin(f).length) * 34 + 12);
+      while (nl > 0 && alto(nl).reduce((a, b) => a + b, 0) + gap * (filas.length - 1) > libre) nl--;
       filas.forEach((f, i) => {
-        const y = 420 + i * (alto + 14);
-        x.fillStyle = 'rgba(255,255,255,.09)'; x.beginPath(); x.roundRect ? x.roundRect(60, y, W - 120, alto, 28) : x.rect(60, y, W - 120, alto); x.fill();
-        x.fillStyle = '#fff'; x.font = F('800', uno ? 70 : 44); x.fillText(compartirAjuste(x, f.l, 520), 96, y + (uno ? 100 : alto * .42));
-        x.font = F('800', uno ? 150 : 64); x.fillStyle = '#ffd400'; x.textAlign = 'right'; x.fillText(f.t, W - 96, y + (uno ? 250 : alto * .62)); x.textAlign = 'left';
-        if (f.n) { x.fillStyle = f.ok ? '#5ee6a8' : '#cfe6f5'; x.font = F('600', uno ? 40 : 28); x.fillText(compartirAjuste(x, f.n, uno ? W - 192 : 520), 96, y + (uno ? 190 : alto * .8)); }
+        const L = lin(f).slice(0, nl), h = uno ? Math.min(libre, 150 + L.length * 52) : 80 + L.length * 34 + 12;
+        x.fillStyle = 'rgba(255,255,255,.09)'; x.beginPath(); x.roundRect ? x.roundRect(56, y, W - 112, h, 24) : x.rect(56, y, W - 112, h); x.fill();
+        x.fillStyle = '#fff'; x.font = F('800', uno ? 56 : 40); x.fillText(compartirAjuste(x, f.l, 500), 88, y + (uno ? 82 : 58));
+        x.fillStyle = '#ffd400'; x.font = F('800', uno ? 120 : 60); x.textAlign = 'right'; x.fillText(f.t, W - 88, y + (uno ? 100 : 64)); x.textAlign = 'left';
+        L.forEach((t, k) => { x.fillStyle = t === f.c && f.ok ? '#5ee6a8' : '#cfe6f5'; x.font = F('600', uno ? 36 : 29);
+          x.fillText(compartirAjuste(x, t, W - 176), 88, y + (uno ? 176 : 100) + k * (uno ? 52 : 34)); });
+        y += h + gap;
       });
-      x.fillStyle = '#9fc3da'; x.font = F('500', 28); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 60, H - 60);
+      x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, H - 50);
       c.toBlob(b => res(b), 'image/png');
     };
     const img = new Image(); img.onload = () => pinta(img); img.onerror = () => pinta(null); img.src = 'logo_cna.png';
@@ -44,16 +70,39 @@ function compartirAviso(txt) {
   let a = document.querySelector('.aviso-contador'); if (!a) { a = document.createElement('div'); a.className = 'aviso-contador'; document.body.appendChild(a); }
   a.textContent = txt; clearTimeout(compartirAviso.t); compartirAviso.t = setTimeout(() => a.remove(), 5000);
 }
+const compartirMovil = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+/* Pulsar «Compartir»: en el móvil abre directamente el menú de compartir con la imagen; en el ordenador, una ventana con la vista previa
+   y los pasos que funcionan (abrir WhatsApp con el mensaje, copiar la imagen para pegarla, descargarla). */
 async function compartirResultado(o) {
   if (!o) return;
+  if (o.armar) o = o.armar();
   try {
-    const blob = await compartirImagen(o), file = new File([blob], 'resultado-cna.png', {type: 'image/png'});
-    if (navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: o.titulo, text: compartirTexto(o)}); return; }
-    // sin «compartir» del sistema (ordenador): se descarga la imagen y se abre WhatsApp con el texto
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'resultado-cna.png'; document.body.appendChild(a); a.click(); a.remove();
-    window.open('https://wa.me/?text=' + encodeURIComponent(compartirTexto(o)), '_blank', 'noopener');
-    compartirAviso('Imagen guardada. Adjúntala en el chat de WhatsApp que se ha abierto.');
+    const blob = await compartirImagen(o), file = new File([blob], 'resultado-cna.png', {type: 'image/png'}), texto = compartirTexto(o);
+    if (compartirMovil() && navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: o.titulo, text: texto}); return; }
+    compartirVentana(o, blob, texto);
   } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }
+}
+function compartirVentana(o, blob, texto) {
+  const url = URL.createObjectURL(blob), puedeCopiar = !!(navigator.clipboard && window.ClipboardItem);
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">Compartir por WhatsApp</h1>
+      <p class="small muted" style="margin:2px 0 10px">Se comparte esta imagen y un mensaje con todos los datos, para que quien lo reciba sepa de qué se trata.</p>
+      <div class="comp-prev"><img src="${url}" alt="Vista previa de la imagen para compartir"></div>
+      <div class="comp-pasos">
+        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}1 · Abrir WhatsApp con el mensaje</a>
+        ${puedeCopiar ? `<button type="button" class="btn ghost" data-comp-copiar>2 · Copiar la imagen (y pegarla en el chat con Ctrl+V)</button>` : ''}
+        <a class="btn ghost" href="${url}" download="resultado-cna.png">${puedeCopiar ? '3' : '2'} · Descargar la imagen</a>
+        <button type="button" class="btn ghost" data-comp-copiar-texto>Copiar solo el mensaje</button>
+      </div>
+      <details class="dir-mas"><summary>Ver el mensaje</summary><pre class="comp-texto">${esc(texto)}</pre></details>`;
+    const cp = box.querySelector('[data-comp-copiar]');
+    if (cp) cp.onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]); compartirAviso('Imagen copiada: pégala en el chat de WhatsApp con Ctrl+V.'); } catch (e) { compartirAviso('No se pudo copiar: descárgala y adjúntala.'); } };
+    const ct = box.querySelector('[data-comp-copiar-texto]');
+    if (ct) ct.onclick = async () => { try { await navigator.clipboard.writeText(texto); compartirAviso('Mensaje copiado.'); } catch (e) { compartirAviso('No se pudo copiar el mensaje.'); } };
+    abrirModal();
+  });
 }
 
 /* ── Frases ── */
@@ -99,7 +148,7 @@ function pruebaFamiliasHTML(s, evName, p) {
   const lista = R.map((x, i) => { const ant = i ? R[i - 1][1] : null, esPb = x[1] < mejorAnt; mejorAnt = Math.min(mejorAnt, x[1]);
     const chip = ant === null ? '<span class="chip-f">primera marca</span>' : x[1] < ant ? `<span class="chip-f g">${esPb ? '★ ' : ''}−${famEs(famSeg(ant - x[1]))} s</span>` : x[1] === ant ? '<span class="chip-f">igual</span>' : `<span class="chip-f w">+${famEs(famSeg(x[1] - ant))} s</span>`;
     return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
-  const comp = compartirBtn({titulo: s.n, sub: `${evName} · piscina de ${famPiscina(pool)}`, filas: [{l: evName, t: fmt(mejor[1]), n: `★ mejor marca · ${dfmt(mejor[0])}`, ok: true}]}, 'Compartir su mejor marca');
+  const comp = compartirBtn({titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: `${dfmt(mejor[0])} · piscina de ${famPiscina(pool)}`, resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
   return `<div class="card fam-prueba"><div class="eyebrow-f">Su mejor marca</div><div class="fam-grande">${fmt(mejor[1])}</div>
       <p class="small" style="margin:2px 0 8px">${dfmt(mejor[0])} · piscina de ${esc(famPiscina(pool))} · ${esc(mejor[3] || '')}</p>
       ${pools.length > 1 ? `<div class="chips sub" style="margin:6px 0">${pools.map(pl => `<a class="chip ${pl === pool ? 'on' : ''}" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(evName)}&pl=${pl}">Piscina de ${esc(famPiscina(pl))}</a>`).join('')}</div>

@@ -1103,3 +1103,6 @@ html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
 .fam-r .chip-f{white-space:nowrap}
 .fam-l{min-width:0}
 .fam-r{flex-shrink:0}
+.comp-prev{text-align:center}.comp-prev img{max-width:min(100%,420px);border-radius:14px;border:1px solid rgba(127,127,127,.3)}
+.comp-pasos{display:grid;gap:8px;margin:12px 0}.comp-pasos .btn{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.comp-texto{white-space:pre-wrap;font:inherit;font-size:.85rem;background:rgba(127,127,127,.12);border-radius:10px;padding:10px;margin:6px 0}

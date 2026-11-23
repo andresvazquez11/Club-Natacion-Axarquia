@@ -567,9 +567,15 @@ function dirFiltrar(c, f) {
 const dirSeries = (p, m, vivo) => m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false, dirDist(p.nombre))}`).join('');
 /* Botón «Compartir en WhatsApp» de una carrera: tiempo, veredicto (mejor marca / a X s de su mejor) y puesto oficial */
 function dirCompartirBtn(s, c, x) {
-  const H = typeof phHistoria === 'function' ? phHistoria(s, c, x.p, x.f) : null, v = H ? phVeredicto(H, x.f.t) : null, o = dirPuestoOficial(x.p, x.f);
-  const nota = [v ? v.txt.replace('¡', '').replace('!', '') : '', o ? `${o.txt}` : ''].filter(Boolean).join(' · ');
-  return compartirBtn({titulo: s.n, sub: `${c.titulo} · ${dfmt(x.p.fecha || c.desde)}`, filas: [{l: x.p.nombre, t: fmt(x.f.t), n: nota, ok: !!(v && v.cls === 'good')}]});
+  return compartirBtn({armar: () => {
+    const H = typeof phHistoria === 'function' ? phHistoria(s, c, x.p, x.f) : null, v = H ? phVeredicto(H, x.f.t) : null, o = dirPuestoOficial(x.p, x.f);
+    const enSerie = x.rivales.filter(y => y.t && !y.estado).sort((u, w) => u.t - w.t), k = enSerie.findIndex(y => y === x.f) + 1;
+    const L = c.lenex || {};
+    return {titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''), donde: [L.lugar ? dirTitulo(L.lugar) : '', dirFechas(c), L.piscina ? 'piscina de ' + L.piscina : ''].filter(Boolean).join(' · '),
+      resumen: '', filas: [{l: `${x.p.nombre} ${x.p.sexo === 'F' ? 'fem.' : x.p.sexo === 'M' ? 'masc.' : ''}`.trim(), t: fmt(x.f.t),
+        a: `Serie ${x.posSerie} de ${x.series} · calle ${x.f.calle}`, b: [o ? `${o.puesto}º de ${o.de} en la clasificación${o.cat ? ' (' + o.cat + ')' : ''}` : '', k ? `${k}º de ${enSerie.length} en su serie` : ''].filter(Boolean).join(' · '),
+        c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}]};
+  }});
 }
 /* Tus nadadores primero: los que sigues en este dispositivo y nadan en esta competición, con acceso directo a sus pruebas */
 function dirMisNadadores(c) {

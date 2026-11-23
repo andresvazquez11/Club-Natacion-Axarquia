@@ -552,9 +552,20 @@ function famFilaResultado(f, s) {
   return `<div class="fam-fila" data-of="${esc(f.e)}|${esc(f.fecha)}|${f.t}"><div class="fam-l"><b>${nom}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${anio ? ` · <span class="fam-pu" data-anio="${esc(anio)}">${esc(anio)} en su año</span>` : ''}</small><span class="fam-acc"></span></div>
     <div class="fam-r"><b>${fmt(f.t)}</b>${v}</div></div>`;
 }
-/* Datos para compartir una competición por WhatsApp */
-const famCompartir = (s, c) => ({titulo: s.n, sub: `${String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, '')} · ${famRango(c)}`,
-  filas: c.filas.map(f => ({l: f.e, t: fmt(f.t), n: f.primera ? 'primera vez' : f.pb ? `★ mejor marca · −${famEs(secs(f.dif))} s` : f.dif === 0 ? 'igual que su mejor' : `a ${famEs(secs(f.dif))} s de su mejor`, ok: !!f.pb}))});
+/* Detalle de cada carrera que llega de las carreras guardadas (carreras/<id>.json): serie, calle, puesto oficial… Lo rellena pintarOficial. */
+const FAM_DET = new Map();   // «prueba|fecha|tiempo» → {puesto, de, cat, serie, series, calle, enSerie, sexo, lugar}
+const famVsMejor = f => f.primera ? 'primera vez en esta prueba' : f.pb ? `★ mejor marca personal (−${famEs(secs(f.dif))} s)` : f.dif === 0 ? 'igual que su mejor marca' : `a ${famEs(secs(f.dif))} s de su mejor marca`;
+/* Mensaje para compartir una competición por WhatsApp: se arma al pulsar, con lo que ya se haya cargado */
+const famCompartir = (s, c) => ({armar: () => {
+  const filas = c.filas.map(f => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`) || {};
+    const oficial = d.puesto ? `${d.puesto}º de ${d.de} en la clasificación${d.cat ? ' (' + d.cat + ')' : ''}` : (f.puesto ? `${f.puesto}º${f.de ? ' de ' + f.de : ''} entre los de su año` : '');
+    return {l: d.sexo ? `${f.e} ${d.sexo === 'F' ? 'fem.' : d.sexo === 'M' ? 'masc.' : ''}`.trim() : f.e, t: fmt(f.t),
+      a: d.serie ? `Serie ${d.serie}${d.series ? ' de ' + d.series : ''}${d.calle ? ' · calle ' + d.calle : ''}` : `Piscina de ${piscinaTxt(f.pool)}`,
+      b: [oficial, d.serie && d.enSerie ? `${d.enSerie}º en su serie` : ''].filter(Boolean).join(' · '), c: famVsMejor(f), ok: !!f.pb}; });
+  const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
+  return {titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c), c.filas[0] ? 'piscina de ' + piscinaTxt(c.filas[0].pool) : ''].filter(Boolean).join(' · '),
+    resumen: famFraseJornada(c), filas};
+}});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
       <span class="tiny muted">${c.lugar ? esc(c.lugar) : famRango(c)}</span><span class="fam-frase">${esc(famFraseJornada(c))}</span></div></div></summary>
@@ -573,7 +584,9 @@ async function pintarOficial(app, s) {
       c.pruebas.forEach(p => { if (!/^\d+ /.test(p.nombre)) return;
         p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8]) return;
           const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
-          info.set(`${p.nombre}|${p.fecha}|${f[5]}`, {puesto: f[7], de, cat, c, p}); }); });
+          const serie = f[0], vistos = p.filas.filter(y => y[5] && !y[8] && serie && y[0] === serie).sort((u, v) => u[5] - v[5]);
+          const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || ''};
+          info.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); FAM_DET.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); }); });
     }
   } catch (e) { return; }
   app.querySelectorAll('.fam-fila[data-of]').forEach(el => {
