@@ -563,7 +563,7 @@ const famCompartir = (s, c) => ({armar: () => {
       a: d.serie ? `Serie ${d.serie}${d.series ? ' de ' + d.series : ''}${d.calle ? ' · calle ' + d.calle : ''}` : `Piscina de ${piscinaTxt(f.pool)}`,
       b: [oficial, d.serie && d.enSerie ? `${d.enSerie}º en su serie` : ''].filter(Boolean).join(' · '), c: famVsMejor(f), ok: !!f.pb}; });
   const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
-  return {enlace: `${COMPARTIR_WEB}#nadador/${s.id}/resultados`, titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c), c.filas[0] ? 'piscina de ' + piscinaTxt(c.filas[0].pool) : ''].filter(Boolean).join(' · '),
+  return {enlace: `${COMPARTIR_WEB}#nadador/${s.id}/resultados`, titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c)].filter(Boolean).join(' · '), piscina: c.filas[0] ? piscinaTxt(c.filas[0].pool) : '',
     resumen: famFraseJornada(c), filas,
     carreras: c.filas.map((f, i) => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? Object.assign(compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}), {i}) : null; }).filter(Boolean)};
 }});

@@ -17,6 +17,12 @@ const compartirBtn = (o, txt = 'Compartir en WhatsApp') => `<button type="button
 /* El mensaje que acompaña a las imágenes: solo el enlace a la web (todo lo demás va dentro de las imágenes) */
 const COMPARTIR_WEB = 'https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html';
 const compartirTexto = o => o.enlace || COMPARTIR_WEB;
+/* Etiqueta redondeada alineada a la derecha (xDer): «Piscina de 25 m», «Carrera 2 de 4»… */
+function compartirPildora(x, font, texto, xDer, y, fondo, color) {
+  x.font = font; const w = x.measureText(texto).width + 36, X = xDer - w;
+  x.fillStyle = fondo; x.beginPath(); x.roundRect ? x.roundRect(X, y - 30, w, 44, 22) : x.rect(X, y - 30, w, 44); x.fill();
+  x.fillStyle = color; x.fillText(texto, X + 18, y + 2);
+}
 function compartirAjuste(x, txt, max) { txt = String(txt || ''); while (txt.length > 1 && x.measureText(txt).width > max) txt = txt.slice(0, -2) + '…'; return txt; }
 function compartirLineas(x, txt, max, n) {   // parte un texto en hasta n líneas
   const P = String(txt || '').split(' '), out = []; let l = '';
@@ -27,19 +33,20 @@ function compartirLineas(x, txt, max, n) {   // parte un texto en hasta n línea
 function compartirImagen(o) {
   return new Promise(res => {
     const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
-    const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0b4f86'); g.addColorStop(1, '#032a4d');
+    const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0e6a8f'); g.addColorStop(1, '#042b45');
     const F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
     const pinta = logo => {
       x.fillStyle = g; x.fillRect(0, 0, W, H);
-      x.fillStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 9; i++) x.fillRect(0, 90 + i * 150, W, 6);
-      if (logo) x.drawImage(logo, 56, 44, 96, 96);
-      x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · NATACIÓN', logo ? 176 : 56, 88);
-      x.fillStyle = '#cfe6f5'; x.font = F('600', 26); x.fillText('Resultado de competición', logo ? 176 : 56, 126);
-      let y = 214;
+      // el resumen se distingue de las carreras: banda amarilla arriba y su título
+      x.fillStyle = '#ffd400'; x.fillRect(0, 0, W, 176);
+      if (logo) x.drawImage(logo, 48, 40, 96, 96);
+      x.fillStyle = '#05223b'; x.font = F('800', 28); x.fillText('C.N. AXARQUÍA · NATACIÓN', logo ? 168 : 56, 82);
+      x.font = F('800', 52); x.fillText('RESUMEN DE LA COMPETICIÓN', logo ? 168 : 56, 138);
+      let y = 250;
       x.fillStyle = '#fff'; x.font = F('800', 68); x.fillText(compartirAjuste(x, o.titulo, W - 112), 56, y); y += 50;
       x.fillStyle = '#eaf6ff'; x.font = F('700', 36);
       compartirLineas(x, o.comp, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 44; });
-      x.fillStyle = '#9fc3da'; x.font = F('500', 30); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112), 56, y); y += 42; }
+      x.fillStyle = '#b9d9ea'; x.font = F('500', 30); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112 - (o.piscina ? 290 : 0)), 56, y); if (o.piscina) compartirPildora(x, F('800', 28), `Piscina de ${o.piscina}`, W - 56, y, 'rgba(255,212,0,.2)', '#ffd400'); y += 42; }
       if (o.resumen) { x.fillStyle = '#ffd400'; x.font = F('700', 30); compartirLineas(x, o.resumen, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 40; }); }
       y += 12;
       const filas = (o.filas || []).slice(0, 6), libre = H - 90 - y, gap = 12, uno = filas.length === 1;
@@ -56,6 +63,10 @@ function compartirImagen(o) {
           x.fillText(compartirAjuste(x, t, W - 176), 88, y + (uno ? 176 : 100) + k * (uno ? 52 : 34)); });
         y += h + gap;
       });
+      const nc = (o.carreras || []).length;   // aviso de lo que viene después
+      if (nc && y + 130 < H - 70) { y += 14; x.fillStyle = 'rgba(255,212,0,.16)'; x.beginPath(); x.roundRect ? x.roundRect(56, y, W - 112, 100, 22) : x.rect(56, y, W - 112, 100); x.fill();
+        x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText(nc === 1 ? 'Sigue la carrera completa' : `Siguen ${nc} imágenes, una por carrera`, 88, y + 44);
+        x.fillStyle = '#eaf6ff'; x.font = F('600', 26); x.fillText('con su serie completa, los primeros de la clasificación y cómo le fue', 88, y + 80); }
       x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, H - 50);
       c.toBlob(b => res(b), 'image/png');
     };
@@ -88,7 +99,7 @@ function compartirCarreraDe(p, f, vs) {
     tabla: serie.map((y, i) => fila(y, i + 1)), top, lineas, sp: sp ? sp.sp : null, paso: sp ? sp.paso : 0, ok: !!(vs && vs.ok)};
 }
 /* Imagen de una carrera completa (anchura 1080, altura según las filas) */
-function compartirImagenCarrera(o, r) {
+function compartirImagenCarrera(o, r, num, total) {
   return new Promise(res => {
     const W = 1080, F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
     const dibuja = (x, logo) => {
@@ -100,7 +111,8 @@ function compartirImagenCarrera(o, r) {
       x.fillStyle = '#cfe6f5'; x.font = F('600', 26); x.fillText('Resultado de competición', logo ? 176 : 56, 126);
       y = 210; x.fillStyle = '#fff'; x.font = F('800', 64); x.fillText(compartirAjuste(x, o.titulo, W - 112), 56, y); y += 48;
       x.fillStyle = '#eaf6ff'; x.font = F('700', 34); compartirLineas(x, o.comp, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 42; });
-      x.fillStyle = '#9fc3da'; x.font = F('500', 28); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112), 56, y); y += 30; }
+      x.fillStyle = '#9fc3da'; x.font = F('500', 28); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112 - (o.piscina ? 290 : 0)), 56, y); if (o.piscina) compartirPildora(x, F('800', 26), `Piscina de ${o.piscina}`, W - 56, y, 'rgba(255,212,0,.2)', '#ffd400'); y += 30; }
+      if (num && total > 1) compartirPildora(x, F('800', 28), `CARRERA ${num} DE ${total}`, W - 56, 96, '#ffd400', '#05223b');
       y += 22;
       // la carrera: prueba, serie y calle, tiempo grande
       caja(56, y, W - 112, 190, 'rgba(255,255,255,.12)');
@@ -139,7 +151,7 @@ function compartirImagenCarrera(o, r) {
 async function compartirImagenes(o, portada = (o.carreras || []).length !== 1) {
   const C = o.carreras || [], out = [];
   if (portada) out.push(await compartirImagen(o));
-  for (const r of C) out.push(await compartirImagenCarrera(o, r));
+  for (let k = 0; k < C.length; k++) out.push(await compartirImagenCarrera(o, C[k], k + 1, C.length));
   return out;
 }
 function compartirAviso(txt) {
@@ -251,7 +263,7 @@ function pruebaFamiliasHTML(s, evName, p) {
   const lista = R.map((x, i) => { const ant = i ? R[i - 1][1] : null, esPb = x[1] < mejorAnt; mejorAnt = Math.min(mejorAnt, x[1]);
     const chip = ant === null ? '<span class="chip-f">primera marca</span>' : x[1] < ant ? `<span class="chip-f g">${esPb ? '★ ' : ''}−${famEs(famSeg(ant - x[1]))} s</span>` : x[1] === ant ? '<span class="chip-f">igual</span>' : `<span class="chip-f w">+${famEs(famSeg(x[1] - ant))} s</span>`;
     return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
-  const comp = compartirBtn({enlace: `${COMPARTIR_WEB}#nadador/${s.id}/marcas?ev=${encodeURIComponent(evName)}`, titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: `${dfmt(mejor[0])} · piscina de ${famPiscina(pool)}`, resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
+  const comp = compartirBtn({enlace: `${COMPARTIR_WEB}#nadador/${s.id}/marcas?ev=${encodeURIComponent(evName)}`, titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: dfmt(mejor[0]), piscina: famPiscina(pool), resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
   return `<div class="card fam-prueba"><div class="eyebrow-f">Su mejor marca</div><div class="fam-grande">${fmt(mejor[1])}</div>
       <p class="small" style="margin:2px 0 8px">${dfmt(mejor[0])} · piscina de ${esc(famPiscina(pool))} · ${esc(mejor[3] || '')}</p>
       ${pools.length > 1 ? `<div class="chips sub" style="margin:6px 0">${pools.map(pl => `<a class="chip ${pl === pool ? 'on' : ''}" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(evName)}&pl=${pl}">Piscina de ${esc(famPiscina(pl))}</a>`).join('')}</div>
