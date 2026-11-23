@@ -35,7 +35,7 @@ function vistaCampeonatos(app, p) {
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas', cuentaC({cat: 'all'})], ...DATA.cats.map(c => [c.key, c.label, cuentaC({cat: c.key})])], cat)}</div>
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', cuentaC({g: 'all'})], ['M', 'Chicos', cuentaC({g: 'M'})], ['F', 'Chicas', cuentaC({g: 'F'})]], g)}</div>
     </div>
-    <p class="camp-frase"><b>${D.length}</b> top-10 en campeonatos${medL.length ? ` de <b>${medL.length}</b> nadador${medL.length === 1 ? '' : 'es'}` : ''}: <b>${tot.o}</b> primer${tot.o === 1 ? '' : 'os'} puesto${tot.o === 1 ? '' : 's'}, <b>${tot.p}</b> segundo${tot.p === 1 ? '' : 's'} y <b>${tot.b}</b> tercero${tot.b === 1 ? '' : 's'}.</p>
+    <p class="camp-frase"><b>${D.length}</b> resultados entre los diez primeros en campeonatos${medL.length ? ` de <b>${medL.length}</b> nadador${medL.length === 1 ? '' : 'es'}` : ''}: <b>${tot.o}</b> primer${tot.o === 1 ? '' : 'os'} puesto${tot.o === 1 ? '' : 's'}, <b>${tot.p}</b> segundo${tot.p === 1 ? '' : 's'} y <b>${tot.b}</b> tercero${tot.b === 1 ? '' : 's'}.</p>
     <div class="kpis" style="margin:4px 0 14px">
       <div class="kpi hl"><b>${D.length}</b><span>top-10 en campeonatos</span></div>
       <div class="kpi"><b>${tot.o}</b><span>primeros puestos</span></div>

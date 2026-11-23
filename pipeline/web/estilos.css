@@ -1100,3 +1100,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,[
 html.clara .chip-f.w,html.clara .dir-cuando{background:#fff1c9;color:#7a5200}
 html.clara .chip-f.g{background:#dcf7ea;color:#0a7a43}
 html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
+.fam-r .chip-f{white-space:nowrap}
+.fam-l{min-width:0}
+.fam-r{flex-shrink:0}

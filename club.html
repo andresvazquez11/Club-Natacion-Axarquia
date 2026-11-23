@@ -1062,6 +1062,56 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .dir-cuando{padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:800;background:rgba(255,212,0,.18);color:var(--sun, #ffd400)}
 .dir-c .dir-c-top + .tiny{margin-top:8px}
 
+/* ── Gran cambio Familias: bloques nuevos ── */
+.chip-f{display:inline-block;margin-top:3px;padding:2px 9px;border-radius:99px;font-size:.72rem;font-weight:800;background:rgba(127,127,127,.16);color:var(--ink2)}
+.chip-f.g{background:rgba(52,211,153,.18);color:var(--good)}
+.chip-f.w{background:rgba(255,212,0,.16);color:var(--sun,#ffd400)}
+.eyebrow-f{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.fam-grande{font-size:3rem;font-weight:900;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+.fam-prueba .btn{display:block;margin-top:10px;text-align:center}
+.fam-ver{color:inherit;text-decoration:none}.fam-ver:hover,.fam-ver:focus-visible{text-decoration:underline}
+.fam-acc:empty{display:none}.fam-acc{display:block;margin-top:6px}
+.chip-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:99px;font-size:.78rem;font-weight:800;background:var(--sun,#ffd400);color:#05223b;border:0;cursor:pointer}
+.chip-btn .ico{width:16px;height:16px}
+.fam-botones{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.fam-botones .mas{margin:0}
+.fam-frase{display:block;margin-top:4px;font-size:.88rem;font-weight:600}
+.fam-b{width:100%;background:none;border:0;border-top:1px solid rgba(127,127,127,.2);text-align:left;color:inherit;font:inherit;cursor:pointer}
+.comp-b{display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.comp-b .ico{width:18px;height:18px}
+.primera .como-se-lee{margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.12);font-size:.85rem}
+.primera .como-se-lee ul{margin:6px 0 0;padding-left:1.1em}.primera .como-se-lee li{margin:4px 0}
+.tu-nad{border:1.5px solid var(--sun,#ffd400)}
+.rk-r.rk-flash{outline:3px solid var(--sun,#ffd400);outline-offset:2px;border-radius:10px;transition:outline-color .6s}
+.dir-mio-f{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid rgba(127,127,127,.2)}
+.dir-mio-f:first-of-type{border-top:0}.dir-mio-f .btn{margin:0}
+.dir-filtros-d>summary{font-weight:800}
+.camp-frase{margin:6px 2px 10px;font-size:.95rem}
+.camp-g{margin-top:8px;border-top:1px solid rgba(127,127,127,.2);padding-top:6px}
+.camp-g>summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:6px 0;list-style:none}
+.camp-gl{display:flex;gap:8px;align-items:center}
+.club-indice{margin-top:10px}
+.marcas-t td,.marcas-t th{white-space:nowrap}
+.fam-bar{fill:#4aa3ff}.fam-bar-r{fill:#34d399}.fam-bar-l{fill:#ffd400}
+.fam-bar-t{font-size:11px;font-weight:700;fill:var(--ink)}.fam-bar-e{font-size:10px;fill:var(--ink2)}
+.fam-bar-m{font-size:10px;font-weight:800}.fam-bar-m.r{fill:#34d399}.fam-bar-m.l{fill:#ffd400}
+:root.clara .fam-bar-m.r{fill:#0a7a43}
+:root.clara .fam-bar-m.l{fill:#8a5d00}
+
+/* ── Accesibilidad: zonas táctiles de al menos 44 px, foco visible y sin movimiento si se pide ── */
+.chip,.tabs a,.seg button,.btn,.mas,.rk-l,.fam-b,.glos-b,.chg,.act-btn,button.fila{min-height:44px}
+.chip{display:inline-flex;align-items:center}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,[role="button"]:focus-visible{outline:3px solid var(--sun,#ffd400);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* modo claro: los amarillos del acuático no se leen sobre fondo claro */
+html.clara .chip-f.w,html.clara .dir-cuando{background:#fff1c9;color:#7a5200}
+html.clara .chip-f.g{background:#dcf7ea;color:#0a7a43}
+html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
+.fam-r .chip-f{white-space:nowrap}
+.fam-l{min-width:0}
+.fam-r{flex-shrink:0}
+
 </style>
 </head>
 <body>
@@ -1315,12 +1365,12 @@ function chipsHTML(name, opts, cur) {
 /* Selector de prueba en dos filas: estilo y, debajo, la distancia de ese estilo.
    evs = pruebas disponibles (en orden de preferencia); n = {prueba: número a mostrar} opcional.
    Los botones de las dos filas comparten nombre, así que onChips(name) sirve igual que antes. */
-function pruebaSel(name, evs, cur, n) {
+function pruebaSel(name, evs, cur, n, etiqueta = 'Prueba') {
   if (!evs.length) return '';
   if (!evs.includes(cur)) cur = evs[0];
   const est = STROKES.filter(st => evs.some(e => strokeOf(e) === st)), stCur = strokeOf(cur);
   const dist = evs.filter(e => strokeOf(e) === stCur).sort((a, b) => distOf(a) - distOf(b));
-  return `<div class="flt psel"><span class="flt-l">Prueba</span>
+  return `<div class="flt psel"><span class="flt-l">${etiqueta}</span>
     <div class="chips" data-chips="${name}">${est.map(st => { const de = evs.filter(e => strokeOf(e) === st);
       return `<button class="chip ${st === stCur ? 'on' : ''}" data-v="${de[0]}" title="${de.length} prueba${de.length > 1 ? 's' : ''}">${st} <span class="n">${de.length}</span></button>`; }).join('')}</div>
     <div class="chips sub" data-chips="${name}">${dist.map(e => `<button class="chip ${e === cur ? 'on' : ''}" data-v="${e}">${distOf(e)} m${n && n[e] !== undefined ? ` <span class="n">${n[e]}</span>` : ''}</button>`).join('')}</div></div>`;
@@ -1483,6 +1533,7 @@ const ICONOS = (() => {
     'historia': '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
     'flecha-atras': '<path d="M19 12H5M11 6l-6 6 6 6"/>',
     'candado': '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+    'enviar': '<path d="M21 3L3 11l7 3 3 7z"/><path d="M10 14L21 3"/>',
     'pizarra': '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
   };
   const trazo = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"';
@@ -2334,6 +2385,9 @@ function clubHistoria(app, p, head) {
 }
 
 /* ── Club (inicio): portada, el club en números, esta semana, accesos y el resto de bloques de la antigua pantalla de inicio ── */
+/* Vista Completa de la portada del Club: índice fijo para saltar a cada bloque */
+const clubIndiceHTML = () => `<nav class="tabs ficha-tabs club-indice" aria-label="Bloques de la portada">${[['club-comp', 'Competiciones'], ['club-nums', 'El club en números'], ['club-ult', 'Lo último'], ['club-cats', 'Categorías'], ['club-ctos', 'Campeonatos'], ['club-clubes', 'Clubes']]
+  .map(([id, l]) => `<a href="#club" data-ancla="${id}">${l}</a>`).join('')}</nav>`;
 function clubInicio(app) {
   const k = kpisClub(DATA.swimmers), K = (DATA.comparativa || {}).kpi || {};
   const recientes = [...(DATA.destacados || [])].sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 5);
@@ -2363,11 +2417,12 @@ function clubInicio(app) {
       <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · ${actBtn(`actualizado ${DATA.fecha}`)}</p></div></div>
     </div>
     ${vistaSegHTML()}
-    <div class="card club-buscar"><div class="h">${ico('nadador')}¿A quién buscas?</div>${buscadorHTML('q-club', 'Nombre de tu nadador…')}</div>
+    ${vistaFamilias() ? '' : clubIndiceHTML()}
+    ${primeraVisitaHTML() || `<div class="card club-buscar"><div class="h">${ico('nadador')}¿A quién buscas?</div>${buscadorHTML('q-club', 'Nombre de tu nadador…')}</div>`}
     <div class="accesos dos">${accesos}</div>
     <div class="card cc" id="club-comp" style="margin-top:12px"><div class="h">${ico('copa')}Competiciones</div><p class="empty">Buscando competiciones…</p></div>
     ${vistaFamilias() ? '' : `
-    <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
+    <div class="card" id="club-nums" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
       <div class="kpis k5">
         ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
            [k.podAn, 'pruebas en el top-3 del ranking de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 del ranking de Málaga (su año)', K.oro, 'pos|ma1|'],
@@ -2377,7 +2432,7 @@ function clubInicio(app) {
         ? `La RFEN ya tiene <b>${DATA.new_marks.toLocaleString('es')}</b> marcas de la temporada 26-27 (de todos los clubes). Para cada nadador se usa su mejor marca entre la 25-26 y la 26-27.`
         : 'Todavía no hay marcas de la 26-27: se usa lo mejor de la 25-26 como punto de partida.'}</div></div>
 `}
-    <div class="card lu" style="margin-top:12px"><div class="h">${ico('historia')}Lo último</div>
+    <div class="card lu" id="club-ult" style="margin-top:12px"><div class="h">${ico('historia')}Lo último</div>
       ${gTabs('lu', [['sem', 'Esta semana'], ['comp', 'Última competición'], ['marcas', 'Marcas']], 'sem')}
       <div data-lu-p="sem">${estaSemanaCard()}</div>
       <div data-lu-p="comp" hidden><div id="ult-comp"><p class="empty">Buscando la última competición…</p></div></div>
@@ -2385,18 +2440,18 @@ function clubInicio(app) {
           : '<p class="vacio">Ningún nadador del club ha mejorado todavía su marca en la 26-27. Aparecerán aquí en cuanto empiece la temporada.</p>'}</div>
     </div>
     ${vistaFamilias() ? `<div class="card fam-mas" style="margin-top:12px"><div class="h">${ico('barras')}¿Quieres más datos del club?</div><p class="small" style="margin:0 0 8px">El club en números, los top-10 en campeonatos, el club frente a los demás clubes y el modo entrenador están en la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div><p class="tiny muted" style="text-align:center;margin-top:10px">¿Eres entrenador o entrenadora? <a href="#entrenamientos" data-entrenador>Abrir el modo entrenador</a></p>` : `
-    <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}Nadadores por categoría <span class="h-n">· pulsa para entrar</span></div>${barsHTML(catBars)}</div>
+    <div class="card" id="club-cats" style="margin-top:12px"><div class="h">${ico('grupo')}Nadadores por categoría <span class="h-n">· pulsa para entrar</span></div>${barsHTML(catBars)}</div>
 
-    <div class="card" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
+    <div class="card" id="club-ctos" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
       ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>
         <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${franja(x.ev)}${x.ev} · ${nivelHTML(x.lv)} ${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
         : '<p class="vacio">Todavía no hay top-10 en campeonatos.</p>'}</div>
 
-    <div style="margin-top:12px">${cmpCard('', '', 'El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a absoluto en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
+    <div id="club-clubes" style="margin-top:12px">${cmpCard('', '', 'El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a absoluto en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
 
     <p class="foot">Fuente: ranking RFEN, temporadas 25-26 y 26-27 (todas las piscinas, sin tiempos parciales). Andalucía = clubes de las 8 provincias andaluzas · Málaga = clubes de la provincia · Puntos World Aquatics = 1000×(récord/marca)³.</p>`}`;
 
-  bindBuscador('q-club');
+  bindBuscador('q-club'); if (document.getElementById('q-primera')) bindBuscador('q-primera');
   cmpBind(app);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => { location.hash = el.dataset.go; });
   const sem = app.querySelector('[data-sem-detalle]'); if (sem) sem.onclick = abrirSemana;
@@ -2498,6 +2553,9 @@ function vistaCampeonatos(app, p) {
   const medL = Object.values(med).sort((a, b) => b.o - a.o || b.p - a.p || b.b - a.b || b.t - a.t);
   const tot = medL.reduce((a, m) => ({o: a.o + m.o, p: a.p + m.p, b: a.b + m.b}), {o: 0, p: 0, b: 0});
 
+  // agrupados por campeonato (nombre y fecha), el más reciente primero
+  const G0 = new Map(); [...D].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : a.pos - b.pos).forEach(x => { const k = `${x.comp}|${x.date}`; if (!G0.has(k)) G0.set(k, []); G0.get(k).push(x); });
+  const grupos = [...G0.entries()];
   const fila = x => { const s = SW[String(x.id)];
     return rkFila({
       pos: posB(x.pos), nom: esc(x.n), sub: `${nivelHTML(x.lv)} ${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`,
@@ -2516,6 +2574,7 @@ function vistaCampeonatos(app, p) {
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas', cuentaC({cat: 'all'})], ...DATA.cats.map(c => [c.key, c.label, cuentaC({cat: c.key})])], cat)}</div>
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', cuentaC({g: 'all'})], ['M', 'Chicos', cuentaC({g: 'M'})], ['F', 'Chicas', cuentaC({g: 'F'})]], g)}</div>
     </div>
+    <p class="camp-frase"><b>${D.length}</b> resultados entre los diez primeros en campeonatos${medL.length ? ` de <b>${medL.length}</b> nadador${medL.length === 1 ? '' : 'es'}` : ''}: <b>${tot.o}</b> primer${tot.o === 1 ? '' : 'os'} puesto${tot.o === 1 ? '' : 's'}, <b>${tot.p}</b> segundo${tot.p === 1 ? '' : 's'} y <b>${tot.b}</b> tercero${tot.b === 1 ? '' : 's'}.</p>
     <div class="kpis" style="margin:4px 0 14px">
       <div class="kpi hl"><b>${D.length}</b><span>top-10 en campeonatos</span></div>
       <div class="kpi"><b>${tot.o}</b><span>primeros puestos</span></div>
@@ -2529,9 +2588,9 @@ function vistaCampeonatos(app, p) {
           <td class="num">${m.o || '·'}</td><td class="num">${m.p || '·'}</td><td class="num">${m.b || '·'}</td><td class="num"><b>${m.t}</b></td></tr>`).join('')}</table>
           ${medL.length > 10 ? `<p style="margin-top:10px"><button class="btn ghost" id="med-mas">Ver los ${medL.length} nadadores</button></p>` : ''}`
         : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
-      <div class="card"><div class="h">${ico('copa')}Todos los top-10 <span class="h-n">(${D.length})</span></div>
-        ${D.length ? `<div id="camp-l">${rkLista(D.map((x, i) => fila(x).replace('<div class="rk-r ', `<div ${i >= 20 ? 'hidden ' : ''}class="rk-r `)), 'ancha')}</div>
-          ${D.length > 20 ? `<p style="margin-top:10px;text-align:center"><button class="btn ghost" id="camp-mas">Ver los ${D.length} resultados</button></p>` : ''}` : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
+      <div class="card"><div class="h">${ico('copa')}Top-10 por campeonato <span class="h-n">(${D.length} en ${grupos.length} campeonato${grupos.length === 1 ? '' : 's'})</span></div>
+        ${D.length ? grupos.map(([k, G], i) => `<details class="camp-g"${i < 3 ? ' open' : ''}><summary><span class="camp-gl">${nivelHTML(G[0].lv)}<b>${esc(G[0].comp)}</b></span><span class="tiny muted">${dfmt(G[0].date)} · ${G.length} top-10</span></summary>
+          ${rkLista(G.map(fila), 'ancha')}</details>`).join('') : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
     </div>`;
 
   const cm = document.getElementById('camp-mas');
@@ -2862,12 +2921,22 @@ function pintarAnalisis(s) {
 }
 
 /* Pruebas: una fila por prueba; al pulsarla se despliega su evolución (todas sus marcas) ahí mismo */
+/* Vista Completa: una fila por prueba con la marca, dónde y cuándo se hizo y sus tres puestos */
+function marcasTablaCompleta(s, sk) {
+  const fila = e => { const r = e.rk[sk] || {}, p = lv => r[lv] ? `${posB(r[lv][0])}<span class="of"> /${r[lv][1]}</span>` : '—';
+    return `<tr class="click" data-goto="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(e.e)}"><td>${franja(e.e)}<b>${esc(e.e)}</b></td><td class="num"><b>${fmt(e.cs)}</b></td><td>${esc(piscinaTxt(e.pool))}</td><td>${dfmt(e.date)}</td>
+      <td class="num">${p('ma')}</td><td class="num">${p('an')}</td><td class="num">${p('es')}</td><td class="num">${e.pts}</td></tr>`; };
+  return `<div class="tw" style="margin-top:10px"><table class="rt marcas-t"><tr><th>Prueba</th><th class="num">Marca</th><th>Piscina</th><th>Fecha</th><th class="num">Málaga</th><th class="num">Andalucía</th><th class="num">España</th><th class="num">Puntos${glos('pts')}</th></tr>
+    ${[...s.ev].sort((a, b) => b.pts - a.pts).map(fila).join('')}</table></div>
+    <p class="tiny muted" style="margin-top:6px">Su mejor marca real en cada prueba. Toca una fila para ver todas sus marcas, su evolución y sus tiempos por tramo.</p>`;
+}
 function tabPruebas(s, sk, p) {
   const open = p.ev;
   return `<div class="card"><p class="small muted">De su mejor a su peor prueba (puesto en España entre ${esc(scopeLbl(s, sk))}). <b>Pulsa una prueba</b> para ver su evolución, sus marcas y sus parciales.</p>
     <details class="ent-ajustes"><summary>Ajustes de comparación${glos('puesto')}</summary>
       <div class="bar-row">${segScope(s, sk)}</div><div class="bar-row" style="margin-bottom:0">${piscSeg()}</div></details></div>
-    <div class="prs" style="margin-top:10px">${s.ev.map(e => { const r = e.rk[sk] || {}, m = mejorConv(s, e), mej = e.first - e.cs, ab = open === e.e;
+    ${open ? '' : marcasTablaCompleta(s, sk)}
+    <div class="prs" style="margin-top:10px"${open ? '' : ' hidden'}>${s.ev.map(e => { const r = e.rk[sk] || {}, m = mejorConv(s, e), mej = e.first - e.cs, ab = open === e.e;
       return `<div class="pr ${ab ? 'open' : ''}" id="pr-${e.e.replace(/ /g, '-')}">
         <button class="pr-h" data-pr="${esc(e.e)}" aria-expanded="${ab}">
           <span class="pr-n"><b>${e.e}</b> <span class="of">${m ? m[2] : e.pool}</span>${e.ss === '26-27' ? '<span class="ss">26-27</span>' : ''}</span>
@@ -3213,22 +3282,26 @@ const filasFrase = L => L.map(([i, t]) => `<div class="fila">${icoDe(i)}<span>${
 
 /* ── Vista Familias: lo esencial, con frases y sin siglas. Cada bloque enlaza a la vista Completa para ver todo el detalle. ── */
 const famRango = c => c.desde === c.fecha ? dfmt(c.fecha) : `${dfmt(c.desde)} – ${dfmt(c.fecha)}`;
-function famFilaResultado(f) {
-  const v = f.primera ? '<span class="muted">primera vez</span>' : f.pb ? `<b class="good">★ mejor marca · −${secs(f.dif)} s</b>`
-    : f.dif === 0 ? '<b class="good">igual que su mejor</b>' : `<span class="bad">+${secs(f.dif)} s de su mejor</span>`;
+function famFilaResultado(f, s) {
+  const v = f.primera ? '<span class="chip-f">primera vez</span>' : f.pb ? `<span class="chip-f g">★ mejor marca · −${famEs(secs(f.dif))} s</span>`
+    : f.dif === 0 ? '<span class="chip-f g">igual que su mejor</span>' : `<span class="chip-f w">a ${famEs(secs(f.dif))} s de su mejor</span>`;
   const anio = f.puesto ? `${f.puesto}º${f.de ? ' de ' + f.de : ''}` : '';
-  return `<div class="fam-fila" data-of="${esc(f.e)}|${esc(f.fecha)}|${f.t}"><div class="fam-l"><b>${esc(f.e)}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${anio ? ` · <span class="fam-pu" data-anio="${esc(anio)}">${esc(anio)} en su año</span>` : ''}</small></div>
-    <div class="fam-r"><b>${fmt(f.t)}</b><small>${v}</small></div></div>`;
+  const nom = s ? `<a class="fam-ver" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(f.e)}&pl=${f.pool}">${esc(f.e)} ›</a>` : esc(f.e);
+  return `<div class="fam-fila" data-of="${esc(f.e)}|${esc(f.fecha)}|${f.t}"><div class="fam-l"><b>${nom}</b><small>piscina de ${esc(piscinaTxt(f.pool))}${anio ? ` · <span class="fam-pu" data-anio="${esc(anio)}">${esc(anio)} en su año</span>` : ''}</small><span class="fam-acc"></span></div>
+    <div class="fam-r"><b>${fmt(f.t)}</b>${v}</div></div>`;
 }
+/* Datos para compartir una competición por WhatsApp */
+const famCompartir = (s, c) => ({titulo: s.n, sub: `${String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, '')} · ${famRango(c)}`,
+  filas: c.filas.map(f => ({l: f.e, t: fmt(f.t), n: f.primera ? 'primera vez' : f.pb ? `★ mejor marca · −${famEs(secs(f.dif))} s` : f.dif === 0 ? 'igual que su mejor' : `a ${famEs(secs(f.dif))} s de su mejor`, ok: !!f.pb}))});
 function famCompHTML(s, c, abierta) {
-  const pbs = c.filas.filter(f => f.pb).length;
-  return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><b>${esc(c.comp || 'Competición')}</b>
-      <span class="tiny muted">${famRango(c)} · ${c.filas.length} prueba${c.filas.length === 1 ? '' : 's'}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</span></summary>
-    ${c.filas.map(famFilaResultado).join('')}
-    <button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></details>`;
+  return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
+      <span class="tiny muted">${c.lugar ? esc(c.lugar) : famRango(c)}</span><span class="fam-frase">${esc(famFraseJornada(c))}</span></div></div></summary>
+    ${c.filas.map(f => famFilaResultado(f, s)).join('')}
+    <div class="fam-botones">${compartirBtn(famCompartir(s, c))}<button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></div></details>`;
 }
 /* Puesto OFICIAL de la federación (clasificación por tramos de edad: «14-90 años»…) en las carreras guardadas (carreras/<id>.json).
-   Sustituye al «en su año» (solo entre los nacidos en su mismo año) cuando la competición está guardada; si no, se queda «en su año». */
+   Sustituye al «en su año» (solo entre los nacidos en su mismo año) cuando la competición está guardada; si no, se queda «en su año».
+   Si la carrera está guardada, añade también el botón de foto finish de esa prueba. */
 async function pintarOficial(app, s) {
   if (!app.querySelector('.fam-fila[data-of]') || typeof carIndice !== 'function') return;
   const info = new Map();
@@ -3236,16 +3309,24 @@ async function pintarOficial(app, s) {
     for (const x of carLista(await carIndice())) {
       const c = await carCompeticion(x[0]); if (!c) continue;
       c.pruebas.forEach(p => { if (!/^\d+ /.test(p.nombre)) return;
-        p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8] || !f[7]) return;
+        p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8]) return;
           const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
-          info.set(`${p.nombre}|${p.fecha}|${f[5]}`, {puesto: f[7], de, cat}); }); });
+          info.set(`${p.nombre}|${p.fecha}|${f[5]}`, {puesto: f[7], de, cat, c, p}); }); });
     }
   } catch (e) { return; }
   app.querySelectorAll('.fam-fila[data-of]').forEach(el => {
-    const o = info.get(el.dataset.of), sp = el.querySelector('.fam-pu'); if (!o) return;
-    const oficial = `<b>${o.puesto}º${o.de >= o.puesto ? ' de ' + o.de : ''}</b> en la clasificación oficial${o.cat ? ` (${esc(o.cat)})` : ''}`;
-    if (sp) sp.innerHTML = `${oficial} · ${esc(sp.dataset.anio)} en su año`;
-    else el.querySelector('.fam-l small').insertAdjacentHTML('beforeend', ` · ${oficial}`);
+    const o = info.get(el.dataset.of); if (!o || !el.isConnected) return;
+    const sp = el.querySelector('.fam-pu');
+    if (o.puesto) {
+      const oficial = `<b>${o.puesto}º${o.de >= o.puesto ? ' de ' + o.de : ''}</b> en la clasificación oficial${o.cat ? ` (${esc(o.cat)})` : ''}`;
+      if (sp) sp.innerHTML = `${oficial} · ${esc(sp.dataset.anio)} en su año`;
+      else el.querySelector('.fam-l small').insertAdjacentHTML('beforeend', ` · ${oficial}`);
+    }
+    const acc = el.querySelector('.fam-acc');
+    if (acc && o.c && carPruebas(o.c).some(q => q.p === o.p)) {
+      acc.innerHTML = `<button type="button" class="chip-btn">${ico('crono')}Foto finish</button>`;
+      acc.firstChild.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); carAbrirPrueba(o.c, o.p.num, o.p.sesion, String(s.id)); };
+    }
   });
 }
 const resultadosHTML = s => { const C = competicionesDe(s);
@@ -3269,21 +3350,26 @@ function progresoHTML(s) {
     <p class="tiny muted" style="margin-top:6px">Toca una prueba para ver sus marcas temporada a temporada.</p></div>
     <div class="card fam-mas"><p class="small" style="margin:0 0 8px">Para ver rankings, puntos o comparar con compañeros, usa la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>`;
 }
+/* «Su última competición»: fecha, frase de la jornada, cada carrera y compartir (Resumen de Familias y de Completa) */
+function famUltimaCard(s) {
+  const u = competicionesDe(s)[0]; if (!u) return '';
+  return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      ${u.filas.map(f => famFilaResultado(f, s)).join('')}
+      <div class="fam-botones">${compartirBtn(famCompartir(s, u))}<a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div></div>`;
+}
 function resumenFamiliasHTML(s, cat) {
   const portada = portadaHTML(s, cat);
   if (!s.ev.length) return portada + fichaTabsHTML(s, 'resumen') + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
-  const u = competicionesDe(s)[0], pbs = u ? u.filas.filter(f => f.pb).length : 0;
-  const ultima = u ? `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
-      <p class="small" style="margin:2px 0 8px"><b>${esc(u.comp || 'Competición')}</b> · ${famRango(u)}${pbs ? ` · <b class="good">${pbs} mejor${pbs === 1 ? '' : 'es'} marca${pbs === 1 ? '' : 's'}</b>` : ''}</p>
-      ${u.filas.map(famFilaResultado).join('')}
-      <a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div>` : '';
+  const ultima = famUltimaCard(s);
   const top = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6);
   return `${portada}
     ${fichaTabsHTML(s, 'resumen')}
     ${familiaHTML(s)}
-    <div id="res-hoy"></div><div id="res-prox" hidden></div>
+    <div id="res-hoy"></div>
     ${ultima}
     ${comoVaHTML(s)}
+    <div id="res-prox"></div>
     <div class="card"><div class="h">${ico('medalla')}Sus mejores marcas</div>${top.map(e => famFilaMarca(s, e)).join('')}
       <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     ${insigniasCard(s)}
@@ -3296,7 +3382,7 @@ const FAM_TABS = [['resumen', 'Resumen'], ['resultados', 'Resultados'], ['marcas
 const vistaSegHTML = () => `<div class="vista-row"><span>Vista</span><div class="seg" role="group" aria-label="Tipo de vista">${[['familias', 'Familias'], ['completa', 'Completa']]
   .map(([v, l]) => `<button type="button" data-vista="${v}" class="${(vistaFamilias() ? 'familias' : 'completa') === v ? 'on' : ''}" aria-pressed="${(vistaFamilias() ? 'familias' : 'completa') === v}">${l}</button>`).join('')}</div><button type="button" class="glos-b" data-glosario>Glosario</button></div>`;
 function fichaTabsHTML(s, sub) {
-  const L = vistaFamilias() && FAM_TABS.some(t => t[0] === sub) ? FAM_TABS : [['resumen', 'Resumen']].concat(accesosDe(s).map(a => [a[0], a[1]]));
+  const L = vistaFamilias() && FAM_TABS.some(t => t[0] === sub) ? FAM_TABS : [['resumen', 'Resumen'], ['resultados', 'Resultados']].concat(accesosDe(s).map(a => [a[0], a[1]]));
   return vistaSegHTML() + `<nav class="tabs ficha-tabs" aria-label="Secciones de ${esc(String(s.n).split(' ')[0])}">${L.map(([k, l]) =>
     `<a href="${k === 'comparar' ? '#comparar?ids=' + s.id : fichaHref(s, k)}" class="${k === sub ? 'on' : ''}"${k === sub ? ' aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>`;
 }
@@ -3337,6 +3423,7 @@ function resumenHTML(s, cat) {
     ${fichaTabsHTML(s, 'resumen')}
     <div id="res-hoy"></div>
     ${familiaHTML(s)}
+    ${famUltimaCard(s)}
     ${logrosHTML(s)}
     <div class="resumen">
     ${mejorMomentoHTML(s)}
@@ -3414,7 +3501,7 @@ function vistaSub(app, s, sub, p) {
     : !s.ev.length ? '<div class="vacio">Todavía no tiene marcas esta temporada</div>'
     : sub === 'resultados' ? resultadosHTML(s)
     : sub === 'progreso' ? progresoHTML(s)
-    : sub === 'marcas' ? (vistaFamilias() && !p.ev ? marcasFamiliasHTML(s) : tabPruebas(s, sk, p))
+    : sub === 'marcas' ? (vistaFamilias() ? (p.ev ? pruebaFamiliasHTML(s, p.ev, p) : marcasFamiliasHTML(s)) : tabPruebas(s, sk, p))
     : sub === 'ranking' ? tabRankingFicha(s, sk, rev)
     : sub === 'espana' ? tabMinimas(s)
     : sub === 'andalucia' ? bloque(FLAG_AN, '¿Entra en el Campeonato de Andalucía?', '<div id="clasif-host"><p class="empty">Cargando la clasificación…</p></div>')
@@ -3435,6 +3522,7 @@ function vistaSub(app, s, sub, p) {
   if (sub === 'entrenos') pintarEntrenosNadador(app, s, p);
   if (sub === 'marcas' && p.ev) pintarParcFicha(app, s, p.ev);
   if (sub === 'resultados') pintarOficial(app, s);
+  if (sub === 'marcas' && vistaFamilias() && p.ev) pintarTramos(app, s, p.ev);
   if (s.ev.length) {
     if (sub === 'evolucion') { pintarHistorial(s, 'historial', p, keep); pintarAnalisis(s); }
     if (sub === 'ranking') pintarHistorial(s, 'ranking', Object.assign({}, p, {rev}), keep);
@@ -4053,7 +4141,7 @@ function rkFilaRanking(x) {
   const s = x[7] ? SW[String(x[10])] : null;
   return rkFila({
     pos: posB(x[5]), nom: esc(x[0]), sub: club(x[1]), marca: fmt(x[3]), pool: x[9] || '',
-    cls: s && s.benicio ? 'me yo mio' : x[7] ? 'me' : '',
+    cls: (s && s.benicio ? 'me yo mio' : x[7] ? 'me' : '') + (s ? ` sid-${s.id}` : ''),
     det: [['Año', x[6]], ['Fecha', dtag(x[8])], ['Pts', x[4]]],
     acc: s ? [['Ver ficha', `href="${fichaHref(s)}"`]] : [],
   });
@@ -4084,11 +4172,15 @@ function vistaRankings(app, p) {
       <div class="portada-tit"><div class="portada-txt"><small>Club Natación Axarquía</small><h1>Rankings</h1><p>Cualquier prueba, por año o categoría, sexo y nivel</p></div></div>
     </div>
     <div class="note">Igual que en la web de la RFEN: el ranking es por año de nacimiento o por categoría (Prebenjamín 2018-19 · Benjamín 2016-17 · Alevín 2014-15 · Infantil 2012-13 · Júnior 2009-11) y <b>Absoluto = todas las edades</b>. Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo (el tuyo, con una barra). Pulsa una línea para ver el resto de datos y, si es del club, su ficha.</div>
-    <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
-    <div class="flt"><span class="flt-l">Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
-    ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])))}
-    <div class="flt"><span class="flt-l">Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, nivelHTML(k) + ' ' + l]), lv)}</div>
+    <p class="tiny muted" style="margin:0 2px 6px">Sigue los cuatro pasos: sexo, año o categoría, prueba y nivel. Los puestos son los de la lista oficial de marcas de la RFEN.</p>
+    <div class="flt"><span class="flt-l">1 · Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
+    <div class="flt"><span class="flt-l">2 · Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
+    ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])), '3 · Prueba')}
+    <div class="flt"><span class="flt-l">4 · Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, nivelHTML(k) + ' ' + l]), lv)}</div>
+    ${L ? rkTuNadadorHTML(L[lv], lv, ev, sc) : ''}
     <div class="card">${tabla}</div>`;
+  app.querySelectorAll('[data-rk-ir]').forEach(b => b.onclick = () => { const el = app.querySelector('.rk-r.sid-' + b.dataset.rkIr); if (!el) return;
+    irAElemento(el); el.classList.add('rk-flash'); setTimeout(() => el.classList.remove('rk-flash'), 2200); });
 
   rkBind(app);
   onChips(app, 'g', v => go({g: v, sc: '', ev: ''}));
@@ -5874,6 +5966,177 @@ const phNotaInscripcion = (s, c, p, f) => {
   return `Inscrito con <b>${fmt(f.ins)}</b>: esa marca no consta en nuestros datos (puede ser de otra temporada, de otro club o un tiempo manual).`;
 };
 
+/* ── vistas/familias.js ── */
+/* Vista Familias: página de una prueba, «cómo nadó», próxima competición, compartir un resultado por WhatsApp,
+   primera visita y la tarjeta «Tu nadador» de Rankings. Cada bloque responde a una pregunta con una frase y deja el detalle a un toque. */
+
+const famSeg = cs => secs(cs);                                   // 1.15 → «1.15»
+const famEs = n => String(n).replace('.', ',');
+const famPiscina = pl => String(pl || '').replace(/m$/, ' m');
+
+/* ── Compartir un resultado (imagen para WhatsApp) ──────────────────────────────────────────────
+   o = {titulo (nadador), sub (competición · fecha), filas: [{l (prueba), t (tiempo), n (nota)}], pie}. Se guarda en un registro y el botón lleva su id. */
+const COMPARTIR = new Map();
+function compartirReg(o) { const id = 'c' + COMPARTIR.size; COMPARTIR.set(id, o); return id; }
+const compartirBtn = (o, txt = 'Compartir en WhatsApp') => `<button type="button" class="btn ghost comp-b" data-comp="${compartirReg(o)}">${ico('enviar')}${esc(txt)}</button>`;
+const compartirTexto = o => `${o.titulo}\n${o.sub || ''}\n${(o.filas || []).map(f => `${f.l}: ${f.t}${f.n ? ' · ' + f.n : ''}`).join('\n')}\nC.N. Axarquía`;
+function compartirAjuste(x, txt, max) { while (txt.length > 1 && x.measureText(txt).width > max) txt = txt.slice(0, -2) + '…'; return txt; }
+/* Dibuja la tarjeta (1080 × 1350, formato de estado de WhatsApp) y la devuelve como imagen PNG */
+function compartirImagen(o) {
+  return new Promise(res => {
+    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0b4f86'); g.addColorStop(1, '#032a4d');
+    const F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+    const pinta = logo => {
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      x.fillStyle = 'rgba(255,255,255,.06)'; for (let i = 0; i < 9; i++) x.fillRect(0, 90 + i * 150, W, 6);   // corcheras muy suaves
+      if (logo) x.drawImage(logo, 60, 56, 110, 110);
+      x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · TEMPORADA 26-27', logo ? 200 : 60, 100);
+      x.fillStyle = '#eaf6ff'; x.font = F('600', 28); x.fillText('Estadísticas de natación', logo ? 200 : 60, 142);
+      x.fillStyle = '#fff'; x.font = F('800', 76); x.fillText(compartirAjuste(x, o.titulo || '', W - 120), 60, 290);
+      x.fillStyle = '#9fc3da'; x.font = F('500', 34); x.fillText(compartirAjuste(x, o.sub || '', W - 120), 60, 346);
+      const filas = (o.filas || []).slice(0, 6), uno = filas.length === 1, alto = uno ? 330 : Math.min(150, 860 / Math.max(1, filas.length));
+      filas.forEach((f, i) => {
+        const y = 420 + i * (alto + 14);
+        x.fillStyle = 'rgba(255,255,255,.09)'; x.beginPath(); x.roundRect ? x.roundRect(60, y, W - 120, alto, 28) : x.rect(60, y, W - 120, alto); x.fill();
+        x.fillStyle = '#fff'; x.font = F('800', uno ? 70 : 44); x.fillText(compartirAjuste(x, f.l, 520), 96, y + (uno ? 100 : alto * .42));
+        x.font = F('800', uno ? 150 : 64); x.fillStyle = '#ffd400'; x.textAlign = 'right'; x.fillText(f.t, W - 96, y + (uno ? 250 : alto * .62)); x.textAlign = 'left';
+        if (f.n) { x.fillStyle = f.ok ? '#5ee6a8' : '#cfe6f5'; x.font = F('600', uno ? 40 : 28); x.fillText(compartirAjuste(x, f.n, uno ? W - 192 : 520), 96, y + (uno ? 190 : alto * .8)); }
+      });
+      x.fillStyle = '#9fc3da'; x.font = F('500', 28); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 60, H - 60);
+      c.toBlob(b => res(b), 'image/png');
+    };
+    const img = new Image(); img.onload = () => pinta(img); img.onerror = () => pinta(null); img.src = 'logo_cna.png';
+  });
+}
+function compartirAviso(txt) {
+  let a = document.querySelector('.aviso-contador'); if (!a) { a = document.createElement('div'); a.className = 'aviso-contador'; document.body.appendChild(a); }
+  a.textContent = txt; clearTimeout(compartirAviso.t); compartirAviso.t = setTimeout(() => a.remove(), 5000);
+}
+async function compartirResultado(o) {
+  if (!o) return;
+  try {
+    const blob = await compartirImagen(o), file = new File([blob], 'resultado-cna.png', {type: 'image/png'});
+    if (navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: o.titulo, text: compartirTexto(o)}); return; }
+    // sin «compartir» del sistema (ordenador): se descarga la imagen y se abre WhatsApp con el texto
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'resultado-cna.png'; document.body.appendChild(a); a.click(); a.remove();
+    window.open('https://wa.me/?text=' + encodeURIComponent(compartirTexto(o)), '_blank', 'noopener');
+    compartirAviso('Imagen guardada. Adjúntala en el chat de WhatsApp que se ha abierto.');
+  } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }
+}
+
+/* ── Frases ── */
+/* «4 pruebas, ninguna mejor marca esta vez, a entre 0,9 y 2,9 s de sus mejores.» */
+function famFraseJornada(c) {
+  const F = c.filas, n = F.length, pb = F.filter(f => f.pb), otras = F.filter(f => !f.pb && !f.primera && f.dif > 0).map(f => f.dif);
+  const pr = `${n} prueba${n === 1 ? '' : 's'}`;
+  const mejores = pb.length ? `${pb.length} mejor${pb.length === 1 ? '' : 'es'} marca${pb.length === 1 ? '' : 's'}` : 'ninguna mejor marca esta vez';
+  let resto = '';
+  if (otras.length) { const a = Math.min(...otras), b = Math.max(...otras); resto = otras.length === 1 ? `, a ${famEs(famSeg(a))} s de su mejor` : `${pb.length ? ' y las demás' : ','} a entre ${famEs(famSeg(a))} y ${famEs(famSeg(b))} s de sus mejores`; }
+  return `${pr}, ${mejores}${resto}.`;
+}
+/* Cómo repartió el esfuerzo: frase a partir de los tiempos por tramo (centésimas) */
+function famFraseTramos(sp) {
+  if (!sp || sp.length < 3) return null;
+  const min = Math.min(...sp), max = Math.max(...sp), ord = n => `${n + 1}.º`, i = sp.indexOf(min), j = sp.indexOf(max);
+  let reparto = '';
+  if (sp.length % 2 === 0) {
+    const a = sp.slice(0, sp.length / 2).reduce((x, y) => x + y, 0), b = sp.slice(sp.length / 2).reduce((x, y) => x + y, 0), d = a - b, tot = a + b;
+    reparto = Math.abs(d) / tot < .005 ? 'Repartió el esfuerzo de forma muy pareja.'
+      : d < 0 ? `Salió más rápido que llegó: la primera mitad fue ${famEs(famSeg(-d))} s más rápida que la segunda.`
+      : `Aceleró al final: la segunda mitad fue ${famEs(famSeg(d))} s más rápida que la primera.`;
+  } else reparto = j === sp.length - 1 ? 'Fue bajando el ritmo hacia el final.' : i === sp.length - 1 ? 'Acabó con su tramo más rápido.' : '';
+  return {texto: `${reparto} El tramo más rápido fue el ${ord(i)} (${fmt(min)}) y el más lento el ${ord(j)} (${fmt(max)}).`.trim(), i, j};
+}
+
+/* ── Página de una prueba (vista Familias) ── */
+function famMarcasDe(e, pool) {
+  const vistas = new Set();
+  return (e.h || []).filter(x => !x[8] && x[2] === pool && x[1] > 0 && !vistas.has(x[0] + '|' + x[1]) && vistas.add(x[0] + '|' + x[1])).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]);
+}
+function pruebaFamiliasHTML(s, evName, p) {
+  const e = s.ev.find(x => x.e === evName); if (!e) return '<div class="vacio">No hay marcas en esta prueba.</div>';
+  const pools = [...new Set((e.h || []).filter(x => !x[8]).map(x => x[2]))].sort((a, b) => a === e.pool ? -1 : b === e.pool ? 1 : 0);
+  const pool = pools.includes(p.pl) ? p.pl : e.pool, R = famMarcasDe(e, pool);
+  if (!R.length) return '<div class="vacio">No hay marcas en esta piscina.</div>';
+  const mejor = R.reduce((a, b) => b[1] < a[1] ? b : a), primera = R[0], bajada = primera[1] - mejor[1];
+  const frase = R.length === 1 ? 'Es su primera marca en esta prueba y piscina.'
+    : bajada > 0 ? `Ha bajado <b class="good">${famEs(famSeg(bajada))} s</b> desde su primera marca (${dfmt(primera[0])}).` : `Su primera marca (${dfmt(primera[0])}) sigue siendo la mejor.`;
+  const lv = ((e.rk || {}).y) || {};
+  const donde = LV.filter(([k]) => lv[k]).map(([k, l]) => `<div class="fam-fila"><div class="fam-l"><b>${nivelHTML(k)} ${l}</b></div><div class="fam-r"><b>${lv[k][0]}º</b><small>de ${lv[k][1]}</small></div></div>`).join('');
+  let mejorAnt = Infinity;
+  const lista = R.map((x, i) => { const ant = i ? R[i - 1][1] : null, esPb = x[1] < mejorAnt; mejorAnt = Math.min(mejorAnt, x[1]);
+    const chip = ant === null ? '<span class="chip-f">primera marca</span>' : x[1] < ant ? `<span class="chip-f g">${esPb ? '★ ' : ''}−${famEs(famSeg(ant - x[1]))} s</span>` : x[1] === ant ? '<span class="chip-f">igual</span>' : `<span class="chip-f w">+${famEs(famSeg(x[1] - ant))} s</span>`;
+    return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
+  const comp = compartirBtn({titulo: s.n, sub: `${evName} · piscina de ${famPiscina(pool)}`, filas: [{l: evName, t: fmt(mejor[1]), n: `★ mejor marca · ${dfmt(mejor[0])}`, ok: true}]}, 'Compartir su mejor marca');
+  return `<div class="card fam-prueba"><div class="eyebrow-f">Su mejor marca</div><div class="fam-grande">${fmt(mejor[1])}</div>
+      <p class="small" style="margin:2px 0 8px">${dfmt(mejor[0])} · piscina de ${esc(famPiscina(pool))} · ${esc(mejor[3] || '')}</p>
+      ${pools.length > 1 ? `<div class="chips sub" style="margin:6px 0">${pools.map(pl => `<a class="chip ${pl === pool ? 'on' : ''}" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(evName)}&pl=${pl}">Piscina de ${esc(famPiscina(pl))}</a>`).join('')}</div>
+        <p class="tiny muted" style="margin:0 0 6px">25 y 50 m no se mezclan: en 25 m hay más giros y salen tiempos más rápidos.</p>` : ''}
+      <p class="small" style="margin:4px 0 0">${frase}</p>${comp}</div>
+    ${R.length > 1 ? `<div class="card"><div class="h">${ico('tendencia')}Su evolución · piscina de ${esc(famPiscina(pool))}</div>${evoChart(R, s, null)}</div>` : ''}
+    <div class="card"><div class="h">${ico('crono')}Sus marcas</div>${lista}<p class="tiny muted" style="margin-top:6px">Verde = baja el tiempo (mejora). Toca una marca para ver toda esa competición.</p></div>
+    ${donde ? `<div class="card"><div class="h">${ico('barras')}Dónde está</div>${donde}<p class="tiny muted" style="margin-top:6px">Puesto de su mejor marca (${fmt(e.cs)} en ${esc(famPiscina(e.pool))}) entre los nadadores de su sexo nacidos en ${s.y}. <button type="button" class="ent-x-link" data-glos="puesto">¿Qué significa?</button></p></div>` : ''}
+    <div id="fam-tramos"></div>
+    <div class="card fam-mas"><p class="small" style="margin:0 0 8px">Para ver los puntos, el detalle de cada competición y las marcas en todas las piscinas juntas, usa la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver todos los datos de esta prueba</button></div>`;
+}
+/* «Cómo nadó»: los tiempos por tramo de su última carrera con parciales, en palabras y barras */
+function pintarTramos(app, s, evName) {
+  const host = app.querySelector('#fam-tramos'); if (!host || typeof cargarParciales !== 'function') return;
+  cargarParciales().then(P => {
+    if (!host.isConnected) return;
+    const C = parcCarreras(P, s, evName).filter(x => x.sp && x.sp.length >= 3); if (!C.length) return;
+    const u = C[C.length - 1], f = famFraseTramos(u.sp); if (!f) return;
+    const W = 300, H = 170, base = 128, top = 26, mx = Math.max(...u.sp) * 1.08, n = u.sp.length, bw = Math.min(44, (W - 40) / n - 8), gap = (W - 40 - n * bw) / Math.max(1, n - 1);
+    const barras = u.sp.map((v, i) => { const h = v / mx * (base - top), x = 20 + i * (bw + gap), y = base - h, cls = i === f.i ? 'fam-bar-r' : i === f.j ? 'fam-bar-l' : 'fam-bar';
+      return `<rect class="${cls}" x="${x}" y="${y}" width="${bw}" height="${h}" rx="4"/><text class="fam-bar-t" x="${x + bw / 2}" y="${y - 6}" text-anchor="middle">${fmt(v)}</text><text class="fam-bar-e" x="${x + bw / 2}" y="${base + 14}" text-anchor="middle">${Math.round(i * u.paso)}–${Math.round((i + 1) * u.paso)} m</text>`
+        + (i === f.i ? `<text class="fam-bar-m r" x="${x + bw / 2}" y="${base + 27}" text-anchor="middle">más rápido</text>` : i === f.j ? `<text class="fam-bar-m l" x="${x + bw / 2}" y="${base + 27}" text-anchor="middle">más lento</text>` : ''); }).join('');
+    host.innerHTML = `<div class="card"><div class="h">${ico('crono')}Cómo nadó su última carrera <span class="h-n">· ${esc(u.nom)}</span></div>
+      <p class="small" style="margin:2px 0 6px"><b>${esc(fmt(u.t))}</b>. ${esc(f.texto)}</p>
+      <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Tiempo de cada tramo de ${u.paso} metros">${barras}</svg>
+      <p class="tiny muted">Cada barra es lo que tardó en cada tramo de ${u.paso} m. Más alta = más lento. Verde = el tramo más rápido; amarillo = el más lento.</p></div>`;
+  }).catch(() => {});
+}
+
+/* ── Próxima competición (Resumen de la ficha) ── */
+function dirProximaHTML(d, s) {
+  const hoy = dirHoy(), L = (d.competiciones || []).filter(c => (c.estado === 'proxima' || c.estado === 'en_curso') && (c.hasta || c.desde) >= hoy && dirCompDeCat(c, s.cat))
+    .sort((a, b) => a.desde.localeCompare(b.desde));
+  const c = L[0]; if (!c) return '';
+  const suyas = c.lenex ? dirSusPruebas(c, String(s.id)) : [];
+  return `<div class="card"><div class="h">${ico('carriles')}Próxima competición</div>
+    <div class="dir-c-top">${dirFechaTile(c)}<div class="dir-c-tit"><b>${esc(c.titulo)}</b><div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => `<span class="dir-cat">${esc(l)}</span>`).join('')}<span class="dir-cuando">${esc(ccFalta(c))}</span></div>
+      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${c.lenex && c.lenex.lugar ? ' · ' + esc(c.lenex.lugar) : ''}</div></div></div>
+    ${suyas.length ? `<p class="small" style="margin:8px 0 0">${esc(String(s.n).split(' ')[0])} nada ${suyas.length} prueba${suyas.length === 1 ? '' : 's'}: ${suyas.slice(0, 4).map(x => esc(x.p.nombre)).join(', ')}.</p><a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(s.id)}">Ver sus horas y calles ›</a>`
+      : '<p class="tiny muted" style="margin:8px 0 0">Cuando la federación publique las series verás aquí a qué hora y en qué calle nada.</p>'}
+    <a class="mas" href="#directo?t=proximas">Ver todas las próximas competiciones ›</a></div>`;
+}
+
+/* ── Primera visita ── */
+const PRIMERA_LS = 'cna_visto';
+function primeraVisitaHTML() {
+  try { if (BEN || localStorage.getItem(PRIMERA_LS) === '1') return ''; } catch (e) { if (BEN) return ''; }
+  return `<div class="card primera"><div class="h">${ico('nadador')}¿De quién quieres ver las estadísticas?</div>
+    <p class="small" style="margin:2px 0 8px">Escribe el nombre y entra en su ficha. Allí puedes marcarlo como «mi nadador» y se abrirá directo la próxima vez.</p>
+    ${buscadorHTML('q-primera', 'Nombre de tu nadador…')}
+    <div class="como-se-lee"><b>Cómo se leen los datos</b>
+      <ul><li><b>Tiempo:</b> cuanto más bajo, mejor. Una marca nueva más baja es una mejora.</li>
+      <li><b>★</b> marca la mejor marca personal en esa prueba y piscina.</li>
+      <li><b>Puesto:</b> «14º de 19» es el puesto oficial de la competición; «5º de 7 en su año» es solo entre los nacidos en su mismo año.</li>
+      <li><b>Piscina de 25 o de 50 m:</b> no se comparan entre sí.</li></ul></div>
+    <button type="button" class="ent-x-link" data-primera-ok>Entendido, no volver a mostrar</button></div>`;
+}
+
+/* ── Rankings: «Tu nadador» ── */
+function rkTuNadadorHTML(rows, lv, ev, sc) {
+  const ids = [BEN, ...familiaIds().map(id => SW[id])].filter(Boolean);
+  const mios = ids.map(s => { const k = rows.findIndex(x => x[7] && String(x[10]) === String(s.id)); return k < 0 ? null : {s, x: rows[k]}; }).filter(Boolean);
+  if (!mios.length) return '';
+  return `<div class="card tu-nad"><div class="h">${ico('nadador')}Tu nadador en este ranking</div>${mios.map(({s, x}) =>
+    `<button type="button" class="fam-fila fam-b" data-rk-ir="${esc(String(s.id))}"><div class="fam-l"><b>${esc(s.n)}</b><small>${esc(ev)} · ${esc(x[9] || '')}</small></div><div class="fam-r"><b>${x[5]}º</b><small>${fmt(x[3])}</small></div></button>`).join('')}
+    <p class="tiny muted" style="margin:6px 0 0">Toca para ir a su línea en la lista.</p></div>`;
+}
+
 /* ── vistas/directo.js ── */
 /* Directo: competiciones de la Federación Andaluza (calendario, series y resultados) a partir de directo.json,
    que actualiza el proceso pipeline/fan_directo.py (cada 10 minutos de viernes a domingo, cada hora el resto).
@@ -6355,6 +6618,7 @@ function dirSeguirHTML(c, rfen) {
       ${dirCuentaHTML(c, x)}
       ${est}
       ${x.estado === 'hecha' ? phHTML(s, c, x.p, x.f) : ''}
+      ${x.estado === 'hecha' && s && x.f.t && !x.f.rel ? dirCompartirBtn(s, c, x) : ''}
       <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}</details>
       <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} ${x.f.rel ? 'equipos' : 'nadadores'})${x.estado === 'hecha' ? ' · clasificación' : ''}</summary>${x.estado === 'hecha' ? dirAvisoConj(x.p) + dirClasificacion(x.p, f => dirEsDe(f, rfen), null, rfen) : series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}`).join('')}</details>
     </div>`;
@@ -6441,6 +6705,22 @@ function dirFiltrar(c, f) {
 }
 // Series de una prueba, cada una con sus calles (la que se está nadando, marcada)
 const dirSeries = (p, m, vivo) => m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false, dirDist(p.nombre))}`).join('');
+/* Botón «Compartir en WhatsApp» de una carrera: tiempo, veredicto (mejor marca / a X s de su mejor) y puesto oficial */
+function dirCompartirBtn(s, c, x) {
+  const H = typeof phHistoria === 'function' ? phHistoria(s, c, x.p, x.f) : null, v = H ? phVeredicto(H, x.f.t) : null, o = dirPuestoOficial(x.p, x.f);
+  const nota = [v ? v.txt.replace('¡', '').replace('!', '') : '', o ? `${o.txt}` : ''].filter(Boolean).join(' · ');
+  return compartirBtn({titulo: s.n, sub: `${c.titulo} · ${dfmt(x.p.fecha || c.desde)}`, filas: [{l: x.p.nombre, t: fmt(x.f.t), n: nota, ok: !!(v && v.cls === 'good')}]});
+}
+/* Tus nadadores primero: los que sigues en este dispositivo y nadan en esta competición, con acceso directo a sus pruebas */
+function dirMisNadadores(c) {
+  const ids = [BEN, ...familiaIds().map(id => SW[id])].filter(Boolean).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
+  const L = ids.map(x => ({x, P: dirSusPruebas(c, String(x.id))})).filter(o => o.P.length);
+  if (!L.length) return '';
+  return `<div class="card dir-mios"><div class="h">${ico('nadador')}${L.length === 1 ? 'Tu nadador en esta competición' : 'Tus nadadores en esta competición'}</div>${L.map(({x, P}) => {
+    const hechas = P.filter(o => o.estado === 'hecha').length;
+    return `<div class="dir-mio-f"><div><b>${esc(x.n)}</b><div class="tiny muted">${P.length} prueba${P.length === 1 ? '' : 's'}${hechas ? ` · ${hechas} con resultado` : ' · aún por nadar'}</div></div>
+      <a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(x.id)}">Ver ${hechas ? 'resultados' : 'horas y calles'} ›</a></div>`; }).join('')}</div>`;
+}
 function dirDetalle(c, f) {
   dirConjunta(c); dirColores(c);
   f = Object.assign({solo: true, cat: '', sx: '', ano: ''}, f);
@@ -6480,8 +6760,9 @@ function dirDetalle(c, f) {
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1>
       ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
+    ${dirMisNadadores(c)}
     ${dirSelector(c, '')}
-    ${filtros}
+    <details class="dir-mas dir-filtros-d"${f.cat || f.sx || f.ano || !f.solo ? ' open' : ''}><summary>Filtrar las pruebas (categoría, año de nacimiento, sexo)</summary>${filtros}</details>
     ${dirLeyenda()}
     <p class="tiny muted" style="margin:8px 2px">${pruebas.length} de ${L.pruebas.length} pruebas. Toca una para ver sus series y calles.</p>
     ${cuerpo || '<div class="vacio">Ninguna prueba con estos filtros.</div>'}`;
@@ -6571,6 +6852,11 @@ async function pintarDirectoNadador(app, s) {
     .filter(x => x.filas.length || (x.c.estado !== 'terminada' && !x.c.lenex && dirEsDeSuCat(x.c, s)));
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
+  if (vistaFamilias()) {   // Familias: solo el banner de arriba y la tarjeta «Próxima competición»
+    const hoyEl = app.querySelector('#res-hoy'); if (hoyEl) hoyEl.innerHTML = dirBannerHoy(suyas, s);
+    const px = app.querySelector('#res-prox'); if (px) px.innerHTML = dirProximaHTML(d, s);
+    dirCuentaArrancar(); return;
+  }
   if (!prox.length && !rec.length) return;
   const nombre = esc(s.n.split(' ')[0]);
   const linea = x => x.filas.length ? `<div class="dir-f"><b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
@@ -7016,6 +7302,9 @@ function arrancar() {
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista);                 // interruptor Familias | Completa
     if (e.target.closest('[data-glosario]')) abrirGlosario();
+    const bc = e.target.closest('[data-comp]'); if (bc) { e.preventDefault(); e.stopPropagation(); compartirResultado(COMPARTIR.get(bc.dataset.comp)); }   // compartir por WhatsApp
+    const an = e.target.closest('[data-ancla]'); if (an) { e.preventDefault(); const el = document.getElementById(an.dataset.ancla); if (el) irAElemento(el); }
+    if (e.target.closest('[data-primera-ok]')) { try { localStorage.setItem(PRIMERA_LS, '1'); } catch (x) {} route(); }
     if (e.target.closest('[data-entrenador]')) { VISTA = 'completa'; try { localStorage.setItem(VISTA_LS, VISTA); } catch (x) {} }   // el enlace lleva a #entrenamientos, que está en la vista Completa
   });
   lenguajeFamilias();

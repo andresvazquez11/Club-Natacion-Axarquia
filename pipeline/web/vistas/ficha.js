@@ -553,7 +553,7 @@ function famFilaResultado(f, s) {
     <div class="fam-r"><b>${fmt(f.t)}</b>${v}</div></div>`;
 }
 /* Datos para compartir una competición por WhatsApp */
-const famCompartir = (s, c) => ({titulo: s.n, sub: `${c.comp || 'Competición'} · ${famRango(c)}`,
+const famCompartir = (s, c) => ({titulo: s.n, sub: `${String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, '')} · ${famRango(c)}`,
   filas: c.filas.map(f => ({l: f.e, t: fmt(f.t), n: f.primera ? 'primera vez' : f.pb ? `★ mejor marca · −${famEs(secs(f.dif))} s` : f.dif === 0 ? 'igual que su mejor' : `a ${famEs(secs(f.dif))} s de su mejor`, ok: !!f.pb}))});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
