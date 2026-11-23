@@ -6093,7 +6093,7 @@ function compartirLineas(x, txt, max, n) {   // parte un texto en hasta n línea
 /* Dibuja la tarjeta (1080 × 1350, formato de estado de WhatsApp) y la devuelve como imagen PNG */
 function compartirImagen(o) {
   return new Promise(res => {
-    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const nF = Math.min((o.filas || []).length, 6), W = 1080, H = Math.max(1350, 540 + nF * 206 + ((o.carreras || []).length ? 130 : 0) + 110), c = document.createElement('canvas'); c.width = W; c.height = H;   // la altura crece con las pruebas para que quepan todas las líneas
     const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0e6a8f'); g.addColorStop(1, '#042b45');
     const F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
     const pinta = logo => {
@@ -6117,10 +6117,10 @@ function compartirImagen(o) {
       while (nl > 0 && alto(nl).reduce((a, b) => a + b, 0) + gap * (filas.length - 1) > libre) nl--;
       filas.forEach((f, i) => {
         const L = lin(f).slice(0, nl), h = uno ? Math.min(libre, 150 + L.length * 52) : 80 + L.length * 34 + 12;
-        x.fillStyle = 'rgba(255,255,255,.09)'; x.beginPath(); x.roundRect ? x.roundRect(56, y, W - 112, h, 24) : x.rect(56, y, W - 112, h); x.fill();
-        x.fillStyle = '#fff'; x.font = F('800', uno ? 56 : 40); x.fillText(compartirAjuste(x, f.l, 500), 88, y + (uno ? 82 : 58));
-        x.fillStyle = '#ffd400'; x.font = F('800', uno ? 120 : 60); x.textAlign = 'right'; x.fillText(f.t, W - 88, y + (uno ? 100 : 64)); x.textAlign = 'left';
-        L.forEach((t, k) => { x.fillStyle = t === f.c && f.ok ? '#5ee6a8' : '#cfe6f5'; x.font = F('600', uno ? 36 : 29);
+        x.fillStyle = '#f6fafd'; x.beginPath(); x.roundRect ? x.roundRect(56, y, W - 112, h, 24) : x.rect(56, y, W - 112, h); x.fill();
+        x.fillStyle = '#0b2a36'; x.font = F('800', uno ? 56 : 40); x.fillText(compartirAjuste(x, f.l, 500), 88, y + (uno ? 82 : 58));
+        x.fillStyle = '#05345c'; x.font = F('800', uno ? 120 : 60); x.textAlign = 'right'; x.fillText(f.t, W - 88, y + (uno ? 100 : 64)); x.textAlign = 'left';
+        L.forEach((t, k) => { x.fillStyle = t === f.c && f.ok ? '#0a7a43' : '#46636f'; x.font = F('600', uno ? 36 : 29);
           x.fillText(compartirAjuste(x, t, W - 176), 88, y + (uno ? 176 : 100) + k * (uno ? 52 : 34)); });
         y += h + gap;
       });
@@ -6174,14 +6174,16 @@ function compartirCarreraDe(p, f, vs) {
   return {l: `${p.nombre} ${p.sexo === 'F' ? 'femenino' : p.sexo === 'M' ? 'masculino' : ''}`.trim(), t: fmt(yo.t), serie: yo.serie, series, calle: yo.calle, posSerie, de: clas.length, posClas: yo.puesto || posClas, cat,
     tabla: serie.map((y, i) => fila(y, i + 1)), cols, parc, top, lineas, sp: sp ? sp.sp : null, paso: sp ? sp.paso : 0, ok: !!(vs && vs.ok)};
 }
-/* Imagen de una carrera completa (anchura 1080, altura según las filas) */
+/* Imagen de una carrera completa (anchura 1080, altura según las filas).
+   Fondo azul solo en la cabecera; cada bloque es un panel claro con su franja de color para que se vea dónde empieza y acaba cada cosa:
+   su serie (azul), los primeros (dorado), parciales (verde azulado) y cómo le fue (pizarra). */
 function compartirImagenCarrera(o, r, num, total) {
   return new Promise(res => {
     const W = 1080, F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+    const TINTA = '#0b2a36', SUAVE = '#46636f', ZEBRA = '#eaf3f9', MIO = '#ffe58a';
     const dibuja = (x, logo) => {
-      const caja = (X, Y, w, h, col) => { x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, 20) : x.rect(X, Y, w, h); x.fill(); };
+      const rect = (X, Y, w, h, col, rad = 20) => { x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, rad) : x.rect(X, Y, w, h); x.fill(); };
       let y = 0;
-      x.fillStyle = 'rgba(255,255,255,.05)';
       if (logo) x.drawImage(logo, 56, 44, 96, 96);
       x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · NATACIÓN', logo ? 176 : 56, 88);
       x.fillStyle = '#cfe6f5'; x.font = F('600', 26); x.fillText('Resultado de competición', logo ? 176 : 56, 126);
@@ -6189,51 +6191,78 @@ function compartirImagenCarrera(o, r, num, total) {
       x.fillStyle = '#eaf6ff'; x.font = F('700', 34); compartirLineas(x, o.comp, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 42; });
       x.fillStyle = '#9fc3da'; x.font = F('500', 28); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112 - (o.piscina ? 290 : 0)), 56, y); if (o.piscina) compartirPildora(x, F('800', 26), `Piscina de ${o.piscina}`, W - 56, y, 'rgba(255,212,0,.2)', '#ffd400'); y += 30; }
       if (num && total > 1) compartirPildora(x, F('800', 28), `CARRERA ${num} DE ${total}`, W - 56, 96, '#ffd400', '#05223b');
-      y += 22;
-      // la carrera: prueba, serie y calle, tiempo grande
-      caja(56, y, W - 112, 190, 'rgba(255,255,255,.12)');
+      y += 26;
+      // la carrera: prueba, serie y calle, tiempo grande (tarjeta oscura: es lo principal)
+      rect(56, y, W - 112, 196, '#052a49');
       x.fillStyle = '#fff'; x.font = F('800', 50); x.fillText(compartirAjuste(x, r.l, 520), 88, y + 66);
       x.fillStyle = '#cfe6f5'; x.font = F('600', 30); x.fillText(`${r.serie ? `Serie ${r.serie}${r.series ? ' de ' + r.series : ''}` : ''}${r.calle ? ' · calle ' + r.calle : ''}`.replace(/^ · /, ''), 88, y + 112);
       x.fillStyle = '#ffd400'; x.font = F('800', 100); x.textAlign = 'right'; x.fillText(r.t, W - 88, y + 100); x.textAlign = 'left';
-      x.fillStyle = '#eaf6ff'; x.font = F('700', 30); x.fillText([r.posClas ? `${r.posClas}º de ${r.de}${r.cat ? ' · ' + r.cat : ''}` : '', r.posSerie ? `${r.posSerie}º de ${r.tabla.length} en su serie` : ''].filter(Boolean).join('   ·   '), 88, y + 160);
-      y += 190 + 34;
-      const nc = r.cols ? r.cols.length : 0;
-      const filaTabla = (f, i, conParc) => {
-        const dos = conParc && nc > 0, alto = dos ? 72 : 54; if (f.yo) caja(56, y, W - 112, alto, 'rgba(255,212,0,.22)');
-        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F(f.yo || f.nuestro ? '800' : '600', dos ? 28 : 30);
-        x.fillText(`${f.pos}º`, 76, y + (dos ? 32 : 37)); if (f.calle) x.fillText(String(f.calle), 150, y + (dos ? 32 : 37));
-        x.fillText(compartirAjuste(x, famNombre(f.n), dos ? 300 : 350), 206, y + (dos ? 32 : 37));
-        if (dos) { x.font = F('600', 22); x.fillStyle = f.nuestro ? '#ffd400' : '#9fc3da'; x.fillText(compartirAjuste(x, f.club, 300), 206, y + 58); }
-        else { x.font = F('600', 26); x.fillText(compartirAjuste(x, f.club, 240), 580, y + 37); }
-        if (dos) { x.font = F('600', 25); x.fillStyle = f.yo ? '#fff' : '#cfe6f5'; x.textAlign = 'right';
-          for (let k = 0; k < nc; k++) x.fillText(f.p && f.p[k] ? fmt(f.p[k]) : '—', 640 + k * 118, y + 32); x.textAlign = 'left'; }
-        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F('800', dos ? 28 : 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 76, y + (dos ? 32 : 37)); x.textAlign = 'left'; y += alto + 4;
+      x.fillStyle = '#eaf6ff'; x.font = F('700', 30); x.fillText([r.posClas ? `${r.posClas}º de ${r.de}${r.cat ? ' · ' + r.cat : ''}` : '', r.posSerie ? `${r.posSerie}º de ${r.tabla.length} en su serie` : ''].filter(Boolean).join('   ·   '), 88, y + 164);
+      y += 196 + 30;
+      // un panel: franja de color con el título y, debajo, el contenido sobre fondo claro (cuerpo(Y) dibuja y devuelve la altura que ocupa)
+      const panel = (titulo, color, textoTitulo, cuerpo) => {
+        const alto = cuerpo(0, true), total = 58 + alto + 18;
+        rect(56, y, W - 112, total, '#f6fafd');
+        x.save(); x.beginPath(); x.roundRect ? x.roundRect(56, y, W - 112, 58, [20, 20, 0, 0]) : x.rect(56, y, W - 112, 58); x.clip(); x.fillStyle = color; x.fillRect(56, y, W - 112, 58); x.restore();
+        x.fillStyle = textoTitulo; x.font = F('800', 25); x.fillText(titulo.toUpperCase(), 80, y + 38);
+        cuerpo(y + 58, false); y += total + 26;
       };
-      const titulo = t => { x.fillStyle = '#9fc3da'; x.font = F('800', 26); x.fillText(t.toUpperCase(), 64, y + 26); y += 46; };
-      if (r.tabla.length) { titulo(`Su serie${r.series ? ` (${r.serie} de ${r.series})` : ''} · calle, nadador, club y tiempo`);
-        if (nc) { x.fillStyle = '#9fc3da'; x.font = F('700', 22); x.textAlign = 'right'; r.cols.forEach((t, k) => x.fillText(t, 640 + k * 118, y + 8)); x.fillText('FINAL', W - 76, y + 8); x.textAlign = 'left'; y += 24; }
-        r.tabla.forEach(f => filaTabla(f, 0, true)); y += 18; }
-      if (r.top.length) { titulo(`Los primeros de la clasificación${r.cat ? ' · ' + r.cat : ''}`); r.top.forEach(f => filaTabla(f, 0, false));
-        if (r.posClas > 3) { const sig = r.tabla.find(f => f.yo); if (sig) filaTabla(Object.assign({}, sig, {pos: r.posClas, calle: ''}), 0, false); } y += 18; }
-      if (r.parc) {   // los parciales con números: acumulado y tiempo de cada tramo, frente al ganador de la serie
-        titulo(`Parciales de ${famNombre(o.titulo).split(' ')[0]}${r.parc.cada ? ' · cada ' + r.parc.cada + ' m' : ''}`);
-        x.fillStyle = '#9fc3da'; x.font = F('700', 22); x.textAlign = 'right';
-        x.fillText('ACUMULADO', 520, y + 8); x.fillText('TRAMO', 700, y + 8); if (r.parc.tieneGan) x.fillText('GANADOR SERIE', 940, y + 8); x.textAlign = 'left'; y += 26;
-        r.parc.filas.forEach((f, k) => { if (k % 2 === 0) caja(56, y, W - 112, 40, 'rgba(255,255,255,.06)');
-          x.fillStyle = '#eaf6ff'; x.font = F('700', 27); x.fillText(`${f.m} m`, 76, y + 30);
-          x.font = F('600', 27); x.textAlign = 'right'; x.fillText(fmt(f.acu), 520, y + 30); x.fillStyle = '#ffd400'; x.fillText(fmt(f.tramo), 700, y + 30);
-          if (r.parc.tieneGan) { x.fillStyle = '#cfe6f5'; x.fillText(f.gan ? fmt(f.gan) : '—', 940, y + 30); } x.textAlign = 'left'; y += 42; });
-        y += 14; }
-      if (r.lineas.length) { titulo('Cómo le fue'); r.lineas.forEach(l => { x.fillStyle = l.ok ? '#5ee6a8' : '#eaf6ff'; x.font = F('600', 29);
-        compartirLineas(x, l.t, W - 128, 3).forEach(t => { x.fillText(t, 64, y + 28); y += 38; }); y += 6; }); }
-      y += 28; x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, y + 30);
-      return y + 70;
+      const nc = r.cols ? r.cols.length : 0, cx = k => 650 + k * 120;
+      // ── su serie
+      if (r.tabla.length) panel(`Su serie${r.series ? ` · ${r.serie} de ${r.series}` : ''}`, '#0b4f86', '#fff', (Y, medir) => {
+        const rowH = nc ? 74 : 56; let h = nc ? 42 : 12;
+        if (!medir) { if (nc) { x.fillStyle = SUAVE; x.font = F('700', 22); x.textAlign = 'right'; r.cols.forEach((t, k) => x.fillText(t, cx(k), Y + 30)); x.fillText('FINAL', W - 80, Y + 30); x.textAlign = 'left'; x.fillStyle = SUAVE; x.fillText('PUESTO · CALLE · NADADOR', 80, Y + 30); } }
+        r.tabla.forEach((f, i) => { const y0 = Y + h;
+          if (!medir) { if (f.yo) rect(66, y0, W - 132, rowH, MIO, 12); else if (i % 2) rect(66, y0, W - 132, rowH, ZEBRA, 12);
+            const base = nc ? 32 : 38; x.fillStyle = f.yo || f.nuestro ? '#05345c' : TINTA; x.font = F(f.yo || f.nuestro ? '800' : '600', 30);
+            x.fillText(`${f.pos}º`, 84, y0 + base); x.fillText(String(f.calle || ''), 160, y0 + base); x.fillText(compartirAjuste(x, famNombre(f.n), nc ? 300 : 380), 214, y0 + base);
+            x.font = F('600', 23); x.fillStyle = f.nuestro ? '#8a5d00' : SUAVE;
+            if (nc) x.fillText(compartirAjuste(x, f.club + (f.nuestro ? ' · del club' : ''), 300), 214, y0 + 62); else x.fillText(compartirAjuste(x, f.club, 240), 640, y0 + base);
+            if (nc) { x.font = F('600', 26); x.fillStyle = TINTA; x.textAlign = 'right'; for (let k = 0; k < nc; k++) x.fillText(f.p && f.p[k] ? fmt(f.p[k]) : '—', cx(k), y0 + base); x.textAlign = 'left'; }
+            x.fillStyle = TINTA; x.font = F('800', 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 80, y0 + base); x.textAlign = 'left'; }
+          h += rowH + 4; });
+        return h + 6; });
+      // ── los primeros de la clasificación
+      if (r.top.length) panel(`Los primeros de la clasificación${r.cat ? ' · ' + r.cat : ''}`, '#e3b100', '#2a2000', (Y, medir) => {
+        const rowH = 58, medalla = ['#e3b100', '#aab6c1', '#c98a52'], filas = r.top.slice(), yo = r.posClas > 3 ? (r.tabla.find(f => f.yo) || null) : null;
+        let h = 12; const dib = (f, esYo, pos) => { const y0 = Y + h;
+          if (!medir) { if (esYo) rect(66, y0, W - 132, rowH, MIO, 12); else if (pos % 2 === 0) rect(66, y0, W - 132, rowH, ZEBRA, 12);
+            if (pos <= 3 && !esYo) { x.fillStyle = medalla[pos - 1]; x.beginPath(); x.arc(106, y0 + 29, 21, 0, 7); x.fill(); x.fillStyle = '#fff'; x.font = F('800', 25); x.textAlign = 'center'; x.fillText(String(pos), 106, y0 + 38); x.textAlign = 'left'; }
+            else { x.fillStyle = TINTA; x.font = F('800', 28); x.fillText(`${f.pos}º`, 84, y0 + 38); }
+            x.fillStyle = f.nuestro || esYo ? '#05345c' : TINTA; x.font = F(f.nuestro || esYo ? '800' : '600', 30); x.fillText(compartirAjuste(x, famNombre(f.n), 360), 150, y0 + 38);
+            x.font = F('600', 24); x.fillStyle = f.nuestro ? '#8a5d00' : SUAVE; x.fillText(compartirAjuste(x, f.club, 230), 540, y0 + 38);
+            x.fillStyle = TINTA; x.font = F('800', 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 80, y0 + 38); x.textAlign = 'left'; }
+          h += rowH + 4; };
+        filas.forEach((f, i) => dib(f, false, i + 1));
+        if (yo) { if (!medir) { x.fillStyle = SUAVE; x.font = F('700', 26); x.fillText('· · ·', 100, Y + h + 22); } h += 30; dib(Object.assign({}, yo, {pos: r.posClas}), true, 99); }
+        return h + 6; });
+      // ── parciales con números
+      if (r.parc) panel(`Parciales de ${famNombre(o.titulo).split(' ')[0]}${r.parc.cada ? ' · cada ' + r.parc.cada + ' m' : ''}`, '#0f8a78', '#fff', (Y, medir) => {
+        const rowH = 50, G = r.parc.tieneGan, mn = Math.min(...r.parc.filas.map(f => f.tramo)), mx = Math.max(...r.parc.filas.map(f => f.tramo)); let h = 44;
+        if (!medir) { x.fillStyle = SUAVE; x.font = F('700', 22); x.fillText('MARCA', 84, Y + 30); x.textAlign = 'right'; x.fillText('ACUMULADO', 400, Y + 30); x.fillText('TRAMO', 580, Y + 30);
+          if (G) { x.fillText('GANADOR', 790, Y + 30); x.fillText('DIFERENCIA', 980, Y + 30); } x.textAlign = 'left'; }
+        r.parc.filas.forEach((f, k) => { const y0 = Y + h;
+          if (!medir) { if (k % 2 === 0) rect(66, y0, W - 132, rowH, ZEBRA, 10);
+            x.fillStyle = TINTA; x.font = F('800', 28); x.fillText(`${f.m} m`, 84, y0 + 34); x.font = F('600', 28); x.textAlign = 'right'; x.fillText(fmt(f.acu), 400, y0 + 34);
+            x.fillStyle = f.tramo === mn && mn !== mx ? '#0a7a43' : f.tramo === mx && mn !== mx ? '#b07800' : TINTA; x.font = F('800', 28); x.fillText(fmt(f.tramo), 580, y0 + 34);
+            if (G && f.gan) { x.fillStyle = SUAVE; x.font = F('600', 28); x.fillText(fmt(f.gan), 790, y0 + 34); const d = f.tramo - f.gan; x.fillStyle = d > 0 ? '#b3261e' : '#0a7a43'; x.font = F('800', 28); x.fillText(`${d > 0 ? '+' : '−'}${famEs(secs(d))}`, 980, y0 + 34); } x.textAlign = 'left'; }
+          h += rowH + 2; });
+        if (!medir) { x.fillStyle = SUAVE; x.font = F('500', 22); x.fillText('Verde = su tramo más rápido · Ámbar = el más lento · Rojo = pierde ante el ganador', 84, Y + h + 26); }
+        return h + 44; });
+      // ── cómo le fue
+      if (r.lineas.length) panel('Cómo le fue', '#2b4a63', '#fff', (Y, medir) => {
+        let h = 18; r.lineas.forEach(l => { x.font = F('600', 29); const L = compartirLineas(x, l.t, W - 200, 3);
+          if (!medir) { x.fillStyle = l.ok ? '#0a7a43' : '#2b4a63'; x.beginPath(); x.arc(90, Y + h + 18, 7, 0, 7); x.fill(); x.fillStyle = l.ok ? '#0a7a43' : TINTA; L.forEach((t, i) => x.fillText(t, 116, Y + h + 28 + i * 38)); }
+          h += L.length * 38 + 14; });
+        return h; });
+      x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, y + 22);
+      return y + 66;
     };
     const cargar = cb => { const img = new Image(); img.onload = () => cb(img); img.onerror = () => cb(null); img.src = 'logo_cna.png'; };
     cargar(logo => {
       const medir = document.createElement('canvas').getContext('2d'), H = dibuja(medir, null);   // primera pasada: solo para saber la altura
       const c = document.createElement('canvas'); c.width = W; c.height = Math.max(H, 1000);
-      const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, c.height); g.addColorStop(0, '#0b4f86'); g.addColorStop(1, '#032a4d');
+      const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, c.height); g.addColorStop(0, '#0b4f86'); g.addColorStop(0.3, '#073a63'); g.addColorStop(1, '#032a4d');
       x.fillStyle = g; x.fillRect(0, 0, W, c.height); dibuja(x, logo); c.toBlob(b => res(b), 'image/png');
     });
   });
