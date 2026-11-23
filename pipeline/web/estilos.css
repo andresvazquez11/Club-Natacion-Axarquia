@@ -1053,3 +1053,50 @@ html.clara .car-abrir .ico{color:var(--warn)}
 .dir-cat.mia{background:var(--good);border-color:var(--good);color:#05223b}
 .dir-cuando{padding:2px 9px;border-radius:99px;font-size:.7rem;font-weight:800;background:rgba(255,212,0,.18);color:var(--sun, #ffd400)}
 .dir-c .dir-c-top + .tiny{margin-top:8px}
+
+/* ── Gran cambio Familias: bloques nuevos ── */
+.chip-f{display:inline-block;margin-top:3px;padding:2px 9px;border-radius:99px;font-size:.72rem;font-weight:800;background:rgba(127,127,127,.16);color:var(--ink2)}
+.chip-f.g{background:rgba(52,211,153,.18);color:var(--good)}
+.chip-f.w{background:rgba(255,212,0,.16);color:var(--sun,#ffd400)}
+.eyebrow-f{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.fam-grande{font-size:3rem;font-weight:900;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+.fam-prueba .btn{display:block;margin-top:10px;text-align:center}
+.fam-ver{color:inherit;text-decoration:none}.fam-ver:hover,.fam-ver:focus-visible{text-decoration:underline}
+.fam-acc:empty{display:none}.fam-acc{display:block;margin-top:6px}
+.chip-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:99px;font-size:.78rem;font-weight:800;background:var(--sun,#ffd400);color:#05223b;border:0;cursor:pointer}
+.chip-btn .ico{width:16px;height:16px}
+.fam-botones{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.fam-botones .mas{margin:0}
+.fam-frase{display:block;margin-top:4px;font-size:.88rem;font-weight:600}
+.fam-b{width:100%;background:none;border:0;border-top:1px solid rgba(127,127,127,.2);text-align:left;color:inherit;font:inherit;cursor:pointer}
+.comp-b{display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.comp-b .ico{width:18px;height:18px}
+.primera .como-se-lee{margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.12);font-size:.85rem}
+.primera .como-se-lee ul{margin:6px 0 0;padding-left:1.1em}.primera .como-se-lee li{margin:4px 0}
+.tu-nad{border:1.5px solid var(--sun,#ffd400)}
+.rk-r.rk-flash{outline:3px solid var(--sun,#ffd400);outline-offset:2px;border-radius:10px;transition:outline-color .6s}
+.dir-mio-f{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid rgba(127,127,127,.2)}
+.dir-mio-f:first-of-type{border-top:0}.dir-mio-f .btn{margin:0}
+.dir-filtros-d>summary{font-weight:800}
+.camp-frase{margin:6px 2px 10px;font-size:.95rem}
+.camp-g{margin-top:8px;border-top:1px solid rgba(127,127,127,.2);padding-top:6px}
+.camp-g>summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:6px 0;list-style:none}
+.camp-gl{display:flex;gap:8px;align-items:center}
+.club-indice{margin-top:10px}
+.marcas-t td,.marcas-t th{white-space:nowrap}
+.fam-bar{fill:#4aa3ff}.fam-bar-r{fill:#34d399}.fam-bar-l{fill:#ffd400}
+.fam-bar-t{font-size:11px;font-weight:700;fill:var(--ink)}.fam-bar-e{font-size:10px;fill:var(--ink2)}
+.fam-bar-m{font-size:10px;font-weight:800}.fam-bar-m.r{fill:#34d399}.fam-bar-m.l{fill:#ffd400}
+:root.clara .fam-bar-m.r{fill:#0a7a43}
+:root.clara .fam-bar-m.l{fill:#8a5d00}
+
+/* ── Accesibilidad: zonas táctiles de al menos 44 px, foco visible y sin movimiento si se pide ── */
+.chip,.tabs a,.seg button,.btn,.mas,.rk-l,.fam-b,.glos-b,.chg,.act-btn,button.fila{min-height:44px}
+.chip{display:inline-flex;align-items:center}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,[role="button"]:focus-visible{outline:3px solid var(--sun,#ffd400);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* modo claro: los amarillos del acuático no se leen sobre fondo claro */
+html.clara .chip-f.w,html.clara .dir-cuando{background:#fff1c9;color:#7a5200}
+html.clara .chip-f.g{background:#dcf7ea;color:#0a7a43}
+html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}

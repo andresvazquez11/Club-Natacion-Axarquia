@@ -14,6 +14,9 @@ function vistaCampeonatos(app, p) {
   const medL = Object.values(med).sort((a, b) => b.o - a.o || b.p - a.p || b.b - a.b || b.t - a.t);
   const tot = medL.reduce((a, m) => ({o: a.o + m.o, p: a.p + m.p, b: a.b + m.b}), {o: 0, p: 0, b: 0});
 
+  // agrupados por campeonato (nombre y fecha), el más reciente primero
+  const G0 = new Map(); [...D].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : a.pos - b.pos).forEach(x => { const k = `${x.comp}|${x.date}`; if (!G0.has(k)) G0.set(k, []); G0.get(k).push(x); });
+  const grupos = [...G0.entries()];
   const fila = x => { const s = SW[String(x.id)];
     return rkFila({
       pos: posB(x.pos), nom: esc(x.n), sub: `${nivelHTML(x.lv)} ${franja(x.ev)}${x.ev} <span class="of">${x.pool}</span>`,
@@ -32,6 +35,7 @@ function vistaCampeonatos(app, p) {
       <div class="flt"><span class="flt-l">Categoría 26-27</span>${chipsHTML('cat', [['all', 'Todas', cuentaC({cat: 'all'})], ...DATA.cats.map(c => [c.key, c.label, cuentaC({cat: c.key})])], cat)}</div>
       <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['all', 'Todos', cuentaC({g: 'all'})], ['M', 'Chicos', cuentaC({g: 'M'})], ['F', 'Chicas', cuentaC({g: 'F'})]], g)}</div>
     </div>
+    <p class="camp-frase"><b>${D.length}</b> top-10 en campeonatos${medL.length ? ` de <b>${medL.length}</b> nadador${medL.length === 1 ? '' : 'es'}` : ''}: <b>${tot.o}</b> primer${tot.o === 1 ? '' : 'os'} puesto${tot.o === 1 ? '' : 's'}, <b>${tot.p}</b> segundo${tot.p === 1 ? '' : 's'} y <b>${tot.b}</b> tercero${tot.b === 1 ? '' : 's'}.</p>
     <div class="kpis" style="margin:4px 0 14px">
       <div class="kpi hl"><b>${D.length}</b><span>top-10 en campeonatos</span></div>
       <div class="kpi"><b>${tot.o}</b><span>primeros puestos</span></div>
@@ -45,9 +49,9 @@ function vistaCampeonatos(app, p) {
           <td class="num">${m.o || '·'}</td><td class="num">${m.p || '·'}</td><td class="num">${m.b || '·'}</td><td class="num"><b>${m.t}</b></td></tr>`).join('')}</table>
           ${medL.length > 10 ? `<p style="margin-top:10px"><button class="btn ghost" id="med-mas">Ver los ${medL.length} nadadores</button></p>` : ''}`
         : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
-      <div class="card"><div class="h">${ico('copa')}Todos los top-10 <span class="h-n">(${D.length})</span></div>
-        ${D.length ? `<div id="camp-l">${rkLista(D.map((x, i) => fila(x).replace('<div class="rk-r ', `<div ${i >= 20 ? 'hidden ' : ''}class="rk-r `)), 'ancha')}</div>
-          ${D.length > 20 ? `<p style="margin-top:10px;text-align:center"><button class="btn ghost" id="camp-mas">Ver los ${D.length} resultados</button></p>` : ''}` : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
+      <div class="card"><div class="h">${ico('copa')}Top-10 por campeonato <span class="h-n">(${D.length} en ${grupos.length} campeonato${grupos.length === 1 ? '' : 's'})</span></div>
+        ${D.length ? grupos.map(([k, G], i) => `<details class="camp-g"${i < 3 ? ' open' : ''}><summary><span class="camp-gl">${nivelHTML(G[0].lv)}<b>${esc(G[0].comp)}</b></span><span class="tiny muted">${dfmt(G[0].date)} · ${G.length} top-10</span></summary>
+          ${rkLista(G.map(fila), 'ancha')}</details>`).join('') : '<p class="empty">Sin resultados con estos filtros.</p>'}</div>
     </div>`;
 
   const cm = document.getElementById('camp-mas');

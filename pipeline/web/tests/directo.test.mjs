@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { cargar, evalIn } from './cargar.mjs';
 
 const DATA = { swimmers: [], cats: [], lists: {}, relevos: { cats: [] } };
-const ctx = cargar(['comunes.js', 'iconos.js', 'vistas/prueba-historia.js', 'vistas/directo.js'], structuredClone(DATA));
+const ctx = cargar(['comunes.js', 'iconos.js', 'vistas/prueba-historia.js', 'vistas/familias.js', 'vistas/directo.js'], structuredClone(DATA));
 evalIn(ctx, "Object.assign(SW, { '6313922': { id: 6313922, n: 'Lucía Romero' } })");
 
 const C = {

@@ -327,6 +327,9 @@ function clubHistoria(app, p, head) {
 }
 
 /* ── Club (inicio): portada, el club en números, esta semana, accesos y el resto de bloques de la antigua pantalla de inicio ── */
+/* Vista Completa de la portada del Club: índice fijo para saltar a cada bloque */
+const clubIndiceHTML = () => `<nav class="tabs ficha-tabs club-indice" aria-label="Bloques de la portada">${[['club-comp', 'Competiciones'], ['club-nums', 'El club en números'], ['club-ult', 'Lo último'], ['club-cats', 'Categorías'], ['club-ctos', 'Campeonatos'], ['club-clubes', 'Clubes']]
+  .map(([id, l]) => `<a href="#club" data-ancla="${id}">${l}</a>`).join('')}</nav>`;
 function clubInicio(app) {
   const k = kpisClub(DATA.swimmers), K = (DATA.comparativa || {}).kpi || {};
   const recientes = [...(DATA.destacados || [])].sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 5);
@@ -356,11 +359,12 @@ function clubInicio(app) {
       <div class="portada-tit"><div class="portada-txt"><small>Temporada 26-27</small><h1>Club Natación Axarquía</h1><p>Datos RFEN · ${actBtn(`actualizado ${DATA.fecha}`)}</p></div></div>
     </div>
     ${vistaSegHTML()}
-    <div class="card club-buscar"><div class="h">${ico('nadador')}¿A quién buscas?</div>${buscadorHTML('q-club', 'Nombre de tu nadador…')}</div>
+    ${vistaFamilias() ? '' : clubIndiceHTML()}
+    ${primeraVisitaHTML() || `<div class="card club-buscar"><div class="h">${ico('nadador')}¿A quién buscas?</div>${buscadorHTML('q-club', 'Nombre de tu nadador…')}</div>`}
     <div class="accesos dos">${accesos}</div>
     <div class="card cc" id="club-comp" style="margin-top:12px"><div class="h">${ico('copa')}Competiciones</div><p class="empty">Buscando competiciones…</p></div>
     ${vistaFamilias() ? '' : `
-    <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
+    <div class="card" id="club-nums" style="margin-top:12px"><div class="h">${ico('grupo')}El club en números</div>
       <div class="kpis k5">
         ${[[DATA.swimmers.length, 'nadadores en el ranking', K.sw, 'sw||', 'hl'], [k.t10, 'pruebas en el top-10 del ranking de España (su año)', K.t10, 'pos|es10|'],
            [k.podAn, 'pruebas en el top-3 del ranking de Andalucía (su año)', K.pod, 'pos|an3|'], [k.oroMa, 'pruebas nº1 del ranking de Málaga (su año)', K.oro, 'pos|ma1|'],
@@ -370,7 +374,7 @@ function clubInicio(app) {
         ? `La RFEN ya tiene <b>${DATA.new_marks.toLocaleString('es')}</b> marcas de la temporada 26-27 (de todos los clubes). Para cada nadador se usa su mejor marca entre la 25-26 y la 26-27.`
         : 'Todavía no hay marcas de la 26-27: se usa lo mejor de la 25-26 como punto de partida.'}</div></div>
 `}
-    <div class="card lu" style="margin-top:12px"><div class="h">${ico('historia')}Lo último</div>
+    <div class="card lu" id="club-ult" style="margin-top:12px"><div class="h">${ico('historia')}Lo último</div>
       ${gTabs('lu', [['sem', 'Esta semana'], ['comp', 'Última competición'], ['marcas', 'Marcas']], 'sem')}
       <div data-lu-p="sem">${estaSemanaCard()}</div>
       <div data-lu-p="comp" hidden><div id="ult-comp"><p class="empty">Buscando la última competición…</p></div></div>
@@ -378,18 +382,18 @@ function clubInicio(app) {
           : '<p class="vacio">Ningún nadador del club ha mejorado todavía su marca en la 26-27. Aparecerán aquí en cuanto empiece la temporada.</p>'}</div>
     </div>
     ${vistaFamilias() ? `<div class="card fam-mas" style="margin-top:12px"><div class="h">${ico('barras')}¿Quieres más datos del club?</div><p class="small" style="margin:0 0 8px">El club en números, los top-10 en campeonatos, el club frente a los demás clubes y el modo entrenador están en la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div><p class="tiny muted" style="text-align:center;margin-top:10px">¿Eres entrenador o entrenadora? <a href="#entrenamientos" data-entrenador>Abrir el modo entrenador</a></p>` : `
-    <div class="card" style="margin-top:12px"><div class="h">${ico('grupo')}Nadadores por categoría <span class="h-n">· pulsa para entrar</span></div>${barsHTML(catBars)}</div>
+    <div class="card" id="club-cats" style="margin-top:12px"><div class="h">${ico('grupo')}Nadadores por categoría <span class="h-n">· pulsa para entrar</span></div>${barsHTML(catBars)}</div>
 
-    <div class="card" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
+    <div class="card" id="club-ctos" style="margin-top:12px"><div class="bar-row" style="margin:0 0 6px"><div class="h" style="margin:0">${ico('copa')}Últimos top-10 en campeonatos</div><a class="small sun" href="#campeonatos">Ver todos ›</a></div>
       ${recientes.length ? `<table class="rt">${recientes.map(x => `<tr class="click ${SW[String(x.id)].benicio ? 'me' : ''}" ${cmpAttr(SW[String(x.id)], x.date, x.comp, x.ev)}>
         <td>${posB(x.pos)}</td><td><b>${corto(x.n)}</b><div class="tiny muted">${franja(x.ev)}${x.ev} · ${nivelHTML(x.lv)} ${x.lv === 'es' ? 'Cto. España' : 'Cto. Andalucía'}</div></td><td class="num">${dtag(x.date)}</td></tr>`).join('')}</table>`
         : '<p class="vacio">Todavía no hay top-10 en campeonatos.</p>'}</div>
 
-    <div style="margin-top:12px">${cmpCard('', '', 'El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a absoluto en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
+    <div id="club-clubes" style="margin-top:12px">${cmpCard('', '', 'El club frente a los demás clubes', 'Todos los clubes con nadadores de prebenjamín a absoluto en el ranking RFEN, ordenados por cuántas veces meten a un nadador entre los 8 mejores de su año en cada prueba.')}</div>
 
     <p class="foot">Fuente: ranking RFEN, temporadas 25-26 y 26-27 (todas las piscinas, sin tiempos parciales). Andalucía = clubes de las 8 provincias andaluzas · Málaga = clubes de la provincia · Puntos World Aquatics = 1000×(récord/marca)³.</p>`}`;
 
-  bindBuscador('q-club');
+  bindBuscador('q-club'); if (document.getElementById('q-primera')) bindBuscador('q-primera');
   cmpBind(app);
   app.querySelectorAll('[data-go]').forEach(el => el.onclick = () => { location.hash = el.dataset.go; });
   const sem = app.querySelector('[data-sem-detalle]'); if (sem) sem.onclick = abrirSemana;

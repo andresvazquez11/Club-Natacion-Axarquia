@@ -27,7 +27,7 @@ test('una linea por nadador, con marca y piscina, desplegable y accesible', () =
 test('club resaltado, el elegido mas fuerte, y ficha solo para los del club', () => {
   const [rival, club, ben] = X.map(x => html('rkFilaRanking', x));
   assert.doesNotMatch(rival, /rk-r me/); assert.doesNotMatch(rival, /rk-ver/);
-  assert.match(club, /class="rk-r me"/); assert.doesNotMatch(club, /rk-r [^"]*\byo\b/); assert.match(club, /href="#nadador\/2"/);
+  assert.match(club, /class="rk-r me sid-2"/); assert.doesNotMatch(club, /rk-r [^"]*\byo\b/); assert.match(club, /href="#nadador\/2"/);
   assert.match(ben, /rk-r me yo mio/); assert.match(ben, /href="#mi"/);
 });
 

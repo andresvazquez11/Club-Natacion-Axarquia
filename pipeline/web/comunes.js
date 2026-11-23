@@ -225,12 +225,12 @@ function chipsHTML(name, opts, cur) {
 /* Selector de prueba en dos filas: estilo y, debajo, la distancia de ese estilo.
    evs = pruebas disponibles (en orden de preferencia); n = {prueba: número a mostrar} opcional.
    Los botones de las dos filas comparten nombre, así que onChips(name) sirve igual que antes. */
-function pruebaSel(name, evs, cur, n) {
+function pruebaSel(name, evs, cur, n, etiqueta = 'Prueba') {
   if (!evs.length) return '';
   if (!evs.includes(cur)) cur = evs[0];
   const est = STROKES.filter(st => evs.some(e => strokeOf(e) === st)), stCur = strokeOf(cur);
   const dist = evs.filter(e => strokeOf(e) === stCur).sort((a, b) => distOf(a) - distOf(b));
-  return `<div class="flt psel"><span class="flt-l">Prueba</span>
+  return `<div class="flt psel"><span class="flt-l">${etiqueta}</span>
     <div class="chips" data-chips="${name}">${est.map(st => { const de = evs.filter(e => strokeOf(e) === st);
       return `<button class="chip ${st === stCur ? 'on' : ''}" data-v="${de[0]}" title="${de.length} prueba${de.length > 1 ? 's' : ''}">${st} <span class="n">${de.length}</span></button>`; }).join('')}</div>
     <div class="chips sub" data-chips="${name}">${dist.map(e => `<button class="chip ${e === cur ? 'on' : ''}" data-v="${e}">${distOf(e)} m${n && n[e] !== undefined ? ` <span class="n">${n[e]}</span>` : ''}</button>`).join('')}</div></div>`;

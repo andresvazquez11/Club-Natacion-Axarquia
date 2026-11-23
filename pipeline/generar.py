@@ -74,6 +74,20 @@ def cat_of(g, year):
     return None, None, None, None
 
 
+def quitar_repetidas(h):
+    """La RFEN a veces apunta la MISMA marca (misma piscina, mismo tiempo y competición con el mismo nombre de base) con dos fechas
+    distintas (p. ej. 24/01 y 26/02 de la 3ª Jornada). Se queda la primera: así el historial y los «mejoró» no cuentan marcas dobles.
+    h: filas [fecha, cs, piscina, competición, …] ordenadas por fecha."""
+    out = []
+    for x in h:
+        d = datetime.strptime(x[0], '%Y-%m-%d') if x[0] else None
+        if d and any(y[2] == x[2] and y[1] == x[1] and norm(y[3])[:14].lower() == norm(x[3])[:14].lower()
+                     and 0 <= (d - datetime.strptime(y[0], '%Y-%m-%d')).days <= 60 for y in out if y[0]):
+            continue
+        out.append(x)
+    return out
+
+
 def fina(rm, cs):
     try:
         rm, cs = float(rm), float(cs)
@@ -308,6 +322,7 @@ def main():
                 # [..., otros, crono]: crono 'E' electrónico / 'M' manual
                 h.append(xs[0] + ([[x[1], x[3]] for x in xs[1:]], crono.get((pid, ev, xs[0][0], xs[0][2], xs[0][1]), 'M')))
             h.sort()
+            h = quitar_repetidas(h)
             hp = [x for x in h if x[2] == b['pool']]
             first = hp[0][1] if hp else b['cs']
             events.append({'e': ev, 'm': b['m'], 'cs': b['cs'], 'pts': b['pts'], 'pool': b['pool'],
@@ -613,7 +628,7 @@ def escribir_rankings_cronometro(marcas, info, swimmers):
 
 
 JS_ORDEN = ['comunes.js', 'iconos.js', 'graficos.js', 'vistas/comparativa.js', 'vistas/club.js', 'vistas/campeonatos.js',
-            'vistas/accesos.js', 'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'vistas/entrenamientos.js', 'vistas/carrera.js', 'vistas/prueba-historia.js', 'vistas/directo.js', 'agua.js', 'app.js']
+            'vistas/accesos.js', 'vistas/ficha.js', 'vistas/historial.js', 'vistas/comparar.js', 'vistas/elegir.js', 'vistas/rankings.js', 'vistas/entrenamientos.js', 'vistas/carrera.js', 'vistas/prueba-historia.js', 'vistas/familias.js', 'vistas/directo.js', 'agua.js', 'app.js']
 
 
 def montar_html():

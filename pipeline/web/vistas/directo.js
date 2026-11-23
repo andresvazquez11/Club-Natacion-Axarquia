@@ -478,6 +478,7 @@ function dirSeguirHTML(c, rfen) {
       ${dirCuentaHTML(c, x)}
       ${est}
       ${x.estado === 'hecha' ? phHTML(s, c, x.p, x.f) : ''}
+      ${x.estado === 'hecha' && s && x.f.t && !x.f.rel ? dirCompartirBtn(s, c, x) : ''}
       <details class="dir-mas"><summary>Con quién nada (su serie)</summary>${dirTablaFilas(x.rivales, f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}</details>
       <details class="dir-mas"><summary>Toda la prueba (${x.p.filas.length} ${x.f.rel ? 'equipos' : 'nadadores'})${x.estado === 'hecha' ? ' · clasificación' : ''}</summary>${x.estado === 'hecha' ? dirAvisoConj(x.p) + dirClasificacion(x.p, f => dirEsDe(f, rfen), null, rfen) : series.map(n => `<div class="ent-sel">Serie ${n}</div>${dirTablaFilas(x.p.filas.filter(f => f.serie === n), f => dirEsDe(f, rfen), dirDist(x.p.nombre), rfen)}`).join('')}</details>
     </div>`;
@@ -564,6 +565,22 @@ function dirFiltrar(c, f) {
 }
 // Series de una prueba, cada una con sus calles (la que se está nadando, marcada)
 const dirSeries = (p, m, vivo) => m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false, dirDist(p.nombre))}`).join('');
+/* Botón «Compartir en WhatsApp» de una carrera: tiempo, veredicto (mejor marca / a X s de su mejor) y puesto oficial */
+function dirCompartirBtn(s, c, x) {
+  const H = typeof phHistoria === 'function' ? phHistoria(s, c, x.p, x.f) : null, v = H ? phVeredicto(H, x.f.t) : null, o = dirPuestoOficial(x.p, x.f);
+  const nota = [v ? v.txt.replace('¡', '').replace('!', '') : '', o ? `${o.txt}` : ''].filter(Boolean).join(' · ');
+  return compartirBtn({titulo: s.n, sub: `${c.titulo} · ${dfmt(x.p.fecha || c.desde)}`, filas: [{l: x.p.nombre, t: fmt(x.f.t), n: nota, ok: !!(v && v.cls === 'good')}]});
+}
+/* Tus nadadores primero: los que sigues en este dispositivo y nadan en esta competición, con acceso directo a sus pruebas */
+function dirMisNadadores(c) {
+  const ids = [BEN, ...familiaIds().map(id => SW[id])].filter(Boolean).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
+  const L = ids.map(x => ({x, P: dirSusPruebas(c, String(x.id))})).filter(o => o.P.length);
+  if (!L.length) return '';
+  return `<div class="card dir-mios"><div class="h">${ico('nadador')}${L.length === 1 ? 'Tu nadador en esta competición' : 'Tus nadadores en esta competición'}</div>${L.map(({x, P}) => {
+    const hechas = P.filter(o => o.estado === 'hecha').length;
+    return `<div class="dir-mio-f"><div><b>${esc(x.n)}</b><div class="tiny muted">${P.length} prueba${P.length === 1 ? '' : 's'}${hechas ? ` · ${hechas} con resultado` : ' · aún por nadar'}</div></div>
+      <a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(x.id)}">Ver ${hechas ? 'resultados' : 'horas y calles'} ›</a></div>`; }).join('')}</div>`;
+}
 function dirDetalle(c, f) {
   dirConjunta(c); dirColores(c);
   f = Object.assign({solo: true, cat: '', sx: '', ano: ''}, f);
@@ -603,8 +620,9 @@ function dirDetalle(c, f) {
     <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1>
       ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
+    ${dirMisNadadores(c)}
     ${dirSelector(c, '')}
-    ${filtros}
+    <details class="dir-mas dir-filtros-d"${f.cat || f.sx || f.ano || !f.solo ? ' open' : ''}><summary>Filtrar las pruebas (categoría, año de nacimiento, sexo)</summary>${filtros}</details>
     ${dirLeyenda()}
     <p class="tiny muted" style="margin:8px 2px">${pruebas.length} de ${L.pruebas.length} pruebas. Toca una para ver sus series y calles.</p>
     ${cuerpo || '<div class="vacio">Ninguna prueba con estos filtros.</div>'}`;
@@ -694,6 +712,11 @@ async function pintarDirectoNadador(app, s) {
     .filter(x => x.filas.length || (x.c.estado !== 'terminada' && !x.c.lenex && dirEsDeSuCat(x.c, s)));
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
+  if (vistaFamilias()) {   // Familias: solo el banner de arriba y la tarjeta «Próxima competición»
+    const hoyEl = app.querySelector('#res-hoy'); if (hoyEl) hoyEl.innerHTML = dirBannerHoy(suyas, s);
+    const px = app.querySelector('#res-prox'); if (px) px.innerHTML = dirProximaHTML(d, s);
+    dirCuentaArrancar(); return;
+  }
   if (!prox.length && !rec.length) return;
   const nombre = esc(s.n.split(' ')[0]);
   const linea = x => x.filas.length ? `<div class="dir-f"><b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>

@@ -19,6 +19,7 @@ const ICONOS = (() => {
     'historia': '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
     'flecha-atras': '<path d="M19 12H5M11 6l-6 6 6 6"/>',
     'candado': '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+    'enviar': '<path d="M21 3L3 11l7 3 3 7z"/><path d="M10 14L21 3"/>',
     'pizarra': '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
   };
   const trazo = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"';

@@ -6,7 +6,7 @@ function rkFilaRanking(x) {
   const s = x[7] ? SW[String(x[10])] : null;
   return rkFila({
     pos: posB(x[5]), nom: esc(x[0]), sub: club(x[1]), marca: fmt(x[3]), pool: x[9] || '',
-    cls: s && s.benicio ? 'me yo mio' : x[7] ? 'me' : '',
+    cls: (s && s.benicio ? 'me yo mio' : x[7] ? 'me' : '') + (s ? ` sid-${s.id}` : ''),
     det: [['Año', x[6]], ['Fecha', dtag(x[8])], ['Pts', x[4]]],
     acc: s ? [['Ver ficha', `href="${fichaHref(s)}"`]] : [],
   });
@@ -37,11 +37,15 @@ function vistaRankings(app, p) {
       <div class="portada-tit"><div class="portada-txt"><small>Club Natación Axarquía</small><h1>Rankings</h1><p>Cualquier prueba, por año o categoría, sexo y nivel</p></div></div>
     </div>
     <div class="note">Igual que en la web de la RFEN: el ranking es por año de nacimiento o por categoría (Prebenjamín 2018-19 · Benjamín 2016-17 · Alevín 2014-15 · Infantil 2012-13 · Júnior 2009-11) y <b>Absoluto = todas las edades</b>. Elige sexo, año o categoría, prueba y nivel. Los nadadores del club van resaltados en amarillo (el tuyo, con una barra). Pulsa una línea para ver el resto de datos y, si es del club, su ficha.</div>
-    <div class="flt"><span class="flt-l">Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
-    <div class="flt"><span class="flt-l">Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
-    ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])))}
-    <div class="flt"><span class="flt-l">Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, nivelHTML(k) + ' ' + l]), lv)}</div>
+    <p class="tiny muted" style="margin:0 2px 6px">Sigue los cuatro pasos: sexo, año o categoría, prueba y nivel. Los puestos son los de la lista oficial de marcas de la RFEN.</p>
+    <div class="flt"><span class="flt-l">1 · Sexo</span>${chipsHTML('g', [['M', 'Masculino'], ['F', 'Femenino']], g)}</div>
+    <div class="flt"><span class="flt-l">2 · Año o categoría</span>${chipsHTML('sc', [...years.map(a => [a, scLbl(a)]), ...cats.map(a => [a, scLbl(a)])], sc)}</div>
+    ${pruebaSel('ev', pruebas, ev, Object.fromEntries(pruebas.map(x => [x, ((DATA.lists[`${g}|${sc}|${x}`] || {})['t' + lv] || 0) + ' nad.'])), '3 · Prueba')}
+    <div class="flt"><span class="flt-l">4 · Nivel</span>${chipsHTML('lv', LV.map(([k, l]) => [k, nivelHTML(k) + ' ' + l]), lv)}</div>
+    ${L ? rkTuNadadorHTML(L[lv], lv, ev, sc) : ''}
     <div class="card">${tabla}</div>`;
+  app.querySelectorAll('[data-rk-ir]').forEach(b => b.onclick = () => { const el = app.querySelector('.rk-r.sid-' + b.dataset.rkIr); if (!el) return;
+    irAElemento(el); el.classList.add('rk-flash'); setTimeout(() => el.classList.remove('rk-flash'), 2200); });
 
   rkBind(app);
   onChips(app, 'g', v => go({g: v, sc: '', ev: ''}));

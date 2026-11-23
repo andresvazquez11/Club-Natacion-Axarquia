@@ -191,6 +191,9 @@ function arrancar() {
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-vista]'); if (b) fijarVista(b.dataset.vista);                 // interruptor Familias | Completa
     if (e.target.closest('[data-glosario]')) abrirGlosario();
+    const bc = e.target.closest('[data-comp]'); if (bc) { e.preventDefault(); e.stopPropagation(); compartirResultado(COMPARTIR.get(bc.dataset.comp)); }   // compartir por WhatsApp
+    const an = e.target.closest('[data-ancla]'); if (an) { e.preventDefault(); const el = document.getElementById(an.dataset.ancla); if (el) irAElemento(el); }
+    if (e.target.closest('[data-primera-ok]')) { try { localStorage.setItem(PRIMERA_LS, '1'); } catch (x) {} route(); }
     if (e.target.closest('[data-entrenador]')) { VISTA = 'completa'; try { localStorage.setItem(VISTA_LS, VISTA); } catch (x) {} }   // el enlace lleva a #entrenamientos, que está en la vista Completa
   });
   lenguajeFamilias();
