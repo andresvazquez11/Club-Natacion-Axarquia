@@ -14,14 +14,9 @@ const famPiscina = pl => String(pl || '').replace(/m$/, ' m');
 const COMPARTIR = new Map();
 function compartirReg(o) { const id = 'c' + COMPARTIR.size; COMPARTIR.set(id, o); return id; }
 const compartirBtn = (o, txt = 'Compartir en WhatsApp') => `<button type="button" class="btn ghost comp-b" data-comp="${compartirReg(o)}">${ico('enviar')}${esc(txt)}</button>`;
-/* El mensaje que acompaña a la imagen: se entiende solo, aunque el chat no muestre la foto */
-function compartirTexto(o) {
-  const L = [`*${o.titulo}* · C.N. Axarquía`, o.comp ? `${o.comp}${o.donde ? ' · ' + o.donde : ''}` : (o.donde || ''), o.resumen || ''].filter(Boolean);
-  (o.filas || []).forEach(f => L.push(`• ${f.l}: *${f.t}*${[f.a, f.b, f.c].filter(Boolean).map(x => ' · ' + x).join('')}`));
-  (o.carreras || []).forEach(r => { if (r.top && r.top.length) L.push(`${r.l} · primeros: ${r.top.map(t => `${t.pos}º ${famNombre(t.n)} (${t.club}) ${fmt(t.t)}`).join(' · ')}`); });
-  L.push('', 'Estadísticas del club: https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html');
-  return L.join('\n');
-}
+/* El mensaje que acompaña a las imágenes: solo el enlace a la web (todo lo demás va dentro de las imágenes) */
+const COMPARTIR_WEB = 'https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html';
+const compartirTexto = o => o.enlace || COMPARTIR_WEB;
 function compartirAjuste(x, txt, max) { txt = String(txt || ''); while (txt.length > 1 && x.measureText(txt).width > max) txt = txt.slice(0, -2) + '…'; return txt; }
 function compartirLineas(x, txt, max, n) {   // parte un texto en hasta n líneas
   const P = String(txt || '').split(' '), out = []; let l = '';
@@ -187,7 +182,7 @@ function compartirElegir(o) {
 async function compartirEnviar(o, portada) {
   try {
     const blobs = await compartirImagenes(o, portada), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
-    if (compartirMovil() && navigator.canShare && navigator.canShare({files})) { await navigator.share({files, title: o.titulo, text: texto}); return; }
+    if (compartirMovil() && navigator.canShare && navigator.canShare({files})) { await navigator.share({files, text: texto}); return; }
     compartirVentana(o, blobs, texto);
   } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }
 }
@@ -197,18 +192,18 @@ function compartirVentana(o, blobs, texto) {
     const box = document.querySelector('#modal .box');
     box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">Compartir por WhatsApp</h1>
-      <p class="small muted" style="margin:2px 0 10px">Se comparte ${urls.length === 1 ? 'esta imagen' : `estas ${urls.length} imágenes (el resumen y cada carrera con su serie completa)`} y un mensaje con todos los datos, para que quien lo reciba sepa de qué se trata.</p>
+      <p class="small muted" style="margin:2px 0 10px">Se comparte ${urls.length === 1 ? 'esta imagen' : `estas ${urls.length} imágenes`} con todos los datos y, en el mensaje, solo el enlace a la web para que quien lo reciba pueda entrar también.</p>
       <div class="comp-prev">${urls.map((u, i) => `<figure><img src="${u}" alt="Imagen ${i + 1} para compartir"><figcaption>
         ${puedeCopiar ? `<button type="button" class="btn ghost" data-comp-copiar="${i}">Copiar imagen ${i + 1}</button>` : ''}<a class="btn ghost" href="${u}" download="resultado-cna-${i + 1}.png">Descargar ${i + 1}</a></figcaption></figure>`).join('')}</div>
       <div class="comp-pasos">
-        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}Abrir WhatsApp con el mensaje</a>
-        <button type="button" class="btn ghost" data-comp-copiar-texto>Copiar solo el mensaje</button>
+        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}Abrir WhatsApp con el enlace</a>
+        <button type="button" class="btn ghost" data-comp-copiar-texto>Copiar el enlace</button>
         <p class="tiny muted" style="margin:0">En el ordenador WhatsApp Web no deja adjuntar solo: copia o descarga cada imagen y pégala en el chat (Ctrl+V).</p>
       </div>
-      <details class="dir-mas"><summary>Ver el mensaje</summary><pre class="comp-texto">${esc(texto)}</pre></details>`;
+      <details class="dir-mas"><summary>Ver el enlace que se envía</summary><pre class="comp-texto">${esc(texto)}</pre></details>`;
     box.querySelectorAll('[data-comp-copiar]').forEach(cp => cp.onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blobs[+cp.dataset.compCopiar]})]); compartirAviso('Imagen copiada: pégala en el chat de WhatsApp con Ctrl+V.'); } catch (e) { compartirAviso('No se pudo copiar: descárgala y adjúntala.'); } });
     const ct = box.querySelector('[data-comp-copiar-texto]');
-    if (ct) ct.onclick = async () => { try { await navigator.clipboard.writeText(texto); compartirAviso('Mensaje copiado.'); } catch (e) { compartirAviso('No se pudo copiar el mensaje.'); } };
+    if (ct) ct.onclick = async () => { try { await navigator.clipboard.writeText(texto); compartirAviso('Enlace copiado.'); } catch (e) { compartirAviso('No se pudo copiar el enlace.'); } };
     abrirModal();
   });
 }
@@ -256,7 +251,7 @@ function pruebaFamiliasHTML(s, evName, p) {
   const lista = R.map((x, i) => { const ant = i ? R[i - 1][1] : null, esPb = x[1] < mejorAnt; mejorAnt = Math.min(mejorAnt, x[1]);
     const chip = ant === null ? '<span class="chip-f">primera marca</span>' : x[1] < ant ? `<span class="chip-f g">${esPb ? '★ ' : ''}−${famEs(famSeg(ant - x[1]))} s</span>` : x[1] === ant ? '<span class="chip-f">igual</span>' : `<span class="chip-f w">+${famEs(famSeg(x[1] - ant))} s</span>`;
     return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
-  const comp = compartirBtn({titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: `${dfmt(mejor[0])} · piscina de ${famPiscina(pool)}`, resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
+  const comp = compartirBtn({enlace: `${COMPARTIR_WEB}#nadador/${s.id}/marcas?ev=${encodeURIComponent(evName)}`, titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: `${dfmt(mejor[0])} · piscina de ${famPiscina(pool)}`, resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
   return `<div class="card fam-prueba"><div class="eyebrow-f">Su mejor marca</div><div class="fam-grande">${fmt(mejor[1])}</div>
       <p class="small" style="margin:2px 0 8px">${dfmt(mejor[0])} · piscina de ${esc(famPiscina(pool))} · ${esc(mejor[3] || '')}</p>
       ${pools.length > 1 ? `<div class="chips sub" style="margin:6px 0">${pools.map(pl => `<a class="chip ${pl === pool ? 'on' : ''}" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(evName)}&pl=${pl}">Piscina de ${esc(famPiscina(pl))}</a>`).join('')}</div>

@@ -18,11 +18,9 @@ test('GLOSARIO: incluye los términos nuevos y la vista por defecto es Familias'
   assert.equal(evalIn(ctx, 'vistaFamilias()'), true);
 });
 
-test('compartirTexto: el mensaje se entiende solo (quién, dónde, cuándo y cómo le fue en cada prueba)', () => {
-  const o = {titulo: 'Alexis González', comp: '2ª Jornada Campeonato Andalucía clubes', donde: 'Marbella · 21/11/26 · piscina de 25 m', resumen: '2 pruebas, ninguna mejor marca esta vez.',
-    filas: [{l: '200 Libre masc.', t: '2:10.85', a: 'Serie 4 de 5 · calle 2', b: '13º de 37 en la clasificación (14-90 años) · 2º en su serie', c: 'a 1,15 s de su mejor marca'}]};
-  ctx.__o = o; const t = evalIn(ctx, 'compartirTexto(__o)');
-  assert.match(t, /\*Alexis González\* · C\.N\. Axarquía/); assert.match(t, /Marbella · 21\/11\/26/);
-  assert.match(t, /200 Libre masc\.: \*2:10\.85\* · Serie 4 de 5 · calle 2 · 13º de 37 en la clasificación \(14-90 años\) · 2º en su serie · a 1,15 s de su mejor marca/);
-  assert.match(t, /github\.io\/Club-Natacion-Axarquia/);
+test('compartirTexto: solo el enlace a la web (todos los datos van dentro de las imágenes)', () => {
+  ctx.__o = {titulo: 'Alexis González', comp: 'Jornada', filas: [{l: '200 Libre', t: '2:10.85'}]};
+  assert.equal(evalIn(ctx, 'compartirTexto(__o)'), 'https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html');
+  ctx.__o2 = {titulo: 'A', enlace: 'https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html#nadador/5/resultados'};
+  assert.match(evalIn(ctx, 'compartirTexto(__o2)'), /#nadador\/5\/resultados$/);
 });

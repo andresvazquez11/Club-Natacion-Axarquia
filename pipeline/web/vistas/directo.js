@@ -571,7 +571,7 @@ function dirCompartirBtn(s, c, x) {
     const H = typeof phHistoria === 'function' ? phHistoria(s, c, x.p, x.f) : null, v = H ? phVeredicto(H, x.f.t) : null, o = dirPuestoOficial(x.p, x.f);
     const enSerie = x.rivales.filter(y => y.t && !y.estado).sort((u, w) => u.t - w.t), k = enSerie.findIndex(y => y === x.f) + 1;
     const L = c.lenex || {};
-    return {titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''), donde: [L.lugar ? dirTitulo(L.lugar) : '', dirFechas(c), L.piscina ? 'piscina de ' + L.piscina : ''].filter(Boolean).join(' · '),
+    return {enlace: `${COMPARTIR_WEB}#directo?c=${Number(c.id)}&n=${Number(s.id)}`, titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''), donde: [L.lugar ? dirTitulo(L.lugar) : '', dirFechas(c), L.piscina ? 'piscina de ' + L.piscina : ''].filter(Boolean).join(' · '),
       resumen: '', filas: [{l: `${x.p.nombre} ${x.p.sexo === 'F' ? 'fem.' : x.p.sexo === 'M' ? 'masc.' : ''}`.trim(), t: fmt(x.f.t),
         a: `Serie ${x.posSerie} de ${x.series} · calle ${x.f.calle}`, b: [o ? `${o.puesto}º de ${o.de} en la clasificación${o.cat ? ' (' + o.cat + ')' : ''}` : '', k ? `${k}º de ${enSerie.length} en su serie` : ''].filter(Boolean).join(' · '),
         c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}],
