@@ -644,11 +644,17 @@ def guardar_carreras(d, carpeta, nuestros=None, series_fn=series_de_web, avisar=
                     sc = mapa.get((norm(f['n']), f.get('nac')))
                     if sc:
                         f['serie'], f['calle'] = sc
-                completo = completo and all(f.get('serie') for f in filas if f.get('t'))
+                ok_p = all(f.get('serie') for f in filas if f.get('t'))
+                completo = completo and ok_p
+                if not ok_p and avisar:   # recuperación: se guardan las pruebas completas y las que no tienen sus series se saltan (con aviso)
+                    print(f"  {c['id']} prueba {p.get('num')} {p['nombre']} ({p.get('sesion')}): faltan serie/calle de {sum(1 for f in filas if f.get('t') and not f.get('serie'))} de {len(filas)} nadadores (web {w})", file=sys.stderr)
+                    continue
             pruebas.append({'num': p.get('num'), 'nombre': p['nombre'], 'sexo': p.get('sexo') or '', 'cat': p.get('categoria') or '',
                             'fecha': p.get('fecha') or '', 'sesion': p.get('sesion') or '',
                             'filas': [[f.get('serie') or 0, f.get('calle') or 0, f['n'], f.get('club') or '', f.get('nac'), f.get('t'),
                                        f.get('parc'), f.get('puesto'), f.get('estado') or '', f.get('rfen'), '', f.get('cat') or ''] for f in filas]})
+        if avisar and pruebas:
+            completo = True
         if not pruebas or not completo:
             if avisar:
                 print(f"No se guarda {c['id']} ({c.get('titulo')}): {'sin pruebas individuales' if not pruebas else 'falta la serie/calle de algún nadador (lista de salida no publicada o distinta)'}", file=sys.stderr)
