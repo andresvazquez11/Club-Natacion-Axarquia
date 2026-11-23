@@ -1114,3 +1114,7 @@ html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
 .fam-barra{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid rgba(127,127,127,.2);color:inherit;text-decoration:none}
 .fam-barra:first-of-type{border-top:0}.fam-barra-n b{display:block}.fam-barra-n small{display:block;color:var(--ink2);font-size:.75rem}
 .fam-barra-t{height:10px;border-radius:5px;background:rgba(127,127,127,.2);display:block}.fam-barra-t i{display:block;height:100%;border-radius:5px;background:var(--good)}
+.comp-elegir{display:grid;gap:8px;margin:8px 0}
+.comp-op{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.12);cursor:pointer;min-height:56px}
+.comp-op input{width:24px;height:24px;flex:0 0 auto;accent-color:var(--sun,#ffd400)}
+.comp-op b{display:block}.comp-op small{display:block;color:var(--ink2);font-size:.78rem}

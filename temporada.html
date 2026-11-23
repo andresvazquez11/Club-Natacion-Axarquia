@@ -1122,6 +1122,10 @@ html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
 .fam-barra{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid rgba(127,127,127,.2);color:inherit;text-decoration:none}
 .fam-barra:first-of-type{border-top:0}.fam-barra-n b{display:block}.fam-barra-n small{display:block;color:var(--ink2);font-size:.75rem}
 .fam-barra-t{height:10px;border-radius:5px;background:rgba(127,127,127,.2);display:block}.fam-barra-t i{display:block;height:100%;border-radius:5px;background:var(--good)}
+.comp-elegir{display:grid;gap:8px;margin:8px 0}
+.comp-op{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.12);cursor:pointer;min-height:56px}
+.comp-op input{width:24px;height:24px;flex:0 0 auto;accent-color:var(--sun,#ffd400)}
+.comp-op b{display:block}.comp-op small{display:block;color:var(--ink2);font-size:.78rem}
 
 </style>
 </head>
@@ -3316,7 +3320,7 @@ const famCompartir = (s, c) => ({armar: () => {
   const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
   return {titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c), c.filas[0] ? 'piscina de ' + piscinaTxt(c.filas[0].pool) : ''].filter(Boolean).join(' · '),
     resumen: famFraseJornada(c), filas,
-    carreras: c.filas.map(f => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}) : null; }).filter(Boolean)};
+    carreras: c.filas.map((f, i) => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? Object.assign(compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}), {i}) : null; }).filter(Boolean)};
 }});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
@@ -6146,9 +6150,9 @@ function compartirImagenCarrera(o, r) {
   });
 }
 /* Todas las imágenes de un mensaje: la portada con el resumen y, si hay carreras completas, una imagen por carrera */
-async function compartirImagenes(o) {
+async function compartirImagenes(o, portada = (o.carreras || []).length !== 1) {
   const C = o.carreras || [], out = [];
-  if (C.length !== 1) out.push(await compartirImagen(o));
+  if (portada) out.push(await compartirImagen(o));
   for (const r of C) out.push(await compartirImagenCarrera(o, r));
   return out;
 }
@@ -6162,8 +6166,36 @@ const compartirMovil = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgen
 async function compartirResultado(o) {
   if (!o) return;
   if (o.armar) o = o.armar();
+  if ((o.carreras || []).length > 1) return compartirElegir(o);   // varias carreras: primero se elige qué enviar
+  return compartirEnviar(o, true);
+}
+/* Elegir qué enviar: el resumen de la competición y/o cada carrera con su serie completa */
+function compartirElegir(o) {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">¿Qué quieres enviar?</h1>
+      <p class="small muted" style="margin:2px 0 10px">Marca lo que quieras compartir. Cada carrera se envía como una imagen con su serie completa, los primeros de la clasificación y cómo le fue.</p>
+      <div class="comp-elegir">
+        <label class="comp-op"><input type="checkbox" data-el="portada" checked><span><b>Resumen de la competición</b><small>${esc(o.resumen || o.comp || '')}</small></span></label>
+        ${o.carreras.map((r, k) => `<label class="comp-op"><input type="checkbox" data-el="${k}" checked><span><b>${esc(r.l)}</b><small>${esc(r.t)}${r.posClas ? ' · ' + r.posClas + 'º de ' + r.de : ''}${r.serie ? ' · serie ' + r.serie : ''}</small></span></label>`).join('')}
+      </div>
+      <div class="comp-pasos"><button type="button" class="btn" data-el-ok>${ico('enviar')}Preparar para compartir</button>
+        <button type="button" class="ent-x-link" data-el-todas>Marcar / desmarcar todas</button></div>`;
+    const marcas = () => [...box.querySelectorAll('[data-el]')];
+    box.querySelector('[data-el-todas]').onclick = () => { const alguna = marcas().some(m => m.checked); marcas().forEach(m => { m.checked = !alguna; }); };
+    box.querySelector('[data-el-ok]').onclick = () => {
+      const portada = box.querySelector('[data-el="portada"]').checked, idx = marcas().filter(m => m.dataset.el !== 'portada' && m.checked).map(m => +m.dataset.el);
+      if (!portada && !idx.length) { compartirAviso('Marca al menos una opción.'); return; }
+      const carreras = idx.map(k => o.carreras[k]), vistas = new Set(carreras.map(r => r.i));
+      compartirEnviar(Object.assign({}, o, {carreras, filas: carreras.length && !portada ? o.filas.filter((f, i) => vistas.has(i)) : o.filas}), portada);
+    };
+    abrirModal();
+  });
+}
+async function compartirEnviar(o, portada) {
   try {
-    const blobs = await compartirImagenes(o), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
+    const blobs = await compartirImagenes(o, portada), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
     if (compartirMovil() && navigator.canShare && navigator.canShare({files})) { await navigator.share({files, title: o.titulo, text: texto}); return; }
     compartirVentana(o, blobs, texto);
   } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }

@@ -565,7 +565,7 @@ const famCompartir = (s, c) => ({armar: () => {
   const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
   return {titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c), c.filas[0] ? 'piscina de ' + piscinaTxt(c.filas[0].pool) : ''].filter(Boolean).join(' · '),
     resumen: famFraseJornada(c), filas,
-    carreras: c.filas.map(f => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}) : null; }).filter(Boolean)};
+    carreras: c.filas.map((f, i) => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? Object.assign(compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}), {i}) : null; }).filter(Boolean)};
 }});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>

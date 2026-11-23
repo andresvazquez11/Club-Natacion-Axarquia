@@ -141,9 +141,9 @@ function compartirImagenCarrera(o, r) {
   });
 }
 /* Todas las imágenes de un mensaje: la portada con el resumen y, si hay carreras completas, una imagen por carrera */
-async function compartirImagenes(o) {
+async function compartirImagenes(o, portada = (o.carreras || []).length !== 1) {
   const C = o.carreras || [], out = [];
-  if (C.length !== 1) out.push(await compartirImagen(o));
+  if (portada) out.push(await compartirImagen(o));
   for (const r of C) out.push(await compartirImagenCarrera(o, r));
   return out;
 }
@@ -157,8 +157,36 @@ const compartirMovil = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgen
 async function compartirResultado(o) {
   if (!o) return;
   if (o.armar) o = o.armar();
+  if ((o.carreras || []).length > 1) return compartirElegir(o);   // varias carreras: primero se elige qué enviar
+  return compartirEnviar(o, true);
+}
+/* Elegir qué enviar: el resumen de la competición y/o cada carrera con su serie completa */
+function compartirElegir(o) {
+  abrirVentana(() => {
+    const box = document.querySelector('#modal .box');
+    box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
+      <h1 style="font-size:1.2rem;font-weight:900">¿Qué quieres enviar?</h1>
+      <p class="small muted" style="margin:2px 0 10px">Marca lo que quieras compartir. Cada carrera se envía como una imagen con su serie completa, los primeros de la clasificación y cómo le fue.</p>
+      <div class="comp-elegir">
+        <label class="comp-op"><input type="checkbox" data-el="portada" checked><span><b>Resumen de la competición</b><small>${esc(o.resumen || o.comp || '')}</small></span></label>
+        ${o.carreras.map((r, k) => `<label class="comp-op"><input type="checkbox" data-el="${k}" checked><span><b>${esc(r.l)}</b><small>${esc(r.t)}${r.posClas ? ' · ' + r.posClas + 'º de ' + r.de : ''}${r.serie ? ' · serie ' + r.serie : ''}</small></span></label>`).join('')}
+      </div>
+      <div class="comp-pasos"><button type="button" class="btn" data-el-ok>${ico('enviar')}Preparar para compartir</button>
+        <button type="button" class="ent-x-link" data-el-todas>Marcar / desmarcar todas</button></div>`;
+    const marcas = () => [...box.querySelectorAll('[data-el]')];
+    box.querySelector('[data-el-todas]').onclick = () => { const alguna = marcas().some(m => m.checked); marcas().forEach(m => { m.checked = !alguna; }); };
+    box.querySelector('[data-el-ok]').onclick = () => {
+      const portada = box.querySelector('[data-el="portada"]').checked, idx = marcas().filter(m => m.dataset.el !== 'portada' && m.checked).map(m => +m.dataset.el);
+      if (!portada && !idx.length) { compartirAviso('Marca al menos una opción.'); return; }
+      const carreras = idx.map(k => o.carreras[k]), vistas = new Set(carreras.map(r => r.i));
+      compartirEnviar(Object.assign({}, o, {carreras, filas: carreras.length && !portada ? o.filas.filter((f, i) => vistas.has(i)) : o.filas}), portada);
+    };
+    abrirModal();
+  });
+}
+async function compartirEnviar(o, portada) {
   try {
-    const blobs = await compartirImagenes(o), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
+    const blobs = await compartirImagenes(o, portada), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
     if (compartirMovil() && navigator.canShare && navigator.canShare({files})) { await navigator.share({files, title: o.titulo, text: texto}); return; }
     compartirVentana(o, blobs, texto);
   } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }
