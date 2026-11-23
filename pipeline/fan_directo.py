@@ -671,9 +671,20 @@ def main():
     ap.add_argument('--salida', default=os.path.join(raiz, 'directo.json'))
     ap.add_argument('--nadadores', default=os.path.join(raiz, 'cronometro', 'nadadores.json'))
     ap.add_argument('--solo-resultados', action='store_true', help='no vuelve a leer el calendario de la FAN')
+    ap.add_argument('--recuperar', action='store_true', help='solo guarda en carreras/ las competiciones ya terminadas que aún no estén (foto finish de '
+                    'competiciones que salieron de la ventana de directo.json antes de guardarse); no toca directo.json ni parciales.json')
+    ap.add_argument('--antes', type=int, help='con --recuperar: cuántos días hacia atrás buscar competiciones (por defecto, los de siempre)')
     ap.add_argument('--volcar', help='archivo donde escribir «si» si algún grupo con nadadores del club acaba de terminar '
                     '(entonces hay que regenerar la web para que sus tiempos entren en las fichas)')
     a = ap.parse_args()
+    if a.recuperar:
+        global ANTES
+        if a.antes:
+            ANTES = a.antes
+        carpeta = os.path.join(os.path.dirname(a.salida), 'carreras')
+        nuevas = guardar_carreras(construir(date.today(), nuestros_de(a.nadadores), False, None), carpeta, nuestros_de(a.nadadores))
+        print('Carreras recuperadas de las competiciones:', ', '.join(str(i) for i in nuevas) or 'ninguna')
+        return
     previo = json.load(open(a.salida, encoding='utf-8')) if os.path.exists(a.salida) else None
     if a.volcar:   # se apunta en directo.json qué grupos ya se volcaron a las fichas, para avisar una sola vez
         d = previo or {}
