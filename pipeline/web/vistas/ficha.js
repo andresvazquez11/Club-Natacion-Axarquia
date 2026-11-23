@@ -564,7 +564,8 @@ const famCompartir = (s, c) => ({armar: () => {
       b: [oficial, d.serie && d.enSerie ? `${d.enSerie}º en su serie` : ''].filter(Boolean).join(' · '), c: famVsMejor(f), ok: !!f.pb}; });
   const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
   return {titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c), c.filas[0] ? 'piscina de ' + piscinaTxt(c.filas[0].pool) : ''].filter(Boolean).join(' · '),
-    resumen: famFraseJornada(c), filas};
+    resumen: famFraseJornada(c), filas,
+    carreras: c.filas.map(f => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}) : null; }).filter(Boolean)};
 }});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
@@ -585,7 +586,7 @@ async function pintarOficial(app, s) {
         p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8]) return;
           const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
           const serie = f[0], vistos = p.filas.filter(y => y[5] && !y[8] && serie && y[0] === serie).sort((u, v) => u[5] - v[5]);
-          const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || ''};
+          const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || '', raw: {p, f}};
           info.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); FAM_DET.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); }); });
     }
   } catch (e) { return; }
@@ -620,7 +621,11 @@ function progresoHTML(s) {
   const filas = s.ev.map(e => { const h = (e.h || []).filter(x => !x[8] && x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1), p = h[0], bajo = p ? p[1] - e.cs : 0;
     return `<a class="fam-fila" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}"><div class="fam-l"><b>${esc(e.e)}</b><small>${bajo > 0 ? `<span class="good">−${secs(bajo)} s</span> desde ${dfmt(p[0])}` : `${h.length} marca${h.length === 1 ? '' : 's'}`} · piscina de ${esc(piscinaTxt(e.pool))}</small></div>
       <div class="fam-r">${spark(h, 90, 26)}<b>${fmt(e.cs)}</b></div></a>`; }).join('');
-  return `${comoVaHTML(s) || '<div class="card"><p class="small muted" style="margin:0">Aún no hay suficientes marcas en el último año para calcular su mejora.</p></div>'}
+  const M = mejorasDe(s), mx = M.length ? Math.max(...M.map(m => m.bajada)) : 0;
+  const barras = M.length ? `<div class="card"><div class="h">${ico('tendencia')}¿En qué ha mejorado más este último año?</div>${M.map(m => `<a class="fam-barra" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(m.e)}&pl=${m.pool}"><span class="fam-barra-n"><b>${esc(m.e)}</b><small>${fmt(m.desde)} → ${fmt(m.mejor)} · ${esc(piscinaTxt(m.pool))}</small></span>
+      <span class="fam-barra-t"><i style="width:${Math.max(6, Math.round(m.bajada / mx * 100))}%"></i></span><b class="good">−${famEs(secs(m.bajada))} s</b></a>`).join('')}
+    <p class="tiny muted" style="margin-top:6px">Compara su primera marca de los últimos 12 meses con su mejor marca de ese periodo, en la misma piscina.</p></div>` : '<div class="card"><p class="small muted" style="margin:0">Aún no hay suficientes marcas en el último año para calcular su mejora.</p></div>';
+  return `${barras}
     <div class="card"><div class="h">${ico('tendencia')}Su evolución por prueba</div>${filas}
     <p class="tiny muted" style="margin-top:6px">Toca una prueba para ver sus marcas temporada a temporada.</p></div>
     <div class="card fam-mas"><p class="small" style="margin:0 0 8px">Para ver rankings, puntos o comparar con compañeros, usa la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>`;
@@ -633,11 +638,18 @@ function famUltimaCard(s) {
       ${u.filas.map(f => famFilaResultado(f, s)).join('')}
       <div class="fam-botones">${compartirBtn(famCompartir(s, u))}<a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div></div>`;
 }
+/* Resumen (Familias): la última competición en pequeño; cada carrera con su detalle está en la pestaña Resultados */
+function famUltimaResumen(s) {
+  const u = competicionesDe(s)[0]; if (!u) return '';
+  return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      <div class="fam-minis">${u.filas.map(f => `<span class="fam-mini"><b>${esc(f.e)}</b> ${fmt(f.t)}${f.pb ? ' <i class="good">★</i>' : ''}</span>`).join('')}</div>
+      <div class="fam-botones"><a class="btn" href="${fichaHref(s, 'resultados')}">Ver cada carrera: puesto, foto finish y serie ›</a>${compartirBtn(famCompartir(s, u))}</div></div>`;
+}
 function resumenFamiliasHTML(s, cat) {
   const portada = portadaHTML(s, cat);
   if (!s.ev.length) return portada + fichaTabsHTML(s, 'resumen') + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
-  const ultima = famUltimaCard(s);
-  const top = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6);
+  const ultima = famUltimaResumen(s);
   return `${portada}
     ${fichaTabsHTML(s, 'resumen')}
     ${familiaHTML(s)}
@@ -645,8 +657,6 @@ function resumenFamiliasHTML(s, cat) {
     ${ultima}
     ${comoVaHTML(s)}
     <div id="res-prox"></div>
-    <div class="card"><div class="h">${ico('medalla')}Sus mejores marcas</div>${top.map(e => famFilaMarca(s, e)).join('')}
-      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     ${insigniasCard(s)}
     <div class="card fam-mas"><div class="h">${ico('barras')}¿Quieres más datos?</div><p class="small" style="margin:0 0 8px">Rankings de España y Andalucía, puntos, relevos, parciales y comparar con compañeros están en la vista Completa.</p>
       <button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>

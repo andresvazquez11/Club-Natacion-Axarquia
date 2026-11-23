@@ -89,8 +89,8 @@ function podiosDe(s) {
 /* Su mayor mejora en el último año: por prueba, y en la piscina de su última marca (25 y 50 m no se mezclan),
    baja entre la primera marca de los 12 meses anteriores a la última y su mejor marca de ese periodo.
    → {e, pool, desde, mejor, bajada, n (pruebas en que mejoró)} o null si no hay ninguna mejora. */
-function fraseProgreso(s) {
-  let mejor = null, n = 0;
+function mejorasDe(s) {
+  const L = [];
   (s.ev || []).forEach(e => {
     const h = (e.h || []).filter(x => !x[8] && x[1] > 0); if (h.length < 2) return;
     const ult = h.reduce((a, b) => b[0] > a[0] ? b : a), pool = ult[2];
@@ -98,11 +98,13 @@ function fraseProgreso(s) {
     const w = h.filter(x => x[2] === pool && x[0] >= lim).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
     if (w.length < 2) return;
     const best = Math.min(...w.map(x => x[1])), bajada = w[0][1] - best;
-    if (bajada <= 0) return;
-    n++;
-    if (!mejor || bajada / w[0][1] > mejor.bajada / mejor.desde) mejor = {e: e.e, pool, desde: w[0][1], mejor: best, bajada};
+    if (bajada > 0) L.push({e: e.e, pool, desde: w[0][1], mejor: best, bajada});
   });
-  return mejor && Object.assign(mejor, {n});
+  return L.sort((a, b) => b.bajada / b.desde - a.bajada / a.desde);
+}
+function fraseProgreso(s) {
+  const L = mejorasDe(s);
+  return L.length ? Object.assign({}, L[0], {n: L.length}) : null;
 }
 
 /* Sus competiciones, la más reciente primero: [{fecha (la última), desde, comp, lugar, filas:[{e, t, pool, puesto, de, ant, pb, dif, primera}]}].

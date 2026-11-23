@@ -574,7 +574,8 @@ function dirCompartirBtn(s, c, x) {
     return {titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''), donde: [L.lugar ? dirTitulo(L.lugar) : '', dirFechas(c), L.piscina ? 'piscina de ' + L.piscina : ''].filter(Boolean).join(' · '),
       resumen: '', filas: [{l: `${x.p.nombre} ${x.p.sexo === 'F' ? 'fem.' : x.p.sexo === 'M' ? 'masc.' : ''}`.trim(), t: fmt(x.f.t),
         a: `Serie ${x.posSerie} de ${x.series} · calle ${x.f.calle}`, b: [o ? `${o.puesto}º de ${o.de} en la clasificación${o.cat ? ' (' + o.cat + ')' : ''}` : '', k ? `${k}º de ${enSerie.length} en su serie` : ''].filter(Boolean).join(' · '),
-        c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}]};
+        c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}],
+      carreras: [compartirCarreraDe(x.p, x.f, v ? {txt: v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toUpperCase()), ok: v.cls === 'good'} : null)]};
   }});
 }
 /* Tus nadadores primero: los que sigues en este dispositivo y nadan en esta competición, con acceso directo a sus pruebas */
@@ -693,13 +694,13 @@ function vistaDirecto(app, p) {
 
 /* Banner de arriba del Resumen: la competición que importa ahora y un botón directo a la vista «Seguir a un nadador»
    (sus pruebas, horas, calles, resultados con historial y foto finish). En curso > terminada hace ≤ 3 días > próxima en ≤ 7 días. */
-function dirBannerHoy(suyas, s) {
+function dirBannerHoy(suyas, s, sinResultados) {
   const hoy = Date.parse(dirHoy()), dias = f => Math.round((Date.parse(f) - hoy) / 864e5), n = esc(String(s.n).split(' ')[0]);
   const con = suyas.filter(x => x.filas.length && x.c.lenex);
   const vivo = con.find(x => x.c.estado === 'en_curso');
   const rec = con.filter(x => x.c.estado === 'terminada' && dias(x.c.hasta || x.c.desde) >= -3).sort((a, b) => (b.c.hasta || b.c.desde).localeCompare(a.c.hasta || a.c.desde))[0];
   const prx = con.filter(x => x.c.estado === 'proxima' && dias(x.c.desde) <= 7 && dias(x.c.desde) >= 0).sort((a, b) => a.c.desde.localeCompare(b.c.desde))[0];
-  const x = vivo || rec || prx; if (!x) return '';
+  const x = vivo || (sinResultados ? null : rec) || prx; if (!x) return '';
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
   return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
@@ -719,7 +720,7 @@ async function pintarDirectoNadador(app, s) {
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
   if (vistaFamilias()) {   // Familias: solo el banner de arriba y la tarjeta «Próxima competición»
-    const hoyEl = app.querySelector('#res-hoy'); if (hoyEl) hoyEl.innerHTML = dirBannerHoy(suyas, s);
+    const hoyEl = app.querySelector('#res-hoy'); if (hoyEl) hoyEl.innerHTML = dirBannerHoy(suyas, s, true);   // los resultados ya salen en «Su última competición»
     const px = app.querySelector('#res-prox'); if (px) px.innerHTML = dirProximaHTML(d, s);
     dirCuentaArrancar(); return;
   }

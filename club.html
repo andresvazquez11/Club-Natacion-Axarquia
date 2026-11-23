@@ -1114,6 +1114,14 @@ html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
 .comp-prev{text-align:center}.comp-prev img{max-width:min(100%,420px);border-radius:14px;border:1px solid rgba(127,127,127,.3)}
 .comp-pasos{display:grid;gap:8px;margin:12px 0}.comp-pasos .btn{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
 .comp-texto{white-space:pre-wrap;font:inherit;font-size:.85rem;background:rgba(127,127,127,.12);border-radius:10px;padding:10px;margin:6px 0}
+.comp-prev{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px}
+.comp-prev figure{margin:0;text-align:center}.comp-prev figcaption{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.comp-prev figcaption .btn{margin:0;min-height:40px;font-size:.78rem}
+.fam-minis{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.fam-mini{padding:4px 10px;border-radius:99px;background:rgba(127,127,127,.15);font-size:.8rem;font-variant-numeric:tabular-nums}
+.fam-barra{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid rgba(127,127,127,.2);color:inherit;text-decoration:none}
+.fam-barra:first-of-type{border-top:0}.fam-barra-n b{display:block}.fam-barra-n small{display:block;color:var(--ink2);font-size:.75rem}
+.fam-barra-t{height:10px;border-radius:5px;background:rgba(127,127,127,.2);display:block}.fam-barra-t i{display:block;height:100%;border-radius:5px;background:var(--good)}
 
 </style>
 </head>
@@ -2699,8 +2707,8 @@ function podiosDe(s) {
 /* Su mayor mejora en el último año: por prueba, y en la piscina de su última marca (25 y 50 m no se mezclan),
    baja entre la primera marca de los 12 meses anteriores a la última y su mejor marca de ese periodo.
    → {e, pool, desde, mejor, bajada, n (pruebas en que mejoró)} o null si no hay ninguna mejora. */
-function fraseProgreso(s) {
-  let mejor = null, n = 0;
+function mejorasDe(s) {
+  const L = [];
   (s.ev || []).forEach(e => {
     const h = (e.h || []).filter(x => !x[8] && x[1] > 0); if (h.length < 2) return;
     const ult = h.reduce((a, b) => b[0] > a[0] ? b : a), pool = ult[2];
@@ -2708,11 +2716,13 @@ function fraseProgreso(s) {
     const w = h.filter(x => x[2] === pool && x[0] >= lim).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
     if (w.length < 2) return;
     const best = Math.min(...w.map(x => x[1])), bajada = w[0][1] - best;
-    if (bajada <= 0) return;
-    n++;
-    if (!mejor || bajada / w[0][1] > mejor.bajada / mejor.desde) mejor = {e: e.e, pool, desde: w[0][1], mejor: best, bajada};
+    if (bajada > 0) L.push({e: e.e, pool, desde: w[0][1], mejor: best, bajada});
   });
-  return mejor && Object.assign(mejor, {n});
+  return L.sort((a, b) => b.bajada / b.desde - a.bajada / a.desde);
+}
+function fraseProgreso(s) {
+  const L = mejorasDe(s);
+  return L.length ? Object.assign({}, L[0], {n: L.length}) : null;
 }
 
 /* Sus competiciones, la más reciente primero: [{fecha (la última), desde, comp, lugar, filas:[{e, t, pool, puesto, de, ant, pb, dif, primera}]}].
@@ -3305,7 +3315,8 @@ const famCompartir = (s, c) => ({armar: () => {
       b: [oficial, d.serie && d.enSerie ? `${d.enSerie}º en su serie` : ''].filter(Boolean).join(' · '), c: famVsMejor(f), ok: !!f.pb}; });
   const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
   return {titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c), c.filas[0] ? 'piscina de ' + piscinaTxt(c.filas[0].pool) : ''].filter(Boolean).join(' · '),
-    resumen: famFraseJornada(c), filas};
+    resumen: famFraseJornada(c), filas,
+    carreras: c.filas.map(f => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}) : null; }).filter(Boolean)};
 }});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
@@ -3326,7 +3337,7 @@ async function pintarOficial(app, s) {
         p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8]) return;
           const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
           const serie = f[0], vistos = p.filas.filter(y => y[5] && !y[8] && serie && y[0] === serie).sort((u, v) => u[5] - v[5]);
-          const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || ''};
+          const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || '', raw: {p, f}};
           info.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); FAM_DET.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); }); });
     }
   } catch (e) { return; }
@@ -3361,7 +3372,11 @@ function progresoHTML(s) {
   const filas = s.ev.map(e => { const h = (e.h || []).filter(x => !x[8] && x[2] === e.pool).sort((a, b) => a[0] < b[0] ? -1 : 1), p = h[0], bajo = p ? p[1] - e.cs : 0;
     return `<a class="fam-fila" href="${fichaHref(s, 'evolucion')}?hev=${encodeURIComponent(e.e)}"><div class="fam-l"><b>${esc(e.e)}</b><small>${bajo > 0 ? `<span class="good">−${secs(bajo)} s</span> desde ${dfmt(p[0])}` : `${h.length} marca${h.length === 1 ? '' : 's'}`} · piscina de ${esc(piscinaTxt(e.pool))}</small></div>
       <div class="fam-r">${spark(h, 90, 26)}<b>${fmt(e.cs)}</b></div></a>`; }).join('');
-  return `${comoVaHTML(s) || '<div class="card"><p class="small muted" style="margin:0">Aún no hay suficientes marcas en el último año para calcular su mejora.</p></div>'}
+  const M = mejorasDe(s), mx = M.length ? Math.max(...M.map(m => m.bajada)) : 0;
+  const barras = M.length ? `<div class="card"><div class="h">${ico('tendencia')}¿En qué ha mejorado más este último año?</div>${M.map(m => `<a class="fam-barra" href="${fichaHref(s, 'marcas')}?ev=${encodeURIComponent(m.e)}&pl=${m.pool}"><span class="fam-barra-n"><b>${esc(m.e)}</b><small>${fmt(m.desde)} → ${fmt(m.mejor)} · ${esc(piscinaTxt(m.pool))}</small></span>
+      <span class="fam-barra-t"><i style="width:${Math.max(6, Math.round(m.bajada / mx * 100))}%"></i></span><b class="good">−${famEs(secs(m.bajada))} s</b></a>`).join('')}
+    <p class="tiny muted" style="margin-top:6px">Compara su primera marca de los últimos 12 meses con su mejor marca de ese periodo, en la misma piscina.</p></div>` : '<div class="card"><p class="small muted" style="margin:0">Aún no hay suficientes marcas en el último año para calcular su mejora.</p></div>';
+  return `${barras}
     <div class="card"><div class="h">${ico('tendencia')}Su evolución por prueba</div>${filas}
     <p class="tiny muted" style="margin-top:6px">Toca una prueba para ver sus marcas temporada a temporada.</p></div>
     <div class="card fam-mas"><p class="small" style="margin:0 0 8px">Para ver rankings, puntos o comparar con compañeros, usa la vista Completa.</p><button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>`;
@@ -3374,11 +3389,18 @@ function famUltimaCard(s) {
       ${u.filas.map(f => famFilaResultado(f, s)).join('')}
       <div class="fam-botones">${compartirBtn(famCompartir(s, u))}<a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div></div>`;
 }
+/* Resumen (Familias): la última competición en pequeño; cada carrera con su detalle está en la pestaña Resultados */
+function famUltimaResumen(s) {
+  const u = competicionesDe(s)[0]; if (!u) return '';
+  return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      <div class="fam-minis">${u.filas.map(f => `<span class="fam-mini"><b>${esc(f.e)}</b> ${fmt(f.t)}${f.pb ? ' <i class="good">★</i>' : ''}</span>`).join('')}</div>
+      <div class="fam-botones"><a class="btn" href="${fichaHref(s, 'resultados')}">Ver cada carrera: puesto, foto finish y serie ›</a>${compartirBtn(famCompartir(s, u))}</div></div>`;
+}
 function resumenFamiliasHTML(s, cat) {
   const portada = portadaHTML(s, cat);
   if (!s.ev.length) return portada + fichaTabsHTML(s, 'resumen') + '<div class="vacio" style="margin-top:12px">Todavía no tiene marcas esta temporada</div>';
-  const ultima = famUltimaCard(s);
-  const top = [...s.ev].sort((a, b) => b.pts - a.pts).slice(0, 6);
+  const ultima = famUltimaResumen(s);
   return `${portada}
     ${fichaTabsHTML(s, 'resumen')}
     ${familiaHTML(s)}
@@ -3386,8 +3408,6 @@ function resumenFamiliasHTML(s, cat) {
     ${ultima}
     ${comoVaHTML(s)}
     <div id="res-prox"></div>
-    <div class="card"><div class="h">${ico('medalla')}Sus mejores marcas</div>${top.map(e => famFilaMarca(s, e)).join('')}
-      <a class="mas" href="${fichaHref(s, 'marcas')}">Ver todas sus marcas ›</a></div>
     ${insigniasCard(s)}
     <div class="card fam-mas"><div class="h">${ico('barras')}¿Quieres más datos?</div><p class="small" style="margin:0 0 8px">Rankings de España y Andalucía, puntos, relevos, parciales y comparar con compañeros están en la vista Completa.</p>
       <button type="button" class="btn ghost" data-vista="completa">Ver la vista Completa</button></div>
@@ -6003,6 +6023,7 @@ const compartirBtn = (o, txt = 'Compartir en WhatsApp') => `<button type="button
 function compartirTexto(o) {
   const L = [`*${o.titulo}* · C.N. Axarquía`, o.comp ? `${o.comp}${o.donde ? ' · ' + o.donde : ''}` : (o.donde || ''), o.resumen || ''].filter(Boolean);
   (o.filas || []).forEach(f => L.push(`• ${f.l}: *${f.t}*${[f.a, f.b, f.c].filter(Boolean).map(x => ' · ' + x).join('')}`));
+  (o.carreras || []).forEach(r => { if (r.top && r.top.length) L.push(`${r.l} · primeros: ${r.top.map(t => `${t.pos}º ${famNombre(t.n)} (${t.club}) ${fmt(t.t)}`).join(' · ')}`); });
   L.push('', 'Estadísticas del club: https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html');
   return L.join('\n');
 }
@@ -6051,6 +6072,86 @@ function compartirImagen(o) {
     const img = new Image(); img.onload = () => pinta(img); img.onerror = () => pinta(null); img.src = 'logo_cna.png';
   });
 }
+/* ── Una carrera completa: su serie como en la web de la federación (con los nadadores del club resaltados), los primeros de la
+   clasificación y lo que añadimos nosotros (frente a su mejor marca, cómo repartió el esfuerzo, diferencia con el ganador) ── */
+const carFilaObj = a => Array.isArray(a) ? {serie: a[0], calle: a[1], n: a[2], club: a[3], nac: a[4], t: a[5], parc: a[6], puesto: a[7], estado: a[8], rfen: a[9], cat: a[11] || ''} : a;
+const famNombre = n => { const w = String(n || '').trim().split(/\s+/); return w.length > 2 ? `${w[0]} ${w[1]}` : w.join(' '); };   // «Alexis Gonzalez Garcia» → «Alexis Gonzalez»
+/* p = prueba {nombre, sexo, filas} (filas como objeto o como fila guardada), f = la fila del nadador, vs = {txt, ok} frente a su mejor marca */
+function compartirCarreraDe(p, f, vs) {
+  const yo = carFilaObj(f), valid = (p.filas || []).map(carFilaObj).filter(y => y.t && !y.estado), cat = yo.cat || '';
+  const esYo = y => y.n === yo.n && y.t === yo.t;
+  const serie = yo.serie ? valid.filter(y => y.serie === yo.serie).sort((u, v) => u.t - v.t) : [];
+  const clas = valid.filter(y => !cat || y.cat === cat).sort((u, v) => (u.puesto || 999) - (v.puesto || 999) || u.t - v.t);
+  const fila = (y, pos) => ({pos, calle: y.calle, n: y.n, club: typeof carClubCorto === 'function' ? carClubCorto(y.club) : y.club, t: y.t, nuestro: /axarq/i.test(y.club || ''), yo: esYo(y)});
+  const series = new Set(valid.map(y => y.serie).filter(Boolean)).size, posSerie = serie.findIndex(esYo) + 1, posClas = clas.findIndex(esYo) + 1;
+  const top = clas.slice(0, 3).map((y, i) => fila(y, y.puesto || i + 1)), lineas = [];
+  const may = t => String(t || '').replace(/^./, m => m.toUpperCase()), nombre1 = famNombre(yo.n).split(' ')[0];
+  if (vs && vs.txt) lineas.push({t: may(vs.txt), ok: !!vs.ok});
+  if (posClas) lineas.push({t: `Clasificación oficial: ${yo.puesto || posClas}º de ${clas.length}${cat ? ' (' + cat + ')' : ''}.`});
+  if (posClas > 1 && clas[0]) lineas.push({t: `${nombre1} quedó a ${famEs(secs(yo.t - clas[0].t))} s del 1º de la clasificación (${famNombre(clas[0].n)}, ${fmt(clas[0].t)}).`});
+  if (posSerie > 1 && serie[0]) lineas.push({t: `La serie la ganó ${famNombre(serie[0].n)} (${fmt(serie[0].t)}).`});
+  else if (posSerie === 1 && serie.length > 1) lineas.push({t: 'Ganó su serie.', ok: true});
+  const dist = parseInt(p.nombre, 10), acu = yo.parc && yo.parc.length ? (yo.parc[yo.parc.length - 1] === yo.t ? yo.parc : [...yo.parc, yo.t]) : null;
+  const sp = acu && typeof gParcCarrera === 'function' ? gParcCarrera(acu, dist) : null, ft = sp ? famFraseTramos(sp.sp) : null;
+  if (ft) lineas.push({t: ft.texto});
+  return {l: `${p.nombre} ${p.sexo === 'F' ? 'femenino' : p.sexo === 'M' ? 'masculino' : ''}`.trim(), t: fmt(yo.t), serie: yo.serie, series, calle: yo.calle, posSerie, de: clas.length, posClas: yo.puesto || posClas, cat,
+    tabla: serie.map((y, i) => fila(y, i + 1)), top, lineas, sp: sp ? sp.sp : null, paso: sp ? sp.paso : 0, ok: !!(vs && vs.ok)};
+}
+/* Imagen de una carrera completa (anchura 1080, altura según las filas) */
+function compartirImagenCarrera(o, r) {
+  return new Promise(res => {
+    const W = 1080, F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+    const dibuja = (x, logo) => {
+      const caja = (X, Y, w, h, col) => { x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, 20) : x.rect(X, Y, w, h); x.fill(); };
+      let y = 0;
+      x.fillStyle = 'rgba(255,255,255,.05)';
+      if (logo) x.drawImage(logo, 56, 44, 96, 96);
+      x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · NATACIÓN', logo ? 176 : 56, 88);
+      x.fillStyle = '#cfe6f5'; x.font = F('600', 26); x.fillText('Resultado de competición', logo ? 176 : 56, 126);
+      y = 210; x.fillStyle = '#fff'; x.font = F('800', 64); x.fillText(compartirAjuste(x, o.titulo, W - 112), 56, y); y += 48;
+      x.fillStyle = '#eaf6ff'; x.font = F('700', 34); compartirLineas(x, o.comp, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 42; });
+      x.fillStyle = '#9fc3da'; x.font = F('500', 28); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112), 56, y); y += 30; }
+      y += 22;
+      // la carrera: prueba, serie y calle, tiempo grande
+      caja(56, y, W - 112, 190, 'rgba(255,255,255,.12)');
+      x.fillStyle = '#fff'; x.font = F('800', 50); x.fillText(compartirAjuste(x, r.l, 520), 88, y + 66);
+      x.fillStyle = '#cfe6f5'; x.font = F('600', 30); x.fillText(`${r.serie ? `Serie ${r.serie}${r.series ? ' de ' + r.series : ''}` : ''}${r.calle ? ' · calle ' + r.calle : ''}`.replace(/^ · /, ''), 88, y + 112);
+      x.fillStyle = '#ffd400'; x.font = F('800', 100); x.textAlign = 'right'; x.fillText(r.t, W - 88, y + 100); x.textAlign = 'left';
+      x.fillStyle = '#eaf6ff'; x.font = F('700', 30); x.fillText([r.posClas ? `${r.posClas}º de ${r.de}${r.cat ? ' · ' + r.cat : ''}` : '', r.posSerie ? `${r.posSerie}º de ${r.tabla.length} en su serie` : ''].filter(Boolean).join('   ·   '), 88, y + 160);
+      y += 190 + 34;
+      const filaTabla = (f, i, ancho) => {
+        const alto = 54; if (f.yo) caja(56, y, W - 112, alto, 'rgba(255,212,0,.22)');
+        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F(f.yo || f.nuestro ? '800' : '600', 30);
+        x.fillText(`${f.pos}º`, 76, y + 37); if (f.calle) x.fillText(String(f.calle), 150, y + 37);
+        x.fillText(compartirAjuste(x, famNombre(f.n), 350), 206, y + 37);
+        x.font = F('600', 26); x.fillText(compartirAjuste(x, f.club, 240), 580, y + 37);
+        x.font = F('800', 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 76, y + 37); x.textAlign = 'left'; y += alto + 4;
+      };
+      const titulo = t => { x.fillStyle = '#9fc3da'; x.font = F('800', 26); x.fillText(t.toUpperCase(), 64, y + 26); y += 46; };
+      if (r.tabla.length) { titulo(`Su serie${r.series ? ` (${r.serie} de ${r.series})` : ''} · calle, nadador, club y tiempo`); r.tabla.forEach(filaTabla); y += 18; }
+      if (r.top.length) { titulo(`Los primeros de la clasificación${r.cat ? ' · ' + r.cat : ''}`); r.top.forEach(filaTabla);
+        if (r.posClas > 3) { const sig = r.tabla.find(f => f.yo); if (sig) filaTabla(Object.assign({}, sig, {pos: r.posClas, calle: ''})); } y += 18; }
+      if (r.lineas.length) { titulo('Cómo le fue'); r.lineas.forEach(l => { x.fillStyle = l.ok ? '#5ee6a8' : '#eaf6ff'; x.font = F('600', 29);
+        compartirLineas(x, l.t, W - 128, 3).forEach(t => { x.fillText(t, 64, y + 28); y += 38; }); y += 6; }); }
+      y += 10; x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, y + 30);
+      return y + 70;
+    };
+    const cargar = cb => { const img = new Image(); img.onload = () => cb(img); img.onerror = () => cb(null); img.src = 'logo_cna.png'; };
+    cargar(logo => {
+      const medir = document.createElement('canvas').getContext('2d'), H = dibuja(medir, null);   // primera pasada: solo para saber la altura
+      const c = document.createElement('canvas'); c.width = W; c.height = Math.max(H, 1000);
+      const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, c.height); g.addColorStop(0, '#0b4f86'); g.addColorStop(1, '#032a4d');
+      x.fillStyle = g; x.fillRect(0, 0, W, c.height); dibuja(x, logo); c.toBlob(b => res(b), 'image/png');
+    });
+  });
+}
+/* Todas las imágenes de un mensaje: la portada con el resumen y, si hay carreras completas, una imagen por carrera */
+async function compartirImagenes(o) {
+  const C = o.carreras || [], out = [];
+  if (C.length !== 1) out.push(await compartirImagen(o));
+  for (const r of C) out.push(await compartirImagenCarrera(o, r));
+  return out;
+}
 function compartirAviso(txt) {
   let a = document.querySelector('.aviso-contador'); if (!a) { a = document.createElement('div'); a.className = 'aviso-contador'; document.body.appendChild(a); }
   a.textContent = txt; clearTimeout(compartirAviso.t); compartirAviso.t = setTimeout(() => a.remove(), 5000);
@@ -6062,28 +6163,27 @@ async function compartirResultado(o) {
   if (!o) return;
   if (o.armar) o = o.armar();
   try {
-    const blob = await compartirImagen(o), file = new File([blob], 'resultado-cna.png', {type: 'image/png'}), texto = compartirTexto(o);
-    if (compartirMovil() && navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: o.titulo, text: texto}); return; }
-    compartirVentana(o, blob, texto);
+    const blobs = await compartirImagenes(o), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
+    if (compartirMovil() && navigator.canShare && navigator.canShare({files})) { await navigator.share({files, title: o.titulo, text: texto}); return; }
+    compartirVentana(o, blobs, texto);
   } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }
 }
-function compartirVentana(o, blob, texto) {
-  const url = URL.createObjectURL(blob), puedeCopiar = !!(navigator.clipboard && window.ClipboardItem);
+function compartirVentana(o, blobs, texto) {
+  const urls = blobs.map(b => URL.createObjectURL(b)), puedeCopiar = !!(navigator.clipboard && window.ClipboardItem);
   abrirVentana(() => {
     const box = document.querySelector('#modal .box');
     box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">Compartir por WhatsApp</h1>
-      <p class="small muted" style="margin:2px 0 10px">Se comparte esta imagen y un mensaje con todos los datos, para que quien lo reciba sepa de qué se trata.</p>
-      <div class="comp-prev"><img src="${url}" alt="Vista previa de la imagen para compartir"></div>
+      <p class="small muted" style="margin:2px 0 10px">Se comparte ${urls.length === 1 ? 'esta imagen' : `estas ${urls.length} imágenes (el resumen y cada carrera con su serie completa)`} y un mensaje con todos los datos, para que quien lo reciba sepa de qué se trata.</p>
+      <div class="comp-prev">${urls.map((u, i) => `<figure><img src="${u}" alt="Imagen ${i + 1} para compartir"><figcaption>
+        ${puedeCopiar ? `<button type="button" class="btn ghost" data-comp-copiar="${i}">Copiar imagen ${i + 1}</button>` : ''}<a class="btn ghost" href="${u}" download="resultado-cna-${i + 1}.png">Descargar ${i + 1}</a></figcaption></figure>`).join('')}</div>
       <div class="comp-pasos">
-        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}1 · Abrir WhatsApp con el mensaje</a>
-        ${puedeCopiar ? `<button type="button" class="btn ghost" data-comp-copiar>2 · Copiar la imagen (y pegarla en el chat con Ctrl+V)</button>` : ''}
-        <a class="btn ghost" href="${url}" download="resultado-cna.png">${puedeCopiar ? '3' : '2'} · Descargar la imagen</a>
+        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}Abrir WhatsApp con el mensaje</a>
         <button type="button" class="btn ghost" data-comp-copiar-texto>Copiar solo el mensaje</button>
+        <p class="tiny muted" style="margin:0">En el ordenador WhatsApp Web no deja adjuntar solo: copia o descarga cada imagen y pégala en el chat (Ctrl+V).</p>
       </div>
       <details class="dir-mas"><summary>Ver el mensaje</summary><pre class="comp-texto">${esc(texto)}</pre></details>`;
-    const cp = box.querySelector('[data-comp-copiar]');
-    if (cp) cp.onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]); compartirAviso('Imagen copiada: pégala en el chat de WhatsApp con Ctrl+V.'); } catch (e) { compartirAviso('No se pudo copiar: descárgala y adjúntala.'); } };
+    box.querySelectorAll('[data-comp-copiar]').forEach(cp => cp.onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blobs[+cp.dataset.compCopiar]})]); compartirAviso('Imagen copiada: pégala en el chat de WhatsApp con Ctrl+V.'); } catch (e) { compartirAviso('No se pudo copiar: descárgala y adjúntala.'); } });
     const ct = box.querySelector('[data-comp-copiar-texto]');
     if (ct) ct.onclick = async () => { try { await navigator.clipboard.writeText(texto); compartirAviso('Mensaje copiado.'); } catch (e) { compartirAviso('No se pudo copiar el mensaje.'); } };
     abrirModal();
@@ -6779,7 +6879,8 @@ function dirCompartirBtn(s, c, x) {
     return {titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''), donde: [L.lugar ? dirTitulo(L.lugar) : '', dirFechas(c), L.piscina ? 'piscina de ' + L.piscina : ''].filter(Boolean).join(' · '),
       resumen: '', filas: [{l: `${x.p.nombre} ${x.p.sexo === 'F' ? 'fem.' : x.p.sexo === 'M' ? 'masc.' : ''}`.trim(), t: fmt(x.f.t),
         a: `Serie ${x.posSerie} de ${x.series} · calle ${x.f.calle}`, b: [o ? `${o.puesto}º de ${o.de} en la clasificación${o.cat ? ' (' + o.cat + ')' : ''}` : '', k ? `${k}º de ${enSerie.length} en su serie` : ''].filter(Boolean).join(' · '),
-        c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}]};
+        c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}],
+      carreras: [compartirCarreraDe(x.p, x.f, v ? {txt: v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toUpperCase()), ok: v.cls === 'good'} : null)]};
   }});
 }
 /* Tus nadadores primero: los que sigues en este dispositivo y nadan en esta competición, con acceso directo a sus pruebas */
@@ -6898,13 +6999,13 @@ function vistaDirecto(app, p) {
 
 /* Banner de arriba del Resumen: la competición que importa ahora y un botón directo a la vista «Seguir a un nadador»
    (sus pruebas, horas, calles, resultados con historial y foto finish). En curso > terminada hace ≤ 3 días > próxima en ≤ 7 días. */
-function dirBannerHoy(suyas, s) {
+function dirBannerHoy(suyas, s, sinResultados) {
   const hoy = Date.parse(dirHoy()), dias = f => Math.round((Date.parse(f) - hoy) / 864e5), n = esc(String(s.n).split(' ')[0]);
   const con = suyas.filter(x => x.filas.length && x.c.lenex);
   const vivo = con.find(x => x.c.estado === 'en_curso');
   const rec = con.filter(x => x.c.estado === 'terminada' && dias(x.c.hasta || x.c.desde) >= -3).sort((a, b) => (b.c.hasta || b.c.desde).localeCompare(a.c.hasta || a.c.desde))[0];
   const prx = con.filter(x => x.c.estado === 'proxima' && dias(x.c.desde) <= 7 && dias(x.c.desde) >= 0).sort((a, b) => a.c.desde.localeCompare(b.c.desde))[0];
-  const x = vivo || rec || prx; if (!x) return '';
+  const x = vivo || (sinResultados ? null : rec) || prx; if (!x) return '';
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
   return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
@@ -6924,7 +7025,7 @@ async function pintarDirectoNadador(app, s) {
   const prox = suyas.filter(x => x.c.estado !== 'terminada');
   const rec = suyas.filter(x => x.c.estado === 'terminada' && x.filas.length);
   if (vistaFamilias()) {   // Familias: solo el banner de arriba y la tarjeta «Próxima competición»
-    const hoyEl = app.querySelector('#res-hoy'); if (hoyEl) hoyEl.innerHTML = dirBannerHoy(suyas, s);
+    const hoyEl = app.querySelector('#res-hoy'); if (hoyEl) hoyEl.innerHTML = dirBannerHoy(suyas, s, true);   // los resultados ya salen en «Su última competición»
     const px = app.querySelector('#res-prox'); if (px) px.innerHTML = dirProximaHTML(d, s);
     dirCuentaArrancar(); return;
   }

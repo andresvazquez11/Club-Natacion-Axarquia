@@ -18,6 +18,7 @@ const compartirBtn = (o, txt = 'Compartir en WhatsApp') => `<button type="button
 function compartirTexto(o) {
   const L = [`*${o.titulo}* · C.N. Axarquía`, o.comp ? `${o.comp}${o.donde ? ' · ' + o.donde : ''}` : (o.donde || ''), o.resumen || ''].filter(Boolean);
   (o.filas || []).forEach(f => L.push(`• ${f.l}: *${f.t}*${[f.a, f.b, f.c].filter(Boolean).map(x => ' · ' + x).join('')}`));
+  (o.carreras || []).forEach(r => { if (r.top && r.top.length) L.push(`${r.l} · primeros: ${r.top.map(t => `${t.pos}º ${famNombre(t.n)} (${t.club}) ${fmt(t.t)}`).join(' · ')}`); });
   L.push('', 'Estadísticas del club: https://andresvazquez11.github.io/Club-Natacion-Axarquia/club.html');
   return L.join('\n');
 }
@@ -66,6 +67,86 @@ function compartirImagen(o) {
     const img = new Image(); img.onload = () => pinta(img); img.onerror = () => pinta(null); img.src = 'logo_cna.png';
   });
 }
+/* ── Una carrera completa: su serie como en la web de la federación (con los nadadores del club resaltados), los primeros de la
+   clasificación y lo que añadimos nosotros (frente a su mejor marca, cómo repartió el esfuerzo, diferencia con el ganador) ── */
+const carFilaObj = a => Array.isArray(a) ? {serie: a[0], calle: a[1], n: a[2], club: a[3], nac: a[4], t: a[5], parc: a[6], puesto: a[7], estado: a[8], rfen: a[9], cat: a[11] || ''} : a;
+const famNombre = n => { const w = String(n || '').trim().split(/\s+/); return w.length > 2 ? `${w[0]} ${w[1]}` : w.join(' '); };   // «Alexis Gonzalez Garcia» → «Alexis Gonzalez»
+/* p = prueba {nombre, sexo, filas} (filas como objeto o como fila guardada), f = la fila del nadador, vs = {txt, ok} frente a su mejor marca */
+function compartirCarreraDe(p, f, vs) {
+  const yo = carFilaObj(f), valid = (p.filas || []).map(carFilaObj).filter(y => y.t && !y.estado), cat = yo.cat || '';
+  const esYo = y => y.n === yo.n && y.t === yo.t;
+  const serie = yo.serie ? valid.filter(y => y.serie === yo.serie).sort((u, v) => u.t - v.t) : [];
+  const clas = valid.filter(y => !cat || y.cat === cat).sort((u, v) => (u.puesto || 999) - (v.puesto || 999) || u.t - v.t);
+  const fila = (y, pos) => ({pos, calle: y.calle, n: y.n, club: typeof carClubCorto === 'function' ? carClubCorto(y.club) : y.club, t: y.t, nuestro: /axarq/i.test(y.club || ''), yo: esYo(y)});
+  const series = new Set(valid.map(y => y.serie).filter(Boolean)).size, posSerie = serie.findIndex(esYo) + 1, posClas = clas.findIndex(esYo) + 1;
+  const top = clas.slice(0, 3).map((y, i) => fila(y, y.puesto || i + 1)), lineas = [];
+  const may = t => String(t || '').replace(/^./, m => m.toUpperCase()), nombre1 = famNombre(yo.n).split(' ')[0];
+  if (vs && vs.txt) lineas.push({t: may(vs.txt), ok: !!vs.ok});
+  if (posClas) lineas.push({t: `Clasificación oficial: ${yo.puesto || posClas}º de ${clas.length}${cat ? ' (' + cat + ')' : ''}.`});
+  if (posClas > 1 && clas[0]) lineas.push({t: `${nombre1} quedó a ${famEs(secs(yo.t - clas[0].t))} s del 1º de la clasificación (${famNombre(clas[0].n)}, ${fmt(clas[0].t)}).`});
+  if (posSerie > 1 && serie[0]) lineas.push({t: `La serie la ganó ${famNombre(serie[0].n)} (${fmt(serie[0].t)}).`});
+  else if (posSerie === 1 && serie.length > 1) lineas.push({t: 'Ganó su serie.', ok: true});
+  const dist = parseInt(p.nombre, 10), acu = yo.parc && yo.parc.length ? (yo.parc[yo.parc.length - 1] === yo.t ? yo.parc : [...yo.parc, yo.t]) : null;
+  const sp = acu && typeof gParcCarrera === 'function' ? gParcCarrera(acu, dist) : null, ft = sp ? famFraseTramos(sp.sp) : null;
+  if (ft) lineas.push({t: ft.texto});
+  return {l: `${p.nombre} ${p.sexo === 'F' ? 'femenino' : p.sexo === 'M' ? 'masculino' : ''}`.trim(), t: fmt(yo.t), serie: yo.serie, series, calle: yo.calle, posSerie, de: clas.length, posClas: yo.puesto || posClas, cat,
+    tabla: serie.map((y, i) => fila(y, i + 1)), top, lineas, sp: sp ? sp.sp : null, paso: sp ? sp.paso : 0, ok: !!(vs && vs.ok)};
+}
+/* Imagen de una carrera completa (anchura 1080, altura según las filas) */
+function compartirImagenCarrera(o, r) {
+  return new Promise(res => {
+    const W = 1080, F = (w, px) => `${w} ${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+    const dibuja = (x, logo) => {
+      const caja = (X, Y, w, h, col) => { x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, 20) : x.rect(X, Y, w, h); x.fill(); };
+      let y = 0;
+      x.fillStyle = 'rgba(255,255,255,.05)';
+      if (logo) x.drawImage(logo, 56, 44, 96, 96);
+      x.fillStyle = '#ffd400'; x.font = F('800', 30); x.fillText('C.N. AXARQUÍA · NATACIÓN', logo ? 176 : 56, 88);
+      x.fillStyle = '#cfe6f5'; x.font = F('600', 26); x.fillText('Resultado de competición', logo ? 176 : 56, 126);
+      y = 210; x.fillStyle = '#fff'; x.font = F('800', 64); x.fillText(compartirAjuste(x, o.titulo, W - 112), 56, y); y += 48;
+      x.fillStyle = '#eaf6ff'; x.font = F('700', 34); compartirLineas(x, o.comp, W - 112, 2).forEach(t => { x.fillText(t, 56, y); y += 42; });
+      x.fillStyle = '#9fc3da'; x.font = F('500', 28); if (o.donde) { x.fillText(compartirAjuste(x, o.donde, W - 112), 56, y); y += 30; }
+      y += 22;
+      // la carrera: prueba, serie y calle, tiempo grande
+      caja(56, y, W - 112, 190, 'rgba(255,255,255,.12)');
+      x.fillStyle = '#fff'; x.font = F('800', 50); x.fillText(compartirAjuste(x, r.l, 520), 88, y + 66);
+      x.fillStyle = '#cfe6f5'; x.font = F('600', 30); x.fillText(`${r.serie ? `Serie ${r.serie}${r.series ? ' de ' + r.series : ''}` : ''}${r.calle ? ' · calle ' + r.calle : ''}`.replace(/^ · /, ''), 88, y + 112);
+      x.fillStyle = '#ffd400'; x.font = F('800', 100); x.textAlign = 'right'; x.fillText(r.t, W - 88, y + 100); x.textAlign = 'left';
+      x.fillStyle = '#eaf6ff'; x.font = F('700', 30); x.fillText([r.posClas ? `${r.posClas}º de ${r.de}${r.cat ? ' · ' + r.cat : ''}` : '', r.posSerie ? `${r.posSerie}º de ${r.tabla.length} en su serie` : ''].filter(Boolean).join('   ·   '), 88, y + 160);
+      y += 190 + 34;
+      const filaTabla = (f, i, ancho) => {
+        const alto = 54; if (f.yo) caja(56, y, W - 112, alto, 'rgba(255,212,0,.22)');
+        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F(f.yo || f.nuestro ? '800' : '600', 30);
+        x.fillText(`${f.pos}º`, 76, y + 37); if (f.calle) x.fillText(String(f.calle), 150, y + 37);
+        x.fillText(compartirAjuste(x, famNombre(f.n), 350), 206, y + 37);
+        x.font = F('600', 26); x.fillText(compartirAjuste(x, f.club, 240), 580, y + 37);
+        x.font = F('800', 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 76, y + 37); x.textAlign = 'left'; y += alto + 4;
+      };
+      const titulo = t => { x.fillStyle = '#9fc3da'; x.font = F('800', 26); x.fillText(t.toUpperCase(), 64, y + 26); y += 46; };
+      if (r.tabla.length) { titulo(`Su serie${r.series ? ` (${r.serie} de ${r.series})` : ''} · calle, nadador, club y tiempo`); r.tabla.forEach(filaTabla); y += 18; }
+      if (r.top.length) { titulo(`Los primeros de la clasificación${r.cat ? ' · ' + r.cat : ''}`); r.top.forEach(filaTabla);
+        if (r.posClas > 3) { const sig = r.tabla.find(f => f.yo); if (sig) filaTabla(Object.assign({}, sig, {pos: r.posClas, calle: ''})); } y += 18; }
+      if (r.lineas.length) { titulo('Cómo le fue'); r.lineas.forEach(l => { x.fillStyle = l.ok ? '#5ee6a8' : '#eaf6ff'; x.font = F('600', 29);
+        compartirLineas(x, l.t, W - 128, 3).forEach(t => { x.fillText(t, 64, y + 28); y += 38; }); y += 6; }); }
+      y += 10; x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, y + 30);
+      return y + 70;
+    };
+    const cargar = cb => { const img = new Image(); img.onload = () => cb(img); img.onerror = () => cb(null); img.src = 'logo_cna.png'; };
+    cargar(logo => {
+      const medir = document.createElement('canvas').getContext('2d'), H = dibuja(medir, null);   // primera pasada: solo para saber la altura
+      const c = document.createElement('canvas'); c.width = W; c.height = Math.max(H, 1000);
+      const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, c.height); g.addColorStop(0, '#0b4f86'); g.addColorStop(1, '#032a4d');
+      x.fillStyle = g; x.fillRect(0, 0, W, c.height); dibuja(x, logo); c.toBlob(b => res(b), 'image/png');
+    });
+  });
+}
+/* Todas las imágenes de un mensaje: la portada con el resumen y, si hay carreras completas, una imagen por carrera */
+async function compartirImagenes(o) {
+  const C = o.carreras || [], out = [];
+  if (C.length !== 1) out.push(await compartirImagen(o));
+  for (const r of C) out.push(await compartirImagenCarrera(o, r));
+  return out;
+}
 function compartirAviso(txt) {
   let a = document.querySelector('.aviso-contador'); if (!a) { a = document.createElement('div'); a.className = 'aviso-contador'; document.body.appendChild(a); }
   a.textContent = txt; clearTimeout(compartirAviso.t); compartirAviso.t = setTimeout(() => a.remove(), 5000);
@@ -77,28 +158,27 @@ async function compartirResultado(o) {
   if (!o) return;
   if (o.armar) o = o.armar();
   try {
-    const blob = await compartirImagen(o), file = new File([blob], 'resultado-cna.png', {type: 'image/png'}), texto = compartirTexto(o);
-    if (compartirMovil() && navigator.canShare && navigator.canShare({files: [file]})) { await navigator.share({files: [file], title: o.titulo, text: texto}); return; }
-    compartirVentana(o, blob, texto);
+    const blobs = await compartirImagenes(o), files = blobs.map((b, i) => new File([b], `resultado-cna-${i + 1}.png`, {type: 'image/png'})), texto = compartirTexto(o);
+    if (compartirMovil() && navigator.canShare && navigator.canShare({files})) { await navigator.share({files, title: o.titulo, text: texto}); return; }
+    compartirVentana(o, blobs, texto);
   } catch (e) { if (e && e.name !== 'AbortError') compartirAviso('No se pudo preparar la imagen para compartir.'); }
 }
-function compartirVentana(o, blob, texto) {
-  const url = URL.createObjectURL(blob), puedeCopiar = !!(navigator.clipboard && window.ClipboardItem);
+function compartirVentana(o, blobs, texto) {
+  const urls = blobs.map(b => URL.createObjectURL(b)), puedeCopiar = !!(navigator.clipboard && window.ClipboardItem);
   abrirVentana(() => {
     const box = document.querySelector('#modal .box');
     box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">Compartir por WhatsApp</h1>
-      <p class="small muted" style="margin:2px 0 10px">Se comparte esta imagen y un mensaje con todos los datos, para que quien lo reciba sepa de qué se trata.</p>
-      <div class="comp-prev"><img src="${url}" alt="Vista previa de la imagen para compartir"></div>
+      <p class="small muted" style="margin:2px 0 10px">Se comparte ${urls.length === 1 ? 'esta imagen' : `estas ${urls.length} imágenes (el resumen y cada carrera con su serie completa)`} y un mensaje con todos los datos, para que quien lo reciba sepa de qué se trata.</p>
+      <div class="comp-prev">${urls.map((u, i) => `<figure><img src="${u}" alt="Imagen ${i + 1} para compartir"><figcaption>
+        ${puedeCopiar ? `<button type="button" class="btn ghost" data-comp-copiar="${i}">Copiar imagen ${i + 1}</button>` : ''}<a class="btn ghost" href="${u}" download="resultado-cna-${i + 1}.png">Descargar ${i + 1}</a></figcaption></figure>`).join('')}</div>
       <div class="comp-pasos">
-        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}1 · Abrir WhatsApp con el mensaje</a>
-        ${puedeCopiar ? `<button type="button" class="btn ghost" data-comp-copiar>2 · Copiar la imagen (y pegarla en el chat con Ctrl+V)</button>` : ''}
-        <a class="btn ghost" href="${url}" download="resultado-cna.png">${puedeCopiar ? '3' : '2'} · Descargar la imagen</a>
+        <a class="btn" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">${ico('enviar')}Abrir WhatsApp con el mensaje</a>
         <button type="button" class="btn ghost" data-comp-copiar-texto>Copiar solo el mensaje</button>
+        <p class="tiny muted" style="margin:0">En el ordenador WhatsApp Web no deja adjuntar solo: copia o descarga cada imagen y pégala en el chat (Ctrl+V).</p>
       </div>
       <details class="dir-mas"><summary>Ver el mensaje</summary><pre class="comp-texto">${esc(texto)}</pre></details>`;
-    const cp = box.querySelector('[data-comp-copiar]');
-    if (cp) cp.onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]); compartirAviso('Imagen copiada: pégala en el chat de WhatsApp con Ctrl+V.'); } catch (e) { compartirAviso('No se pudo copiar: descárgala y adjúntala.'); } };
+    box.querySelectorAll('[data-comp-copiar]').forEach(cp => cp.onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({'image/png': blobs[+cp.dataset.compCopiar]})]); compartirAviso('Imagen copiada: pégala en el chat de WhatsApp con Ctrl+V.'); } catch (e) { compartirAviso('No se pudo copiar: descárgala y adjúntala.'); } });
     const ct = box.querySelector('[data-comp-copiar-texto]');
     if (ct) ct.onclick = async () => { try { await navigator.clipboard.writeText(texto); compartirAviso('Mensaje copiado.'); } catch (e) { compartirAviso('No se pudo copiar el mensaje.'); } };
     abrirModal();
