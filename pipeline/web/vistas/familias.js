@@ -119,7 +119,14 @@ function compartirCarreraDe(p, f, vs) {
   const esYo = y => y.n === yo.n && y.t === yo.t;
   const serie = yo.serie ? valid.filter(y => y.serie === yo.serie).sort((u, v) => u.t - v.t) : [];
   const clas = valid.filter(y => !cat || y.cat === cat).sort((u, v) => (u.puesto || 999) - (v.puesto || 999) || u.t - v.t);
-  const fila = (y, pos) => ({pos, calle: y.calle, n: y.n, club: typeof carClubCorto === 'function' ? carClubCorto(y.club) : y.club, t: y.t, nuestro: /axarq/i.test(y.club || ''), yo: esYo(y)});
+  // parciales (acumulados) de cada nadador de la serie, como los publica la federación
+  const dist0 = parseInt(p.nombre, 10), acuDe = y => y.parc && y.parc.length ? (y.parc[y.parc.length - 1] === y.t ? y.parc : [...y.parc, y.t]) : null;
+  const sp0 = y => { const a = acuDe(y); return a && typeof gParcCarrera === 'function' ? gParcCarrera(a, dist0) : null; };
+  const mio = sp0(yo), nT = mio ? mio.sp.length : 0;
+  const idx = nT >= 2 ? (nT <= 4 ? [...Array(nT - 1).keys()] : [Math.floor(nT / 4) - 1, Math.floor(nT / 2) - 1, Math.floor(3 * nT / 4) - 1]) : [];
+  const cols = idx.map(i => `${Math.round((i + 1) * mio.paso)} m`);
+  const parcDe = y => { const a = acuDe(y); return a && nT && a.length === nT ? idx.map(i => a[i]) : null; };
+  const fila = (y, pos) => ({pos, calle: y.calle, n: y.n, club: typeof carClubCorto === 'function' ? carClubCorto(y.club) : y.club, t: y.t, nuestro: /axarq/i.test(y.club || ''), yo: esYo(y), p: parcDe(y)});
   const series = new Set(valid.map(y => y.serie).filter(Boolean)).size, posSerie = serie.findIndex(esYo) + 1, posClas = clas.findIndex(esYo) + 1;
   const top = clas.slice(0, 3).map((y, i) => fila(y, y.puesto || i + 1)), lineas = [];
   const may = t => String(t || '').replace(/^./, m => m.toUpperCase()), nombre1 = famNombre(yo.n).split(' ')[0];
@@ -131,8 +138,16 @@ function compartirCarreraDe(p, f, vs) {
   const dist = parseInt(p.nombre, 10), acu = yo.parc && yo.parc.length ? (yo.parc[yo.parc.length - 1] === yo.t ? yo.parc : [...yo.parc, yo.t]) : null;
   const sp = acu && typeof gParcCarrera === 'function' ? gParcCarrera(acu, dist) : null, ft = sp ? famFraseTramos(sp.sp) : null;
   if (ft) lineas.push({t: ft.texto});
+  // parciales de la carrera del nadador (cada tramo o, si son muchos, cada varios tramos) frente a los del ganador de su serie
+  let parc = null;
+  if (mio && nT >= 2) {
+    const g = Math.ceil(nT / 8), gan = posSerie > 1 && serie[0] ? sp0(serie[0]) : null, acu = acuDe(yo), filasP = [];
+    for (let k = 0; k * g < nT; k++) { const e = Math.min((k + 1) * g, nT) - 1, ini = k * g, suma = (sp, a, b) => sp.slice(a, b + 1).reduce((u, v) => u + v, 0);
+      filasP.push({m: Math.round((e + 1) * mio.paso), acu: acu[e], tramo: suma(mio.sp, ini, e), gan: gan && gan.sp.length === nT ? suma(gan.sp, ini, e) : null}); }
+    parc = {filas: filasP, tieneGan: filasP.some(f => f.gan), cada: Math.round(g * mio.paso)};
+  }
   return {l: `${p.nombre} ${p.sexo === 'F' ? 'femenino' : p.sexo === 'M' ? 'masculino' : ''}`.trim(), t: fmt(yo.t), serie: yo.serie, series, calle: yo.calle, posSerie, de: clas.length, posClas: yo.puesto || posClas, cat,
-    tabla: serie.map((y, i) => fila(y, i + 1)), top, lineas, sp: sp ? sp.sp : null, paso: sp ? sp.paso : 0, ok: !!(vs && vs.ok)};
+    tabla: serie.map((y, i) => fila(y, i + 1)), cols, parc, top, lineas, sp: sp ? sp.sp : null, paso: sp ? sp.paso : 0, ok: !!(vs && vs.ok)};
 }
 /* Imagen de una carrera completa (anchura 1080, altura según las filas) */
 function compartirImagenCarrera(o, r, num, total) {
@@ -157,21 +172,36 @@ function compartirImagenCarrera(o, r, num, total) {
       x.fillStyle = '#ffd400'; x.font = F('800', 100); x.textAlign = 'right'; x.fillText(r.t, W - 88, y + 100); x.textAlign = 'left';
       x.fillStyle = '#eaf6ff'; x.font = F('700', 30); x.fillText([r.posClas ? `${r.posClas}º de ${r.de}${r.cat ? ' · ' + r.cat : ''}` : '', r.posSerie ? `${r.posSerie}º de ${r.tabla.length} en su serie` : ''].filter(Boolean).join('   ·   '), 88, y + 160);
       y += 190 + 34;
-      const filaTabla = (f, i, ancho) => {
-        const alto = 54; if (f.yo) caja(56, y, W - 112, alto, 'rgba(255,212,0,.22)');
-        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F(f.yo || f.nuestro ? '800' : '600', 30);
-        x.fillText(`${f.pos}º`, 76, y + 37); if (f.calle) x.fillText(String(f.calle), 150, y + 37);
-        x.fillText(compartirAjuste(x, famNombre(f.n), 350), 206, y + 37);
-        x.font = F('600', 26); x.fillText(compartirAjuste(x, f.club, 240), 580, y + 37);
-        x.font = F('800', 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 76, y + 37); x.textAlign = 'left'; y += alto + 4;
+      const nc = r.cols ? r.cols.length : 0;
+      const filaTabla = (f, i, conParc) => {
+        const dos = conParc && nc > 0, alto = dos ? 72 : 54; if (f.yo) caja(56, y, W - 112, alto, 'rgba(255,212,0,.22)');
+        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F(f.yo || f.nuestro ? '800' : '600', dos ? 28 : 30);
+        x.fillText(`${f.pos}º`, 76, y + (dos ? 32 : 37)); if (f.calle) x.fillText(String(f.calle), 150, y + (dos ? 32 : 37));
+        x.fillText(compartirAjuste(x, famNombre(f.n), dos ? 300 : 350), 206, y + (dos ? 32 : 37));
+        if (dos) { x.font = F('600', 22); x.fillStyle = f.nuestro ? '#ffd400' : '#9fc3da'; x.fillText(compartirAjuste(x, f.club, 300), 206, y + 58); }
+        else { x.font = F('600', 26); x.fillText(compartirAjuste(x, f.club, 240), 580, y + 37); }
+        if (dos) { x.font = F('600', 25); x.fillStyle = f.yo ? '#fff' : '#cfe6f5'; x.textAlign = 'right';
+          for (let k = 0; k < nc; k++) x.fillText(f.p && f.p[k] ? fmt(f.p[k]) : '—', 640 + k * 118, y + 32); x.textAlign = 'left'; }
+        x.fillStyle = f.yo ? '#fff' : f.nuestro ? '#ffd400' : '#cfe6f5'; x.font = F('800', dos ? 28 : 30); x.textAlign = 'right'; x.fillText(fmt(f.t), W - 76, y + (dos ? 32 : 37)); x.textAlign = 'left'; y += alto + 4;
       };
       const titulo = t => { x.fillStyle = '#9fc3da'; x.font = F('800', 26); x.fillText(t.toUpperCase(), 64, y + 26); y += 46; };
-      if (r.tabla.length) { titulo(`Su serie${r.series ? ` (${r.serie} de ${r.series})` : ''} · calle, nadador, club y tiempo`); r.tabla.forEach(filaTabla); y += 18; }
-      if (r.top.length) { titulo(`Los primeros de la clasificación${r.cat ? ' · ' + r.cat : ''}`); r.top.forEach(filaTabla);
-        if (r.posClas > 3) { const sig = r.tabla.find(f => f.yo); if (sig) filaTabla(Object.assign({}, sig, {pos: r.posClas, calle: ''})); } y += 18; }
+      if (r.tabla.length) { titulo(`Su serie${r.series ? ` (${r.serie} de ${r.series})` : ''} · calle, nadador, club y tiempo`);
+        if (nc) { x.fillStyle = '#9fc3da'; x.font = F('700', 22); x.textAlign = 'right'; r.cols.forEach((t, k) => x.fillText(t, 640 + k * 118, y + 8)); x.fillText('FINAL', W - 76, y + 8); x.textAlign = 'left'; y += 24; }
+        r.tabla.forEach(f => filaTabla(f, 0, true)); y += 18; }
+      if (r.top.length) { titulo(`Los primeros de la clasificación${r.cat ? ' · ' + r.cat : ''}`); r.top.forEach(f => filaTabla(f, 0, false));
+        if (r.posClas > 3) { const sig = r.tabla.find(f => f.yo); if (sig) filaTabla(Object.assign({}, sig, {pos: r.posClas, calle: ''}), 0, false); } y += 18; }
+      if (r.parc) {   // los parciales con números: acumulado y tiempo de cada tramo, frente al ganador de la serie
+        titulo(`Parciales de ${famNombre(o.titulo).split(' ')[0]}${r.parc.cada ? ' · cada ' + r.parc.cada + ' m' : ''}`);
+        x.fillStyle = '#9fc3da'; x.font = F('700', 22); x.textAlign = 'right';
+        x.fillText('ACUMULADO', 520, y + 8); x.fillText('TRAMO', 700, y + 8); if (r.parc.tieneGan) x.fillText('GANADOR SERIE', 940, y + 8); x.textAlign = 'left'; y += 26;
+        r.parc.filas.forEach((f, k) => { if (k % 2 === 0) caja(56, y, W - 112, 40, 'rgba(255,255,255,.06)');
+          x.fillStyle = '#eaf6ff'; x.font = F('700', 27); x.fillText(`${f.m} m`, 76, y + 30);
+          x.font = F('600', 27); x.textAlign = 'right'; x.fillText(fmt(f.acu), 520, y + 30); x.fillStyle = '#ffd400'; x.fillText(fmt(f.tramo), 700, y + 30);
+          if (r.parc.tieneGan) { x.fillStyle = '#cfe6f5'; x.fillText(f.gan ? fmt(f.gan) : '—', 940, y + 30); } x.textAlign = 'left'; y += 42; });
+        y += 14; }
       if (r.lineas.length) { titulo('Cómo le fue'); r.lineas.forEach(l => { x.fillStyle = l.ok ? '#5ee6a8' : '#eaf6ff'; x.font = F('600', 29);
         compartirLineas(x, l.t, W - 128, 3).forEach(t => { x.fillText(t, 64, y + 28); y += 38; }); y += 6; }); }
-      y += 10; x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, y + 30);
+      y += 28; x.fillStyle = '#9fc3da'; x.font = F('500', 26); x.fillText(o.pie || 'andresvazquez11.github.io/Club-Natacion-Axarquia', 56, y + 30);
       return y + 70;
     };
     const cargar = cb => { const img = new Image(); img.onload = () => cb(img); img.onerror = () => cb(null); img.src = 'logo_cna.png'; };
@@ -199,6 +229,7 @@ const compartirMovil = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgen
    y los pasos que funcionan (abrir WhatsApp con el mensaje, copiar la imagen para pegarla, descargarla). */
 async function compartirResultado(o) {
   if (!o) return;
+  if (o.preparar) { try { await o.preparar(); } catch (e) { /* se comparte con lo que haya */ } }
   if (o.armar) o = o.armar();
   if ((o.carreras || []).length > 1) return compartirElegir(o);   // varias carreras: primero se elige qué enviar
   return compartirEnviar(o, true);
@@ -325,8 +356,16 @@ function pintarTramos(app, s, evName) {
     host.innerHTML = `<div class="card"><div class="h">${ico('crono')}Cómo nadó su última carrera <span class="h-n">· ${esc(u.nom)}</span></div>
       <p class="small" style="margin:2px 0 6px"><b>${esc(fmt(u.t))}</b>. ${esc(f.texto)}</p>
       <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Tiempo de cada tramo de ${u.paso} metros">${barras}</svg>
-      <p class="tiny muted">Cada barra es lo que tardó en cada tramo de ${u.paso} m. Más alta = más lento. Verde = el tramo más rápido; amarillo = el más lento.</p></div>`;
+      <p class="tiny muted">Cada barra es lo que tardó en cada tramo de ${u.paso} m. Más alta = más lento. Verde = el tramo más rápido; amarillo = el más lento.</p>${famTablaParciales(u.sp, u.paso)}</div>`;
   }).catch(() => {});
+}
+
+/* Los parciales con números: hasta 8 filas (si hay más tramos se agrupan) con el tiempo de cada tramo y el acumulado */
+function famTablaParciales(sp, paso) {
+  const n = sp.length, g = Math.ceil(n / 8); let acu = 0, filas = '';
+  for (let ini = 0; ini < n; ini += g) { const fin = Math.min(ini + g, n), tramo = sp.slice(ini, fin).reduce((a, b) => a + b, 0); acu += tramo;
+    filas += `<tr><td>${Math.round(ini * paso)}–${Math.round(fin * paso)} m</td><td class="num"><b>${fmt(tramo)}</b></td><td class="num">${fmt(acu)}</td></tr>`; }
+  return `<div class="tw" style="margin-top:8px"><table class="rt"><tr><th>Tramo</th><th class="num">Tiempo del tramo</th><th class="num">Acumulado</th></tr>${filas}</table></div>`;
 }
 
 /* ── Próxima competición (Resumen de la ficha) ── */

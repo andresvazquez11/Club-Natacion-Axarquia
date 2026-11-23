@@ -556,7 +556,7 @@ function famFilaResultado(f, s) {
 const FAM_DET = new Map();   // «prueba|fecha|tiempo» → {puesto, de, cat, serie, series, calle, enSerie, sexo, lugar}
 const famVsMejor = f => f.primera ? 'primera vez en esta prueba' : f.pb ? `★ mejor marca personal (−${famEs(secs(f.dif))} s)` : f.dif === 0 ? 'igual que su mejor marca' : `a ${famEs(secs(f.dif))} s de su mejor marca`;
 /* Mensaje para compartir una competición por WhatsApp: se arma al pulsar, con lo que ya se haya cargado */
-const famCompartir = (s, c) => ({armar: () => {
+const famCompartir = (s, c) => ({preparar: () => famCargarDetalles(s), armar: () => {
   const filas = c.filas.map(f => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`) || {};
     const oficial = d.puesto ? `${d.puesto}º de ${d.de} en la clasificación${d.cat ? ' (' + d.cat + ')' : ''}` : (f.puesto ? `${f.puesto}º${f.de ? ' de ' + f.de : ''} entre los de su año` : '');
     return {l: d.sexo ? `${f.e} ${d.sexo === 'F' ? 'fem.' : d.sexo === 'M' ? 'masc.' : ''}`.trim() : f.e, t: fmt(f.t),
@@ -576,20 +576,30 @@ function famCompHTML(s, c, abierta) {
 /* Puesto OFICIAL de la federación (clasificación por tramos de edad: «14-90 años»…) en las carreras guardadas (carreras/<id>.json).
    Sustituye al «en su año» (solo entre los nacidos en su mismo año) cuando la competición está guardada; si no, se queda «en su año».
    Si la carrera está guardada, añade también el botón de foto finish de esa prueba. */
+const FAM_CARGA = new Map();   // nadador → promesa con el detalle de sus carreras guardadas
+function famCargarDetalles(s) {
+  const k = String(s.id); if (FAM_CARGA.has(k)) return FAM_CARGA.get(k);
+  const pr = (async () => {
+    const info = new Map();
+    if (typeof carIndice !== 'function') return info;
+    try {
+      for (const x of carLista(await carIndice())) {
+        const c = await carCompeticion(x[0]); if (!c) continue;
+        c.pruebas.forEach(p => { if (!/^\d+ /.test(p.nombre)) return;
+          p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8]) return;
+            const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
+            const serie = f[0], vistos = p.filas.filter(y => y[5] && !y[8] && serie && y[0] === serie).sort((u, v) => u[5] - v[5]);
+            const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || '', raw: {p, f}};
+            info.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); FAM_DET.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); }); });
+      }
+    } catch (e) { /* sin carreras guardadas: se queda lo básico */ }
+    return info;
+  })();
+  FAM_CARGA.set(k, pr); return pr;
+}
 async function pintarOficial(app, s) {
-  if (!app.querySelector('.fam-fila[data-of]') || typeof carIndice !== 'function') return;
-  const info = new Map();
-  try {
-    for (const x of carLista(await carIndice())) {
-      const c = await carCompeticion(x[0]); if (!c) continue;
-      c.pruebas.forEach(p => { if (!/^\d+ /.test(p.nombre)) return;
-        p.filas.forEach(f => { if (String(f[9]) !== String(s.id) || !f[5] || f[8]) return;
-          const cat = f[11] || '', de = p.filas.filter(y => y[5] && !y[8] && (!cat || y[11] === cat)).length;
-          const serie = f[0], vistos = p.filas.filter(y => y[5] && !y[8] && serie && y[0] === serie).sort((u, v) => u[5] - v[5]);
-          const det = {puesto: f[7], de, cat, c, p, serie, calle: f[1], series: new Set(p.filas.filter(y => y[5] && y[0]).map(y => y[0])).size, enSerie: serie ? vistos.indexOf(f) + 1 : 0, sexo: p.sexo, lugar: c.lugar || '', raw: {p, f}};
-          info.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); FAM_DET.set(`${p.nombre}|${p.fecha}|${f[5]}`, det); }); });
-    }
-  } catch (e) { return; }
+  if (!app.querySelector('.fam-fila[data-of]')) return;
+  const info = await famCargarDetalles(s);
   app.querySelectorAll('.fam-fila[data-of]').forEach(el => {
     const o = info.get(el.dataset.of); if (!o || !el.isConnected) return;
     const sp = el.querySelector('.fam-pu');

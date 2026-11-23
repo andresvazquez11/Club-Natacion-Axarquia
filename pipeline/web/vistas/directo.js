@@ -463,8 +463,8 @@ function dirSeguirHTML(c, rfen) {
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, rfen)}`;
   if (!L.length) return cab + `<div class="vacio">${s ? esc(s.n.split(' ')[0]) : 'Este nadador'} no aparece en las series publicadas de esta competición.</div>`;
-  const prim = L.find(x => x.estado !== 'hecha');
-  const resumen = `<p class="small" style="margin:10px 2px">${L.length} ${L.length === 1 ? 'prueba' : 'pruebas'}${prim ? ` · la próxima, <b>${esc(prim.p.nombre)}</b>${prim.p.hora ? ` (empieza a las <b>${esc(prim.p.hora)}</b>)` : ''}` : ' · todas nadadas'}.</p>`;
+  const prim = L.find(x => x.estado !== 'hecha'), hechas = L.filter(x => x.estado === 'hecha' && x.f.t && !x.f.rel);
+  const resumen = `${s && hechas.length > 1 ? `<div class="fam-botones" style="margin:10px 0 0">${dirCompartirTodoBtn(s, c, hechas)}</div>` : ''}<p class="small" style="margin:10px 2px">${L.length} ${L.length === 1 ? 'prueba' : 'pruebas'}${prim ? ` · la próxima, <b>${esc(prim.p.nombre)}</b>${prim.p.hora ? ` (empieza a las <b>${esc(prim.p.hora)}</b>)` : ''}` : ' · todas nadadas'}.</p>`;
   const tarjeta = x => {
     const series = [...new Set(x.p.filas.map(f => f.serie))].sort((a, b) => a - b);
     const posta = dirSuPosta(x.f, rfen);
@@ -566,18 +566,27 @@ function dirFiltrar(c, f) {
 // Series de una prueba, cada una con sus calles (la que se está nadando, marcada)
 const dirSeries = (p, m, vivo) => m.series.map(n => `<div class="ent-sel">Serie ${n}${n <= m.hechas ? '' : vivo && n === m.hechas + 1 ? ' · <b class="dir-vivo-txt">nadándose</b>' : ''}</div>${dirTablaFilas(p.filas.filter(x => x.serie === n), () => false, dirDist(p.nombre))}`).join('');
 /* Botón «Compartir en WhatsApp» de una carrera: tiempo, veredicto (mejor marca / a X s de su mejor) y puesto oficial */
-function dirCompartirBtn(s, c, x) {
-  return compartirBtn({armar: () => {
+/* Datos para compartir las carreras X (una o varias) de un nadador en una competición */
+function dirCompartirObj(s, c, X) {
+  const L = c.lenex || {}, filas = [], carreras = [];
+  X.forEach((x, i) => {
     const H = typeof phHistoria === 'function' ? phHistoria(s, c, x.p, x.f) : null, v = H ? phVeredicto(H, x.f.t) : null, o = dirPuestoOficial(x.p, x.f);
     const enSerie = x.rivales.filter(y => y.t && !y.estado).sort((u, w) => u.t - w.t), k = enSerie.findIndex(y => y === x.f) + 1;
-    const L = c.lenex || {};
-    return {enlace: `${COMPARTIR_WEB}#directo?c=${Number(c.id)}&n=${Number(s.id)}`, titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''), donde: [L.lugar ? dirTitulo(L.lugar) : '', dirFechas(c)].filter(Boolean).join(' · '), piscina: L.piscina || '',
-      resumen: '', filas: [{l: `${x.p.nombre} ${x.p.sexo === 'F' ? 'fem.' : x.p.sexo === 'M' ? 'masc.' : ''}`.trim(), t: fmt(x.f.t),
-        a: `Serie ${x.posSerie} de ${x.series} · calle ${x.f.calle}`, b: [o ? `${o.puesto}º de ${o.de} en la clasificación${o.cat ? ' (' + o.cat + ')' : ''}` : '', k ? `${k}º de ${enSerie.length} en su serie` : ''].filter(Boolean).join(' · '),
-        c: v ? v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toLowerCase()) : '', ok: !!(v && v.cls === 'good')}],
-      carreras: [compartirCarreraDe(x.p, x.f, v ? {txt: v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toUpperCase()), ok: v.cls === 'good'} : null)]};
-  }});
+    const vs = v ? {txt: v.txt.replace(/[¡!]/g, '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/^./, m => m.toUpperCase()), ok: v.cls === 'good'} : null;
+    filas.push({l: `${x.p.nombre} ${x.p.sexo === 'F' ? 'fem.' : x.p.sexo === 'M' ? 'masc.' : ''}`.trim(), t: fmt(x.f.t), a: `Serie ${x.posSerie} de ${x.series} · calle ${x.f.calle}`,
+      b: [o ? `${o.puesto}º de ${o.de} en la clasificación${o.cat ? ' (' + o.cat + ')' : ''}` : '', k ? `${k}º de ${enSerie.length} en su serie` : ''].filter(Boolean).join(' · '),
+      c: vs ? vs.txt.replace(/^./, m => m.toLowerCase()) : '', ok: !!(vs && vs.ok)});
+    carreras.push(Object.assign(compartirCarreraDe(x.p, x.f, vs), {i}));
+  });
+  const solo = X.length === 1;
+  return {enlace: `${COMPARTIR_WEB}#directo?c=${Number(c.id)}&n=${Number(s.id)}`, titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''),
+    donde: [lugarDe(c.titulo, c.desde, c.hasta) || (L.lugar ? dirTitulo(L.lugar) : ''), dirFechas(c)].filter(Boolean).join(' · '), piscina: L.piscina || '',
+    resumen: solo ? '' : `${X.length} pruebas nadadas`, filas, carreras};
 }
+/* «Compartir en WhatsApp» de una carrera */
+const dirCompartirBtn = (s, c, x) => compartirBtn({armar: () => dirCompartirObj(s, c, [x])});
+/* «Compartir todas sus carreras» de la competición: permite elegir cuáles enviar */
+const dirCompartirTodoBtn = (s, c, X) => compartirBtn({armar: () => dirCompartirObj(s, c, X)}, 'Compartir sus carreras de esta competición');
 /* Tus nadadores primero: los que sigues en este dispositivo y nadan en esta competición, con acceso directo a sus pruebas */
 function dirMisNadadores(c) {
   const ids = [BEN, ...familiaIds().map(id => SW[id])].filter(Boolean).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);

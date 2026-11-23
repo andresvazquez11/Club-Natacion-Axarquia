@@ -325,9 +325,11 @@ function abrirCompeticion(s, fecha, comp, foco) {
         <td>${x[7] ? posB(x[7]) + `<span class="of">de ${x[8]}</span>` : '<span class="muted">—</span>'}</td>
         <td class="num">${x[6] || '—'} <span class="of">pts</span></td></tr>`).join('')).join('');
     const pods = sel.filter(x => x[7] && x[7] <= 3).length, pbs = sel.filter(esPb).length;
+    const grupo = typeof competicionesDe === 'function' ? competicionesDe(s).find(g => g.comp === nombre && sel.some(x => x[0] >= g.desde && x[0] <= g.fecha)) : null;
     document.querySelector('#modal .box').innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">${esc(nombre)}</h1>
       <p class="muted small" style="margin:2px 0 10px">${typeof lugarSpan === 'function' ? lugarSpan(nombre, sel[0][0], sel[sel.length - 1][0], /^provincia$/i.test(lugar) ? '' : lugar, '') : esc(lugar)}${lugar ? ' · ' : ''}${esc(s.n)}</p>
+      ${grupo && typeof compartirBtn === 'function' ? `<div class="fam-botones" style="margin:0 0 10px">${compartirBtn(famCompartir(s, grupo))}</div>` : ''}
       <div class="kpis" style="margin-bottom:10px"><div class="kpi hl"><b>${sel.length}</b><span>pruebas nadadas</span></div>
         <div class="kpi"><b>${pbs}</b><span>mejores marcas personales ★</span></div><div class="kpi"><b>${pods}</b><span>podios (puesto 1º-3º)</span></div></div>
       <table class="rt">${filas}</table>
