@@ -1126,6 +1126,9 @@ html.clara .chip-btn,html.clara .dir-fecha{color:#05223b}
 .comp-op{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.12);cursor:pointer;min-height:56px}
 .comp-op input{width:24px;height:24px;flex:0 0 auto;accent-color:var(--sun,#ffd400)}
 .comp-op b{display:block}.comp-op small{display:block;color:var(--ink2);font-size:.78rem}
+.fam-lugar{display:inline}.fam-lugar:empty{display:none}
+.dir-c-tit>.fam-lugar,.fam-comp .dir-c-tit>.fam-lugar{display:block;font-size:.8rem;color:var(--ink2);margin-top:2px}
+.dir-c-tit>.fam-lugar:empty{display:none}
 
 </style>
 </head>
@@ -1896,12 +1899,13 @@ function abrirCompeticion(s, fecha, comp, foco) {
     const pods = sel.filter(x => x[7] && x[7] <= 3).length, pbs = sel.filter(esPb).length;
     document.querySelector('#modal .box').innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">${esc(nombre)}</h1>
-      <p class="muted small" style="margin:2px 0 10px">${esc(lugar)} · ${esc(s.n)}</p>
+      <p class="muted small" style="margin:2px 0 10px">${typeof lugarSpan === 'function' ? lugarSpan(nombre, sel[0][0], sel[sel.length - 1][0], /^provincia$/i.test(lugar) ? '' : lugar, '') : esc(lugar)}${lugar ? ' · ' : ''}${esc(s.n)}</p>
       <div class="kpis" style="margin-bottom:10px"><div class="kpi hl"><b>${sel.length}</b><span>pruebas nadadas</span></div>
         <div class="kpi"><b>${pbs}</b><span>mejores marcas personales ★</span></div><div class="kpi"><b>${pods}</b><span>podios (puesto 1º-3º)</span></div></div>
       <table class="rt">${filas}</table>
       <p class="tiny muted" style="margin-top:8px">Puesto entre los nacidos en ${s.y} en esa competición · ★ = mejor marca personal en ese momento (misma prueba y piscina) · si nadó eliminatoria y final aparecen las dos marcas. Pulsa una prueba para ver todas sus marcas.</p>`;
     const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0; document.body.style.overflow = 'hidden';
+    if (typeof lugaresRellenar === 'function') lugaresRellenar(m);
     m.querySelectorAll('tr.click[data-ir]').forEach(tr => tr.onclick = () => { closeEvo(); location.hash = `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(tr.dataset.ir)}`; });
   };
   (typeof cargarHistorial === 'function' ? cargarHistorial() : Promise.reject())
@@ -3317,14 +3321,14 @@ const famCompartir = (s, c) => ({armar: () => {
     return {l: d.sexo ? `${f.e} ${d.sexo === 'F' ? 'fem.' : d.sexo === 'M' ? 'masc.' : ''}`.trim() : f.e, t: fmt(f.t),
       a: d.serie ? `Serie ${d.serie}${d.series ? ' de ' + d.series : ''}${d.calle ? ' · calle ' + d.calle : ''}` : `Piscina de ${piscinaTxt(f.pool)}`,
       b: [oficial, d.serie && d.enSerie ? `${d.enSerie}º en su serie` : ''].filter(Boolean).join(' · '), c: famVsMejor(f), ok: !!f.pb}; });
-  const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
+  const lugar = lugarDe(c.comp, c.desde, c.fecha) || (c.filas.map(f => FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)).find(d => d && d.lugar) || {}).lugar || (lugGenerico(c.lugar) ? '' : c.lugar) || '';
   return {enlace: `${COMPARTIR_WEB}#nadador/${s.id}/resultados`, titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c)].filter(Boolean).join(' · '), piscina: c.filas[0] ? piscinaTxt(c.filas[0].pool) : '',
     resumen: famFraseJornada(c), filas,
     carreras: c.filas.map((f, i) => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? Object.assign(compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}), {i}) : null; }).filter(Boolean)};
 }});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
-      <span class="tiny muted">${c.lugar ? esc(c.lugar) : famRango(c)}</span><span class="fam-frase">${esc(famFraseJornada(c))}</span></div></div></summary>
+      ${lugarSpan(c.comp, c.desde, c.fecha, lugGenerico(c.lugar) ? '' : lugTitulo(c.lugar), 'Lugar: ')}<span class="fam-frase">${esc(famFraseJornada(c))}</span></div></div></summary>
     ${c.filas.map(f => famFilaResultado(f, s)).join('')}
     <div class="fam-botones">${compartirBtn(famCompartir(s, c))}<button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></div></details>`;
 }
@@ -3389,7 +3393,7 @@ function progresoHTML(s) {
 function famUltimaCard(s) {
   const u = competicionesDe(s)[0]; if (!u) return '';
   return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
-      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b>${lugarSpan(u.comp, u.desde, u.fecha, lugGenerico(u.lugar) ? '' : lugTitulo(u.lugar), 'Lugar: ')}<span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
       ${u.filas.map(f => famFilaResultado(f, s)).join('')}
       <div class="fam-botones">${compartirBtn(famCompartir(s, u))}<a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div></div>`;
 }
@@ -3397,7 +3401,7 @@ function famUltimaCard(s) {
 function famUltimaResumen(s) {
   const u = competicionesDe(s)[0]; if (!u) return '';
   return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
-      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b>${lugarSpan(u.comp, u.desde, u.fecha, lugGenerico(u.lugar) ? '' : lugTitulo(u.lugar), 'Lugar: ')}<span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
       <div class="fam-minis">${u.filas.map(f => `<span class="fam-mini"><b>${esc(f.e)}</b> ${fmt(f.t)}${f.pb ? ' <i class="good">★</i>' : ''}</span>`).join('')}</div>
       <div class="fam-botones"><a class="btn" href="${fichaHref(s, 'resultados')}">Ver cada carrera: puesto, foto finish y serie ›</a>${compartirBtn(famCompartir(s, u))}</div></div>`;
 }
@@ -6010,6 +6014,42 @@ const phNotaInscripcion = (s, c, p, f) => {
 /* Vista Familias: página de una prueba, «cómo nadó», próxima competición, compartir un resultado por WhatsApp,
    primera visita y la tarjeta «Tu nadador» de Rankings. Cada bloque responde a una pregunta con una frase y deja el detalle a un toque. */
 
+/* ── Lugar de las competiciones: dato clave para el nadador ──────────────────────────────────────────────
+   La RFEN a veces da solo «Provincia» como lugar; el bueno lo tiene la federación (resultados de la competición y carreras guardadas).
+   Una sola fuente para toda la web: cualquier sitio con una competición pone <span data-lg="título|desde|hasta"> y se rellena solo. */
+let LUG_PROM = null, LUG_LISTA = [];
+const lugNorm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const lugGenerico = l => !l || /^provincia$/i.test(String(l).trim());
+const lugTitulo = l => String(l).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, b, c) => b + c.toUpperCase());   // «TORRE DEL MAR» → «Torre Del Mar»
+function lugaresCargar() {
+  if (!LUG_PROM) LUG_PROM = (async () => {
+    const L = [];
+    try { if (typeof carIndice === 'function') for (const x of carLista(await carIndice())) if (x[3]) L.push({d1: x[2], d2: x[2], t: x[1], lugar: x[3]}); } catch (e) {}
+    try { const d = typeof dirCargar === 'function' ? await dirCargar(false) : null; ((d || {}).competiciones || []).forEach(c => { const lg = c.lenex && c.lenex.lugar; if (lg) L.push({d1: c.desde, d2: c.hasta || c.desde, t: c.titulo, lugar: lg}); }); } catch (e) {}
+    LUG_LISTA = L; return L;
+  })();
+  return LUG_PROM;
+}
+/* Lugar de una competición por su título y sus fechas (±4 días); '' si no se sabe */
+function lugarDe(titulo, d1, d2) {
+  if (!d1) return '';
+  const A = Date.parse(d1), B = Date.parse(d2 || d1), dia = 864e5, t = lugNorm(titulo).slice(0, 10);
+  // 1) mismo nombre de competición y fechas parecidas (±4 días); 2) sin nombre que coincida, solo si las fechas encajan exactamente y hay una sola
+  let z = LUG_LISTA.find(y => lugNorm(y.t).slice(0, 10) === t && !(Date.parse(y.d2) < A - 4 * dia || Date.parse(y.d1) > B + 4 * dia));
+  if (!z) { const C = LUG_LISTA.filter(y => Date.parse(y.d1) <= B && Date.parse(y.d2) >= A); if (C.length === 1) z = C[0]; }
+  return z ? lugTitulo(z.lugar) : '';
+}
+async function lugaresRellenar(raiz) {
+  if (!raiz || !raiz.querySelector || !raiz.querySelector('[data-lg]')) return;
+  await lugaresCargar();
+  raiz.querySelectorAll('[data-lg]').forEach(el => {
+    const [t, d1, d2] = el.dataset.lg.split('|'), l = lugarDe(t, d1, d2);
+    const t2 = (el.dataset.pre || '') + l;
+    if (l && el.textContent !== t2) el.textContent = t2;   // solo si cambia: el observador de #app vuelve a llamar aquí y no debe entrar en bucle
+  });
+}
+const lugarSpan = (titulo, d1, d2, previo = '', pre = '') => `<span class="fam-lugar" data-pre="${esc(pre)}" data-lg="${esc(String(titulo || '').replace(/\|/g, ' '))}|${esc(d1 || '')}|${esc(d2 || d1 || '')}">${previo ? esc(pre + previo) : ''}</span>`;
+
 const famSeg = cs => secs(cs);                                   // 1.15 → «1.15»
 const famEs = n => String(n).replace('.', ',');
 const famPiscina = pl => String(pl || '').replace(/m$/, ' m');
@@ -6271,7 +6311,7 @@ function pruebaFamiliasHTML(s, evName, p) {
   let mejorAnt = Infinity;
   const lista = R.map((x, i) => { const ant = i ? R[i - 1][1] : null, esPb = x[1] < mejorAnt; mejorAnt = Math.min(mejorAnt, x[1]);
     const chip = ant === null ? '<span class="chip-f">primera marca</span>' : x[1] < ant ? `<span class="chip-f g">${esPb ? '★ ' : ''}−${famEs(famSeg(ant - x[1]))} s</span>` : x[1] === ant ? '<span class="chip-f">igual</span>' : `<span class="chip-f w">+${famEs(famSeg(x[1] - ant))} s</span>`;
-    return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
+    return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}${lugarSpan(x[3], x[0], x[0], lugGenerico(x[4]) ? '' : lugTitulo(x[4]), ' · ')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
   const comp = compartirBtn({enlace: `${COMPARTIR_WEB}#nadador/${s.id}/marcas?ev=${encodeURIComponent(evName)}`, titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: dfmt(mejor[0]), piscina: famPiscina(pool), resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
   return `<div class="card fam-prueba"><div class="eyebrow-f">Su mejor marca</div><div class="fam-grande">${fmt(mejor[1])}</div>
       <p class="small" style="margin:2px 0 8px">${dfmt(mejor[0])} · piscina de ${esc(famPiscina(pool))} · ${esc(mejor[3] || '')}</p>
@@ -6310,7 +6350,7 @@ function dirProximaHTML(d, s) {
   const suyas = c.lenex ? dirSusPruebas(c, String(s.id)) : [];
   return `<div class="card"><div class="h">${ico('carriles')}Próxima competición</div>
     <div class="dir-c-top">${dirFechaTile(c)}<div class="dir-c-tit"><b>${esc(c.titulo)}</b><div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => `<span class="dir-cat">${esc(l)}</span>`).join('')}<span class="dir-cuando">${esc(ccFalta(c))}</span></div>
-      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${c.lenex && c.lenex.lugar ? ' · ' + esc(c.lenex.lugar) : ''}</div></div></div>
+      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? lugTitulo(c.lenex.lugar) : '', ' · ')}</div></div></div>
     ${suyas.length ? `<p class="small" style="margin:8px 0 0">${esc(String(s.n).split(' ')[0])} nada ${suyas.length} prueba${suyas.length === 1 ? '' : 's'}: ${suyas.slice(0, 4).map(x => esc(x.p.nombre)).join(', ')}.</p><a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(s.id)}">Ver sus horas y calles ›</a>`
       : '<p class="tiny muted" style="margin:8px 0 0">Cuando la federación publique las series verás aquí a qué hora y en qué calle nada.</p>'}
     <a class="mas" href="#directo?t=proximas">Ver todas las próximas competiciones ›</a></div>`;
@@ -6802,7 +6842,7 @@ function dirSeguirHTML(c, rfen) {
   dirConjunta(c); dirColores(c);
   const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}</span>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span>
       <h1>${s ? esc(s.n) : 'Nadador'}</h1></div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, rfen)}`;
@@ -6869,7 +6909,7 @@ function dirTarjeta(c) {
       <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
       <div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => { const k = (DIR_CATS.find(x => x[1] === l) || [])[0], propia = k && (mias.has(k) || (k === 'ABS' && ['INF', 'JUN', 'ABS'].some(x => mias.has(x)))); return `<span class="dir-cat${propia ? ' mia' : ''}">${esc(l)}</span>`; }).join('')}${cuando ? `<span class="dir-cuando">${esc(cuando)}</span>` : ''}</div></div></div>
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
-    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${c.lenex && c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
+    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
     ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
       : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>'
       : dirUrlOk(c.web) ? '<p class="small muted" style="margin:6px 0">La web de la competición ya está publicada: las series y los resultados aparecerán aquí en cuanto la federación suba sus datos.</p>'
@@ -6968,7 +7008,7 @@ function dirDetalle(c, f) {
     if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirSesTexto(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
     cuerpo += fila(p); });
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span><h1>${esc(c.titulo)}</h1>
       ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirMisNadadores(c)}
@@ -7048,7 +7088,7 @@ function dirBannerHoy(suyas, s, sinResultados) {
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
   return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
-    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
+    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>${lugarSpan(x.c.titulo, x.c.desde, x.c.hasta, x.c.lenex && x.c.lenex.lugar ? dirTitulo(x.c.lenex.lugar) : '', ' · ')}
     <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
 }
 
@@ -7439,7 +7479,7 @@ function lenguajeAplicar(raiz) {
 function lenguajeFamilias() {
   const app = document.getElementById('app'); if (!app || typeof MutationObserver === 'undefined') return;
   let pendiente = false;
-  new MutationObserver(() => { if (pendiente) return; pendiente = true; Promise.resolve().then(() => { pendiente = false; lenguajeAplicar(app); }); }).observe(app, {childList: true, subtree: true});
+  new MutationObserver(() => { if (pendiente) return; pendiente = true; Promise.resolve().then(() => { pendiente = false; lenguajeAplicar(app); if (typeof lugaresRellenar === 'function') lugaresRellenar(app); }); }).observe(app, {childList: true, subtree: true});
 }
 
 let pilaNav = [];
@@ -7498,6 +7538,7 @@ function route() {
   if (key !== lastSec) window.scrollTo(0, scrollPos[location.hash || '#club'] || 0);
   else window.scrollTo(0, yAntes);      // mismo apartado (p. ej. otra prueba): no saltar arriba
   lastSec = key;
+  if (typeof lugaresRellenar === 'function') lugaresRellenar(app);   // el lugar de cada competición sale de la federación, no de «Provincia»
 }
 
 function arrancar() {

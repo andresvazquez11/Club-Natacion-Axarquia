@@ -327,12 +327,13 @@ function abrirCompeticion(s, fecha, comp, foco) {
     const pods = sel.filter(x => x[7] && x[7] <= 3).length, pbs = sel.filter(esPb).length;
     document.querySelector('#modal .box').innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">${esc(nombre)}</h1>
-      <p class="muted small" style="margin:2px 0 10px">${esc(lugar)} · ${esc(s.n)}</p>
+      <p class="muted small" style="margin:2px 0 10px">${typeof lugarSpan === 'function' ? lugarSpan(nombre, sel[0][0], sel[sel.length - 1][0], /^provincia$/i.test(lugar) ? '' : lugar, '') : esc(lugar)}${lugar ? ' · ' : ''}${esc(s.n)}</p>
       <div class="kpis" style="margin-bottom:10px"><div class="kpi hl"><b>${sel.length}</b><span>pruebas nadadas</span></div>
         <div class="kpi"><b>${pbs}</b><span>mejores marcas personales ★</span></div><div class="kpi"><b>${pods}</b><span>podios (puesto 1º-3º)</span></div></div>
       <table class="rt">${filas}</table>
       <p class="tiny muted" style="margin-top:8px">Puesto entre los nacidos en ${s.y} en esa competición · ★ = mejor marca personal en ese momento (misma prueba y piscina) · si nadó eliminatoria y final aparecen las dos marcas. Pulsa una prueba para ver todas sus marcas.</p>`;
     const m = document.getElementById('modal'); m.classList.add('open'); m.scrollTop = 0; document.body.style.overflow = 'hidden';
+    if (typeof lugaresRellenar === 'function') lugaresRellenar(m);
     m.querySelectorAll('tr.click[data-ir]').forEach(tr => tr.onclick = () => { closeEvo(); location.hash = `${fichaHref(s, 'pruebas')}?ev=${encodeURIComponent(tr.dataset.ir)}`; });
   };
   (typeof cargarHistorial === 'function' ? cargarHistorial() : Promise.reject())

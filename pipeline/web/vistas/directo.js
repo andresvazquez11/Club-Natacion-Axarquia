@@ -458,7 +458,7 @@ function dirSeguirHTML(c, rfen) {
   dirConjunta(c); dirColores(c);
   const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}</span>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span>
       <h1>${s ? esc(s.n) : 'Nadador'}</h1></div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, rfen)}`;
@@ -525,7 +525,7 @@ function dirTarjeta(c) {
       <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
       <div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => { const k = (DIR_CATS.find(x => x[1] === l) || [])[0], propia = k && (mias.has(k) || (k === 'ABS' && ['INF', 'JUN', 'ABS'].some(x => mias.has(x)))); return `<span class="dir-cat${propia ? ' mia' : ''}">${esc(l)}</span>`; }).join('')}${cuando ? `<span class="dir-cuando">${esc(cuando)}</span>` : ''}</div></div></div>
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
-    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${c.lenex && c.lenex.lugar ? ` · ${esc(c.lenex.lugar)}` : ''}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
+    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
     ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
       : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>'
       : dirUrlOk(c.web) ? '<p class="small muted" style="margin:6px 0">La web de la competición ya está publicada: las series y los resultados aparecerán aquí en cuanto la federación suba sus datos.</p>'
@@ -624,7 +624,7 @@ function dirDetalle(c, f) {
     if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirSesTexto(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
     cuerpo += fila(p); });
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}</span><h1>${esc(c.titulo)}</h1>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span><h1>${esc(c.titulo)}</h1>
       ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirMisNadadores(c)}
@@ -704,7 +704,7 @@ function dirBannerHoy(suyas, s, sinResultados) {
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
   return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
-    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>
+    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>${lugarSpan(x.c.titulo, x.c.desde, x.c.hasta, x.c.lenex && x.c.lenex.lugar ? dirTitulo(x.c.lenex.lugar) : '', ' · ')}
     <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
 }
 

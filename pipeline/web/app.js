@@ -117,7 +117,7 @@ function lenguajeAplicar(raiz) {
 function lenguajeFamilias() {
   const app = document.getElementById('app'); if (!app || typeof MutationObserver === 'undefined') return;
   let pendiente = false;
-  new MutationObserver(() => { if (pendiente) return; pendiente = true; Promise.resolve().then(() => { pendiente = false; lenguajeAplicar(app); }); }).observe(app, {childList: true, subtree: true});
+  new MutationObserver(() => { if (pendiente) return; pendiente = true; Promise.resolve().then(() => { pendiente = false; lenguajeAplicar(app); if (typeof lugaresRellenar === 'function') lugaresRellenar(app); }); }).observe(app, {childList: true, subtree: true});
 }
 
 let pilaNav = [];
@@ -176,6 +176,7 @@ function route() {
   if (key !== lastSec) window.scrollTo(0, scrollPos[location.hash || '#club'] || 0);
   else window.scrollTo(0, yAntes);      // mismo apartado (p. ej. otra prueba): no saltar arriba
   lastSec = key;
+  if (typeof lugaresRellenar === 'function') lugaresRellenar(app);   // el lugar de cada competición sale de la federación, no de «Provincia»
 }
 
 function arrancar() {

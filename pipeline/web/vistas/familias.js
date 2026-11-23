@@ -1,6 +1,42 @@
 /* Vista Familias: página de una prueba, «cómo nadó», próxima competición, compartir un resultado por WhatsApp,
    primera visita y la tarjeta «Tu nadador» de Rankings. Cada bloque responde a una pregunta con una frase y deja el detalle a un toque. */
 
+/* ── Lugar de las competiciones: dato clave para el nadador ──────────────────────────────────────────────
+   La RFEN a veces da solo «Provincia» como lugar; el bueno lo tiene la federación (resultados de la competición y carreras guardadas).
+   Una sola fuente para toda la web: cualquier sitio con una competición pone <span data-lg="título|desde|hasta"> y se rellena solo. */
+let LUG_PROM = null, LUG_LISTA = [];
+const lugNorm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const lugGenerico = l => !l || /^provincia$/i.test(String(l).trim());
+const lugTitulo = l => String(l).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, b, c) => b + c.toUpperCase());   // «TORRE DEL MAR» → «Torre Del Mar»
+function lugaresCargar() {
+  if (!LUG_PROM) LUG_PROM = (async () => {
+    const L = [];
+    try { if (typeof carIndice === 'function') for (const x of carLista(await carIndice())) if (x[3]) L.push({d1: x[2], d2: x[2], t: x[1], lugar: x[3]}); } catch (e) {}
+    try { const d = typeof dirCargar === 'function' ? await dirCargar(false) : null; ((d || {}).competiciones || []).forEach(c => { const lg = c.lenex && c.lenex.lugar; if (lg) L.push({d1: c.desde, d2: c.hasta || c.desde, t: c.titulo, lugar: lg}); }); } catch (e) {}
+    LUG_LISTA = L; return L;
+  })();
+  return LUG_PROM;
+}
+/* Lugar de una competición por su título y sus fechas (±4 días); '' si no se sabe */
+function lugarDe(titulo, d1, d2) {
+  if (!d1) return '';
+  const A = Date.parse(d1), B = Date.parse(d2 || d1), dia = 864e5, t = lugNorm(titulo).slice(0, 10);
+  // 1) mismo nombre de competición y fechas parecidas (±4 días); 2) sin nombre que coincida, solo si las fechas encajan exactamente y hay una sola
+  let z = LUG_LISTA.find(y => lugNorm(y.t).slice(0, 10) === t && !(Date.parse(y.d2) < A - 4 * dia || Date.parse(y.d1) > B + 4 * dia));
+  if (!z) { const C = LUG_LISTA.filter(y => Date.parse(y.d1) <= B && Date.parse(y.d2) >= A); if (C.length === 1) z = C[0]; }
+  return z ? lugTitulo(z.lugar) : '';
+}
+async function lugaresRellenar(raiz) {
+  if (!raiz || !raiz.querySelector || !raiz.querySelector('[data-lg]')) return;
+  await lugaresCargar();
+  raiz.querySelectorAll('[data-lg]').forEach(el => {
+    const [t, d1, d2] = el.dataset.lg.split('|'), l = lugarDe(t, d1, d2);
+    const t2 = (el.dataset.pre || '') + l;
+    if (l && el.textContent !== t2) el.textContent = t2;   // solo si cambia: el observador de #app vuelve a llamar aquí y no debe entrar en bucle
+  });
+}
+const lugarSpan = (titulo, d1, d2, previo = '', pre = '') => `<span class="fam-lugar" data-pre="${esc(pre)}" data-lg="${esc(String(titulo || '').replace(/\|/g, ' '))}|${esc(d1 || '')}|${esc(d2 || d1 || '')}">${previo ? esc(pre + previo) : ''}</span>`;
+
 const famSeg = cs => secs(cs);                                   // 1.15 → «1.15»
 const famEs = n => String(n).replace('.', ',');
 const famPiscina = pl => String(pl || '').replace(/m$/, ' m');
@@ -262,7 +298,7 @@ function pruebaFamiliasHTML(s, evName, p) {
   let mejorAnt = Infinity;
   const lista = R.map((x, i) => { const ant = i ? R[i - 1][1] : null, esPb = x[1] < mejorAnt; mejorAnt = Math.min(mejorAnt, x[1]);
     const chip = ant === null ? '<span class="chip-f">primera marca</span>' : x[1] < ant ? `<span class="chip-f g">${esPb ? '★ ' : ''}−${famEs(famSeg(ant - x[1]))} s</span>` : x[1] === ant ? '<span class="chip-f">igual</span>' : `<span class="chip-f w">+${famEs(famSeg(x[1] - ant))} s</span>`;
-    return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
+    return `<button type="button" class="fam-fila fam-b" ${cmpAttr(s, x[0], x[3], evName)}><div class="fam-l"><b>${dfmt(x[0])}</b><small>${esc(x[3] || '')}${lugarSpan(x[3], x[0], x[0], lugGenerico(x[4]) ? '' : lugTitulo(x[4]), ' · ')}</small></div><div class="fam-r"><b>${fmt(x[1])}</b>${chip}</div></button>`; }).reverse().join('');
   const comp = compartirBtn({enlace: `${COMPARTIR_WEB}#nadador/${s.id}/marcas?ev=${encodeURIComponent(evName)}`, titulo: s.n, comp: String(mejor[3] || 'Mejor marca personal'), donde: dfmt(mejor[0]), piscina: famPiscina(pool), resumen: `Su mejor marca en ${evName}${R.length > 1 && bajada > 0 ? ` (ha bajado ${famEs(famSeg(bajada))} s desde su primera marca)` : ''}`, filas: [{l: evName, t: fmt(mejor[1]), a: `Piscina de ${famPiscina(pool)}`, b: '', c: '★ mejor marca personal', ok: true}]}, 'Compartir su mejor marca');
   return `<div class="card fam-prueba"><div class="eyebrow-f">Su mejor marca</div><div class="fam-grande">${fmt(mejor[1])}</div>
       <p class="small" style="margin:2px 0 8px">${dfmt(mejor[0])} · piscina de ${esc(famPiscina(pool))} · ${esc(mejor[3] || '')}</p>
@@ -301,7 +337,7 @@ function dirProximaHTML(d, s) {
   const suyas = c.lenex ? dirSusPruebas(c, String(s.id)) : [];
   return `<div class="card"><div class="h">${ico('carriles')}Próxima competición</div>
     <div class="dir-c-top">${dirFechaTile(c)}<div class="dir-c-tit"><b>${esc(c.titulo)}</b><div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => `<span class="dir-cat">${esc(l)}</span>`).join('')}<span class="dir-cuando">${esc(ccFalta(c))}</span></div>
-      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${c.lenex && c.lenex.lugar ? ' · ' + esc(c.lenex.lugar) : ''}</div></div></div>
+      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? lugTitulo(c.lenex.lugar) : '', ' · ')}</div></div></div>
     ${suyas.length ? `<p class="small" style="margin:8px 0 0">${esc(String(s.n).split(' ')[0])} nada ${suyas.length} prueba${suyas.length === 1 ? '' : 's'}: ${suyas.slice(0, 4).map(x => esc(x.p.nombre)).join(', ')}.</p><a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(s.id)}">Ver sus horas y calles ›</a>`
       : '<p class="tiny muted" style="margin:8px 0 0">Cuando la federación publique las series verás aquí a qué hora y en qué calle nada.</p>'}
     <a class="mas" href="#directo?t=proximas">Ver todas las próximas competiciones ›</a></div>`;

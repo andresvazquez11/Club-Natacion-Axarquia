@@ -562,14 +562,14 @@ const famCompartir = (s, c) => ({armar: () => {
     return {l: d.sexo ? `${f.e} ${d.sexo === 'F' ? 'fem.' : d.sexo === 'M' ? 'masc.' : ''}`.trim() : f.e, t: fmt(f.t),
       a: d.serie ? `Serie ${d.serie}${d.series ? ' de ' + d.series : ''}${d.calle ? ' · calle ' + d.calle : ''}` : `Piscina de ${piscinaTxt(f.pool)}`,
       b: [oficial, d.serie && d.enSerie ? `${d.enSerie}º en su serie` : ''].filter(Boolean).join(' · '), c: famVsMejor(f), ok: !!f.pb}; });
-  const lugar = c.lugar || (Object.values(Object.fromEntries(c.filas.map(f => [f.e, FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)]))).find(d => d && d.lugar) || {}).lugar || '';
+  const lugar = lugarDe(c.comp, c.desde, c.fecha) || (c.filas.map(f => FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`)).find(d => d && d.lugar) || {}).lugar || (lugGenerico(c.lugar) ? '' : c.lugar) || '';
   return {enlace: `${COMPARTIR_WEB}#nadador/${s.id}/resultados`, titulo: s.n, comp: String(c.comp || 'Competición').replace(/\s*\(provisional\)/i, ''), donde: [lugar, famRango(c)].filter(Boolean).join(' · '), piscina: c.filas[0] ? piscinaTxt(c.filas[0].pool) : '',
     resumen: famFraseJornada(c), filas,
     carreras: c.filas.map((f, i) => { const d = FAM_DET.get(`${f.e}|${f.fecha}|${f.t}`); return d && d.raw ? Object.assign(compartirCarreraDe(d.raw.p, d.raw.f, {txt: famVsMejor(f), ok: !!f.pb}), {i}) : null; }).filter(Boolean)};
 }});
 function famCompHTML(s, c, abierta) {
   return `<details class="card fam-comp"${abierta ? ' open' : ''}><summary><div class="dir-c-top">${dirFechaTile({desde: c.desde, hasta: c.fecha})}<div class="dir-c-tit"><b>${esc(c.comp || 'Competición')}</b>
-      <span class="tiny muted">${c.lugar ? esc(c.lugar) : famRango(c)}</span><span class="fam-frase">${esc(famFraseJornada(c))}</span></div></div></summary>
+      ${lugarSpan(c.comp, c.desde, c.fecha, lugGenerico(c.lugar) ? '' : lugTitulo(c.lugar), 'Lugar: ')}<span class="fam-frase">${esc(famFraseJornada(c))}</span></div></div></summary>
     ${c.filas.map(f => famFilaResultado(f, s)).join('')}
     <div class="fam-botones">${compartirBtn(famCompartir(s, c))}<button type="button" class="mas" ${cmpAttr(s, c.fecha, c.comp, '')}>Ver la competición completa ›</button></div></details>`;
 }
@@ -634,7 +634,7 @@ function progresoHTML(s) {
 function famUltimaCard(s) {
   const u = competicionesDe(s)[0]; if (!u) return '';
   return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
-      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b>${lugarSpan(u.comp, u.desde, u.fecha, lugGenerico(u.lugar) ? '' : lugTitulo(u.lugar), 'Lugar: ')}<span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
       ${u.filas.map(f => famFilaResultado(f, s)).join('')}
       <div class="fam-botones">${compartirBtn(famCompartir(s, u))}<a class="mas" href="${fichaHref(s, 'resultados')}">Ver todos sus resultados ›</a></div></div>`;
 }
@@ -642,7 +642,7 @@ function famUltimaCard(s) {
 function famUltimaResumen(s) {
   const u = competicionesDe(s)[0]; if (!u) return '';
   return `<div class="card"><div class="h">${ico('carriles')}Su última competición</div>
-      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b><span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
+      <div class="dir-c-top">${dirFechaTile({desde: u.desde, hasta: u.fecha})}<div class="dir-c-tit"><b>${esc(u.comp || 'Competición')}</b>${lugarSpan(u.comp, u.desde, u.fecha, lugGenerico(u.lugar) ? '' : lugTitulo(u.lugar), 'Lugar: ')}<span class="fam-frase">${esc(famFraseJornada(u))}</span></div></div>
       <div class="fam-minis">${u.filas.map(f => `<span class="fam-mini"><b>${esc(f.e)}</b> ${fmt(f.t)}${f.pb ? ' <i class="good">★</i>' : ''}</span>`).join('')}</div>
       <div class="fam-botones"><a class="btn" href="${fichaHref(s, 'resultados')}">Ver cada carrera: puesto, foto finish y serie ›</a>${compartirBtn(famCompartir(s, u))}</div></div>`;
 }
