@@ -93,6 +93,17 @@ def etiqueta_web(w):
     return f if any(ch.isdigit() for ch in f) else f.title()
 
 
+def lugar_evento(html_txt):
+    """Página de un evento de la FAN → dónde se celebra («Torre del Mar (Vélez - Málaga)»), de la etiqueta «Localización» de su ficha; '' si no la hay."""
+    t = re.sub(r'<(script|style)\b.*?</\1>', ' ', html_txt or '', flags=re.S | re.I)
+    t = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', t)))
+    for m in re.finditer(r'Localizaci[oó]n\s*:?\s*(.+?)(?=\s+(?:Contacto|Responsable|Accesos|Delegaci[oó]n|Hora|Fecha|Descripci[oó]n|Categor[ií]a|Enlace|Documentos?)\b|$)', t):
+        l = m.group(1).strip().rstrip('.').strip()
+        if 3 <= len(l) <= 120 and 'Contacto' not in l:
+            return l
+    return ''
+
+
 def documentos(html_txt):
     """Página de un evento → ([webs de resultados], [{t, url}] documentos: series, horario, resultados…).
     Una jornada puede tener varias webs (grupos: …/FAN_1/, …/FAN_2/, …/IMPULSO/): se devuelven todas, en orden."""
@@ -286,7 +297,7 @@ def leer_series_pdf(docs, nuestros):
     except ImportError:
         print('Aviso: falta pypdf para leer las series en PDF', file=sys.stderr)
         return None
-    pruebas = []
+    pruebas, lugar_pdf = [], ''
     for d in docs:
         if not re.match(r'series', d.get('t', ''), re.I):
             continue
@@ -298,10 +309,13 @@ def leer_series_pdf(docs, nuestros):
             continue
         grupo = re.sub(r'^series\.?\s*', '', d['t'], flags=re.I).strip() or 'Series'
         pruebas += leer_series_texto(texto, grupo, nuestros)
+        if not lugar_pdf:
+            m = re.search(r'^\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ .\-]{2,40}),\s*\d{1,2}/\d{1,2}/\d{4}\s*$', texto, re.M)   # «TORRE DEL MAR, 28/11/2026»
+            lugar_pdf = m.group(1).strip() if m else ''
     if not pruebas:
         return None
     pruebas.sort(key=lambda p: (p['fecha'], p['hora'], p['num']))
-    return {'nombre': '', 'lugar': '', 'piscina': '', 'sesiones': [], 'pruebas': pruebas, 'origen': 'pdf'}
+    return {'nombre': '', 'lugar': lugar_pdf, 'piscina': '', 'sesiones': [], 'pruebas': pruebas, 'origen': 'pdf'}
 
 
 # ── Web de la competición sin results.lxf: SPLASH publica un PDF por prueba ──
@@ -516,16 +530,21 @@ def construir(hoy, nuestros, solo_resultados=False, previo=None):
             ant = anteriores.get(c['id'])
             if c['desde'] > lejos and ant and 'docs' in ant:     # lejana y ya leída: se reutiliza lo que se sabía
                 c['web'], c['webs'], c['docs'] = ant.get('web'), ant.get('webs') or [], ant['docs']
+                if ant.get('lugar'):
+                    c['lugar'] = ant['lugar']
                 continue
             try:
-                webs, c['docs'] = documentos(obtener(c['url']))
+                pagina = obtener(c['url'])
+                webs, c['docs'] = documentos(pagina)
                 c['web'], c['webs'] = (webs[0] if webs else None), webs
+                c['lugar'] = lugar_evento(pagina) or (anteriores.get(c['id']) or {}).get('lugar') or ''   # dónde se celebra: dato clave para las familias
             except Exception as e:      # página del evento caída: se conservan las webs y los documentos que ya se conocían
                 print('Aviso evento', c['url'], e, file=sys.stderr)
                 ant = anteriores.get(c['id']) or {}
                 c['web'] = c.get('web') or ant.get('web')
                 c['webs'] = c.get('webs') or ant.get('webs') or ([c['web']] if c['web'] else [])
                 c['docs'] = c.get('docs') or ant.get('docs') or []
+                c['lugar'] = c.get('lugar') or ant.get('lugar') or ''
     for c in comps:
         c['estado'] = estado_de(c, hoy)
         # los resultados se leen de la web de la competición (SPLASH); si aún no la hay, de las series en PDF

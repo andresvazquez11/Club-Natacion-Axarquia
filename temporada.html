@@ -5953,23 +5953,26 @@ async function carPintarFicha(host, s, ev) {
 
 /* Prueba individual (no relevo): «200 Libre» */
 const phIndividual = nombre => /^\d+ [A-Za-zÁÉÍÓÚáéíóú]+$/.test(nombre || '');
-const phPiscina = c => ({'25 m': '25m', '50 m': '50m'})[(c.lenex || {}).piscina] || '';
+/* Piscina de la competición. Si la federación aún no la ha publicado (series en PDF antes del día), se deduce del nombre («P50», «50 m») y, si no, se supone de 25 m,
+   que es la habitual en las ligas provinciales de invierno; el historial lo avisa como «supuesta». */
+const phPiscinaConocida = c => ({'25 m': '25m', '50 m': '50m'})[(c.lenex || {}).piscina] || '';
+const phPiscina = c => phPiscinaConocida(c) || (/\b(p\s*50|50\s*m)\b|piscina\s*50/i.test(String(c.titulo || '')) ? '50m' : '25m');
 
 /* Historia de la prueba: {rows (con la de hoy al final), hoy, previas, mejor, ultima, orden, n} o null si no hay con qué comparar.
    La carrera de hoy puede estar ya en el historial (la web se regenera tras la competición) o no (directo): se quita y se añade una sola vez. */
 function phHistoria(s, c, p, f) {
   if (!s || !f || !f.t || f.estado || f.rel || !phIndividual(p.nombre)) return null;
-  const e = (s.ev || []).find(x => x.e === p.nombre), pool = phPiscina(c), fecha = p.fecha || c.desde || '';
-  if (!e || !pool) return null;
+  // sin marcas previas en esta prueba (primera vez que la nada): también se enseña, con «primera marca» y la comparación con su inscripción
+  const e = (s.ev || []).find(x => x.e === p.nombre) || {h: []}, pool = phPiscina(c), fecha = p.fecha || c.desde || '', supuesta = !phPiscinaConocida(c);
   const todas = e.h.filter(x => !x[8] && x[2] === pool && x[1] > 0);
   // la carrera de hoy (misma fecha y mismo tiempo) se saca de las previas
   const previas = todas.filter(x => !(x[0] === fecha && x[1] === f.t)).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]);
   const yaEstaba = todas.find(x => x[0] === fecha && x[1] === f.t);
   const hoy = yaEstaba || [fecha, f.t, pool, c.titulo || '', (c.lenex || {}).lugar || '', null, f.puesto || null, null, 0, null, ''];
-  if (!previas.length) return {rows: [hoy], hoy, previas, mejor: null, ultima: null, orden: 1, n: 1, pool};
+  if (!previas.length) return {rows: [hoy], hoy, previas, mejor: null, ultima: null, orden: 1, n: 1, pool, supuesta};
   const mejor = previas.reduce((a, b) => b[1] < a[1] ? b : a), ultima = previas[previas.length - 1];
   const rows = previas.concat([hoy]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]);
-  return {rows, hoy, previas, mejor, ultima, orden: previas.filter(x => x[1] < f.t).length + 1, n: previas.length + 1, pool, otraPiscina: e.h.some(x => !x[8] && x[2] !== pool)};
+  return {rows, hoy, previas, mejor, ultima, orden: previas.filter(x => x[1] < f.t).length + 1, n: previas.length + 1, pool, supuesta, otraPiscina: e.h.some(x => !x[8] && x[2] !== pool)};
 }
 
 /* Texto y color del veredicto de hoy */
@@ -5997,7 +6000,7 @@ function phHTML(s, c, p, f) {
   const kpis = `<div class="ent-pk"><div><span>Hoy</span><b>${fmt(t)}</b><i>${H.n > 1 ? `${H.orden}º mejor de ${H.n} marcas` : 'primera marca'}</i></div>${cmp('Su mejor', H.mejor)}${cmp('La última', H.ultima)}</div>`;
   const eq = Object.assign({}, (s.ev || []).find(x => x.e === p.nombre), {cs: Math.min(...H.rows.map(x => x[1])), pool: H.pool});
   const grafica = H.rows.length > 1 ? evoChart(H.rows, s, null) : '';
-  return `<details class="dir-mas dir-hist" open><summary>Historial de ${nombre} · piscina de ${pool} · ${H.n} ${H.n === 1 ? 'marca' : 'marcas'}</summary>
+  return `<details class="dir-mas dir-hist" open><summary>Historial de ${nombre} · piscina de ${pool}${H.supuesta ? ' (supuesta)' : ''} · ${H.n} ${H.n === 1 ? 'marca' : 'marcas'}</summary>
     <div class="dir-hist-cab ${v.cls}"><b>${v.txt}</b></div>
     ${kpis}
     ${phNotaInscripcion(s, c, p, f) ? `<p class="small" style="margin:6px 2px">${phNotaInscripcion(s, c, p, f)}</p>` : ''}
@@ -6018,8 +6021,9 @@ function phInscripcion(s, c, p, f) {
 }
 const phNotaInscripcion = (s, c, p, f) => {
   const i = phInscripcion(s, c, p, f); if (!i) return '';
-  if (i.x) return `Inscrito con <b>${fmt(f.ins)}</b>: es su marca del ${dfmt(i.x[0])} en piscina de ${i.x[2].replace('m', ' m')}${i.otraPiscina ? ` (esta competición es en ${i.pool.replace('m', ' m')}: la federación inscribe con la mejor marca de cualquier piscina, por eso no coincide con su mejor marca en ${i.pool.replace('m', ' m')})` : ''}.`;
-  return `Inscrito con <b>${fmt(f.ins)}</b>: esa marca no consta en nuestros datos (puede ser de otra temporada, de otro club o un tiempo manual).`;
+  const dif = f.t ? ` (hoy ${f.t < f.ins ? 'la mejora en' : f.t > f.ins ? 'queda a' : 'la iguala:'} ${f.t === f.ins ? '' : secs(f.t - f.ins) + ' s'})` : '';
+  if (i.x) return `Inscrito con <b>${fmt(f.ins)}</b>${dif}: es su marca del ${dfmt(i.x[0])} en piscina de ${i.x[2].replace('m', ' m')}${i.otraPiscina ? ` (esta competición es en ${i.pool.replace('m', ' m')}: la federación inscribe con la mejor marca de cualquier piscina, por eso no coincide con su mejor marca en ${i.pool.replace('m', ' m')})` : ''}.`;
+  return `Inscrito con <b>${fmt(f.ins)}</b>${dif}. Esa marca no consta en nuestros datos (primera vez en esta prueba, otra temporada, otro club o un tiempo manual).`;
 };
 
 /* ── vistas/familias.js ── */
@@ -6032,12 +6036,14 @@ const phNotaInscripcion = (s, c, p, f) => {
 let LUG_PROM = null, LUG_LISTA = [];
 const lugNorm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const lugGenerico = l => !l || /^provincia$/i.test(String(l).trim());
-const lugTitulo = l => String(l).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, b, c) => b + c.toUpperCase());   // «TORRE DEL MAR» → «Torre Del Mar»
+const lugTitulo = l => /[a-záéíóúñ]/.test(String(l)) ? String(l) : String(l).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, b, c) => b + c.toUpperCase());   // «TORRE DEL MAR» → «Torre Del Mar»; si ya viene bien escrito («Torre del Mar (Vélez - Málaga)») no se toca
+/* Lugar de una competición del directo: el de sus resultados y, si aún no hay, el de su ficha en la FAN */
+const lugarC = c => { const l = (c && c.lenex && c.lenex.lugar) || (c && c.lugar) || ''; return l ? lugTitulo(l) : ''; };
 function lugaresCargar() {
   if (!LUG_PROM) LUG_PROM = (async () => {
     const L = [];
     try { if (typeof carIndice === 'function') for (const x of carLista(await carIndice())) if (x[3]) L.push({d1: x[2], d2: x[2], t: x[1], lugar: x[3]}); } catch (e) {}
-    try { const d = typeof dirCargar === 'function' ? await dirCargar(false) : null; ((d || {}).competiciones || []).forEach(c => { const lg = c.lenex && c.lenex.lugar; if (lg) L.push({d1: c.desde, d2: c.hasta || c.desde, t: c.titulo, lugar: lg}); }); } catch (e) {}
+    try { const d = typeof dirCargar === 'function' ? await dirCargar(false) : null; ((d || {}).competiciones || []).forEach(c => { const lg = (c.lenex && c.lenex.lugar) || c.lugar; if (lg) L.push({d1: c.desde, d2: c.hasta || c.desde, t: c.titulo, lugar: lg}); }); } catch (e) {}
     LUG_LISTA = L; return L;
   })();
   return LUG_PROM;
@@ -6430,7 +6436,7 @@ function dirProximaHTML(d, s) {
   const suyas = c.lenex ? dirSusPruebas(c, String(s.id)) : [];
   return `<div class="card"><div class="h">${ico('carriles')}Próxima competición</div>
     <div class="dir-c-top">${dirFechaTile(c)}<div class="dir-c-tit"><b>${esc(c.titulo)}</b><div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => `<span class="dir-cat">${esc(l)}</span>`).join('')}<span class="dir-cuando">${esc(ccFalta(c))}</span></div>
-      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? lugTitulo(c.lenex.lugar) : '', ' · ')}</div></div></div>
+      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}</div></div></div>
     ${suyas.length ? `<p class="small" style="margin:8px 0 0">${esc(String(s.n).split(' ')[0])} nada ${suyas.length} prueba${suyas.length === 1 ? '' : 's'}: ${suyas.slice(0, 4).map(x => esc(x.p.nombre)).join(', ')}.</p><a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(s.id)}">Ver sus horas y calles ›</a>`
       : '<p class="tiny muted" style="margin:8px 0 0">Cuando la federación publique las series verás aquí a qué hora y en qué calle nada.</p>'}
     <a class="mas" href="#directo?t=proximas">Ver todas las próximas competiciones ›</a></div>`;
@@ -6922,7 +6928,7 @@ function dirSeguirHTML(c, rfen) {
   dirConjunta(c); dirColores(c);
   const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}</span>
       <h1>${s ? esc(s.n) : 'Nadador'}</h1></div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, rfen)}`;
@@ -6989,7 +6995,7 @@ function dirTarjeta(c) {
       <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
       <div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => { const k = (DIR_CATS.find(x => x[1] === l) || [])[0], propia = k && (mias.has(k) || (k === 'ABS' && ['INF', 'JUN', 'ABS'].some(x => mias.has(x)))); return `<span class="dir-cat${propia ? ' mia' : ''}">${esc(l)}</span>`; }).join('')}${cuando ? `<span class="dir-cuando">${esc(cuando)}</span>` : ''}</div></div></div>
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
-    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
+    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
     ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
       : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>'
       : dirUrlOk(c.web) ? '<p class="small muted" style="margin:6px 0">La web de la competición ya está publicada: las series y los resultados aparecerán aquí en cuanto la federación suba sus datos.</p>'
@@ -7044,7 +7050,7 @@ function dirCompartirObj(s, c, X) {
   });
   const solo = X.length === 1;
   return {enlace: `${COMPARTIR_WEB}#directo?c=${Number(c.id)}&n=${Number(s.id)}`, titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''),
-    donde: [lugarDe(c.titulo, c.desde, c.hasta) || (L.lugar ? dirTitulo(L.lugar) : ''), dirFechas(c)].filter(Boolean).join(' · '), piscina: L.piscina || '',
+    donde: [lugarDe(c.titulo, c.desde, c.hasta) || lugarC(c), dirFechas(c)].filter(Boolean).join(' · '), piscina: L.piscina || '',
     resumen: solo ? '' : `${X.length} pruebas nadadas`, filas, carreras};
 }
 /* «Compartir en WhatsApp» de una carrera */
@@ -7097,7 +7103,7 @@ function dirDetalle(c, f) {
     if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirSesTexto(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
     cuerpo += fila(p); });
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span><h1>${esc(c.titulo)}</h1>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}</span><h1>${esc(c.titulo)}</h1>
       ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirMisNadadores(c)}
@@ -7177,7 +7183,7 @@ function dirBannerHoy(suyas, s, sinResultados) {
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
   return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
-    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>${lugarSpan(x.c.titulo, x.c.desde, x.c.hasta, x.c.lenex && x.c.lenex.lugar ? dirTitulo(x.c.lenex.lugar) : '', ' · ')}
+    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>${lugarSpan(x.c.titulo, x.c.desde, x.c.hasta, lugarC(x.c), ' · ')}
     <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
 }
 
@@ -7261,7 +7267,7 @@ async function pintarUltimaComp(app) {
   const c = dirUltimaDelClub(d);
   if (!c) { const t = app.querySelector('.lu [data-lu="comp"]'); if (t) t.remove(); host.closest('[data-lu-p]').remove(); return; }   // sin competición: sin pestaña
   const {kpis, dest} = dirResumenComp(c);
-  host.innerHTML = `<p class="small" style="margin:0 0 6px"><b>${esc(c.titulo)}</b> ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}<span class="muted"> · ${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
+  host.innerHTML = `<p class="small" style="margin:0 0 6px"><b>${esc(c.titulo)}</b> ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}<span class="muted"> · ${dirFechas(c)}${lugarC(c) ? ' · ' + esc(lugarC(c)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
     ${gKpis(kpis)}
     ${dest.length ? `<ul class="ins">${dest.map(([i, t]) => `<li><i class="ins-i">${ico(i)}</i>${t}</li>`).join('')}</ul>` : ''}
     <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
@@ -7289,7 +7295,7 @@ async function pintarCompClub(app) {
     : '<div class="cc-b"><div class="cc-et">Próxima competición</div><p class="small muted" style="margin:4px 0 0">Todavía no hay competiciones publicadas en el calendario.</p></div>';
   const bUlt = ult ? (() => { const r = dirResumenComp(ult), nad = new Set(r.H.map(x => x.f.rfen)).size;
     return `<div class="cc-b"><div class="cc-et">Última competición</div><b>${esc(ult.titulo)}</b>
-      <div class="tiny muted">${dirFechas(ult)}${ult.lenex.lugar ? ' · ' + esc(dirTitulo(ult.lenex.lugar)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
+      <div class="tiny muted">${dirFechas(ult)}${lugarC(ult) ? ' · ' + esc(lugarC(ult)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
       <div class="cc-acc"><a class="btn" href="#directo?c=${Number(ult.id)}">Todas las pruebas y fotos finish</a><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
   host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Todas las competiciones ›</a></div>${bProx}${bUlt}`;
   const det = host.querySelector('[data-cc-det]');
@@ -7344,7 +7350,7 @@ function abrirUltimaComp(c) {
     const box = document.querySelector('#modal .box');
     box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">${esc(c.titulo)}</h1>
-      <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
+      <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${lugarC(c) ? ' · ' + esc(lugarC(c)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
       ${gKpis(kpis)}
       <div class="h h-sub" style="margin-top:14px">${ico('tendencia')}Cada carrera frente a su mejor marca <span class="h-n">· ${conMejor.length} con marca previa en piscina de ${esc(c.lenex.piscina || '')}</span></div>${graf}
       <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· pulsa «Ver parciales, historial y foto finish» en un nadador</span></div>${dirLeyenda()}${secciones}

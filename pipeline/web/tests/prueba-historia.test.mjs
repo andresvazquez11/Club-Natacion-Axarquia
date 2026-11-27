@@ -28,7 +28,9 @@ test('phHistoria: si la carrera de hoy ya está en el historial no se cuenta dos
 test('phHistoria: sin historial, relevos y descalificados no devuelven nada útil', () => {
   assert.equal(ev('phHistoria', s, c, { nombre: '4x50 Estilos' }, { t: 12000 }), null);
   assert.equal(ev('phHistoria', s, c, p, { t: 14000, estado: 'DSQ' }), null);
-  assert.equal(ev('phHistoria', s, c, { nombre: '100 Braza' }, { t: 9000 }), null);
+  const Hn = ev('phHistoria', s, c, { nombre: '100 Braza' }, { t: 9000 });   // primera vez en la prueba: se enseña como primera marca
+  assert.equal(Hn.mejor, null); assert.equal(Hn.n, 1);
+  assert.equal(ev('phPiscina', { titulo: 'Liga', lenex: {} }), '25m'); assert.equal(ev('phPiscina', { titulo: 'Trofeo P50', lenex: {} }), '50m');
   const H = ev('phHistoria', { ...s, ev: [{ e: '200 Libre', h: [] }] }, c, p, { t: 14000 });
   assert.equal(H.mejor, null); assert.match(ev('phVeredicto', H, 14000).txt, /Primera marca/);
 });

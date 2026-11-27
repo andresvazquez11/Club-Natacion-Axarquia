@@ -244,5 +244,14 @@ class TestCompletarSeries(unittest.TestCase):
         self.assertEqual(F.completar_series(r, None, lambda: self.fail('no'))['filas'][0]['serie'], 0)
 
 
+class TestLugarEvento(unittest.TestCase):
+    def test_lee_la_localizacion_de_la_ficha_del_evento(self):
+        h = '<div class="ev_detail"><dl><dt>Fecha</dt><dd>Sábado, 28 Noviembre 2026</dd><dt>Localización</dt><dd>Torre del Mar (Vélez - Málaga).</dd><dt>Contacto</dt><dd>Esta dirección…</dd></dl></div>'
+        self.assertEqual(F.lugar_evento(h), 'Torre del Mar (Vélez - Málaga)')
+        self.assertEqual(F.lugar_evento('<p>Localización: <b>Los Barrios</b> Responsable: P.M.</p>'), 'Los Barrios')
+        self.assertEqual(F.lugar_evento('<p>Sin dato</p>'), '')
+        self.assertEqual(F.lugar_evento(None), '')
+
+
 if __name__ == '__main__':
     unittest.main()

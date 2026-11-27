@@ -7,12 +7,14 @@
 let LUG_PROM = null, LUG_LISTA = [];
 const lugNorm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const lugGenerico = l => !l || /^provincia$/i.test(String(l).trim());
-const lugTitulo = l => String(l).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, b, c) => b + c.toUpperCase());   // «TORRE DEL MAR» → «Torre Del Mar»
+const lugTitulo = l => /[a-záéíóúñ]/.test(String(l)) ? String(l) : String(l).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m, b, c) => b + c.toUpperCase());   // «TORRE DEL MAR» → «Torre Del Mar»; si ya viene bien escrito («Torre del Mar (Vélez - Málaga)») no se toca
+/* Lugar de una competición del directo: el de sus resultados y, si aún no hay, el de su ficha en la FAN */
+const lugarC = c => { const l = (c && c.lenex && c.lenex.lugar) || (c && c.lugar) || ''; return l ? lugTitulo(l) : ''; };
 function lugaresCargar() {
   if (!LUG_PROM) LUG_PROM = (async () => {
     const L = [];
     try { if (typeof carIndice === 'function') for (const x of carLista(await carIndice())) if (x[3]) L.push({d1: x[2], d2: x[2], t: x[1], lugar: x[3]}); } catch (e) {}
-    try { const d = typeof dirCargar === 'function' ? await dirCargar(false) : null; ((d || {}).competiciones || []).forEach(c => { const lg = c.lenex && c.lenex.lugar; if (lg) L.push({d1: c.desde, d2: c.hasta || c.desde, t: c.titulo, lugar: lg}); }); } catch (e) {}
+    try { const d = typeof dirCargar === 'function' ? await dirCargar(false) : null; ((d || {}).competiciones || []).forEach(c => { const lg = (c.lenex && c.lenex.lugar) || c.lugar; if (lg) L.push({d1: c.desde, d2: c.hasta || c.desde, t: c.titulo, lugar: lg}); }); } catch (e) {}
     LUG_LISTA = L; return L;
   })();
   return LUG_PROM;
@@ -405,7 +407,7 @@ function dirProximaHTML(d, s) {
   const suyas = c.lenex ? dirSusPruebas(c, String(s.id)) : [];
   return `<div class="card"><div class="h">${ico('carriles')}Próxima competición</div>
     <div class="dir-c-top">${dirFechaTile(c)}<div class="dir-c-tit"><b>${esc(c.titulo)}</b><div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => `<span class="dir-cat">${esc(l)}</span>`).join('')}<span class="dir-cuando">${esc(ccFalta(c))}</span></div>
-      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? lugTitulo(c.lenex.lugar) : '', ' · ')}</div></div></div>
+      <div class="tiny muted" style="margin-top:6px">${esc(c.ambito || '')}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}</div></div></div>
     ${suyas.length ? `<p class="small" style="margin:8px 0 0">${esc(String(s.n).split(' ')[0])} nada ${suyas.length} prueba${suyas.length === 1 ? '' : 's'}: ${suyas.slice(0, 4).map(x => esc(x.p.nombre)).join(', ')}.</p><a class="btn dir-btn-mio" href="#directo?c=${Number(c.id)}&n=${Number(s.id)}">Ver sus horas y calles ›</a>`
       : '<p class="tiny muted" style="margin:8px 0 0">Cuando la federación publique las series verás aquí a qué hora y en qué calle nada.</p>'}
     <a class="mas" href="#directo?t=proximas">Ver todas las próximas competiciones ›</a></div>`;

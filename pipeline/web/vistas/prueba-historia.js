@@ -5,23 +5,26 @@
 
 /* Prueba individual (no relevo): «200 Libre» */
 const phIndividual = nombre => /^\d+ [A-Za-zÁÉÍÓÚáéíóú]+$/.test(nombre || '');
-const phPiscina = c => ({'25 m': '25m', '50 m': '50m'})[(c.lenex || {}).piscina] || '';
+/* Piscina de la competición. Si la federación aún no la ha publicado (series en PDF antes del día), se deduce del nombre («P50», «50 m») y, si no, se supone de 25 m,
+   que es la habitual en las ligas provinciales de invierno; el historial lo avisa como «supuesta». */
+const phPiscinaConocida = c => ({'25 m': '25m', '50 m': '50m'})[(c.lenex || {}).piscina] || '';
+const phPiscina = c => phPiscinaConocida(c) || (/\b(p\s*50|50\s*m)\b|piscina\s*50/i.test(String(c.titulo || '')) ? '50m' : '25m');
 
 /* Historia de la prueba: {rows (con la de hoy al final), hoy, previas, mejor, ultima, orden, n} o null si no hay con qué comparar.
    La carrera de hoy puede estar ya en el historial (la web se regenera tras la competición) o no (directo): se quita y se añade una sola vez. */
 function phHistoria(s, c, p, f) {
   if (!s || !f || !f.t || f.estado || f.rel || !phIndividual(p.nombre)) return null;
-  const e = (s.ev || []).find(x => x.e === p.nombre), pool = phPiscina(c), fecha = p.fecha || c.desde || '';
-  if (!e || !pool) return null;
+  // sin marcas previas en esta prueba (primera vez que la nada): también se enseña, con «primera marca» y la comparación con su inscripción
+  const e = (s.ev || []).find(x => x.e === p.nombre) || {h: []}, pool = phPiscina(c), fecha = p.fecha || c.desde || '', supuesta = !phPiscinaConocida(c);
   const todas = e.h.filter(x => !x[8] && x[2] === pool && x[1] > 0);
   // la carrera de hoy (misma fecha y mismo tiempo) se saca de las previas
   const previas = todas.filter(x => !(x[0] === fecha && x[1] === f.t)).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]);
   const yaEstaba = todas.find(x => x[0] === fecha && x[1] === f.t);
   const hoy = yaEstaba || [fecha, f.t, pool, c.titulo || '', (c.lenex || {}).lugar || '', null, f.puesto || null, null, 0, null, ''];
-  if (!previas.length) return {rows: [hoy], hoy, previas, mejor: null, ultima: null, orden: 1, n: 1, pool};
+  if (!previas.length) return {rows: [hoy], hoy, previas, mejor: null, ultima: null, orden: 1, n: 1, pool, supuesta};
   const mejor = previas.reduce((a, b) => b[1] < a[1] ? b : a), ultima = previas[previas.length - 1];
   const rows = previas.concat([hoy]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]);
-  return {rows, hoy, previas, mejor, ultima, orden: previas.filter(x => x[1] < f.t).length + 1, n: previas.length + 1, pool, otraPiscina: e.h.some(x => !x[8] && x[2] !== pool)};
+  return {rows, hoy, previas, mejor, ultima, orden: previas.filter(x => x[1] < f.t).length + 1, n: previas.length + 1, pool, supuesta, otraPiscina: e.h.some(x => !x[8] && x[2] !== pool)};
 }
 
 /* Texto y color del veredicto de hoy */
@@ -49,7 +52,7 @@ function phHTML(s, c, p, f) {
   const kpis = `<div class="ent-pk"><div><span>Hoy</span><b>${fmt(t)}</b><i>${H.n > 1 ? `${H.orden}º mejor de ${H.n} marcas` : 'primera marca'}</i></div>${cmp('Su mejor', H.mejor)}${cmp('La última', H.ultima)}</div>`;
   const eq = Object.assign({}, (s.ev || []).find(x => x.e === p.nombre), {cs: Math.min(...H.rows.map(x => x[1])), pool: H.pool});
   const grafica = H.rows.length > 1 ? evoChart(H.rows, s, null) : '';
-  return `<details class="dir-mas dir-hist" open><summary>Historial de ${nombre} · piscina de ${pool} · ${H.n} ${H.n === 1 ? 'marca' : 'marcas'}</summary>
+  return `<details class="dir-mas dir-hist" open><summary>Historial de ${nombre} · piscina de ${pool}${H.supuesta ? ' (supuesta)' : ''} · ${H.n} ${H.n === 1 ? 'marca' : 'marcas'}</summary>
     <div class="dir-hist-cab ${v.cls}"><b>${v.txt}</b></div>
     ${kpis}
     ${phNotaInscripcion(s, c, p, f) ? `<p class="small" style="margin:6px 2px">${phNotaInscripcion(s, c, p, f)}</p>` : ''}
@@ -70,6 +73,7 @@ function phInscripcion(s, c, p, f) {
 }
 const phNotaInscripcion = (s, c, p, f) => {
   const i = phInscripcion(s, c, p, f); if (!i) return '';
-  if (i.x) return `Inscrito con <b>${fmt(f.ins)}</b>: es su marca del ${dfmt(i.x[0])} en piscina de ${i.x[2].replace('m', ' m')}${i.otraPiscina ? ` (esta competición es en ${i.pool.replace('m', ' m')}: la federación inscribe con la mejor marca de cualquier piscina, por eso no coincide con su mejor marca en ${i.pool.replace('m', ' m')})` : ''}.`;
-  return `Inscrito con <b>${fmt(f.ins)}</b>: esa marca no consta en nuestros datos (puede ser de otra temporada, de otro club o un tiempo manual).`;
+  const dif = f.t ? ` (hoy ${f.t < f.ins ? 'la mejora en' : f.t > f.ins ? 'queda a' : 'la iguala:'} ${f.t === f.ins ? '' : secs(f.t - f.ins) + ' s'})` : '';
+  if (i.x) return `Inscrito con <b>${fmt(f.ins)}</b>${dif}: es su marca del ${dfmt(i.x[0])} en piscina de ${i.x[2].replace('m', ' m')}${i.otraPiscina ? ` (esta competición es en ${i.pool.replace('m', ' m')}: la federación inscribe con la mejor marca de cualquier piscina, por eso no coincide con su mejor marca en ${i.pool.replace('m', ' m')})` : ''}.`;
+  return `Inscrito con <b>${fmt(f.ins)}</b>${dif}. Esa marca no consta en nuestros datos (primera vez en esta prueba, otra temporada, otro club o un tiempo manual).`;
 };

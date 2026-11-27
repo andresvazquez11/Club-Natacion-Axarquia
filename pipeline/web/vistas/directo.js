@@ -458,7 +458,7 @@ function dirSeguirHTML(c, rfen) {
   dirConjunta(c); dirColores(c);
   const s = Object.hasOwn(SW, rfen) ? SW[rfen] : null, L = dirSusPruebas(c, rfen), varios = c.desde !== c.hasta;
   const cab = `<a class="volver" href="#directo?c=${Number(c.id)}">${ico('flecha-atras')}Toda la competición</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)} · ${dirFechas(c)}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}</span>
       <h1>${s ? esc(s.n) : 'Nadador'}</h1></div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirSelector(c, rfen)}`;
@@ -525,7 +525,7 @@ function dirTarjeta(c) {
       <div class="h">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${esc(c.titulo)}</div>
       <div class="dir-cats">${dirCatEtiquetas(c.titulo).map(l => { const k = (DIR_CATS.find(x => x[1] === l) || [])[0], propia = k && (mias.has(k) || (k === 'ABS' && ['INF', 'JUN', 'ABS'].some(x => mias.has(x)))); return `<span class="dir-cat${propia ? ' mia' : ''}">${esc(l)}</span>`; }).join('')}${cuando ? `<span class="dir-cuando">${esc(cuando)}</span>` : ''}</div></div></div>
     ${c.alMomento ? `<div class="tiny muted">Resultados al momento · ${String(c.alMomento.getHours()).padStart(2, '0')}:${String(c.alMomento.getMinutes()).padStart(2, '0')}:${String(c.alMomento.getSeconds()).padStart(2, '0')}</div>` : ''}
-    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
+    <div class="tiny muted">${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}${c.lenex && c.lenex.piscina ? ` · piscina de ${esc(c.lenex.piscina)}` : ''}</div>
     ${nos.length ? `<p class="small" style="margin:6px 0">${nos.length} ${nos.length === 1 ? 'participación' : 'participaciones'} del club${hechas ? ` · ${hechas} con resultado` : dirDePdf(c) ? ' · series publicadas, aún sin resultados' : ''}</p>`
       : c.lenex ? '<p class="small muted" style="margin:6px 0">Sin nadadores del club.</p>'
       : dirUrlOk(c.web) ? '<p class="small muted" style="margin:6px 0">La web de la competición ya está publicada: las series y los resultados aparecerán aquí en cuanto la federación suba sus datos.</p>'
@@ -580,7 +580,7 @@ function dirCompartirObj(s, c, X) {
   });
   const solo = X.length === 1;
   return {enlace: `${COMPARTIR_WEB}#directo?c=${Number(c.id)}&n=${Number(s.id)}`, titulo: s.n, comp: String(c.titulo || '').replace(/\s*\(provisional\)/i, ''),
-    donde: [lugarDe(c.titulo, c.desde, c.hasta) || (L.lugar ? dirTitulo(L.lugar) : ''), dirFechas(c)].filter(Boolean).join(' · '), piscina: L.piscina || '',
+    donde: [lugarDe(c.titulo, c.desde, c.hasta) || lugarC(c), dirFechas(c)].filter(Boolean).join(' · '), piscina: L.piscina || '',
     resumen: solo ? '' : `${X.length} pruebas nadadas`, filas, carreras};
 }
 /* «Compartir en WhatsApp» de una carrera */
@@ -633,7 +633,7 @@ function dirDetalle(c, f) {
     if (g !== ant) { cuerpo += `<div class="h h-sub dir-ses">${varios && p.fecha ? dfmt(p.fecha) + ' · ' : ''}${p.sesion ? (dirSesTexto(c) ? esc(p.sesion) : 'Sesión ' + esc(p.sesion)) : 'Pruebas'}</div>`; ant = g; }
     cuerpo += fila(p); });
   return `<a class="volver" href="#directo">${ico('flecha-atras')}Todas las competiciones</a>
-    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, c.lenex && c.lenex.lugar ? dirTitulo(c.lenex.lugar) : '', ' · ')}</span><h1>${esc(c.titulo)}</h1>
+    <div class="card sub-cab"><span class="ante">${c.estado === 'en_curso' ? '<span class="dir-punto"></span>EN DIRECTO · ' : ''}${dirFechas(c)} · ${esc(c.ambito)}${lugarSpan(c.titulo, c.desde, c.hasta, lugarC(c), ' · ')}</span><h1>${esc(c.titulo)}</h1>
       ${nos.length ? `<p class="small" style="margin:6px 0 0">${del.length} nadadores del club · ${nos.length} participaciones</p>` : ''}</div>
     ${dirDePdf(c) ? DIR_AVISO_PDF : ''}
     ${dirMisNadadores(c)}
@@ -713,7 +713,7 @@ function dirBannerHoy(suyas, s, sinResultados) {
   const cab = vivo ? '<span class="dir-punto"></span>En directo ahora' : rec ? 'Resultados de la última competición' : 'Próxima competición';
   const btn = vivo ? `Seguir a ${n} en directo` : rec ? `Ver sus resultados, historial y foto finish` : `Ver sus pruebas, horas y calles`;
   return `<div class="card dir-hoy${vivo ? ' vivo' : ''}"><div class="dir-hoy-cab">${cab} · ${n}</div>
-    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>${lugarSpan(x.c.titulo, x.c.desde, x.c.hasta, x.c.lenex && x.c.lenex.lugar ? dirTitulo(x.c.lenex.lugar) : '', ' · ')}
+    <b>${esc(x.c.titulo)}</b> <span class="tiny muted">${dirFechas(x.c)}</span>${lugarSpan(x.c.titulo, x.c.desde, x.c.hasta, lugarC(x.c), ' · ')}
     <a class="btn dir-btn-mio" href="#directo?c=${Number(x.c.id)}&n=${Number(s.id)}">${btn} ›</a></div>`;
 }
 
@@ -797,7 +797,7 @@ async function pintarUltimaComp(app) {
   const c = dirUltimaDelClub(d);
   if (!c) { const t = app.querySelector('.lu [data-lu="comp"]'); if (t) t.remove(); host.closest('[data-lu-p]').remove(); return; }   // sin competición: sin pestaña
   const {kpis, dest} = dirResumenComp(c);
-  host.innerHTML = `<p class="small" style="margin:0 0 6px"><b>${esc(c.titulo)}</b> ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}<span class="muted"> · ${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
+  host.innerHTML = `<p class="small" style="margin:0 0 6px"><b>${esc(c.titulo)}</b> ${c.estado === 'en_curso' ? '<span class="dir-punto"></span><span class="h-n">en directo</span>' : ''}<span class="muted"> · ${dirFechas(c)}${lugarC(c) ? ' · ' + esc(lugarC(c)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''}</span></p>
     ${gKpis(kpis)}
     ${dest.length ? `<ul class="ins">${dest.map(([i, t]) => `<li><i class="ins-i">${ico(i)}</i>${t}</li>`).join('')}</ul>` : ''}
     <button class="btn ghost sem-mas" data-ult-detalle>Ver cómo le fue en cada prueba y serie ›</button>
@@ -825,7 +825,7 @@ async function pintarCompClub(app) {
     : '<div class="cc-b"><div class="cc-et">Próxima competición</div><p class="small muted" style="margin:4px 0 0">Todavía no hay competiciones publicadas en el calendario.</p></div>';
   const bUlt = ult ? (() => { const r = dirResumenComp(ult), nad = new Set(r.H.map(x => x.f.rfen)).size;
     return `<div class="cc-b"><div class="cc-et">Última competición</div><b>${esc(ult.titulo)}</b>
-      <div class="tiny muted">${dirFechas(ult)}${ult.lenex.lugar ? ' · ' + esc(dirTitulo(ult.lenex.lugar)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
+      <div class="tiny muted">${dirFechas(ult)}${lugarC(ult) ? ' · ' + esc(lugarC(ult)) : ''} · ${nad} nadadores del club · ${r.pbs.length} mejores marcas</div>
       <div class="cc-acc"><a class="btn" href="#directo?c=${Number(ult.id)}">Todas las pruebas y fotos finish</a><button class="btn ghost" data-cc-det>Resultados del club</button></div></div>`; })() : '';
   host.innerHTML = `<div class="bar-row" style="margin:0 0 8px"><div class="h" style="margin:0">${ico('copa')}Competiciones</div><a class="small sun" href="#directo">Todas las competiciones ›</a></div>${bProx}${bUlt}`;
   const det = host.querySelector('[data-cc-det]');
@@ -880,7 +880,7 @@ function abrirUltimaComp(c) {
     const box = document.querySelector('#modal .box');
     box.innerHTML = `${ventanaVolverBtn()}<button class="close" onclick="closeEvo()">Cerrar ✕</button>
       <h1 style="font-size:1.2rem;font-weight:900">${esc(c.titulo)}</h1>
-      <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${c.lenex.lugar ? ' · ' + esc(dirTitulo(c.lenex.lugar)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
+      <p class="muted small" style="margin:2px 0 10px">${dirFechas(c)}${lugarC(c) ? ' · ' + esc(lugarC(c)) : ''}${c.lenex.piscina ? ' · piscina de ' + esc(c.lenex.piscina) : ''} · resultados de la Federación Andaluza</p>
       ${gKpis(kpis)}
       <div class="h h-sub" style="margin-top:14px">${ico('tendencia')}Cada carrera frente a su mejor marca <span class="h-n">· ${conMejor.length} con marca previa en piscina de ${esc(c.lenex.piscina || '')}</span></div>${graf}
       <div class="h h-sub" style="margin-top:14px">${ico('crono')}Cada prueba y serie <span class="h-n">· pulsa «Ver parciales, historial y foto finish» en un nadador</span></div>${dirLeyenda()}${secciones}
