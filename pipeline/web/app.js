@@ -185,7 +185,12 @@ function arrancar() {
   document.getElementById('cab-bus').innerHTML = buscadorHTML('q-cab', 'Buscar nadador');
   bindBuscador('q-cab');
   entNavModo();
-  dirCargar(false).then(d => { const b = document.getElementById('nav-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); const p = b.querySelector('.nav-vivo'); if (p) p.hidden = !v; } });   // punto «en directo» en la pestaña Competiciones   // botón «Directo» en rojo si hay competición
+  dirCargar(false).then(d => { const b = document.getElementById('nav-dir'); if (b) { const v = dirEnCurso(d); b.classList.toggle('vivo', v); const p = b.querySelector('.nav-vivo'); if (p) p.hidden = !v; } });
+  /* botón rojo «EN DIRECTO» en la cabecera, visible en cualquier pantalla mientras haya una competición en curso */
+  dirCargar(false).then(d => { try {
+    const c = ((d && d.competiciones) || []).find(x => x.estado === 'en_curso'), cab = document.getElementById('cab'); if (!c || !cab || document.getElementById('cab-directo')) return;
+    cab.insertAdjacentHTML('beforeend', `<a class="directo-b" id="cab-directo" href="#directo?c=${encodeURIComponent(c.id)}" aria-label="Ver la competición en directo"><span class="dir-punto"></span>EN DIRECTO</a>`);
+  } catch (e) {} });   // punto «en directo» en la pestaña Competiciones   // botón «Directo» en rojo si hay competición
   marcarContador();
   document.getElementById('nav-foot').innerHTML = `<a class="manual-l" href="${MANUAL_URL}" target="_blank" rel="noopener">Manual de uso</a>${actBtn(`Actualizado ${DATA.fecha}`)}<br>Datos: RFEN${FIRMA}`;
   document.addEventListener('click', e => { if (e.target.closest('[data-actualizar]')) abrirActualizar(); });
